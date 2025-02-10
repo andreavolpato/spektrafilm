@@ -89,7 +89,7 @@ I usually open RAW the files of digital cameras with darktable (https://www.dark
 
 ## Example usage of the GUI
 
-https://github.com/user-attachments/assets/9e9ac598-20e5-412a-975c-5ecd57325b74
+https://github.com/user-attachments/assets/5f16aba6-3f59-41a2-a9d1-6ffa4d1c939c
 
 Thank you Adam Severeid from discuss.pixls.us forum (https://discuss.pixls.us/t/have-a-seat-weve-been-waiting-for-you/44814) for providing the RAW in a Play Raw post that I used here.
 
