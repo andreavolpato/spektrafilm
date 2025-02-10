@@ -46,6 +46,14 @@ Install all the requirements in `requirements.txt` and the package `agx-emulsion
 pip install -r requirements.txt
 pip install -e .
 ```
+Install the freeimage backend of the `imageio` python package. This is used to load 16-bit TIFF files (it is a temporary solution and I might drop this if I will find something better), and need to be done only once.
+Launch python from the terminal and run the following:
+```
+python
+>>> import imageio
+>>> imageio.plugins.freeimage.download()
+>>> exit()
+```
 Launch the GUI:
 ```
 python agx_emulsion/gui/main.py
@@ -53,7 +61,7 @@ python agx_emulsion/gui/main.py
 A `napari` window should appear. In `napari` I usually set the theme to `Light` because I find it easier to judge exposure with a white background. Go to `File >> Preferences >> Appearance >> Theme >> Light`. Also, `napari` is not color-managed and expects the video output to be treated as raw sRGB values. The way I am working is to set the color profile of screen and operating system to an sRGB profile.
 
 ## GUI
-Launch the GUI by running the file `agx_emulsion/gui/main.py`. The gui is based on `napari` (Qt) and `magicgui` that are not color-managed, so probably a poor choice but a temporary quick solution for fast prototyping.
+Launch the GUI by running the file `agx_emulsion/gui/main.py`. It is recommended to use a 1080p or higher resolution screen to fit all the controls. The GUI is based on `napari` (Qt) and `magicgui` that are not color-managed, so probably a poor choice but a temporary quick solution for fast prototyping.
 You should load an image that you converted from a raw file and kept linear, I usually save in PNG 16-bit sRGB to preserve the dynamic range. It is important to export in sRGB because the conversion from RGB to spectral data at the very beginning of the pipeline (using `colour.recovery.RGB_to_sd_Mallett2019`) uses the method in [3] for simplicity and computational efficiency. More advanced methods are required to recover spectral data from large color gamut RGB color spaces. Play with the parameters and press `Run` to run the simulation. In order to correctly load a 16-bit PNG file there is a small widget called `filepicker` that will import correctly the image as a new layer.
 
 > [!TIP]
