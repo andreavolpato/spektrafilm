@@ -46,7 +46,7 @@ Install all the requirements in `requirements.txt` and the package `agx-emulsion
 pip install -r requirements.txt
 pip install -e .
 ```
-Install the freeimage backend of the `imageio` python package. This is used to load 16-bit TIFF files (it is a temporary solution and I might drop this if I will find something better), and need to be done only once.
+Install the freeimage backend of the `imageio` python package. This is used to load 16-bit TIFF files (it is a temporary solution and I might drop this if I will find something better). It needs to be done only once.
 Launch python from the terminal and run the following:
 ```
 python
