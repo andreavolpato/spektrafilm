@@ -39,10 +39,13 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Installation
 
-Create and activate a python environment, I used `conda`:
+Create and activate a python environment where all the dependencies will be installed, and install the package in the way you prefer.
+
+#### Using `conda` and `pip`
+From a terminal:
 
 ```bash
-conda create -n agx-emulsion python=3.11.4
+conda create -n agx-emulsion python=3.11
 conda activate agx-emulsion
 ```
 
@@ -52,31 +55,46 @@ Install all the requirements in `requirements.txt` and the package `agx-emulsion
 pip install -r requirements.txt
 pip install -e .
 ```
-
-Install the freeimage backend of the `imageio` python package. This is used to load 16-bit TIFF files (it is a temporary solution and I might drop this if I will find something better). It needs to be done only once.
-
-Launch python from the terminal and run the following:
-
-```python
-python
->>> import imageio
->>> imageio.plugins.freeimage.download()
->>> exit()
-```
-
 Launch the GUI:
 
 ```bash
 python agx_emulsion/gui/main.py
 ```
+To remove the environment:
+```bash
+conda env remove -n agx-emulsion
+```
 
-A `napari` window should appear. In `napari` I usually set the theme to `Light` because I find it easier to judge exposure with a white background. Go to `File >> Preferences >> Appearance >> Theme >> Light`. Also, `napari` is not color-managed and expects the video output to be treated as raw sRGB values. The way I am working is to set the color profile of screen and operating system to an sRGB profile.
+#### Using `uv`
+Under Windows you can install `uv` using the following command, which you only need to exeucte the first time. Intructions for macOS and Linus are [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
+```bash
+# ! you only need to exeucte this command the first time to install uv!
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Move to the download folder of the project, and install all the requirements.
+``` bash
+cd path/to/agx-emulsion/download/dir
+
+# ! you only need to execute this command the first time !
+# this will take some time to run because it needs to cache all the dependencies
+uv run --python 3.11 --with-requirements requirements.txt --no-project --with-editable .
+```
+
+Use this command everytime you want to launch the program:
+```bash
+uv run --python 3.11 --with-requirements requirements.txt --no-project --with-editable . agx_emulsion/gui/main.py
+```
 
 ## GUI
+When launching the GUI, `napari` window should appear. In `napari` I usually set the theme to `Light` because I find it easier to judge exposure with a white background. Go to `File >> Preferences >> Appearance >> Theme >> Light`. Note that `napari` is not color-managed. The way I am working is to set the color profile of screen and operating system to an sRGB profile, and I set the output color space of the simulation to sRGB.
 
-Launch the GUI by running the file `agx_emulsion/gui/main.py`. It is recommended to use a 1080p or higher resolution screen to fit all the controls. The GUI is based on `napari` (Qt) and `magicgui` that are not color-managed, so probably a poor choice but a temporary quick solution for fast prototyping.
+It is recommended to use a 1080p or higher resolution screen to fit all the controls. The GUI is based on `magicgui` that integrates very well with `napari` and allows for minimal code to reach an usable state.
 
-You should load an image that you converted from a raw file and kept linear, I usually save in PNG 16-bit sRGB to preserve the dynamic range. It is important to export in sRGB because the conversion from RGB to spectral data at the very beginning of the pipeline (using `colour.recovery.RGB_to_sd_Mallett2019`) uses the method in [^3] for simplicity and computational efficiency. More advanced methods are required to recover spectral data from large color gamut RGB color spaces. Play with the parameters and press `Run` to run the simulation. In order to correctly load a 16-bit PNG file there is a small widget called `filepicker` that will import correctly the image as a new layer.
+You should load an image that you converted from a raw file and kept linear, I usually save in 16-bit sRGB to preserve the dynamic range. It is important to export in sRGB because the conversion from RGB to spectral data at the very beginning of the pipeline (using `colour.recovery.RGB_to_sd_Mallett2019`) uses the method in [^3] for simplicity and computational efficiency. More advanced methods are required to recover spectral data from large color gamut RGB color spaces. Play with the parameters and press `Run` to run the simulation.
+
+> [!IMPORTANT]
+> In order to correctly load a 16-bit image file there is a small widget called `filepicker` that will import the image as a new layer using OpenImageIo. Images saved as PNG or EXR works.
 
 > [!TIP]
 > Hover with the mouse on the widgets and controls to visualize an help tooltip.
