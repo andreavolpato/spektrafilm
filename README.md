@@ -91,10 +91,10 @@ When launching the GUI, `napari` window should appear. In `napari` I usually set
 
 It is recommended to use a 1080p or higher resolution screen to fit all the controls. The GUI is based on `magicgui` that integrates very well with `napari` and allows for minimal code to reach an usable state.
 
-You should load an image that you converted from a raw file and kept linear, I usually save in 16-bit sRGB to preserve the dynamic range. It is important to export in sRGB because the conversion from RGB to spectral data at the very beginning of the pipeline (using `colour.recovery.RGB_to_sd_Mallett2019`) uses the method in [^3] for simplicity and computational efficiency. More advanced methods are required to recover spectral data from large color gamut RGB color spaces. Play with the parameters and press `Run` to run the simulation.
+You should load an image that you converted from a raw file and kept linear, I usually save in 16-bit PNG or 16- or 32-bit EXR to preserve the dynamic range. The spectral upsampling algorithm works on the Rec2020 color space, so it is recommended to save the images as linear Rec2020 (the original algorithm by hanatos works on the full visible locus, but I had to make a 3D LUT targeting a color space for efficiency in python). Play with the parameters and press `Run` to run the simulation.
 
 > [!IMPORTANT]
-> In order to correctly load a 16-bit image file there is a small widget called `filepicker` that will import the image as a new layer using OpenImageIo. Images saved as PNG or EXR works.
+> In order to correctly load a 16-bit image file there is a small widget called `filepicker` that will import the image as a new layer using OpenImageIo. Images saved as PNG or EXR work, but other formats might too.
 
 > [!TIP]
 > Hover with the mouse on the widgets and controls to visualize an help tooltip.
@@ -117,8 +117,8 @@ This is one of the most appealing aspect for me, when I think of printing poster
 
 ## Preparing input images with darktable
 
-The simulation expects linear scene-referred sRGB files as input.
-I usually open RAW the files of digital cameras with [darktable](https://www.darktable.org/) and deactivate the non linear mappings done by `filmic` or `sigmoid` modules and adjust the exposure to fit all the information avoiding clipping. Then I export the file as a 16-bit PNG, e.g. with the following export settings:
+The simulation expects linear scene-referred files as input (with or without  a transfer function).
+I usually open RAW files of digital cameras with [darktable](https://www.darktable.org/) and deactivate the non linear mappings done by `filmic` or `sigmoid` modules and adjust the exposure to fit all the information avoiding clipping. Then I export the file as a 16-bit PNG in linear Rec2020 RGB, e.g. with the following export settings:
 
 ![Darktable export settings.](img/readme/darktable_export_settings.png)
 
