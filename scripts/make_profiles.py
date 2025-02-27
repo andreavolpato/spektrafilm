@@ -4,7 +4,7 @@ from agx_emulsion.profiles.io import save_profile
 from agx_emulsion.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
 
 process_print_paper = True
-process_negative = True
+process_negative = False
 
 print('----------------------------------------')
 print('Paper profiles')
@@ -14,7 +14,7 @@ paper_info = [('kodak_ektacolor_edge',              'Kodak Ektacolor Edge',     
               ('kodak_endura_premier',              'Kodak Professional Endura Premier',  'D50',  None, None, None, 1.0),
               ('kodak_portra_endura',               'Kodak Professional Portra Endura',   'D50',  None, None, None, 1.0),
               ('kodak_supra_endura',                'Kodak Professional Supra Endura',    'D50',  'kodak_portra_endura', None, 'kodak_portra_endura', 1.0),
-              ('fujifilm_crystal_archive_typeii',   'Fujifilm Crystal Archive Type II',  'D65',  None, 'kodak_portra_endura', None, 1.0),]
+              ('fujifilm_crystal_archive_typeii',   'Fujifilm Crystal Archive Type II',   'D65',  None, 'kodak_supra_endura', None, 1.0),]
 
 
 if process_print_paper:

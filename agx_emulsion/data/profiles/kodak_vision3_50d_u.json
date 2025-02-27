@@ -2616,17 +2616,7 @@
         ],
         "tune": {
             "gamma_factor": 1.0,
-            "dye_density_min_factor": 1.0,
-            "gamma_correction": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "log_exposure_correction": [
-                0.0,
-                0.0,
-                0.0
-            ]
+            "dye_density_min_factor": 1.0
         },
         "density_curves_layers": [
             [
@@ -6983,36 +6973,6 @@
             ]
         ]
     },
-    "parametric": {
-        "density_curves": {
-            "active": false,
-            "gamma": [
-                0.7,
-                0.7,
-                0.7
-            ],
-            "log_exposure_0": [
-                -1.4,
-                -1.4,
-                -1.52
-            ],
-            "density_max": [
-                2.75,
-                2.75,
-                2.84
-            ],
-            "toe_size": [
-                0.3,
-                0.3,
-                0.3
-            ],
-            "shoulder_size": [
-                0.85,
-                0.85,
-                0.85
-            ]
-        }
-    },
     "glare": {
         "active": false,
         "percent": 0.0,
@@ -7076,7 +7036,8 @@
     },
     "dir_couplers": {
         "active": true,
-        "amount_rgb": [
+        "amount": 1.0,
+        "ratio_rgb": [
             1.0,
             1.0,
             1.0
