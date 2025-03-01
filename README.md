@@ -130,7 +130,7 @@ Thank you Adam Severeid from [discuss.pixls.us](https://discuss.pixls.us/) forum
 
 ## Things to consider
 
-- The simulation is quite slow for full resolutions pictures, it takes a few seconds on my laptop to process 3k images (it got so much more efficient than v0.1.0, though). I usually adjust most of the values with scaled down preview images, that is by default computed in the GUI, then when a final image is need I activate the `compute full image` checkbox that bypasses the image scaling.
+- The simulation is quite slow for full resolutions pictures. On my laptop it takes roughly 10 seconds to process 6MP images (it got much more efficient than v0.1.0). I usually adjust most of the values with scaled down preview images, that is by default computed in the GUI, then when a final image is need I activate the `compute full image` checkbox that bypasses the image scaling.
 - Fujifilm profiles are for now less trustworthy than Kodak ones because the data taken from a single data-sheet are not self-consistent, i.e. they do not work very well after the unmixing step. To make them work ok-ish, a small adjustment is performed to obtain neutral grayscales, this might change in the future.
 
 ## References
