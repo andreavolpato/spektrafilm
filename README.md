@@ -91,10 +91,10 @@ When launching the GUI, `napari` window should appear. In `napari` I usually set
 
 It is recommended to use a 1080p or higher resolution screen to fit all the controls. The GUI is based on `magicgui` that integrates very well with `napari` and allows for minimal code to reach an usable state.
 
-You should load an image that you converted from a raw file and kept linear, I usually save in 16-bit sRGB to preserve the dynamic range. It is important to export in sRGB because the conversion from RGB to spectral data at the very beginning of the pipeline (using `colour.recovery.RGB_to_sd_Mallett2019`) uses the method in [^3] for simplicity and computational efficiency. More advanced methods are required to recover spectral data from large color gamut RGB color spaces. Play with the parameters and press `Run` to run the simulation.
+You should load an image that you converted from a raw file and kept linear, I usually save in 16-bit or 32-bit float to preserve the dynamic range. The spectral upsampling algorithm works on the full visible locus, so it is recommended to save the images in a large color space, such as linear Rec2020 or linear ProPhoto RBG, to preserve all the saturation goodness. Play with the parameters and press `Run` to run the simulation.
 
 > [!IMPORTANT]
-> In order to correctly load a 16-bit image file there is a small widget called `filepicker` that will import the image as a new layer using OpenImageIo. Images saved as PNG or EXR works.
+> In order to correctly load a 16-bit/32-bit image file there is a small widget called `filepicker` that will import the image as a new layer using OpenImageIo. For example images saved as PNG, TIFF, or EXR work, but other formats might too.
 
 > [!TIP]
 > Hover with the mouse on the widgets and controls to visualize an help tooltip.
@@ -117,8 +117,8 @@ This is one of the most appealing aspect for me, when I think of printing poster
 
 ## Preparing input images with darktable
 
-The simulation expects linear scene-referred sRGB files as input.
-I usually open RAW the files of digital cameras with [darktable](https://www.darktable.org/) and deactivate the non linear mappings done by `filmic` or `sigmoid` modules and adjust the exposure to fit all the information avoiding clipping. Then I export the file as a 16-bit PNG, e.g. with the following export settings:
+The simulation expects linear scene-referred files as input (with or without  a transfer function).
+I usually open RAW files of digital cameras with [darktable](https://www.darktable.org/) and deactivate the non linear mappings done by `filmic` or `sigmoid` modules and adjust the exposure to fit all the information avoiding clipping. Then I export the file as a 32-bit (float) TIFF in linear ProPhoto RGB, e.g. with the following export settings:
 
 ![Darktable export settings.](img/readme/darktable_export_settings.png)
 
@@ -130,7 +130,7 @@ Thank you Adam Severeid from [discuss.pixls.us](https://discuss.pixls.us/) forum
 
 ## Things to consider
 
-- The simulation is quite slow even for normal resolutions of 2-3K (a few megapixels), it takes several seconds on my laptop. I haven't tested on very high resolution images, mainly because they crash my computer because they require too much memory. I usually adjust most of the values with scaled down preview images, that is by default computed in the GUI, then when a final image is need I activate the `compute full image` checkbox that bypasses the image scaling.
+- The simulation is quite slow for full resolutions pictures. On my laptop it takes roughly 10 seconds to process 6MP images (it got much more efficient than v0.1.0). I usually adjust most of the values with scaled down preview images, that is by default computed in the GUI, then when a final image is need I activate the `compute full image` checkbox that bypasses the image scaling.
 - Fujifilm profiles are for now less trustworthy than Kodak ones because the data taken from a single data-sheet are not self-consistent, i.e. they do not work very well after the unmixing step. To make them work ok-ish, a small adjustment is performed to obtain neutral grayscales, this might change in the future.
 
 ## References
