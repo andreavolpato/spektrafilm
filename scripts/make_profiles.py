@@ -3,7 +3,7 @@ from agx_emulsion.profiles.factory import create_profile, process_negative_profi
 from agx_emulsion.profiles.io import save_profile
 from agx_emulsion.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
 
-process_print_paper = True
+process_print_paper = False
 process_negative = True
 
 print('----------------------------------------')
@@ -39,7 +39,7 @@ print('----------------------------------------')
 print('Negative profiles')
 
 #               label,                 name,                  suffix   dye_donor,    d_over_min, ref_ill target_paper,                align_mid_exp  trustability
-stock_info = [('kodak_vision3_50d',   'Kodak Vision3 50D',    '',      None       ,  0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3),
+stock_info = [('kodak_vision3_50d',   'Kodak Vision3 50D',    '',      None       ,  0.2,        'D55',  'kodak_2393_uc',             None,          0.3),
               ('kodak_portra_400',    'Kodak Portra 400',     '',      'generic_a',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0),
               ('kodak_gold_200',      'Kodak Gold 200',       '',      'generic_a',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0),
               ('kodak_ultramax_400',  'Kodak Ultramax 400',   '',      'generic_a',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0),
