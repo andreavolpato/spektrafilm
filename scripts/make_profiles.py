@@ -8,15 +8,15 @@ process_negative = True
 
 print('----------------------------------------')
 print('Paper profiles')
-#               label,                               name,                               ref_illu   illu    sens, curv, dye,  dom
-paper_info = [('kodak_ektacolor_edge',              'Kodak Ektacolor Edge',              'TH-KG3',  'D50',  None, None, None, 1.0),
-              ('kodak_ultra_endura',                'Kodak Professional Ultra Endura',   'TH-KG3',  'D50',  None, None, None, 1.0),
-              ('kodak_endura_premier',              'Kodak Professional Endura Premier', 'TH-KG3',  'D50',  None, None, None, 1.0),
-              ('kodak_portra_endura',               'Kodak Professional Portra Endura',  'TH-KG3',  'D50',  None, None, None, 1.0),
-              ('kodak_supra_endura',                'Kodak Professional Supra Endura',   'TH-KG3',  'D50',  'kodak_portra_endura', None, 'kodak_portra_endura', 1.0),
-              ('fujifilm_crystal_archive_typeii',   'Fujifilm Crystal Archive Type II',  'TH-KG3',  'D50',  None, 'kodak_supra_endura', None, 1.0),
-              ('kodak_2393',                        'Kodak Vision Premier 2393',         'TH-KG3',  'K75P', None, None, None, 1.0),
-              ('kodak_2383',                        'Kodak Vision 2383',                 'TH-KG3',  'K75P', None, None, None, 1.0),
+#               label,                               name,                               ref_illu        illu    sens, curv, dye,  dom
+paper_info = [('kodak_ektacolor_edge',              'Kodak Ektacolor Edge',              'TH-KG3-L',  'D50',  None, None, None, 1.0),
+              ('kodak_ultra_endura',                'Kodak Professional Ultra Endura',   'TH-KG3-L',  'D50',  None, None, None, 1.0),
+              ('kodak_endura_premier',              'Kodak Professional Endura Premier', 'TH-KG3-L',  'D50',  None, None, None, 1.0),
+              ('kodak_portra_endura',               'Kodak Professional Portra Endura',  'TH-KG3-L',  'D50',  None, None, None, 1.0),
+              ('kodak_supra_endura',                'Kodak Professional Supra Endura',   'TH-KG3-L',  'D50',  'kodak_portra_endura', None, 'kodak_portra_endura', 1.0),
+              ('fujifilm_crystal_archive_typeii',   'Fujifilm Crystal Archive Type II',  'TH-KG3-L',  'D50',  None, 'kodak_supra_endura', None, 1.0),
+              ('kodak_2393',                        'Kodak Vision Premier 2393',         'TH-KG3-L',  'K75P', None, None, None, 1.0),
+              ('kodak_2383',                        'Kodak Vision 2383',                 'TH-KG3-L',  'K75P', None, None, None, 1.0),
 ]
 
 if process_print_paper:
@@ -41,7 +41,7 @@ print('----------------------------------------')
 print('Negative profiles')
 
 #               label,                    name,                       suffix   dye_donor,   ls_donor            ddmm_donor           d_over_min, ref_ill target_paper,                align_mid_exp  trustability proc?
-stock_info = [('kodak_vision3_50d',      'Kodak Vision3 50D',         '',      None       , None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         True),
+stock_info = [('kodak_vision3_50d',      'Kodak Vision3 50D',         '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         True),
               ('kodak_ektar_100',        'Kodak Ektar 100',           '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         True),
               ('kodak_portra_160',       'Kodak Portra 160',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         True),
               ('kodak_portra_400',       'Kodak Portra 400',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         True),
