@@ -39,9 +39,44 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Installation
 
-Create and activate a python environment where all the dependencies will be installed, and install the package in the way you prefer.
+### Using `uv`
 
-#### Using `conda` and `pip`
+You can easily run the latest version of agx-emulsion directly from the git repository
+using [uv](https://docs.astral.sh/uv/):
+
+```bash
+uvx --from git+https://github.com/andreavolpato/agx-emulsion.git agx-emulsion
+```
+
+Or from a local working copy:
+```bash
+uvx path/to/local/working_copy
+```
+
+#### Installing uv
+
+Under Windows you can install `uv` using the following command, which you only need to exeucte the first time:
+```bash
+# ! you only need to exeucte this command the first time to install uv!
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+Intructions for macOS and Linus are [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
+
+
+### Using `pip`
+
+You can also use pip normally:
+```bash
+# install:
+git clone https://github.com/andreavolpato/agx-emulsion.git
+cd agx-emulsion
+pip install .
+
+# run
+agx-emulsion
+```
+
+#### Using `conda`
 From a terminal:
 
 ```bash
@@ -49,41 +84,19 @@ conda create -n agx-emulsion python=3.11
 conda activate agx-emulsion
 ```
 
-Install all the requirements in `requirements.txt` and the package `agx-emulsion` by going to the repository folder and running:
+Install the package `agx-emulsion` by going to the repository folder and running:
 
 ```bash
-pip install -r requirements.txt
 pip install -e .
 ```
 Launch the GUI:
 
 ```bash
-python agx_emulsion/gui/main.py
+agx-emulsion
 ```
 To remove the environment:
 ```bash
 conda env remove -n agx-emulsion
-```
-
-#### Using `uv`
-Under Windows you can install `uv` using the following command, which you only need to exeucte the first time. Intructions for macOS and Linus are [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
-```bash
-# ! you only need to exeucte this command the first time to install uv!
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Move to the download folder of the project, and install all the requirements.
-``` bash
-cd path/to/agx-emulsion/download/dir
-
-# ! you only need to execute this command the first time !
-# this will take some time to run because it needs to cache all the dependencies
-uv run --python 3.11 --with-requirements requirements.txt --no-project --with-editable .
-```
-
-Use this command everytime you want to launch the program:
-```bash
-uv run --python 3.11 --with-requirements requirements.txt --no-project --with-editable . agx_emulsion/gui/main.py
 ```
 
 ## GUI
