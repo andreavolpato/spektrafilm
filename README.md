@@ -70,11 +70,12 @@ You can also use pip normally:
 # install:
 git clone https://github.com/andreavolpato/agx-emulsion.git
 cd agx-emulsion
-pip install .
+pip install -e .
 
 # run
 agx-emulsion
 ```
+but I recomend to create a clean virtual environment to install the dependencies, for example using `conda`.
 
 #### Using `conda`
 From a terminal:
