@@ -183,6 +183,7 @@ def simulation(input_layer:Image,
                exposure_compensation_ev=0.0,
                auto_exposure=True,
                auto_exposure_method=AutoExposureMethods.center_weighted,
+               manual_exposure_ev=0.0,
                # print parameters
                print_paper=PrintPapers.kodak_supra_endura,
                print_illuminant=Illuminants.lamp,
@@ -222,6 +223,7 @@ def simulation(input_layer:Image,
     params.camera.exposure_compensation_ev = exposure_compensation_ev
     params.camera.auto_exposure = auto_exposure
     params.camera.auto_exposure_method = auto_exposure_method.value
+    params.camera.manual_exposure_ev = manual_exposure_ev
     params.camera.film_format_mm = film_format_mm
     params.camera.filter_uv = input_image.filter_uv.value
     params.camera.filter_ir = input_image.filter_ir.value
@@ -305,6 +307,9 @@ def main():
     simulation.exposure_compensation_ev.min = -100
     simulation.exposure_compensation_ev.max = 100
     simulation.exposure_compensation_ev.step = 0.5
+    simulation.manual_exposure_ev.min = -100
+    simulation.manual_exposure_ev.max = 100
+    simulation.manual_exposure_ev.step = 0.5
     simulation.print_exposure.step = 0.05
     simulation.print_y_filter_shift.min = -ENLARGER_STEPS
     simulation.print_y_filter_shift.max = ENLARGER_STEPS
@@ -317,6 +322,7 @@ def main():
     simulation.film_stock.tooltip = 'Film stock to simulate'
     simulation.exposure_compensation_ev.tooltip = 'Exposure compensation value in ev of the negative'
     simulation.auto_exposure.tooltip = 'Automatically adjust exposure based on the image content'
+    simulation.manual_exposure_ev.tooltip = 'Manual exposure value in EV when auto-exposure is disabled'
     simulation.film_format_mm.tooltip = 'Long edge of the film format in millimeters, e.g. 35mm or 60mm'
     simulation.camera_lens_blur_um.tooltip = 'Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.'
     simulation.print_paper.tooltip = 'Print paper to simulate'

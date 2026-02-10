@@ -35,6 +35,7 @@ def photo_params(negative='kodak_portra_400_auc',
     params.camera.exposure_compensation_ev = 0.0
     params.camera.auto_exposure = True
     params.camera.auto_exposure_method = 'center_weighted'
+    params.camera.manual_exposure_ev = 0.0
     params.camera.lens_blur_um = 0.0 # about 5 um sigma for typical lenses, down to 2-4 um for high quality lenses, used for sharp simulations without lens blur.
     params.camera.film_format_mm = 35.0
     params.camera.filter_uv = (1, 410, 8)
@@ -129,7 +130,7 @@ class AgXPhoto():
         image = np.double(np.array(image)[:,:,0:3])
         
         # input
-        exposure_ev = self._auto_exposure(image)
+        exposure_ev = self._auto_exposure(image) if self.camera.auto_exposure else self.camera.manual_exposure_ev
         image, preview_resize_factor, pixel_size_um = self._crop_and_rescale(image)
         
         # apply profiles changes
