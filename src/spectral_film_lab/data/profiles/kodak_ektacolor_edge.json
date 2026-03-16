@@ -10,6 +10,10 @@
         "viewing_illuminant": "D50"
     },
     "data": {
+        "tune": {
+            "gamma_factor": 1.0,
+            "dye_density_min_factor": 0.4
+        },
         "log_sensitivity": [
             [
                 NaN,
@@ -2609,10 +2613,6 @@
                 0.0
             ]
         ],
-        "tune": {
-            "gamma_factor": 1.0,
-            "dye_density_min_factor": 0.4
-        },
         "density_curves_layers": [
             0,
             3,
@@ -2627,5 +2627,9 @@
         "compensation_removal_factor": 0.0,
         "compensation_removal_density": 1.2,
         "compensation_removal_transition": 0.3
-    }
+    },
+    "grain": {},
+    "halation": {},
+    "dir_couplers": {},
+    "masking_couplers": {}
 }
