@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from agx_emulsion.profiles.io import load_profile
+from agx_emulsion.profiles.io import load_profile, profile_to_dict, profile_from_dict
 
 
 class TestLoadProfile:
@@ -43,3 +43,11 @@ class TestLoadProfile:
         assert profile.data.dye_density.ndim == 2
         assert profile.data.dye_density.shape[0] == profile.data.wavelengths.shape[0]
         assert profile.data.dye_density.shape[1] >= 4
+
+    def test_profile_namespace_round_trip_preserves_core_fields(self, portra_400_profile):
+        profile_dict = profile_to_dict(portra_400_profile)
+        profile_rt = profile_from_dict(profile_dict)
+
+        assert profile_rt.info.stock == portra_400_profile.info.stock
+        assert np.array(profile_rt.data.log_exposure).shape == portra_400_profile.data.log_exposure.shape
+        assert np.array(profile_rt.data.density_curves).shape == portra_400_profile.data.density_curves.shape
