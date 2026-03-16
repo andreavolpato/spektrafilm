@@ -58,15 +58,15 @@ def _validate_profile(profile, stock):
         raise ValueError(f"Invalid profile '{stock}'")
 
 def save_profile(profile, suffix=''):
+    profile = copy.deepcopy(profile)
     profile.info.stock = profile.info.stock + suffix
-    profile = copy.copy(profile)
-    # convert to lists to make it json serializable
-    profile.data.log_sensitivity       = profile.data.log_sensitivity.tolist()
-    profile.data.density_curves        = profile.data.density_curves.tolist()
-    profile.data.density_curves_layers = profile.data.density_curves_layers.tolist()
-    profile.data.dye_density           = profile.data.dye_density.tolist()
-    profile.data.log_exposure          = profile.data.log_exposure.tolist()
-    profile.data.wavelengths           = profile.data.wavelengths.tolist()
+    # Convert to lists only on the deep-copied payload so callers keep ndarray data.
+    profile.data.log_sensitivity = np.asarray(profile.data.log_sensitivity).tolist()
+    profile.data.density_curves = np.asarray(profile.data.density_curves).tolist()
+    profile.data.density_curves_layers = np.asarray(profile.data.density_curves_layers).tolist()
+    profile.data.dye_density = np.asarray(profile.data.dye_density).tolist()
+    profile.data.log_exposure = np.asarray(profile.data.log_exposure).tolist()
+    profile.data.wavelengths = np.asarray(profile.data.wavelengths).tolist()
     package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = profile.info.stock + '.json'
     resource = package / filename
