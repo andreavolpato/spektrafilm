@@ -1,8 +1,16 @@
+"""
+Example: Run the full film simulation pipeline on a test image.
+
+This script loads a test image, processes it through the film simulation
+pipeline, and displays the result using matplotlib.
+"""
+
 import matplotlib.pyplot as plt
 from agx_emulsion.model.process import photo_params, photo_process
 from agx_emulsion.utils.io import load_image_oiio
 
-def test_main_simulation():
+
+def run_simulation():
     image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
     params = photo_params()
     params.negative.grain.sublayers_active = True
@@ -17,7 +25,7 @@ def test_main_simulation():
     params.io.compute_negative = True
     negative_scan = photo_process(image, params)
 
-    _, axs = plt.subplots(1,2)
+    _, axs = plt.subplots(1, 2)
     axs[0].imshow(negative_scan)
     axs[0].axis('off')
     axs[0].set_title('negative')
@@ -25,7 +33,7 @@ def test_main_simulation():
     axs[1].axis('off')
     axs[1].set_title('print')
     plt.show()
-    return
+
 
 if __name__ == '__main__':
-    test_main_simulation()
+    run_simulation()
