@@ -1,7 +1,15 @@
 import numpy as np
 import colour
+from enum import Enum
 from spectral_film_lab.config import SPECTRAL_SHAPE
 from spectral_film_lab.model.color_filters import schott_kg3_heat_filter, schott_kg1_heat_filter, generic_lens_transmission
+
+
+class Illuminants(Enum):
+    lamp = 'TH-KG3-L'
+    # bulb = 'T'
+    # cine = 'K75P'
+    # led_rgb = 'LED-RGB1'
 
 def black_body_spectrum(temperature):
     values = colour.colorimetry.blackbody.planck_law(SPECTRAL_SHAPE.wavelengths*1e-9, temperature) # to emulate an halogen lamp
