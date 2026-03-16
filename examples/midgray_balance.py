@@ -6,11 +6,12 @@ under a D55 illuminant to check the balance of the film layers.
 """
 
 import numpy as np
-from spectral_film_lab.profile_store.io import load_profile
+from spectral_film_lab.profiles.io import load_profile
 from spectral_film_lab.model.illuminants import standard_illuminant
 
 p = load_profile('kodak_portra_400_au')
 ill = standard_illuminant(type='D55')
 s = 10**np.double(p.data.log_sensitivity)
 print(np.nansum(ill[:, None] * s, axis=0))
+
 

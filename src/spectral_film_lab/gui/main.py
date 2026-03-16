@@ -12,7 +12,7 @@ from spectral_film_lab.config import ENLARGER_STEPS
 from spectral_film_lab.utils.io import load_image_oiio
 from spectral_film_lab.runtime.process import  photo_params, photo_process
 from spectral_film_lab.model.stocks import FilmStocks, PrintPapers, Illuminants
-from spectral_film_lab.profile_store.io import profile_to_dict
+from spectral_film_lab.profiles.io import profile_to_dict
 from profiles_creator.factory import swap_channels
 from spectral_film_lab.utils.numba_warmup import warmup
 
@@ -410,6 +410,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

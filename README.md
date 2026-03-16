@@ -47,7 +47,7 @@ The codebase is organized as two packages under [src/spectral_film_lab](src/spec
 Canonical import surfaces:
 
 1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py).
-2. Processed profile I/O: [src/spectral_film_lab/profile_store/io.py](src/spectral_film_lab/profile_store/io.py).
+2. Processed profile I/O: [src/spectral_film_lab/profiles/io.py](src/spectral_film_lab/profiles/io.py).
 3. Profile factory entry points: [src/profiles_creator/factory.py](src/profiles_creator/factory.py).
 
 Dependency direction:
@@ -189,4 +189,5 @@ Thank you Adam Severeid from [discuss.pixls.us](https://discuss.pixls.us/) forum
 [^3]: Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB Reflectance, Eurographics Symposium on Rendering - DL-only and Industry Track, 2019, doi:10.2312/SR.20191216
 
 Sample images from [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
+
 

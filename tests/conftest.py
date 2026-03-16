@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from spectral_film_lab.profile_store.io import load_profile
+from spectral_film_lab.profiles.io import load_profile
 
 
 @pytest.fixture
@@ -33,3 +33,4 @@ def default_params():
 def portra_400_profile():
     """Load the Kodak Portra 400 profile (with auto-unmixing and couplers)."""
     return load_profile('kodak_portra_400_auc')
+

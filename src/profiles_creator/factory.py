@@ -9,7 +9,7 @@ from profiles_creator.correct import align_midscale_neutral_exposures
 
 from spectral_film_lab.model.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
 from spectral_film_lab.utils.io import load_agx_emulsion_data, load_densitometer_data
-from spectral_film_lab.profile_store.io import load_profile, profile_from_dict
+from spectral_film_lab.profiles.io import load_profile, profile_from_dict
 from spectral_film_lab.model.illuminants import standard_illuminant
 
 ################################################################################
@@ -622,7 +622,7 @@ def plot_profile(profile, unmixed=False, original=None):
 # TODO: add masking couplers to the profiles as gamma matrix of masks, will require model changes
 
 if __name__=='__main__':
-    from spectral_film_lab.profile_store.io import load_profile
+    from spectral_film_lab.profiles.io import load_profile
     # p = create_profile('kodak_portra_400')
     # p = create_profile('kodak_ultra_endura', type='paper')
     # save_profile(p, '_couplers_2')
@@ -649,6 +649,7 @@ if __name__=='__main__':
     # print(p)
     # plt.show()
     plt.show()
+
 
 
 

@@ -4,6 +4,7 @@ Use direct process/profile-store functions instead of API wrappers.
 """
 
 from .process import photo_params, photo_process
-from spectral_film_lab.profile_store.io import load_profile, save_profile
+from spectral_film_lab.profiles.io import load_profile, save_profile
 
 __all__ = ["photo_params", "photo_process", "load_profile", "save_profile"]
+

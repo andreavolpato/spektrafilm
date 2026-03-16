@@ -15,7 +15,7 @@ from spectral_film_lab.model.color_filters import color_enlarger, compute_band_p
 from spectral_film_lab.utils.crop_resize import crop_image
 from spectral_film_lab.model.illuminants import standard_illuminant
 from spectral_film_lab.utils.io import read_neutral_ymc_filter_values
-from spectral_film_lab.profile_store.io import load_profile
+from spectral_film_lab.profiles.io import load_profile
 from spectral_film_lab.runtime.runtime_params import RuntimePhotoParams, coerce_runtime_params
 from spectral_film_lab.utils.timings import timeit, plot_timings
 
@@ -440,4 +440,5 @@ if __name__ == '__main__':
     # plt.imshow(image[:,:,1])
     plt.imshow(image)
     plt.show()
+
 

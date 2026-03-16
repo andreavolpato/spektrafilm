@@ -375,7 +375,7 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
 
 
 if __name__ == '__main__':
-    from spectral_film_lab.profile_store.io import load_profile
+    from spectral_film_lab.profiles.io import load_profile
     
     # params = make_reconstruct_dye_density_params()
     # profile = load_profile('kodak_portra_400_v2')
@@ -398,4 +398,5 @@ if __name__ == '__main__':
     # profile = process_profile(profile)
     # plot_profile(profile)
     plt.show()
+
 

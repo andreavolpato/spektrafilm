@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from spectral_film_lab.profile_store.io import load_profile
+from spectral_film_lab.profiles.io import load_profile
 from spectral_film_lab.runtime.process import photo_params, photo_process
 
 def plot_grain_chart(profile=load_profile('kodak_portra_400_auc'),

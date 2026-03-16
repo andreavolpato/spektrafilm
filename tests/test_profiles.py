@@ -4,7 +4,7 @@ import ast
 import inspect
 
 from spectral_film_lab.model import stocks
-from spectral_film_lab.profile_store.io import load_profile, profile_to_dict, profile_from_dict
+from spectral_film_lab.profiles.io import load_profile, profile_to_dict, profile_from_dict
 
 
 class TestLoadProfile:
@@ -67,5 +67,6 @@ class TestDependencyBoundaries:
         tree = ast.parse(inspect.getsource(stocks))
         for node in tree.body:
             assert not isinstance(node, ast.If)
+
 
 
