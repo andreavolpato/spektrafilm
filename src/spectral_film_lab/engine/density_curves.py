@@ -316,9 +316,9 @@ def apply_gamma_shift_correction(log_exposure, density_curves, gamma_correction,
     # models = ['norm_cdfs',         'norm_cdfs',        'norm_cdfs',            'norm_cdfs',           'norm_cdfs']
     # for type, stock, model in zip(types,stocks,models):
     #     print(stock+' - '+type)
-    #     _, _, _, c, _ = load_agx_emulsion_data(data_folder='agx_emulsion/data/', stock=stock, type=type)
+    #     _, _, _, c, _ = load_agx_emulsion_data(data_folder='src/spectral_film_lab/data/', stock=stock, type=type)
     #     fitted_parameters = fit_density_curves(c, plotting=True, type=type, stock=stock, model=model)
     #     if save_flag:
-    #         np.savetxt('agx_emulsion/data/color/'+type+'/'+stock+'/density_curves_fitted_parameters.csv', fitted_parameters)
-    #         plt.savefig('agx_emulsion/data/color/'+type+'/'+stock+'/density_curves_fitted_model.png')
+    #         np.savetxt('src/spectral_film_lab/data/color/'+type+'/'+stock+'/density_curves_fitted_parameters.csv', fitted_parameters)
+    #         plt.savefig('src/spectral_film_lab/data/color/'+type+'/'+stock+'/density_curves_fitted_model.png')
     # plt.show()

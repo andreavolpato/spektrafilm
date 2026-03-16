@@ -1,6 +1,6 @@
 """Stable runtime boundary used by spectral_film_lab consumers.
 
-This first step delegates to existing agx_emulsion functions to avoid behavior changes.
+This module exposes a stable public API over the runtime internals.
 """
 
 from __future__ import annotations
