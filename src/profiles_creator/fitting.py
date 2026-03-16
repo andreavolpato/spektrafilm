@@ -71,7 +71,7 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
     This utility keeps the historical behavior but lives in profiles layer,
     where fitting logic now belongs.
     """
-    from spectral_film_lab.engine.stocks import FilmStocks, Illuminants, PrintPapers
+    from spectral_film_lab.model.stocks import FilmStocks, Illuminants, PrintPapers
 
     ymc_filters_0 = {}
     residues = {}
@@ -118,3 +118,4 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
                     residues[paper.value][light.value][stock.value] = np.sum(np.abs(res))
 
     return ymc_filters_out, residues
+

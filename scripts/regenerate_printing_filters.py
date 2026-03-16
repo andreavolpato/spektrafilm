@@ -3,8 +3,8 @@ import copy
 import numpy as np
 
 from spectral_film_lab.runtime.process import photo_params
-from spectral_film_lab.engine.stocks import FilmStocks, Illuminants, PrintPapers
-from profiles_factory.fitting import fit_print_filters
+from spectral_film_lab.model.stocks import FilmStocks, Illuminants, PrintPapers
+from profiles_creator.fitting import fit_print_filters
 from spectral_film_lab.utils.io import save_ymc_filter_values
 
 
@@ -69,4 +69,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
 

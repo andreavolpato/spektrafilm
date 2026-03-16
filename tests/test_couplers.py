@@ -1,5 +1,5 @@
 import numpy as np
-from spectral_film_lab.engine.couplers import (
+from spectral_film_lab.model.couplers import (
     compute_dir_couplers_matrix,
     compute_density_curves_before_dir_couplers,
     compute_exposure_correction_dir_couplers,
@@ -37,3 +37,4 @@ class TestDirCouplers:
             log_raw, density_cmy, density_max, matrix, diffusion_size_pixel=0
         )
         np.testing.assert_allclose(result, log_raw, atol=1e-10)
+

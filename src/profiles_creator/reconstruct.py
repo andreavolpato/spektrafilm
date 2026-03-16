@@ -252,8 +252,8 @@ def compute_densitometer_crosstalk_matrix(densitometer_intensity, dye_density):
 ########################################################################################
 # Main function
 
-from spectral_film_lab.engine.illuminants import standard_illuminant
-from spectral_film_lab.engine.color_filters import dichroic_filters
+from spectral_film_lab.model.illuminants import standard_illuminant
+from spectral_film_lab.model.color_filters import dichroic_filters
 
 def reconstruct_dye_density(profile, params=None, control_plot=False, print_params=False,
                             target_print_paper=None, ymc_filter_values=[0.8,0.6,0.2],
@@ -398,3 +398,4 @@ if __name__ == '__main__':
     # profile = process_profile(profile)
     # plot_profile(profile)
     plt.show()
+

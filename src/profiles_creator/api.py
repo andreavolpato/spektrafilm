@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from profiles_factory.correct import correct_negative_curves_with_gray_ramp
-from profiles_factory.factory import (
+from profiles_creator.correct import correct_negative_curves_with_gray_ramp
+from profiles_creator.factory import (
     create_profile,
     process_negative_profile,
     process_paper_profile,
 )
-from profiles_factory.fitting import fit_print_filters
+from profiles_creator.fitting import fit_print_filters
 
 
 __all__ = [
@@ -25,3 +25,4 @@ __all__ = [
 def create_raw_profile(*args: Any, **kwargs: Any) -> Any:
     """Compatibility alias for create_profile naming in the split architecture."""
     return create_profile(*args, **kwargs)
+

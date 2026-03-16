@@ -4,8 +4,8 @@ import colour
 
 from colour.models import RGB_COLOURSPACE_sRGB
 from spectral_film_lab.config import STANDARD_OBSERVER_CMFS
-from spectral_film_lab.engine.color_filters import compute_band_pass_filter
-from spectral_film_lab.engine.illuminants import standard_illuminant
+from spectral_film_lab.model.color_filters import compute_band_pass_filter
+from spectral_film_lab.model.illuminants import standard_illuminant
 
 def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=False):
     ls = profile.data.log_sensitivity
@@ -101,4 +101,5 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     profile.data.dye_density[:,4] = mid
     profile.data.dye_density[:, :3] *= d_cmy_scale
     return profile
+
 

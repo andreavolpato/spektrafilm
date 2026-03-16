@@ -2,7 +2,7 @@ import numpy as np
 import scipy.interpolate
 import copy
 from spectral_film_lab.runtime.process import photo_process, photo_params
-from profiles_factory.fitting import fit_print_filters
+from profiles_creator.fitting import fit_print_filters
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     log_exposure_midscale_neutral = np.zeros((3,))
@@ -188,7 +188,7 @@ def normalize_density_max(profile):
 
 
 if __name__=='__main__':
-    from profiles_factory.factory import load_profile, plot_profile, adjust_log_exposure
+    from profiles_creator.factory import load_profile, plot_profile, adjust_log_exposure
     import matplotlib.pyplot as plt
 
     # profile = load_profile('fujifilm_pro_400h_au')
