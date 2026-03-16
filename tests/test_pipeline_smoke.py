@@ -75,6 +75,37 @@ class TestPipelineSmoke:
 
         assert dark < base < bright
 
+    def test_print_exposure_compensation_dampens_ev_change(self, default_params):
+        """Print exposure compensation should reduce the effect of negative EV changes."""
+        gray = np.ones((4, 4, 3)) * 0.18
+
+        default_params.camera.exposure_compensation_ev = 0.0
+        default_params.enlarger.print_exposure_compensation = True
+        base_comp = photo_process(gray, default_params)
+
+        default_params.camera.exposure_compensation_ev = +2.0
+        bright_comp = photo_process(gray, default_params)
+
+        default_params.camera.exposure_compensation_ev = 0.0
+        default_params.enlarger.print_exposure_compensation = False
+        base_no_comp = photo_process(gray, default_params)
+
+        default_params.camera.exposure_compensation_ev = +2.0
+        bright_no_comp = photo_process(gray, default_params)
+
+        delta_comp = abs(np.mean(bright_comp) - np.mean(base_comp))
+        delta_no_comp = abs(np.mean(bright_no_comp) - np.mean(base_no_comp))
+
+        assert delta_comp < delta_no_comp, (
+            f"Expected print exposure compensation to dampen EV changes, "
+            f"but compensated delta {delta_comp:.4f} was not smaller than "
+            f"uncompensated delta {delta_no_comp:.4f}"
+        )
+        assert delta_comp < 0.05, (
+            f"Expected print exposure compensation to keep the brightness shift small, "
+            f"but compensated delta was {delta_comp:.4f}"
+        )
+
     def test_different_film_stocks(self, default_params):
         """Different negative profiles must produce visibly different results."""
         green_patch = np.ones((4, 4, 3)) * np.array([0.05, 0.4, 0.05])
