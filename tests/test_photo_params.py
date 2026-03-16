@@ -61,6 +61,9 @@ class TestPhotoParamsDefaults:
         assert params.debug.return_negative_density_cmy is False
         assert params.debug.return_print_density_cmy is False
         assert params.debug.print_timings is False
+        assert hasattr(params.debug, 'luts')
+        assert params.debug.luts.enlarger_lut is None
+        assert params.debug.luts.scanner_lut is None
 
         assert params.settings.rgb_to_raw_method == 'hanatos2025'
         assert params.settings.use_camera_lut is False
@@ -96,3 +99,42 @@ class TestAgXPhotoDebugSwitches:
         assert photo.negative.grain.active is False
         assert photo.negative.glare.active is False
         assert photo.print_paper.glare.active is False
+
+
+class TestRuntimeParamsCompatibility:
+    def test_lut_storage_path_is_initialized(self):
+        params = photo_params()
+        params.debug.deactivate_spatial_effects = True
+        params.debug.deactivate_stochastic_effects = True
+        params.settings.use_enlarger_lut = True
+        params.settings.use_scanner_lut = True
+        photo = AgXPhoto(params)
+
+        image = np.ones((4, 4, 3), dtype=np.float64) * 0.18
+        photo.process(image)
+
+        assert photo.debug.luts.enlarger_lut is not None
+        assert photo.debug.luts.scanner_lut is not None
+
+    def test_accepts_legacy_dict_like_params(self):
+        params = photo_params()
+        legacy_params = {
+            'negative': params.negative,
+            'print_paper': params.print_paper,
+            'camera': vars(params.camera).copy(),
+            'enlarger': vars(params.enlarger).copy(),
+            'scanner': vars(params.scanner).copy(),
+            'io': vars(params.io).copy(),
+            'debug': {
+                **vars(params.debug),
+                'luts': vars(params.debug.luts).copy(),
+            },
+            'settings': vars(params.settings).copy(),
+        }
+        legacy_params['debug']['deactivate_spatial_effects'] = True
+
+        photo = AgXPhoto(legacy_params)
+
+        assert photo.debug.deactivate_spatial_effects is True
+        assert photo.negative.halation.size_um == [0, 0, 0]
+        assert photo.debug.luts.enlarger_lut is None
