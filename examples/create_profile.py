@@ -6,8 +6,8 @@ and how to load and plot existing profiles.
 """
 
 import matplotlib.pyplot as plt
-from agx_emulsion.profiles.factory import create_profile, plot_profile, remove_density_min
-from agx_emulsion.profiles.io import load_profile
+from profiles_factory.factory import create_profile, plot_profile, remove_density_min
+from spectral_film_lab.profile_store.io import load_profile
 
 p = create_profile('kodak_vision3_50d')
 p = remove_density_min(p)

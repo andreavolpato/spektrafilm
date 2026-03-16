@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-from agx_emulsion.profiles.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
-from agx_emulsion.profiles.io import save_profile
-from agx_emulsion.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
+from profiles_factory.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
+from spectral_film_lab.profile_store.io import save_profile
+from profiles_factory.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
 
 process_print_paper = False
 process_negative = True
