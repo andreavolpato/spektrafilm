@@ -63,3 +63,8 @@ class TestDependencyBoundaries:
             if isinstance(node, ast.ImportFrom):
                 assert node.module != 'agx_emulsion.model.process'
 
+    def test_stocks_module_has_no_main_script_block(self):
+        tree = ast.parse(inspect.getsource(stocks))
+        for node in tree.body:
+            assert not isinstance(node, ast.If)
+
