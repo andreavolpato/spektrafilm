@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from agx_emulsion.model.process import photo_params, photo_process
+from spectral_film_lab.runtime.process import photo_params, photo_process
 
 BASELINES_DIR = Path(__file__).resolve().parent / "baselines"
 

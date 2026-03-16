@@ -309,7 +309,6 @@ def apply_gamma_shift_correction(log_exposure, density_curves, gamma_correction,
 ################################################################################
 # if __name__=='__main__':
     # # TODO: fix the multilayer situation. Now the fitting is performed in unmix_profile() inside profiles.py
-    # from agx_emulsion.profiles.factory import load_agx_emulsion_data
     # np.set_printoptions(precision=2, suppress='True')
     # save_flag = False
     # types =  ['negative',          'negative',         'paper',                'paper',               'positive']

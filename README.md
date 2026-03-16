@@ -37,6 +37,24 @@ The presence of masking couplers is simulated with negative absorption contribut
 
 A more detailed description of colour couplers can be found in Chapter 15 of Hunt's book [^2].
 
+## Package layout
+
+The codebase is organized as two packages under [src/spectral_film_lab](src/spectral_film_lab) and [src/profiles_factory](src/profiles_factory):
+
+1. [src/spectral_film_lab](src/spectral_film_lab): runtime simulation pipeline and processed profile consumption.
+2. [src/profiles_factory](src/profiles_factory): raw-curve processing and profile generation/fitting workflows.
+
+Canonical import surfaces:
+
+1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py) and [src/spectral_film_lab/runtime/api.py](src/spectral_film_lab/runtime/api.py).
+2. Processed profile I/O: [src/spectral_film_lab/profile_store/io.py](src/spectral_film_lab/profile_store/io.py).
+3. Profile factory entry points: [src/profiles_factory/api.py](src/profiles_factory/api.py) and [src/profiles_factory/factory.py](src/profiles_factory/factory.py).
+
+Dependency direction:
+
+1. profiles_factory depends on spectral_film_lab runtime and engine modules.
+2. spectral_film_lab does not depend on profiles_factory.
+
 ## Installation
 
 ### Using `uv`

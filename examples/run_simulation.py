@@ -6,7 +6,7 @@ pipeline, and displays the result using matplotlib.
 """
 
 import matplotlib.pyplot as plt
-from agx_emulsion.model.process import photo_params, photo_process
+from spectral_film_lab.runtime.process import photo_params, photo_process
 from agx_emulsion.utils.io import load_image_oiio
 
 

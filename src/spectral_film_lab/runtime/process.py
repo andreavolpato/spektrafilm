@@ -5,18 +5,18 @@ from opt_einsum import contract
 import skimage.transform
 
 from agx_emulsion.config import ENLARGER_STEPS, STANDARD_OBSERVER_CMFS
-from agx_emulsion.model.emulsion import Film, compute_density_spectral, develop_simple, compute_random_glare_amount, remove_viewing_glare_comp
+from spectral_film_lab.engine.emulsion import Film, compute_density_spectral, develop_simple, compute_random_glare_amount, remove_viewing_glare_comp
 from agx_emulsion.utils.autoexposure import measure_autoexposure_ev
 from agx_emulsion.utils.conversions import density_to_light
 from agx_emulsion.utils.spectral_upsampling import rgb_to_raw_mallett2019, rgb_to_raw_hanatos2025
 from agx_emulsion.utils.lut import compute_with_lut
-from agx_emulsion.model.diffusion import apply_gaussian_blur_um, apply_halation_um, apply_unsharp_mask, apply_gaussian_blur
-from agx_emulsion.model.color_filters import color_enlarger, compute_band_pass_filter
+from spectral_film_lab.engine.diffusion import apply_gaussian_blur_um, apply_halation_um, apply_unsharp_mask, apply_gaussian_blur
+from spectral_film_lab.engine.color_filters import color_enlarger, compute_band_pass_filter
 from agx_emulsion.utils.crop_resize import crop_image
-from agx_emulsion.model.illuminants import standard_illuminant
+from spectral_film_lab.engine.illuminants import standard_illuminant
 from agx_emulsion.utils.io import read_neutral_ymc_filter_values
-from agx_emulsion.profiles.io import load_profile
-from agx_emulsion.model.runtime_params import RuntimePhotoParams, coerce_runtime_params
+from spectral_film_lab.profile_store.io import load_profile
+from spectral_film_lab.runtime.runtime_params import RuntimePhotoParams, coerce_runtime_params
 from agx_emulsion.utils.timings import timeit, plot_timings
 
 ymc_filters = read_neutral_ymc_filter_values()

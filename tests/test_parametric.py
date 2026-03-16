@@ -1,5 +1,5 @@
 import numpy as np
-from agx_emulsion.model.parametric import parametric_density_curves_model
+from spectral_film_lab.engine.parametric import parametric_density_curves_model
 
 
 class TestParametricDensityCurvesModel:

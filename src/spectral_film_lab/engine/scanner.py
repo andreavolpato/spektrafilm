@@ -1,6 +1,5 @@
 # import numpy as np
 # import colour
-# from agx_emulsion.model.diffusion import apply_gaussian_blur, apply_unsharp_mask
 
 # def scan(self,
 #             density_spectral,

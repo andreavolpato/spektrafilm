@@ -1,19 +1,11 @@
 import numpy as np
-# import colour
 import scipy.ndimage
-# import gc
 from opt_einsum import contract
-# from agx_emulsion.config import STANDARD_OBSERVER_CMFS
-# from agx_emulsion.model.illuminants import standard_illuminant
-from agx_emulsion.model.density_curves import interpolate_exposure_to_density
-# from agx_emulsion.utils.conversions import density_to_light
-# from agx_emulsion.model.diffusion import apply_unsharp_mask, apply_halation_um
-from agx_emulsion.model.couplers import compute_exposure_correction_dir_couplers, compute_dir_couplers_matrix, compute_density_curves_before_dir_couplers
-from agx_emulsion.model.grain import apply_grain_to_density, apply_grain_to_density_layers
-# from agx_emulsion.model.parametric import parametric_density_curves_model
+from spectral_film_lab.engine.density_curves import interpolate_exposure_to_density
+from spectral_film_lab.engine.couplers import compute_exposure_correction_dir_couplers, compute_dir_couplers_matrix, compute_density_curves_before_dir_couplers
+from spectral_film_lab.engine.grain import apply_grain_to_density, apply_grain_to_density_layers
 from agx_emulsion.utils.fast_stats import fast_lognormal_from_mean_std
 from agx_emulsion.utils.fast_interp import fast_interp
-# from agx_emulsion.utils.fast_gaussian_filter import fast_gaussian_filter
 
 ################################################################################
 # AgXEmusion main class
