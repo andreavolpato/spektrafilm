@@ -1,6 +1,6 @@
 import numpy as np
 
-from agx_emulsion.model.process import AgXPhoto, photo_params
+from spectral_film_lab.runtime.process import AgXPhoto, photo_params
 
 
 class TestPhotoParamsDefaults:

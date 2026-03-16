@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from agx_emulsion.profiles.io import load_profile
+from spectral_film_lab.profile_store.io import load_profile
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def small_rgb_image():
 @pytest.fixture
 def default_params():
     """Default photo_params with expensive effects disabled for fast tests."""
-    from agx_emulsion.model.process import photo_params
+    from spectral_film_lab.runtime.process import photo_params
     params = photo_params()
     # Disable stochastic/spatial effects for determinism and speed
     params.debug.deactivate_spatial_effects = True

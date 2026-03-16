@@ -2,9 +2,9 @@ import copy
 
 import numpy as np
 
-from agx_emulsion.model.process import photo_params
-from agx_emulsion.model.stocks import FilmStocks, Illuminants, PrintPapers
-from agx_emulsion.profiles.fitting import fit_print_filters
+from spectral_film_lab.runtime.process import photo_params
+from spectral_film_lab.engine.stocks import FilmStocks, Illuminants, PrintPapers
+from profiles_factory.fitting import fit_print_filters
 from agx_emulsion.utils.io import save_ymc_filter_values
 
 
