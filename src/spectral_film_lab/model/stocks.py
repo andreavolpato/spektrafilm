@@ -31,9 +31,3 @@ class PrintPapers(Enum):
     fujifilm_crystal_archive_typeii = 'fujifilm_crystal_archive_typeii_uc'
     kodak_2383 = 'kodak_2383_uc'
     kodak_2393 = 'kodak_2393_uc'
-
-class Illuminants(Enum):
-    lamp = 'TH-KG3-L'
-    # bulb = 'T'
-    # cine = 'K75P'
-    # led_rgb = 'LED-RGB1'

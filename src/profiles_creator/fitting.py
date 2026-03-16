@@ -71,7 +71,8 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
     This utility keeps the historical behavior but lives in profiles layer,
     where fitting logic now belongs.
     """
-    from spectral_film_lab.model.stocks import FilmStocks, Illuminants, PrintPapers
+    from spectral_film_lab.model.stocks import FilmStocks, PrintPapers
+    from spectral_film_lab.model.illuminants import Illuminants
 
     ymc_filters_0 = {}
     residues = {}
