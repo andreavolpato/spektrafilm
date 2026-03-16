@@ -1,15 +1,9 @@
-"""Public runtime API for spectral_film_lab."""
+"""Runtime package exports.
 
-from .api import (
-    load_processed_profile,
-    make_runtime_params,
-    run_photo_process,
-    save_processed_profile,
-)
+Use direct process/profile-store functions instead of API wrappers.
+"""
 
-__all__ = [
-    "make_runtime_params",
-    "run_photo_process",
-    "load_processed_profile",
-    "save_processed_profile",
-]
+from .process import photo_params, photo_process
+from spectral_film_lab.profile_store.io import load_profile, save_profile
+
+__all__ = ["photo_params", "photo_process", "load_profile", "save_profile"]

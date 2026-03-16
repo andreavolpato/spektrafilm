@@ -46,9 +46,9 @@ The codebase is organized as two packages under [src/spectral_film_lab](src/spec
 
 Canonical import surfaces:
 
-1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py) and [src/spectral_film_lab/runtime/api.py](src/spectral_film_lab/runtime/api.py).
+1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py).
 2. Processed profile I/O: [src/spectral_film_lab/profile_store/io.py](src/spectral_film_lab/profile_store/io.py).
-3. Profile factory entry points: [src/profiles_creator/api.py](src/profiles_creator/api.py) and [src/profiles_creator/factory.py](src/profiles_creator/factory.py).
+3. Profile factory entry points: [src/profiles_creator/factory.py](src/profiles_creator/factory.py).
 
 Dependency direction:
 
