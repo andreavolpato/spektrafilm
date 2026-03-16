@@ -35,7 +35,8 @@ agx-emulsion = "agx_emulsion.gui.main:main"
 zip-safe = false
 
 [tool.setuptools.packages.find]
-include = ["agx_emulsion*"]
+where = [".", "src"]
+include = ["agx_emulsion*", "spectral_film_lab*", "profiles_factory*"]
 
 [tool.setuptools.package-data]
 agx_emulsion = [
