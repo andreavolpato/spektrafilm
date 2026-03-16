@@ -56,10 +56,12 @@ class TestPipelineSmoke:
         black = np.zeros((8, 8, 3))
         result = photo_process(black, default_params)
         assert np.all(np.isfinite(result))
+        assert np.all(result >= 0.0)
+        assert np.all(result <= 1.0)
 
-    def test_white_input_no_crash(self, default_params):
-        """Pure white input should not crash (saturation edge case)."""
-        white = np.ones((8, 8, 3))
+    def test_bright_input_no_crash(self, default_params):
+        """Very bright inputs should not crash (saturation edge case)."""
+        white = np.ones((8, 8, 3)) * 10000
         result = photo_process(white, default_params)
         assert np.all(np.isfinite(result))
         assert np.all(result >= 0.0)
