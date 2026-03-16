@@ -1,6 +1,9 @@
 import numpy as np
 import pytest
+import ast
+import inspect
 
+from agx_emulsion.model import stocks
 from agx_emulsion.profiles.io import load_profile, profile_to_dict, profile_from_dict
 
 
@@ -51,3 +54,12 @@ class TestLoadProfile:
         assert profile_rt.info.stock == portra_400_profile.info.stock
         assert np.array(profile_rt.data.log_exposure).shape == portra_400_profile.data.log_exposure.shape
         assert np.array(profile_rt.data.density_curves).shape == portra_400_profile.data.density_curves.shape
+
+
+class TestDependencyBoundaries:
+    def test_stocks_module_has_no_top_level_process_import(self):
+        tree = ast.parse(inspect.getsource(stocks))
+        for node in tree.body:
+            if isinstance(node, ast.ImportFrom):
+                assert node.module != 'agx_emulsion.model.process'
+
