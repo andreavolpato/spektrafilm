@@ -20,6 +20,28 @@ class TestPipelineSmoke:
         assert result.shape[2] == 3
         assert np.all(np.isfinite(result))
 
+    def test_compute_negative_changes_pipeline_branch(self, default_params):
+        """Negative scan mode should produce a different valid result than print mode."""
+        patch = np.ones((4, 4, 3)) * np.array([0.30, 0.10, 0.05])
+
+        default_params.io.compute_negative = False
+        print_result = photo_process(patch, default_params)
+
+        default_params.io.compute_negative = True
+        negative_result = photo_process(patch, default_params)
+
+        assert print_result.shape == (4, 4, 3)
+        assert negative_result.shape == (4, 4, 3)
+        assert np.all(np.isfinite(print_result))
+        assert np.all(np.isfinite(negative_result))
+        assert np.all(print_result >= 0.0)
+        assert np.all(print_result <= 1.0)
+        assert np.all(negative_result >= 0.0)
+        assert np.all(negative_result <= 1.0)
+        assert not np.allclose(print_result, negative_result, atol=1e-3), (
+            "compute_negative should change the pipeline branch and produce a different result"
+        )
+
     def test_uniform_gray_input(self, default_params):
         """A uniform midgray image should produce uniform output (no spatial artifacts)."""
         gray = np.ones((8, 8, 3)) * 0.184
@@ -163,3 +185,41 @@ class TestPipelineSmoke:
         assert np.all(result_lut <= 1.0)
         np.testing.assert_allclose(result_lut, result_direct, atol=0.02,
             err_msg="LUT path deviates from direct spectral calculation by more than 2%")
+
+    def test_auto_exposure_smoke(self, default_params):
+        """Auto-exposure should run without error and normalise brightness toward midgray."""
+        bright_patch = np.ones((8, 8, 3)) * 0.8
+        default_params.camera.auto_exposure = True
+        default_params.enlarger.print_exposure_compensation = False
+
+        for method in ('center_weighted', 'median'):
+            default_params.camera.auto_exposure_method = method
+            result = photo_process(bright_patch, default_params)
+            assert result.shape == (8, 8, 3), f"Shape mismatch with method={method}"
+            assert np.all(np.isfinite(result)), f"Non-finite values with method={method}"
+            assert np.all(result >= 0.0) and np.all(result <= 1.0)
+
+        # Auto-exposed bright image should be darker than without auto-exposure
+        default_params.camera.auto_exposure = False
+        default_params.camera.exposure_compensation_ev = 0.0
+        result_manual = photo_process(bright_patch, default_params)
+
+        default_params.camera.auto_exposure = True
+        default_params.camera.auto_exposure_method = 'center_weighted'
+        result_auto = photo_process(bright_patch, default_params)
+
+        assert np.mean(result_auto) < np.mean(result_manual), (
+            "Auto-exposure on a bright image should reduce brightness"
+        )
+        assert np.mean(result_auto) > 0.45 and np.mean(result_auto) < 0.51, (
+            f"Auto-exposure produced a flat gray of {np.mean(result_auto):.4f}, expected around 0.48"
+        )
+
+    def test_compute_film_raw_early_return(self, default_params):
+        """compute_film_raw should return raw film exposure before development."""
+        gray = np.ones((4, 4, 3)) * 0.18
+        default_params.io.compute_film_raw = True
+        result = photo_process(gray, default_params)
+        assert result.shape == (4, 4, 3)
+        assert np.all(np.isfinite(result))
+        assert np.all(result >= 0.0), "Raw film exposure should be non-negative"
