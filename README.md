@@ -100,6 +100,23 @@ To remove the environment:
 conda env remove -n agx-emulsion
 ```
 
+## Testing
+
+Run the test suite with:
+
+```bash
+python -m pytest tests -v
+```
+
+Regression snapshots are stored as committed `.npz` files in `tests/baselines/` and are checked by `tests/test_regression_baselines.py`.
+When a simulation change is intentional, regenerate snapshots manually:
+
+```bash
+python scripts/regenerate_test_baselines.py
+```
+
+Snapshot files are never updated automatically during pytest runs.
+
 ## GUI
 When launching the GUI, `napari` window should appear. In `napari` I usually set the theme to `Light` because I find it easier to judge exposure with a white background. Go to `File >> Preferences >> Appearance >> Theme >> Light`. Note that `napari` is not color-managed. The way I am working is to set the color profile of screen and operating system to an sRGB profile, and I set the output color space of the simulation to sRGB.
 
