@@ -1,5 +1,5 @@
 import numpy as np
-from spectral_film_lab.engine.parametric import parametric_density_curves_model
+from spectral_film_lab.model.parametric import parametric_density_curves_model
 
 
 class TestParametricDensityCurvesModel:
@@ -30,3 +30,4 @@ class TestParametricDensityCurvesModel:
             log_exposure, gamma, log_exposure_0, density_max, toe_size, shoulder_size
         )
         assert np.all(result[:5, :] < 0.01)
+

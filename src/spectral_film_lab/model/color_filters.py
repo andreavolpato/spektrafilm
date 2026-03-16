@@ -131,7 +131,7 @@ def color_enlarger(light_source, y_filter_value, m_filter_value, c_filter_value=
     return filtered_illuminant
 
 if __name__=="__main__":
-    from spectral_film_lab.engine.illuminants import standard_illuminant
+    from spectral_film_lab.model.illuminants import standard_illuminant
     
     filters = DichroicFilters(brand='durst_digital_light')
     filters.plot()
@@ -158,3 +158,4 @@ if __name__=="__main__":
     plt.legend(('Schott KG3', 'Canon Lens Transmittance', 'Combined'))
     
     plt.show()
+

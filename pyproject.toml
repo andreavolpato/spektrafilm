@@ -36,9 +36,10 @@ zip-safe = false
 
 [tool.setuptools.packages.find]
 where = [".", "src"]
-include = ["spectral_film_lab*", "profiles_factory*"]
+include = ["spectral_film_lab*", "profiles_creator*"]
 
 [tool.setuptools.package-data]
 spectral_film_lab = [
     "data/**/*",
 ]
+

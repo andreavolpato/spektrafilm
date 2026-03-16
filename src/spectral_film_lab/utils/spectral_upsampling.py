@@ -7,7 +7,7 @@ from opt_einsum import contract
 import scipy.interpolate
 from spectral_film_lab.utils.fast_interp_lut import apply_lut_cubic_2d
 from spectral_film_lab.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
-from spectral_film_lab.engine.illuminants import standard_illuminant
+from spectral_film_lab.model.illuminants import standard_illuminant
 
 ################################################################################
 # LUT generatation of irradiance spectra for any xy chromaticity
@@ -241,3 +241,4 @@ if __name__=='__main__':
     spectra = compute_spectra_from_coeffs(coeffs)
     lut_spectra = compute_lut_spectra(lut_size=128)
     
+

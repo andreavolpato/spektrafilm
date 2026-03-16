@@ -39,21 +39,21 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Package layout
 
-The codebase is organized as two packages under [src/spectral_film_lab](src/spectral_film_lab) and [src/profiles_factory](src/profiles_factory):
+The codebase is organized as two packages under [src/spectral_film_lab](src/spectral_film_lab) and [src/profiles_creator](src/profiles_creator):
 
 1. [src/spectral_film_lab](src/spectral_film_lab): runtime simulation pipeline and processed profile consumption.
-2. [src/profiles_factory](src/profiles_factory): raw-curve processing and profile generation/fitting workflows.
+2. [src/profiles_creator](src/profiles_creator): raw-curve processing and profile generation/fitting workflows.
 
 Canonical import surfaces:
 
 1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py) and [src/spectral_film_lab/runtime/api.py](src/spectral_film_lab/runtime/api.py).
 2. Processed profile I/O: [src/spectral_film_lab/profile_store/io.py](src/spectral_film_lab/profile_store/io.py).
-3. Profile factory entry points: [src/profiles_factory/api.py](src/profiles_factory/api.py) and [src/profiles_factory/factory.py](src/profiles_factory/factory.py).
+3. Profile factory entry points: [src/profiles_creator/api.py](src/profiles_creator/api.py) and [src/profiles_creator/factory.py](src/profiles_creator/factory.py).
 
 Dependency direction:
 
-1. profiles_factory depends on spectral_film_lab runtime and engine modules.
-2. spectral_film_lab does not depend on profiles_factory.
+1. profiles_creator depends on spectral_film_lab runtime and engine modules.
+2. spectral_film_lab does not depend on profiles_creator.
 
 ## Installation
 
@@ -189,3 +189,4 @@ Thank you Adam Severeid from [discuss.pixls.us](https://discuss.pixls.us/) forum
 [^3]: Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB Reflectance, Eurographics Symposium on Rendering - DL-only and Industry Track, 2019, doi:10.2312/SR.20191216
 
 Sample images from [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
+

@@ -5,15 +5,15 @@ from opt_einsum import contract
 import skimage.transform
 
 from spectral_film_lab.config import ENLARGER_STEPS, STANDARD_OBSERVER_CMFS
-from spectral_film_lab.engine.emulsion import Film, compute_density_spectral, develop_simple, compute_random_glare_amount, remove_viewing_glare_comp
+from spectral_film_lab.model.emulsion import Film, compute_density_spectral, develop_simple, compute_random_glare_amount, remove_viewing_glare_comp
 from spectral_film_lab.utils.autoexposure import measure_autoexposure_ev
 from spectral_film_lab.utils.conversions import density_to_light
 from spectral_film_lab.utils.spectral_upsampling import rgb_to_raw_mallett2019, rgb_to_raw_hanatos2025
 from spectral_film_lab.utils.lut import compute_with_lut
-from spectral_film_lab.engine.diffusion import apply_gaussian_blur_um, apply_halation_um, apply_unsharp_mask, apply_gaussian_blur
-from spectral_film_lab.engine.color_filters import color_enlarger, compute_band_pass_filter
+from spectral_film_lab.model.diffusion import apply_gaussian_blur_um, apply_halation_um, apply_unsharp_mask, apply_gaussian_blur
+from spectral_film_lab.model.color_filters import color_enlarger, compute_band_pass_filter
 from spectral_film_lab.utils.crop_resize import crop_image
-from spectral_film_lab.engine.illuminants import standard_illuminant
+from spectral_film_lab.model.illuminants import standard_illuminant
 from spectral_film_lab.utils.io import read_neutral_ymc_filter_values
 from spectral_film_lab.profile_store.io import load_profile
 from spectral_film_lab.runtime.runtime_params import RuntimePhotoParams, coerce_runtime_params
@@ -440,3 +440,4 @@ if __name__ == '__main__':
     # plt.imshow(image[:,:,1])
     plt.imshow(image)
     plt.show()
+

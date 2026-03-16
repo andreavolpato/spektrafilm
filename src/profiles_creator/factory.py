@@ -3,14 +3,14 @@ import scipy
 import copy
 import matplotlib.pyplot as plt
 
-from profiles_factory.reconstruct import reconstruct_dye_density
-from profiles_factory.balance import balance_sensitivity, balance_metameric_neutral
-from profiles_factory.correct import align_midscale_neutral_exposures
+from profiles_creator.reconstruct import reconstruct_dye_density
+from profiles_creator.balance import balance_sensitivity, balance_metameric_neutral
+from profiles_creator.correct import align_midscale_neutral_exposures
 
-from spectral_film_lab.engine.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
+from spectral_film_lab.model.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
 from spectral_film_lab.utils.io import load_agx_emulsion_data, load_densitometer_data
 from spectral_film_lab.profile_store.io import load_profile, profile_from_dict
-from spectral_film_lab.engine.illuminants import standard_illuminant
+from spectral_film_lab.model.illuminants import standard_illuminant
 
 ################################################################################
 # Fittings
@@ -649,4 +649,6 @@ if __name__=='__main__':
     # print(p)
     # plt.show()
     plt.show()
+
+
 

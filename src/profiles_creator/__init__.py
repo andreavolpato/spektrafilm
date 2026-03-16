@@ -1,4 +1,5 @@
-"""profiles_factory package.
+"""profiles_creator package.
 
 Raw curve ingestion and processed profile generation.
 """
+
