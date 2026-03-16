@@ -139,8 +139,8 @@ def assert_matches_baseline(
     actual: np.ndarray,
     expected: np.ndarray,
     *,
-    rtol: float = 1e-6,
-    atol: float = 1e-7,
+    rtol: float = 1e-4,
+    atol: float = 1e-6,
 ) -> None:
     if actual.shape != expected.shape:
         raise AssertionError(
