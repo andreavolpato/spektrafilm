@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from agx_emulsion.model.process import photo_process, photo_params
 
 
@@ -114,3 +113,22 @@ class TestPipelineSmoke:
         result1 = photo_process(gray, default_params)
         result2 = photo_process(gray, default_params)
         np.testing.assert_array_equal(result1, result2)
+    
+    def test_lut_vs_direct_consistency(self, default_params):
+        """LUT-accelerated path should approximate direct spectral calculation."""
+        gray = np.ones((4, 4, 3)) * 0.18
+
+        # Direct spectral path (LUTs off — already the default in default_params)
+        result_direct = photo_process(gray, default_params)
+
+        # LUT-accelerated path
+        default_params.settings.use_enlarger_lut = True
+        default_params.settings.use_scanner_lut = True
+        default_params.settings.lut_resolution = 17
+        result_lut = photo_process(gray, default_params)
+
+        assert np.all(np.isfinite(result_lut))
+        assert np.all(result_lut >= 0.0)
+        assert np.all(result_lut <= 1.0)
+        np.testing.assert_allclose(result_lut, result_direct, atol=0.02,
+            err_msg="LUT path deviates from direct spectral calculation by more than 2%")
