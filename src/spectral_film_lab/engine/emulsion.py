@@ -4,8 +4,8 @@ from opt_einsum import contract
 from spectral_film_lab.engine.density_curves import interpolate_exposure_to_density
 from spectral_film_lab.engine.couplers import compute_exposure_correction_dir_couplers, compute_dir_couplers_matrix, compute_density_curves_before_dir_couplers
 from spectral_film_lab.engine.grain import apply_grain_to_density, apply_grain_to_density_layers
-from agx_emulsion.utils.fast_stats import fast_lognormal_from_mean_std
-from agx_emulsion.utils.fast_interp import fast_interp
+from spectral_film_lab.utils.fast_stats import fast_lognormal_from_mean_std
+from spectral_film_lab.utils.fast_interp import fast_interp
 
 ################################################################################
 # AgXEmusion main class
@@ -328,5 +328,4 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
 # TODO: make a gray card border to check white balance
 
 if __name__=='__main__':
-    from agx_emulsion.tests.test_main_simulation import test_main_simulation
-    test_main_simulation()
+    pass

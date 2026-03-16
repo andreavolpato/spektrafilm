@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.ndimage import gaussian_filter
-# from agx_emulsion.utils.fast_gaussian_filter import fast_gaussian_filter
+# from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
 from opt_einsum import contract
 
 def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, high_exposure_couplers_shift=0.0, positive=False):

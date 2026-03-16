@@ -1,8 +1,8 @@
 import numpy as np
 import scipy
 import scipy.ndimage
-from agx_emulsion.utils.fast_stats import fast_binomial, fast_poisson, fast_lognormal_from_mean_std
-# from agx_emulsion.utils.fast_gaussian_filter import fast_gaussian_filter
+from spectral_film_lab.utils.fast_stats import fast_binomial, fast_poisson, fast_lognormal_from_mean_std
+# from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
 
 ################################################################################
 # Grain (very simple model)

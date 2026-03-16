@@ -8,7 +8,7 @@ from profiles_factory.balance import balance_sensitivity, balance_metameric_neut
 from profiles_factory.correct import align_midscale_neutral_exposures
 
 from spectral_film_lab.engine.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
-from agx_emulsion.utils.io import load_agx_emulsion_data, load_densitometer_data
+from spectral_film_lab.utils.io import load_agx_emulsion_data, load_densitometer_data
 from spectral_film_lab.profile_store.io import load_profile, profile_from_dict
 from spectral_film_lab.engine.illuminants import standard_illuminant
 
@@ -305,7 +305,7 @@ def create_profile(stock='kodak_portra_400',
         
     return profile
 
-from agx_emulsion.utils.measure import measure_density_min
+from spectral_film_lab.utils.measure import measure_density_min
 
 def remove_density_min(profile):
     
@@ -635,3 +635,4 @@ if __name__=='__main__':
     # print(p)
     # plt.show()
     plt.show()
+

@@ -4,8 +4,8 @@ import scipy.interpolate
 import scipy.special
 import lmfit
 
-from agx_emulsion.utils.io import load_densitometer_data
-from agx_emulsion.utils.measure import measure_slopes_at_exposure
+from spectral_film_lab.utils.io import load_densitometer_data
+from spectral_film_lab.utils.measure import measure_slopes_at_exposure
 
 ########################################################################################
 # General functions

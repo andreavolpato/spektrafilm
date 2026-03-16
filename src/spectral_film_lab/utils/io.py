@@ -4,7 +4,7 @@ import json
 import OpenImageIO as oiio
 import importlib.resources as pkg_resources
 
-from agx_emulsion.config import LOG_EXPOSURE, SPECTRAL_SHAPE
+from spectral_film_lab.config import LOG_EXPOSURE, SPECTRAL_SHAPE
 
 ################################################################################
 # 16-bit PNG I/O
@@ -158,9 +158,9 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
                            spectral_shape=SPECTRAL_SHAPE,
                            log_exposure=np.copy(LOG_EXPOSURE),
                            ):
-    if    color and type=='negative': maindatapkg = "agx_emulsion.data.film.negative"
-    elif  color and type=='positive': maindatapkg = "agx_emulsion.data.film.positive"
-    elif  color and type=='paper':    maindatapkg = "agx_emulsion.data.paper"
+    if    color and type=='negative': maindatapkg = "spectral_film_lab.data.film.negative"
+    elif  color and type=='positive': maindatapkg = "spectral_film_lab.data.film.positive"
+    elif  color and type=='paper':    maindatapkg = "spectral_film_lab.data.paper"
     
     # Load log sensitivity
     if log_sensitivity_donor is not None: datapkg = maindatapkg + '.' + log_sensitivity_donor
@@ -212,7 +212,7 @@ def load_densitometer_data(type='status_A',
     responsivities = np.zeros((np.size(spectral_shape.wavelengths), 3))
     channels = ['r', 'g', 'b']
     for i, channel in enumerate(channels):
-        datapkg = 'agx_emulsion.data.densitometer.'+type
+        datapkg = 'spectral_film_lab.data.densitometer.'+type
         filename = 'responsivity_'+channel+'.csv'
         data = load_csv(datapkg, filename)
         responsivities[:,i] = interpolate_to_common_axis(data, spectral_shape.wavelengths, extrapolate=False, method='linear')
@@ -227,7 +227,7 @@ def load_densitometer_data(type='status_A',
 
 def save_ymc_filter_values(ymc_filters):
     # to be launched only in the package not accessible by the user
-    package = pkg_resources.files('agx_emulsion.data.profiles')
+    package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = 'enlarger_neutral_ymc_filters.json'
     resource = package / filename
     with resource.open("w") as file:
@@ -235,7 +235,7 @@ def save_ymc_filter_values(ymc_filters):
 
 def read_neutral_ymc_filter_values():
     filename = 'enlarger_neutral_ymc_filters.json'
-    package_name = 'agx_emulsion.data.profiles'
+    package_name = 'spectral_film_lab.data.profiles'
     package = pkg_resources.files(package_name)
     resource = package / filename
     with resource.open("r") as file:
@@ -250,7 +250,7 @@ def load_dichroic_filters(wavelengths, brand='thorlabs'):
     channels = ['y','m','c']
     filters = np.zeros((np.size(wavelengths), 3))
     for i, channel in enumerate(channels):
-        package = pkg_resources.files('agx_emulsion.data.filters.dichroics')
+        package = pkg_resources.files('spectral_film_lab.data.filters.dichroics')
         filename = brand+'/filter_'+channel+'.csv'
         resource = package / filename
         with resource.open("r") as file:
@@ -263,7 +263,7 @@ def load_dichroic_filters(wavelengths, brand='thorlabs'):
 
 def load_filter(wavelengths, name='KG3', brand='schott', filter_type='heat_absorbing', percent_transmittance=False):
     transmittance = np.zeros_like(wavelengths)
-    package = pkg_resources.files('agx_emulsion.data.filters.'+filter_type)
+    package = pkg_resources.files('spectral_film_lab.data.filters.'+filter_type)
     filename = brand+'/'+name+'.csv'
     resource = package / filename
     if percent_transmittance: scale = 100

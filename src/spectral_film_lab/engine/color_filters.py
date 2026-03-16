@@ -3,8 +3,8 @@ import scipy
 import colour
 import scipy.interpolate
 import matplotlib.pyplot as plt
-from agx_emulsion.config import SPECTRAL_SHAPE, ENLARGER_STEPS
-from agx_emulsion.utils.io import load_dichroic_filters, load_filter
+from spectral_film_lab.config import SPECTRAL_SHAPE, ENLARGER_STEPS
+from spectral_film_lab.utils.io import load_dichroic_filters, load_filter
 
 ################################################################################
 # Color Filter class

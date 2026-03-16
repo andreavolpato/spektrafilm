@@ -1,6 +1,6 @@
 import numpy as np
 import colour
-from agx_emulsion.config import SPECTRAL_SHAPE
+from spectral_film_lab.config import SPECTRAL_SHAPE
 from spectral_film_lab.engine.color_filters import schott_kg3_heat_filter, schott_kg1_heat_filter, generic_lens_transmission
 
 def black_body_spectrum(temperature):
@@ -42,3 +42,4 @@ if __name__=="__main__":
     print(ill[:])
     plt.plot(ill.wavelengths, ill.values)
     plt.show()
+

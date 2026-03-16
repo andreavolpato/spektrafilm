@@ -7,7 +7,7 @@ pipeline, and displays the result using matplotlib.
 
 import matplotlib.pyplot as plt
 from spectral_film_lab.runtime.process import photo_params, photo_process
-from agx_emulsion.utils.io import load_image_oiio
+from spectral_film_lab.utils.io import load_image_oiio
 
 
 def run_simulation():
@@ -37,3 +37,4 @@ def run_simulation():
 
 if __name__ == '__main__':
     run_simulation()
+

@@ -3,7 +3,7 @@ import scipy
 import matplotlib.pyplot as plt
 import scipy.special
 import scipy.stats
-from agx_emulsion.utils.fast_interp import fast_interp
+from spectral_film_lab.utils.fast_interp import fast_interp
 
 ################################################################################
 # Density curve models

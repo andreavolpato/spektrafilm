@@ -1,5 +1,5 @@
 import numpy as np
-from agx_emulsion.utils.fast_interp_lut import apply_lut_cubic_3d, apply_lut_cubic_2d
+from spectral_film_lab.utils.fast_interp_lut import apply_lut_cubic_3d, apply_lut_cubic_2d
 
 def _create_lut_3d(function, xmin=0, xmax=1, steps=32):
     x = np.linspace(xmin, xmax, steps, endpoint=True)

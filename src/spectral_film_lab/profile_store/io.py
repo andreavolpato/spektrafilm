@@ -67,7 +67,7 @@ def save_profile(profile, suffix=''):
     profile.data.dye_density           = profile.data.dye_density.tolist()
     profile.data.log_exposure          = profile.data.log_exposure.tolist()
     profile.data.wavelengths           = profile.data.wavelengths.tolist()
-    package = pkg_resources.files('agx_emulsion.data.profiles')
+    package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = profile.info.stock + '.json'
     resource = package / filename
     print('Saving to:', filename)
@@ -75,7 +75,7 @@ def save_profile(profile, suffix=''):
         json.dump(profile_to_dict(profile), file, indent=4)
 
 def load_profile(stock):
-    package = pkg_resources.files('agx_emulsion.data.profiles')
+    package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = stock + '.json'
     resource = package / filename
     with resource.open("r") as file:

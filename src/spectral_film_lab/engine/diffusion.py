@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.ndimage
-# from agx_emulsion.utils.fast_gaussian_filter import fast_gaussian_filter
-# from agx_emulsion.utils.fft_gaussian_filter import fft_gaussian_filter
+# from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
+# from spectral_film_lab.utils.fft_gaussian_filter import fft_gaussian_filter
 
 def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
     """

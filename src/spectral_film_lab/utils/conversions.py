@@ -2,8 +2,8 @@ import numpy as np
 import colour
 from opt_einsum import contract
 
-from agx_emulsion.config import SPECTRAL_SHAPE
-from agx_emulsion.utils.io import load_densitometer_data
+from spectral_film_lab.config import SPECTRAL_SHAPE
+from spectral_film_lab.utils.io import load_densitometer_data
 
 def density_to_light(density, light):
     """
@@ -80,3 +80,4 @@ def rgb_to_raw_aces_idt(RGB, illuminant, sensitivity, midgray_rgb=[[[0.184,0.184
     raw = contract('ijk,lk->ijl',aces,aces_conversion_matrix)/midgray_rgb
     raw_midgray = np.array([[[1,1,1]]])
     return raw, raw_midgray
+
