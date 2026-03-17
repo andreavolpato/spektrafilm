@@ -4,7 +4,7 @@ import copy
 
 from spectral_film_lab.runtime.process import photo_params, photo_process
 
-class TestStrip:
+class CalibrationTarget:
     def __init__(self,
                  image,
                  base_params=photo_params(),
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     p = photo_params(negative='kodak_portra_400_auc')
     p.io.input_cctf_decoding = True
       
-    strip = TestStrip(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), resize_factor=0.05, rotate=True)
+    strip = CalibrationTarget(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), resize_factor=0.05, rotate=True)
     strip.negative_exposure_ramp(values=[-3, -2, -1, 0, 1, 2, 3, 4, 5, 6])
     fig = strip.process()
     plt.show()

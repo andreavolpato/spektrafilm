@@ -19,5 +19,3 @@ p = load_profile('kodak_portra_400_auc')
 # p = load_profile('kodak_portra_endura')
 plot_profile(p)
 plt.show()
-
-
