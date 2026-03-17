@@ -4,7 +4,7 @@ import scipy.interpolate
 import scipy.special
 import lmfit
 
-from spectral_film_lab.utils.io import load_densitometer_data
+from profiles_creator.data.loader import load_densitometer_data
 from spectral_film_lab.utils.measure import measure_slopes_at_exposure
 
 ########################################################################################

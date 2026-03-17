@@ -3,7 +3,6 @@ import colour
 from opt_einsum import contract
 
 from spectral_film_lab.config import SPECTRAL_SHAPE
-from spectral_film_lab.utils.io import load_densitometer_data
 
 def density_to_light(density, light):
     """
@@ -24,13 +23,6 @@ def density_to_light(density, light):
     transmitted *= light
     transmitted[np.isnan(transmitted)] = 0
     return transmitted
-
-def compute_densitometer_correction(dye_density, type='status_A'):
-    densitometer_responsivities = load_densitometer_data(type=type)
-    dye_density = dye_density[:,0:3]
-    dye_density[np.isnan(dye_density)] = 0
-    densitometer_correction = 1/np.sum(densitometer_responsivities[:] * dye_density, axis=0)
-    return densitometer_correction
 
 def compute_aces_conversion_matrix(sensitivity, illuminant):            
     """

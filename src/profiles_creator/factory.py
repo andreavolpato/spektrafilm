@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from profiles_creator.reconstruct import reconstruct_dye_density
 from profiles_creator.balance import balance_sensitivity, balance_metameric_neutral
 from profiles_creator.correct import align_midscale_neutral_exposures
+from profiles_creator.data.loader import load_agx_emulsion_data, load_densitometer_data
 
 from spectral_film_lab.model.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
-from spectral_film_lab.utils.io import load_agx_emulsion_data, load_densitometer_data
 from spectral_film_lab.profiles.io import load_profile, profile_from_dict
 from spectral_film_lab.model.illuminants import standard_illuminant
 
@@ -148,7 +148,7 @@ def unmix_sensitivity(profile, control_plot=False):
     sensitivity = 10**log_sensitivity
 
     # cross talk matrix
-    dr = load_densitometer_data(type=profile.info.densitometer)
+    dr = load_densitometer_data(densitometer_type=profile.info.densitometer)
     densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(dr, dye_density[:,0:3])
     density_curves_densitometer_minus_dmin = np.einsum('ij,kj->ki', densitometer_crosstalk_matrix, density_curves)
 
@@ -432,7 +432,7 @@ def unmix_density(profile):
     # dd = dd / np.nanmax(dd, axis=0)
     
     # cross talk matrix
-    ds = load_densitometer_data(type=profile.info.densitometer)
+    ds = load_densitometer_data(densitometer_type=profile.info.densitometer)
     densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(ds, dd[:,0:3])
     print('densitometer C: ')
     print(densitometer_crosstalk_matrix)
@@ -446,7 +446,7 @@ def unmix_density(profile):
 def densitometer_normalization(profile):
     dc = profile.data.density_curves
     dd = profile.data.dye_density
-    dstm = load_densitometer_data(type=profile.info.densitometer)
+    dstm = load_densitometer_data(densitometer_type=profile.info.densitometer)
     
     M = compute_densitometer_crosstalk_matrix(dstm, dd)
     norm_coeffs = np.diag(M)

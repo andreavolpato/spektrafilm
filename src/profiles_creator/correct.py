@@ -3,6 +3,15 @@ import scipy.interpolate
 import copy
 from spectral_film_lab.runtime.process import photo_process, photo_params
 from profiles_creator.fitting import fit_print_filters
+from profiles_creator.data.loader import load_densitometer_data
+
+
+def compute_densitometer_correction(dye_density, densitometer_type='status_A'):
+    densitometer_responsivities = load_densitometer_data(densitometer_type=densitometer_type)
+    dye_density = dye_density[:, 0:3]
+    dye_density[np.isnan(dye_density)] = 0
+    densitometer_correction = 1 / np.sum(densitometer_responsivities[:] * dye_density, axis=0)
+    return densitometer_correction
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     log_exposure_midscale_neutral = np.zeros((3,))
@@ -24,9 +33,9 @@ def align_midscale_neutral_exposures(profile, reference_channel=None):
     dc = profile.data.density_curves
     le = profile.data.log_exposure
     for i in np.arange(3):
-            dc[:,i] = np.interp(le, le-log_exposure_midscale_neutral[i], dc[:,i])
+        dc[:, i] = np.interp(le, le - log_exposure_midscale_neutral[i], dc[:, i])
     profile.data.density_curves = dc
-    profile.info.log_exposure_midscale_neutral = (np.ones(3)*log_exposure_midscale_neutral[1]).tolist()
+    profile.info.log_exposure_midscale_neutral = (np.ones(3) * log_exposure_midscale_neutral[1]).tolist()
     return profile
 
 ############################################################################################################

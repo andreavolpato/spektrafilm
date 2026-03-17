@@ -4,7 +4,6 @@ import json
 import OpenImageIO as oiio
 import importlib.resources as pkg_resources
 
-from spectral_film_lab.config import LOG_EXPOSURE, SPECTRAL_SHAPE
 
 ################################################################################
 # 16-bit PNG I/O
@@ -102,126 +101,6 @@ def save_image_oiio(filename, image_data, bit_depth=32):
         out.close()
 
 ################################################################################
-# Interpolation
-################################################################################
-
-def interpolate_to_common_axis(data, new_x,
-                               extrapolate=False, method='akima'):
-    x = data[0]
-    y = data[1]
-    sorted_indexes = np.argsort(x)
-    x = x[sorted_indexes]
-    y = y[sorted_indexes]
-    unique_index = np.unique(x, return_index=True)[1]
-    x = x[unique_index]
-    y = y[unique_index]
-    if method=='cubic':
-        interpolator = scipy.interpolate.CubicSpline(x, y, extrapolate=extrapolate)
-    if method=='akima':
-        interpolator = scipy.interpolate.Akima1DInterpolator(x, y, extrapolate=extrapolate)
-    elif method=='linear':
-        def interpolator(x_new):
-            return np.interp(x_new, x, y) #, left=np.nan, right=np.nan)
-    elif method=='smoothing_spline':
-        interpolator = scipy.interpolate.make_smoothing_spline(x, y)
-    new_data = interpolator(new_x)
-    return new_data
-
-################################################################################
-# Load data of emulsions
-################################################################################
-
-def load_csv(datapkg, filename):
-    """
-    Load data from a CSV file and return it as a transposed NumPy array.
-
-    Parameters:
-    filename (str): The path to the CSV file to be loaded.
-
-    Returns:
-    numpy.ndarray: A transposed NumPy array containing the data from the CSV file.
-                   Empty elements in the CSV are converted to None.
-    """
-    conv = lambda x: float(x) if x!=b'' else None # conversion function to take care of empty elements
-    package = pkg_resources.files(datapkg)
-    resource = package / filename
-    raw_data = np.loadtxt(resource, delimiter=',', converters=conv).transpose()
-    return raw_data
-
-def load_agx_emulsion_data(stock='kodak_portra_400',
-                           log_sensitivity_donor=None,
-                           denisty_curves_donor=None,
-                           dye_density_cmy_donor=None,
-                           dye_density_min_mid_donor=None,
-                           type='negative',
-                           color=True,
-                           spectral_shape=SPECTRAL_SHAPE,
-                           log_exposure=np.copy(LOG_EXPOSURE),
-                           ):
-    if    color and type=='negative': maindatapkg = "spectral_film_lab.data.film.negative"
-    elif  color and type=='positive': maindatapkg = "spectral_film_lab.data.film.positive"
-    elif  color and type=='paper':    maindatapkg = "spectral_film_lab.data.paper"
-    
-    # Load log sensitivity
-    if log_sensitivity_donor is not None: datapkg = maindatapkg + '.' + log_sensitivity_donor
-    else:                                 datapkg = maindatapkg + '.' + stock
-    rootname = 'log_sensitivity_'
-    log_sensitivity = np.zeros((np.size(spectral_shape.wavelengths), 3))
-    channels = ['r', 'g', 'b']
-    for i, channel in enumerate(channels):
-        data = load_csv(datapkg, rootname+channel+'.csv')
-        log_sens = interpolate_to_common_axis(data, spectral_shape.wavelengths)
-        log_sensitivity[:,i] = log_sens
-
-    # Load density curves
-    if denisty_curves_donor is not None: datapkg = maindatapkg + '.' + denisty_curves_donor
-    else:                                datapkg = maindatapkg + '.' + stock
-    filename_r = 'density_curve_r.csv'
-    filename_g = 'density_curve_g.csv'
-    filename_b = 'density_curve_b.csv'
-    dh_curve_r = load_csv(datapkg, filename_r)
-    dh_curve_g = load_csv(datapkg, filename_g)
-    dh_curve_b = load_csv(datapkg, filename_b)
-    log_exposure_shift = (np.max(dh_curve_g[0,:]) + np.min(dh_curve_g[0,:]))/2
-    p_denc_r = interpolate_to_common_axis(dh_curve_r, log_exposure + log_exposure_shift)
-    p_denc_g = interpolate_to_common_axis(dh_curve_g, log_exposure + log_exposure_shift)
-    p_denc_b = interpolate_to_common_axis(dh_curve_b, log_exposure + log_exposure_shift)
-    density_curves = np.array([p_denc_r, p_denc_g, p_denc_b]).transpose()
-
-    # Load dye density
-    if dye_density_cmy_donor is not None: datapkg = maindatapkg + '.' + dye_density_cmy_donor
-    else:                                 datapkg = maindatapkg + '.' + stock
-    rootname = 'dye_density_'
-    dye_density = np.zeros((np.size(spectral_shape.wavelengths), 5))
-    channels = ['c', 'm', 'y']
-    for i, channel in enumerate(channels):
-        data = load_csv(datapkg, rootname+channel+'.csv')
-        dye_density[:,i] = interpolate_to_common_axis(data, spectral_shape.wavelengths)
-    if dye_density_min_mid_donor is not None: datapkg = maindatapkg + '.' + dye_density_min_mid_donor
-    else:                                     datapkg = maindatapkg + '.' + stock
-    if type=='negative':
-        channels = ['min', 'mid']
-        for i, channel in enumerate(channels):
-            data = load_csv(datapkg, rootname+channel+'.csv')
-            dye_density[:,i+3] = interpolate_to_common_axis(data, spectral_shape.wavelengths)
-
-    return log_sensitivity, dye_density, spectral_shape.wavelengths, density_curves, log_exposure
-
-def load_densitometer_data(type='status_A',
-                           spectral_shape=SPECTRAL_SHAPE):
-    responsivities = np.zeros((np.size(spectral_shape.wavelengths), 3))
-    channels = ['r', 'g', 'b']
-    for i, channel in enumerate(channels):
-        datapkg = 'spectral_film_lab.data.densitometer.'+type
-        filename = 'responsivity_'+channel+'.csv'
-        data = load_csv(datapkg, filename)
-        responsivities[:,i] = interpolate_to_common_axis(data, spectral_shape.wavelengths, extrapolate=False, method='linear')
-    responsivities[responsivities<0] = 0
-    responsivities /= np.nansum(responsivities, axis=0)
-    return responsivities
-
-
-################################################################################
 # YMC filter values
 ################################################################################
 
@@ -275,13 +154,3 @@ def load_filter(wavelengths, name='KG3', brand='schott', filter_type='heat_absor
         # transmittance = scipy.interpolate.CubicSpline(data[:,0], data[:,1]/scale)(wavelengths)
         transmittance = scipy.interpolate.Akima1DInterpolator(data[:,0], data[:,1]/scale)(wavelengths)
     return transmittance
-
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    # load_agx_emulsion_data()
-    # read_neutral_ymc_filter_values()
-    # load_densitometer_data()
-    kg3 = load_filter(SPECTRAL_SHAPE.wavelengths)
-    plt.plot(SPECTRAL_SHAPE.wavelengths, kg3)
-    plt.show()
-    

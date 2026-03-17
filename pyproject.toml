@@ -42,4 +42,7 @@ include = ["spectral_film_lab*", "profiles_creator*"]
 spectral_film_lab = [
     "data/**/*",
 ]
+profiles_creator = [
+    "data/**/*",
+]
 
