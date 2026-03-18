@@ -29,7 +29,8 @@ BASELINES_DIR = Path(__file__).resolve().parent / 'baselines'
 class CreateProfileRegressionCase:
     case_id: str
     stock: str
-    profile_type: str
+    type: str
+    support: str
     dye_density_cmy_donor: str | None
     densitometer: str
     reference_illuminant: str
@@ -42,7 +43,8 @@ CREATE_PROFILE_REGRESSION_CASES: tuple[CreateProfileRegressionCase, ...] = (
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_400',
         stock='kodak_portra_400',
-        profile_type='negative',
+        type='negative',
+        support='film',
         dye_density_cmy_donor='generic_a',
         densitometer='status_M',
         reference_illuminant='D55',
@@ -53,7 +55,8 @@ CREATE_PROFILE_REGRESSION_CASES: tuple[CreateProfileRegressionCase, ...] = (
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_endura_paper',
         stock='kodak_portra_endura',
-        profile_type='paper',
+        type='negative',
+        support='paper',
         dye_density_cmy_donor=None,
         densitometer='status_A',
         reference_illuminant='TH-KG3-L',
@@ -101,19 +104,20 @@ def compute_processed_profile(case: CreateProfileRegressionCase):
     with contextlib.redirect_stdout(io.StringIO()):
         profile = create_profile(
             stock=case.stock,
-            type=case.profile_type,
+            type=case.type,
+            support=case.support,
             dye_density_cmy_donor=case.dye_density_cmy_donor,
             densitometer=case.densitometer,
             reference_illuminant=case.reference_illuminant,
             viewing_illuminant=case.viewing_illuminant,
             log_sensitivity_density_over_min=case.log_sensitivity_density_over_min,
         )
-        if case.profile_type == 'negative':
+        if case.type == 'negative' and case.support == 'film':
             profile = _process_negative_profile_for_test(profile)
-        elif case.profile_type == 'paper':
+        elif case.type == 'negative' and case.support == 'paper':
             profile = _process_paper_profile_for_test(profile)
         else:
-            raise KeyError(f'Unsupported create_profile regression type: {case.profile_type}')
+            raise KeyError(f'Unsupported create_profile regression profile: support={case.support}, type={case.type}')
     plt.close('all')
     return profile
 

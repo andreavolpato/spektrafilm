@@ -22,7 +22,7 @@ def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     if reference_channel=='green':
         d_mid = np.ones(3) * d_mid[1]
     for i in range(3):
-        if profile.info.type=='positive':
+        if profile.info.is_positive:
             log_exposure_midscale_neutral[i] = np.interp(-d_mid[i], -profile.data.density_curves[:,i], profile.data.log_exposure)
         else:
             log_exposure_midscale_neutral[i] = np.interp(d_mid[i], profile.data.density_curves[:,i], profile.data.log_exposure)

@@ -15,6 +15,7 @@ def density_curve_model_norm_cdfs(loge,
                               0.3, 0.5, 0.7, # sigmas
                              ],
                         type='negative',
+                support='film',
                         number_of_layers = 3,
                         ):
     centers    = x[0:3]
@@ -59,9 +60,9 @@ def density_curve_layers(loge,
                 dloge_curve[:,i] += scipy.stats.norm.cdf(  (loge-center)/sigma )*amplitude
     return dloge_curve
 
-def guess_start_and_bounds_norm_cdfs(loge, data, type):
+def guess_start_and_bounds_norm_cdfs(loge, data, type, support='film'):
     range = np.max(data) - np.min(data)
-    if np.logical_or(type=='positive', type=='paper'):
+    if np.logical_or(type=='positive', support=='paper'):
         x0 = [
             np.mean(loge)-0.25, np.mean(loge), np.mean(loge)+0.25, # centers
             0.5, 1, 0.5, # amplitudes
@@ -103,6 +104,7 @@ def density_curve_model_log_line(logE,
                                    .2,   0, .2, 0,
                                  ],
                                type='negative',
+                                   support='film',
                                ):
     x = np.zeros(10)
     x[0:10] = x_in[0:10]
@@ -145,12 +147,12 @@ def density_curve_model_log_line(logE,
         D = D_min + rise - stop
     return D
 
-def guess_start_and_bounds_log_line(loge, data, type):
-        if np.logical_or(type=='positive', type=='paper'):
-                s = 2
-        else:
-                s = 1
-        x0 = [
+def guess_start_and_bounds_log_line(loge, data, type, support='film'):
+    if np.logical_or(type=='positive', support=='paper'):
+        s = 2
+    else:
+        s = 1
+    x0 = [
         np.min(data), # D_min
         (np.max(data)-np.min(data))/(np.max(loge)-np.min(loge))*2, # gamma
         np.mean(loge), # H_ref
@@ -159,38 +161,38 @@ def guess_start_and_bounds_log_line(loge, data, type):
         2, # curvature_shoulder
         0, 0,
         0, 0,
-        ]
-        x_lb = [0, # D_min
-                0, # gamma  
-                np.min(loge), # H_ref
-                0, # D_range
-                0.5, # curvature_toe
-                0.5, # curvature_shoulder
-                -4, 0,   # toe shape
-                -4, 0, # shoulder shape
-                ]
-        x_ub = [np.min(data)+1, # D_min
-                5, # gamma
-                np.max(loge), # H_ref
-                3.5, # D_range
-                16, # curvature_toe
-                4, # curvature_shoulder
-                8, 4*s, # toe shape, slope-max
-                8, 4*s, # shoulder shape, slope-max
-                ]
-        return x0, (x_lb, x_ub)
+    ]
+    x_lb = [0, # D_min
+            0, # gamma
+            np.min(loge), # H_ref
+            0, # D_range
+            0.5, # curvature_toe
+            0.5, # curvature_shoulder
+            -4, 0,   # toe shape
+            -4, 0, # shoulder shape
+            ]
+    x_ub = [np.min(data)+1, # D_min
+            5, # gamma
+            np.max(loge), # H_ref
+            3.5, # D_range
+            16, # curvature_toe
+            4, # curvature_shoulder
+            8, 4*s, # toe shape, slope-max
+            8, 4*s, # shoulder shape, slope-max
+            ]
+    return x0, (x_lb, x_ub)
 
-def compute_density_curves(log_exposure, parameters, type, model='norm_cdfs'):
+def compute_density_curves(log_exposure, parameters, type, support='film', model='norm_cdfs'):
     density_out = np.zeros((np.size(log_exposure), 3))
     if model=='norm_cdfs':
         model_function = density_curve_model_norm_cdfs
     if model=='log_line':
         model_function = density_curve_model_log_line
     for i in np.arange(3):
-        density_out[:,i] = model_function(log_exposure, parameters[i], type)
+        density_out[:,i] = model_function(log_exposure, parameters[i], type, support=support)
     return density_out
 
-def compute_density_curves_layers(log_exposure, parameters, type):
+def compute_density_curves_layers(log_exposure, parameters, type, support='film'):
     density_out = np.zeros((np.size(log_exposure), 3, 3))
     for i in np.arange(3):
         density_out[:,:,i] = density_curve_layers(log_exposure, parameters[i], type)
@@ -202,6 +204,7 @@ def compute_density_curves_layers(log_exposure, parameters, type):
 
 def fit_density_curve(loge, data,
                       type='negative',
+                      support='film',
                       model='norm_cdfs'):
     if model=='norm_cdfs':
         model_function = density_curve_model_norm_cdfs
@@ -212,9 +215,9 @@ def fit_density_curve(loge, data,
     nan_sel = np.isnan(data)
     loge = loge[~nan_sel]
     data = data[~nan_sel]
-    x0, bounds = guesses(loge, data, type)
+    x0, bounds = guesses(loge, data, type, support=support)
     print('density curves x0',x0)
-    residues = lambda x: data - model_function(loge, x, type)
+    residues = lambda x: data - model_function(loge, x, type, support=support)
     fit = scipy.optimize.least_squares(residues,x0,bounds=bounds)
     return fit.x
 

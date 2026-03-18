@@ -46,7 +46,7 @@ def plot(self):
     axs[2].plot(self.wavelengths, density_matrix[:,0], color='tab:cyan')
     axs[2].plot(self.wavelengths, density_matrix[:,1], color='tab:pink')
     axs[2].plot(self.wavelengths, density_matrix[:,2], color='gold')
-    if self.type=='negative':
+    if self.type=='negative' and getattr(self, 'support', 'film') == 'film':
         axs[2].plot(self.wavelengths, density_matrix[:,3], color='gray', linewidth=1)
         axs[2].plot(self.wavelengths, density_matrix[:,4], color='lightgray', linewidth=1)
         axs[2].legend(('C','M','Y','Min','Mid','Sim'))
@@ -103,12 +103,12 @@ def plot_midgray_density_test(self, exposure_bias=1):
     _, ax = plt.subplots()
     wavelengths = self.wavelengths
     density_matrix = _density_matrix(self)
-    if self.type=='negative':
+    if self.type=='negative' and getattr(self, 'support', 'film') == 'film':
         ax.plot(wavelengths, density_matrix[:,3])
         ax.plot(wavelengths, density_matrix[:,4])
         ax.plot(wavelengths, density_midgray[0,0])
         ax.legend(('Minimum', 'Midgray', 'Midgray Simulated'))
-    if np.logical_or(self.type=='positive', self.type=='paper'):
+    if np.logical_or(self.type=='positive', getattr(self, 'support', 'film') == 'paper'):
         ax.plot(wavelengths, np.sum(density_matrix[:, :3], axis=1), label='Midgray')
         ax.plot(wavelengths, density_midgray[0,0], color='k', label='Midgray Simulated')
         ax.legend()
