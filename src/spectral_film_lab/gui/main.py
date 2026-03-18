@@ -286,7 +286,6 @@ def simulation(input_layer:Image,
     params.scanner.unsharp_mask = scan_unsharp_mask
     
     params.settings.rgb_to_raw_method = input_image.spectral_upsampling_method.value.value
-    params.settings.use_camera_lut = False
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
     params.settings.lut_resolution = 32

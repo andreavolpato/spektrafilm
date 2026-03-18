@@ -78,7 +78,6 @@ class TestPhotoParamsDefaults:
         assert params.debug.luts.scanner_lut is None
 
         assert params.settings.rgb_to_raw_method == 'hanatos2025'
-        assert params.settings.use_camera_lut is False
         assert params.settings.use_enlarger_lut is False
         assert params.settings.use_scanner_lut is False
         assert params.settings.lut_resolution == 17
