@@ -198,7 +198,8 @@ def normalize_density_max(profile):
 
 
 if __name__=='__main__':
-    from profiles_creator.factory import load_profile, plot_profile, adjust_log_exposure
+    from profiles_creator.factory import load_profile, adjust_log_exposure
+    from profiles_creator.plotting import plot_profile
     import matplotlib.pyplot as plt
 
     # profile = load_profile('fujifilm_pro_400h_au')

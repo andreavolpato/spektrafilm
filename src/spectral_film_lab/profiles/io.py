@@ -11,15 +11,6 @@ PROFILE_TYPES = frozenset({'negative', 'positive'})
 PROFILE_SUPPORTS = frozenset({'film', 'paper'})
 PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
 
-
-def normalize_channel_model(channel_model: str | bool) -> str:
-    if isinstance(channel_model, bool):
-        channel_model = 'color' if channel_model else 'bw'
-    if channel_model not in PROFILE_CHANNEL_MODELS:
-        raise ValueError(f"Unsupported channel model: {channel_model}")
-    return channel_model
-
-
 def _empty_vector() -> np.ndarray:
     return np.empty((0,), dtype=float)
 
@@ -45,13 +36,6 @@ class ProfileInfo:
     viewing_illuminant: str = 'D50'
     fitted_cmy_midscale_neutral_density: Any = None
     log_exposure_midscale_neutral: Any = None
-
-    def __post_init__(self):
-        if self.type not in PROFILE_TYPES:
-            raise ValueError(f"Unsupported profile type: {self.type}")
-        if self.support not in PROFILE_SUPPORTS:
-            raise ValueError(f"Unsupported profile support: {self.support}")
-        self.channel_model = normalize_channel_model(self.channel_model)
 
     @property
     def is_positive(self) -> bool:
@@ -80,23 +64,23 @@ class ProfileInfo:
 
 @dataclass
 class ProfileData:
-    log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
     wavelengths: np.ndarray = field(default_factory=_empty_vector)
-    density_curves: np.ndarray = field(default_factory=_empty_matrix)
-    log_exposure: np.ndarray = field(default_factory=_empty_vector)
+    log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
     channel_density: np.ndarray = field(default_factory=_empty_matrix)
     base_density: np.ndarray = field(default_factory=_empty_vector)
     midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
+    log_exposure: np.ndarray = field(default_factory=_empty_vector)
+    density_curves: np.ndarray = field(default_factory=_empty_matrix)
     density_curves_layers: np.ndarray = field(default_factory=_empty_tensor)
 
     def __post_init__(self):
-        self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
         self.wavelengths = np.asarray(self.wavelengths, dtype=float)
-        self.density_curves = np.asarray(self.density_curves, dtype=float)
-        self.log_exposure = np.asarray(self.log_exposure, dtype=float)
+        self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
         self.channel_density = np.asarray(self.channel_density, dtype=float)
         self.base_density = np.asarray(self.base_density, dtype=float)
         self.midscale_neutral_density = np.asarray(self.midscale_neutral_density, dtype=float)
+        self.log_exposure = np.asarray(self.log_exposure, dtype=float)
+        self.density_curves = np.asarray(self.density_curves, dtype=float)
         self.density_curves_layers = np.asarray(self.density_curves_layers, dtype=float)
 
 
@@ -218,7 +202,7 @@ def save_profile(profile, suffix=''):
     package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = profile.info.stock + '.json'
     resource = package / filename
-    print('Saving to:', filename)
+    print('Saving profile to:', filename)
     with resource.open("w") as file:
         json.dump(_json_safe(profile_to_dict(profile)), file, indent=4, allow_nan=False)
 
@@ -243,7 +227,6 @@ __all__ = [
     "PROFILE_CHANNEL_MODELS",
     "PROFILE_SUPPORTS",
     "PROFILE_TYPES",
-    "normalize_channel_model",
     "profile_from_dict",
     "profile_to_dict",
     "load_profile",

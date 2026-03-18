@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-from profiles_creator.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
+from profiles_creator.factory import create_profile, process_negative_profile, process_paper_profile, replace_fitted_density_curves, adjust_log_exposure
+from profiles_creator.plotting import plot_profile
 from spectral_film_lab.profiles.io import save_profile
 from profiles_creator.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
 
@@ -23,7 +24,8 @@ if process_print_paper:
     for label, name, ref_illu, illu, sens, curv, dye, dom in paper_info:
         profile = create_profile(stock=label,
                                 name=name,
-                                type='paper',
+                                profile_type='negative',
+                                support='paper',
                                 log_sensitivity_donor=sens,
                                 denisty_curves_donor=curv,
                                 dye_density_cmy_donor=dye,
@@ -65,7 +67,7 @@ if process_negative:
             continue
         profile = create_profile(stock=label,
                                  name=name,
-                                 type='negative',
+                                 profile_type='negative',
                                  densitometer='status_M',
                                  dye_density_cmy_donor=dye,
                                  log_sensitivity_donor=ls_donor,

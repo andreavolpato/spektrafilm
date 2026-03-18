@@ -7,14 +7,11 @@ from profiles_creator.reconstruct import reconstruct_dye_density
 from profiles_creator.balance import balance_sensitivity, balance_metameric_neutral
 from profiles_creator.correct import align_midscale_neutral_exposures
 from profiles_creator.data.loader import load_agx_emulsion_data, load_densitometer_data
+from profiles_creator.fitting import compute_density_curves, compute_density_curves_layers, fit_density_curves
+from profiles_creator.plotting import plot_profile
 
-from spectral_film_lab.model.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
 from spectral_film_lab.profiles.io import Profile, ProfileData, ProfileInfo, load_profile
 from spectral_film_lab.utils.measure import measure_density_min
-
-################################################################################
-# Fittings
-################################################################################
 
 def find_midscale_neutral_coefficients(channel_density, base_density, midscale_neutral_density, fit=True):
     mid_over_base = midscale_neutral_density - base_density
@@ -36,17 +33,6 @@ def find_midscale_neutral_coefficients(channel_density, base_density, midscale_n
             d_mid[i] = np.interp(imax, np.arange(np.size(mid_over_base)), mid_over_base)
         x = d_mid / dd_max
     return x
-
-def fit_density_curves(log_exposure,
-                       density,
-                       model='norm_cdfs',
-                       profile_type='negative',
-                       support='film'):
-    fitted_parameters = np.zeros((3,9))
-    for i in np.arange(3):
-        fitted_parameters[i] = fit_density_curve(log_exposure, density[:,i],
-                                                 profile_type, support=support, model=model)
-    return fitted_parameters
 
 ################################################################################
 # Unmix densities
@@ -197,7 +183,7 @@ def unmix_sensitivity(profile, control_plot=False):
 ################################################################################
 
 def create_profile(stock='kodak_portra_400',
-                   type='negative',
+                   profile_type='negative',
                    support='film',
                    channel_model='color',
                    name=None,
@@ -215,11 +201,11 @@ def create_profile(stock='kodak_portra_400',
                                               denisty_curves_donor=denisty_curves_donor,
                                               dye_density_cmy_donor=dye_density_cmy_donor,
                                               dye_density_min_mid_donor=dye_density_min_mid_donor,
-                                              type=type,
+                                              profile_type=profile_type,
                                               support=support,
                                               channel_model=channel_model,
                                               )
-    print(stock,' - ',support, type)
+    print(stock,' - ',support, profile_type)
 
     channel_density = np.asarray(d[:, :3])
     base_density = np.asarray(d[:, 3])
@@ -228,7 +214,7 @@ def create_profile(stock='kodak_portra_400',
         info=ProfileInfo(
             stock=stock,
             name=stock if name is None else name,
-            type=type,
+            type=profile_type,
             support=support,
             channel_model=channel_model,
             densitometer=densitometer,
@@ -419,9 +405,9 @@ def replace_fitted_density_curves(profile, control_plot=False):
     density_curves_fitting_parameters = fit_density_curves(le, dc, profile_type=profile_type, support=support)
     print('density_curves_fitting_parameters: ', density_curves_fitting_parameters)
     density_curves_prefit = np.copy(dc)
-    dc = compute_density_curves(le, density_curves_fitting_parameters, type=profile_type, support=support)
+    dc = compute_density_curves(le, density_curves_fitting_parameters, profile_type=profile_type, support=support)
     profile.data.density_curves = dc
-    profile.data.density_curves_layers = compute_density_curves_layers(le, density_curves_fitting_parameters, type=profile_type, support=support)
+    profile.data.density_curves_layers = compute_density_curves_layers(le, density_curves_fitting_parameters, profile_type=profile_type, support=support)
     
     if control_plot:
         plt.figure()
@@ -480,102 +466,3 @@ def process_paper_profile(raw_profile, align_midscale_exposures=False):
     profile = replace_fitted_density_curves(profile)
     plot_profile(profile, unmixed=True, original=raw_profile)
     return profile
-
-
-################################################################################
-# Save and Load
-################################################################################
-
-def plot_profile(profile, unmixed=False, original=None):
-    wavelengths = np.asarray(profile.data.wavelengths)
-    log_exposure = np.asarray(profile.data.log_exposure)
-    density_curves = np.asarray(profile.data.density_curves)
-    log_sensitivity = np.asarray(profile.data.log_sensitivity)
-    dye_density = np.column_stack((
-        np.asarray(profile.data.channel_density),
-        np.asarray(profile.data.base_density),
-        np.asarray(profile.data.midscale_neutral_density),
-    ))
-
-    # Some profile payloads are channel-first Python lists; normalize to NxC for plotting.
-    if log_sensitivity.ndim == 2 and log_sensitivity.shape[0] == 3 and log_sensitivity.shape[1] != 3:
-        log_sensitivity = log_sensitivity.T
-    if density_curves.ndim == 2 and density_curves.shape[0] == 3 and density_curves.shape[1] != 3:
-        density_curves = density_curves.T
-    if dye_density.ndim == 2 and dye_density.shape[0] in (3, 5) and dye_density.shape[1] not in (3, 5):
-        dye_density = dye_density.T
-    
-    # Plotting of data
-    fig, axs = plt.subplots(1,3)
-    fig.set_tight_layout(tight='rect')
-    fig.set_figheight(4)
-    fig.set_figwidth(12)
-    axs[0].plot(wavelengths, log_sensitivity[:,0], color='tab:red')
-    axs[0].plot(wavelengths, log_sensitivity[:,1], color='tab:green')
-    axs[0].plot(wavelengths, log_sensitivity[:,2], color='tab:blue')
-    axs[0].legend(('R','G','B'))
-    axs[0].set_xlabel('Wavelength (nm)')
-    if original is not None:
-        original_log_sensitivity = np.asarray(original.data.log_sensitivity)
-        if original_log_sensitivity.ndim == 2 and original_log_sensitivity.shape[0] == 3 and original_log_sensitivity.shape[1] != 3:
-            original_log_sensitivity = original_log_sensitivity.T
-        axs[0].plot(wavelengths, original_log_sensitivity[:,0], alpha=0.5, color='tab:red', linestyle='--')
-        axs[0].plot(wavelengths, original_log_sensitivity[:,1], alpha=0.5, color='tab:green', linestyle='--')
-        axs[0].plot(wavelengths, original_log_sensitivity[:,2], alpha=0.5, color='tab:blue', linestyle='--')
-    axs[0].set_ylabel('Log sensitivity')
-    axs[0].set_xlim((350, 750))
-    
-    D_lim = np.nanmax(density_curves)*1.05
-    axs[1].plot(log_exposure, density_curves[:,0], color='tab:red', label='R')
-    axs[1].plot(log_exposure, density_curves[:,1], color='tab:green', label='G')
-    axs[1].plot(log_exposure, density_curves[:,2], color='tab:blue', label='B')
-    axs[1].plot([0, 0], [0, D_lim], color='gray', linewidth=1, label='Ref')
-    if profile.info.is_film and profile.info.is_negative:
-        le_3_stops = np.log10(2**3)
-        axs[1].plot([-le_3_stops, -le_3_stops], [0, D_lim], 
-                    color='lightgray', linestyle='dashed', linewidth=1, label='-3EV')
-    if profile.info.is_paper: axs[1].set_xlim((-1, 2))
-    if profile.info.is_positive: axs[1].set_xlim((-2.5, 1.5))
-    axs[1].legend()
-    axs[1].set_xlabel('Log exposure')
-    if unmixed: axs[1].set_ylabel('Layer density (over base+fog)')
-    else:       axs[1].set_ylabel('Density (status '+profile.info.densitometer[-1]+', over base+fog)')
-    
-    axs[2].plot(wavelengths, dye_density[:,0], color='tab:cyan')
-    axs[2].plot(wavelengths, dye_density[:,1], color='tab:pink')
-    axs[2].plot(wavelengths, dye_density[:,2], color='gold')
-    axs[2].plot(wavelengths, dye_density[:,3], color='gray', linewidth=1, linestyle='--')
-    axs[2].plot(wavelengths, dye_density[:,4], color='gray', linewidth=1)
-    axs[2].legend(('C','M','Y','Min','Mid'))
-    if original is not None:
-        original_dye_density = np.column_stack((
-            np.asarray(original.data.channel_density),
-            np.asarray(original.data.base_density),
-            np.asarray(original.data.midscale_neutral_density),
-        ))
-        axs[2].plot(wavelengths, original_dye_density[:,0], alpha=0.5, color='tab:cyan', linestyle='--')
-        axs[2].plot(wavelengths, original_dye_density[:,1], alpha=0.5, color='tab:pink', linestyle='--')
-        axs[2].plot(wavelengths, original_dye_density[:,2], alpha=0.5, color='gold', linestyle='--')
-    axs[2].set_xlabel('Wavelength (nm)')
-    axs[2].set_ylabel('Diffuse density')
-    axs[2].set_xlim((350, 750))
-    
-    fig.suptitle(profile.info.name + ' - ' + profile.info.stock)
-
-# Note: profile subfolders are not implemented in save/load yet.
-
-if __name__=='__main__':  
-    n_raw = load_profile('kodak_portra_400')
-    n = load_profile('kodak_portra_400_auc')
-    plot_profile(n_raw)
-    plot_profile(n)
-    
-    p_raw = load_profile('kodak_portra_endura')
-    p = load_profile('kodak_portra_endura_uc')
-    plot_profile(p_raw)
-    plot_profile(p)
-    plt.show()
-
-
-
-

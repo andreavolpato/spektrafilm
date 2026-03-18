@@ -104,7 +104,7 @@ def compute_processed_profile(case: CreateProfileRegressionCase):
     with contextlib.redirect_stdout(io.StringIO()):
         profile = create_profile(
             stock=case.stock,
-            type=case.type,
+            profile_type=case.type,
             support=case.support,
             dye_density_cmy_donor=case.dye_density_cmy_donor,
             densitometer=case.densitometer,

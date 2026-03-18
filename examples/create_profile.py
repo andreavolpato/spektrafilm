@@ -6,7 +6,8 @@ and how to load and plot existing profiles.
 """
 
 import matplotlib.pyplot as plt
-from profiles_creator.factory import create_profile, plot_profile, remove_density_min
+from profiles_creator.factory import create_profile, remove_density_min
+from profiles_creator.plotting import plot_profile
 from spectral_film_lab.profiles.io import load_profile
 
 p = create_profile('kodak_vision3_50d')
