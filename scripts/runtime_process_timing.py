@@ -30,7 +30,6 @@ params.debug.return_negative_density_cmy = False
 params.debug.return_print_density_cmy = False
 
 params.settings.use_fast_stats = True
-params.settings.use_camera_lut = True
 params.settings.use_enlarger_lut = True
 params.settings.use_scanner_lut = True
 params.settings.lut_resolution = 32

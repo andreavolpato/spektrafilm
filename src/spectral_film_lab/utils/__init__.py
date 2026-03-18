@@ -75,7 +75,6 @@ class DebugParams:
 @dataclass
 class SettingsParams:
     rgb_to_raw_method: str = "hanatos2025"
-    use_camera_lut: bool = False
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
     lut_resolution: int = 17

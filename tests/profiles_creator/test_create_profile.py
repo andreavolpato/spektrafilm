@@ -15,7 +15,6 @@ def make_runtime_params(print_paper: str):
     params = photo_params(print_paper=print_paper)
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True
-    params.settings.use_camera_lut = False
     params.settings.use_enlarger_lut = False
     params.settings.use_scanner_lut = False
     params.io.preview_resize_factor = 1.0
