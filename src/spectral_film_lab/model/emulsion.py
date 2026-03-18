@@ -88,6 +88,7 @@ class AgXEmulsion():
         self.wavelengths = np.array(profile.data.wavelengths)
         
         self.type = profile.info.type
+        self.support = profile.info.support
         self.stock = profile.info.stock
         self.reference_illuminant = profile.info.reference_illuminant
         self.viewing_illuminant = profile.info.viewing_illuminant
@@ -186,7 +187,7 @@ class Film(AgXEmulsion):
             density_curves_0 = compute_density_curves_before_dir_couplers(self.density_curves, 
                                                                           self.log_exposure, 
                                                                           M, self.dir_couplers.high_exposure_shift,
-                                                                          positive=self.type=='positive')
+                                                                          positive=self.info.is_positive)
             # compute exposure correction
             density_max = np.nanmax(self.density_curves, axis=0)
             diffusion_size_um = self.dir_couplers.diffusion_size_um
@@ -194,7 +195,7 @@ class Film(AgXEmulsion):
             log_raw_0 = compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max, M, 
                                                                  diffusion_size_pixel, 
                                                                  high_exposure_couplers_shift=self.dir_couplers.high_exposure_shift,
-                                                                 positive=self.type=='positive')
+                                                                 positive=self.info.is_positive)
             # interpolated with corrected curves
             density_cmy = interpolate_exposure_to_density(log_raw_0, density_curves_0, self.log_exposure, self.gamma_factor)
         return density_cmy
@@ -214,7 +215,7 @@ class Film(AgXEmulsion):
                                                     n_sub_layers=self.grain.n_sub_layers)
             else:
                 density_cmy_layers = interp_density_cmy_layers(density_cmy, self.density_curves, self.density_curves_layers,
-                                                               positive_film=self.info.type=='positive')
+                                                               positive_film=self.info.is_positive)
                 density_max_layers = np.nanmax(self.density_curves_layers, axis=0)
                 density_cmy = apply_grain_to_density_layers(density_cmy_layers,
                                                             density_max_layers=density_max_layers,

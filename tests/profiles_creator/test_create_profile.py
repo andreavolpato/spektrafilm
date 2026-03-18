@@ -44,7 +44,9 @@ class TestCreateProfile:
         expected = load_baseline(case.case_id)
 
         assert profile.info.stock == case.stock
-        assert profile.info.type == case.profile_type
+        assert profile.info.type == case.type
+        assert profile.info.support == case.support
+        assert profile.info.channel_model == 'color'
         assert profile.info.densitometer == case.densitometer
         assert profile.info.reference_illuminant == case.reference_illuminant
         assert profile.info.viewing_illuminant == 'D50'
@@ -69,7 +71,9 @@ class TestCreateProfile:
         expected = load_baseline(case.case_id)
 
         assert profile.info.stock == case.stock
-        assert profile.info.type == case.profile_type
+        assert profile.info.type == case.type
+        assert profile.info.support == case.support
+        assert profile.info.channel_model == 'color'
         assert profile.info.densitometer == case.densitometer
         assert profile.info.reference_illuminant == case.reference_illuminant
         assert profile.info.viewing_illuminant == case.viewing_illuminant

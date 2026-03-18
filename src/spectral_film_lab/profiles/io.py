@@ -1,22 +1,158 @@
-import json
 import copy
-import numpy as np
-from types import SimpleNamespace
 import importlib.resources as pkg_resources
+import json
+from dataclasses import dataclass, field, fields, is_dataclass
+from typing import Any, Mapping
+
+import numpy as np
 
 
-class ProfileNamespace(SimpleNamespace):
-    def __getattr__(self, name):
-        if name.startswith('__'):
-            raise AttributeError(name)
-        value = ProfileNamespace()
-        setattr(self, name, value)
-        return value
+PROFILE_TYPES = frozenset({'negative', 'positive'})
+PROFILE_SUPPORTS = frozenset({'film', 'paper'})
+PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
+
+
+def normalize_channel_model(channel_model: str | bool) -> str:
+    if isinstance(channel_model, bool):
+        channel_model = 'color' if channel_model else 'bw'
+    if channel_model not in PROFILE_CHANNEL_MODELS:
+        raise ValueError(f"Unsupported channel model: {channel_model}")
+    return channel_model
+
+
+def _empty_vector() -> np.ndarray:
+    return np.empty((0,), dtype=float)
+
+
+def _empty_matrix() -> np.ndarray:
+    return np.empty((0, 3), dtype=float)
+
+
+def _empty_tensor() -> np.ndarray:
+    return np.empty((0, 3, 3), dtype=float)
+
+
+@dataclass
+class ProfileInfo:
+    stock: str = ''
+    name: str = ''
+    type: str = 'negative'
+    support: str = 'film'
+    channel_model: str = 'color'
+    densitometer: str = 'status_M'
+    log_sensitivity_density_over_min: float = 0.2
+    reference_illuminant: str = 'D55'
+    viewing_illuminant: str = 'D50'
+    fitted_cmy_midscale_neutral_density: Any = None
+    log_exposure_midscale_neutral: Any = None
+
+    def __post_init__(self):
+        if self.type not in PROFILE_TYPES:
+            raise ValueError(f"Unsupported profile type: {self.type}")
+        if self.support not in PROFILE_SUPPORTS:
+            raise ValueError(f"Unsupported profile support: {self.support}")
+        self.channel_model = normalize_channel_model(self.channel_model)
+
+    @property
+    def is_positive(self) -> bool:
+        return self.type == 'positive'
+
+    @property
+    def is_negative(self) -> bool:
+        return self.type == 'negative'
+
+    @property
+    def is_paper(self) -> bool:
+        return self.support == 'paper'
+
+    @property
+    def is_film(self) -> bool:
+        return self.support == 'film'
+    
+    @property
+    def is_color(self) -> bool:
+        return self.channel_model == 'color'
+    
+    @property
+    def is_bw(self) -> bool:
+        return self.channel_model == 'bw'
+
+
+@dataclass
+class ProfileData:
+    log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
+    wavelengths: np.ndarray = field(default_factory=_empty_vector)
+    density_curves: np.ndarray = field(default_factory=_empty_matrix)
+    log_exposure: np.ndarray = field(default_factory=_empty_vector)
+    channel_density: np.ndarray = field(default_factory=_empty_matrix)
+    base_density: np.ndarray = field(default_factory=_empty_vector)
+    midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
+    density_curves_layers: np.ndarray = field(default_factory=_empty_tensor)
+
+    def __post_init__(self):
+        self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
+        self.wavelengths = np.asarray(self.wavelengths, dtype=float)
+        self.density_curves = np.asarray(self.density_curves, dtype=float)
+        self.log_exposure = np.asarray(self.log_exposure, dtype=float)
+        self.channel_density = np.asarray(self.channel_density, dtype=float)
+        self.base_density = np.asarray(self.base_density, dtype=float)
+        self.midscale_neutral_density = np.asarray(self.midscale_neutral_density, dtype=float)
+        self.density_curves_layers = np.asarray(self.density_curves_layers, dtype=float)
+
+
+@dataclass
+class Profile:
+    info: ProfileInfo = field(default_factory=ProfileInfo)
+    data: ProfileData = field(default_factory=ProfileData)
+
+    def __post_init__(self):
+        if not isinstance(self.info, ProfileInfo):
+            self.info = _coerce_profile_info(self.info)
+        if not isinstance(self.data, ProfileData):
+            self.data = _coerce_profile_data(self.data)
+
+
+def _coerce_profile_info(data: Any) -> ProfileInfo:
+    if isinstance(data, ProfileInfo):
+        return data
+    if isinstance(data, Mapping):
+        source = dict(data)
+    elif hasattr(data, '__dict__'):
+        source = vars(data)
+    else:
+        raise TypeError('Unsupported profile info payload')
+
+    kwargs = {}
+    for profile_field in fields(ProfileInfo):
+        if profile_field.name in source:
+            kwargs[profile_field.name] = source[profile_field.name]
+    return ProfileInfo(**kwargs)
+
+
+def _coerce_profile_data(data: Any) -> ProfileData:
+    if isinstance(data, ProfileData):
+        return data
+    if isinstance(data, Mapping):
+        source = dict(data)
+    elif hasattr(data, '__dict__'):
+        source = vars(data)
+    else:
+        raise TypeError('Unsupported profile data payload')
+
+    kwargs = {}
+    for profile_field in fields(ProfileData):
+        if profile_field.name in source:
+            kwargs[profile_field.name] = source[profile_field.name]
+    return ProfileData(**kwargs)
 
 
 def profile_from_dict(data):
+    if isinstance(data, Profile):
+        return data
+    if isinstance(data, Mapping) and 'info' in data and 'data' in data:
+        return Profile(info=data['info'], data=data['data'])
     if isinstance(data, dict):
-        return ProfileNamespace(**{k: profile_from_dict(v) for k, v in data.items()})
+        return {k: profile_from_dict(v) for k, v in data.items()}
     if isinstance(data, list):
         return [profile_from_dict(v) for v in data]
     if isinstance(data, tuple):
@@ -25,14 +161,14 @@ def profile_from_dict(data):
 
 
 def profile_to_dict(data):
+    if is_dataclass(data):
+        return {k: profile_to_dict(getattr(data, k)) for k in data.__dataclass_fields__}
     if isinstance(data, dict):
         return {k: profile_to_dict(v) for k, v in data.items()}
     if isinstance(data, list):
         return [profile_to_dict(v) for v in data]
     if isinstance(data, tuple):
         return [profile_to_dict(v) for v in data]
-    if hasattr(data, '__dict__'):
-        return {k: profile_to_dict(v) for k, v in vars(data).items()}
     return data
 
 
@@ -52,6 +188,7 @@ def _json_safe(data):
 
 def _validate_profile(profile, stock):
     try:
+        profile.info = _coerce_profile_info(profile.info)
         data = profile.data
         valid = (
             data.log_exposure.ndim == 1
@@ -78,15 +215,6 @@ def _validate_profile(profile, stock):
 def save_profile(profile, suffix=''):
     profile = copy.deepcopy(profile)
     profile.info.stock = profile.info.stock + suffix
-    # Convert to lists only on the deep-copied payload so callers keep ndarray data.
-    profile.data.log_sensitivity = np.asarray(profile.data.log_sensitivity).tolist()
-    profile.data.density_curves = np.asarray(profile.data.density_curves).tolist()
-    profile.data.density_curves_layers = np.asarray(profile.data.density_curves_layers).tolist()
-    profile.data.channel_density = np.asarray(profile.data.channel_density).tolist()
-    profile.data.base_density = np.asarray(profile.data.base_density).tolist()
-    profile.data.midscale_neutral_density = np.asarray(profile.data.midscale_neutral_density).tolist()
-    profile.data.log_exposure = np.asarray(profile.data.log_exposure).tolist()
-    profile.data.wavelengths = np.asarray(profile.data.wavelengths).tolist()
     package = pkg_resources.files('spectral_film_lab.data.profiles')
     filename = profile.info.stock + '.json'
     resource = package / filename
@@ -100,14 +228,6 @@ def load_profile(stock):
     resource = package / filename
     with resource.open("r") as file:
         profile = profile_from_dict(json.load(file))
-    profile.data.log_sensitivity = np.array(profile.data.log_sensitivity, dtype=float)
-    profile.data.channel_density = np.array(profile.data.channel_density, dtype=float)
-    profile.data.base_density = np.array(profile.data.base_density, dtype=float)
-    profile.data.midscale_neutral_density = np.array(profile.data.midscale_neutral_density, dtype=float)
-    profile.data.density_curves = np.array(profile.data.density_curves, dtype=float)
-    profile.data.log_exposure = np.array(profile.data.log_exposure, dtype=float)
-    profile.data.wavelengths = np.array(profile.data.wavelengths, dtype=float)
-    profile.data.density_curves_layers = np.array(profile.data.density_curves_layers, dtype=float)
     _validate_profile(profile, stock)
     return profile
 
@@ -117,7 +237,13 @@ load_processed_profile = load_profile
 save_processed_profile = save_profile
 
 __all__ = [
-    "ProfileNamespace",
+    "Profile",
+    "ProfileData",
+    "ProfileInfo",
+    "PROFILE_CHANNEL_MODELS",
+    "PROFILE_SUPPORTS",
+    "PROFILE_TYPES",
+    "normalize_channel_model",
     "profile_from_dict",
     "profile_to_dict",
     "load_profile",

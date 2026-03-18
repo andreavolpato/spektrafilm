@@ -4,6 +4,7 @@ import numpy as np
 import scipy.interpolate
 
 from spectral_film_lab.config import LOG_EXPOSURE, SPECTRAL_SHAPE
+from spectral_film_lab.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES
 
 
 def interpolate_to_common_axis(data, new_x, extrapolate=False, method='akima'):
@@ -44,18 +45,31 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
                            dye_density_cmy_donor=None,
                            dye_density_min_mid_donor=None,
                            type='negative',
-                           color=True,
+                           support='film',
+                           channel_model='color',
                            spectral_shape=SPECTRAL_SHAPE,
                            log_exposure=np.copy(LOG_EXPOSURE),
                            ):
-    if color and type == 'negative':
+    if type not in PROFILE_TYPES:
+        raise ValueError(f'Unsupported emulsion data selection: type={type}')
+    if support not in PROFILE_SUPPORTS:
+        raise ValueError(f'Unsupported emulsion data selection: support={support}')
+    if isinstance(channel_model, bool):
+        channel_model = 'color' if channel_model else 'bw'
+    if channel_model not in PROFILE_CHANNEL_MODELS:
+        raise ValueError(f'Unsupported emulsion data selection: channel_model={channel_model}')
+
+    if channel_model == 'bw':
+        raise ValueError('Unsupported emulsion data selection: channel_model=bw. Only color datasets are available.')
+
+    if support == 'film' and type == 'negative':
         maindatapkg = 'profiles_creator.data.film.negative'
-    elif color and type == 'positive':
+    elif support == 'film' and type == 'positive':
         maindatapkg = 'profiles_creator.data.film.positive'
-    elif color and type == 'paper':
+    elif support == 'paper':
         maindatapkg = 'profiles_creator.data.paper'
     else:
-        raise ValueError(f'Unsupported emulsion data selection: color={color}, type={type}')
+        raise ValueError(f'Unsupported emulsion data selection: channel_model={channel_model}, type={type}, support={support}')
 
     if log_sensitivity_donor is not None:
         datapkg = maindatapkg + '.' + log_sensitivity_donor
@@ -96,7 +110,7 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
         datapkg = maindatapkg + '.' + dye_density_min_mid_donor
     else:
         datapkg = maindatapkg + '.' + stock
-    if type == 'negative':
+    if support == 'film' and type == 'negative':
         channels = ['min', 'mid']
         for i, channel in enumerate(channels):
             data = load_csv(datapkg, rootname + channel + '.csv')
