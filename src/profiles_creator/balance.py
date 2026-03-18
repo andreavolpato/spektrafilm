@@ -61,6 +61,8 @@ def balance_density(profile):
 
 def balance_metameric_neutral(profile, midgray_value=0.184):
     illuminant = standard_illuminant(profile.info.viewing_illuminant)
+    channel_density = np.asarray(profile.data.channel_density)
+    base_density = np.asarray(profile.data.base_density)
 
     def rgb_mid(mid, illuminant=illuminant):
         light = 10**(-mid)*illuminant[:]   
@@ -73,13 +75,13 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
         rgb = colour.XYZ_to_RGB(xyz, RGB_COLOURSPACE_sRGB, apply_cctf_encoding=False, illuminant=illuminant_xy)
         return rgb
 
-    def midscale_neutral(density_cmy, dye_density=profile.data.dye_density):
-        mid = np.sum(dye_density[:,:3] * density_cmy, axis=1) + dye_density[:,3]
+    def midscale_neutral(density_cmy, channel_density=channel_density, base_density=base_density):
+        mid = np.sum(channel_density * density_cmy, axis=1) + base_density
         return mid
     
     transmittance_0 = midgray_value
     # density_0 = np.log10(1/transmittance_0)
-    # density_0 += np.nanmean(profile.data.dye_density[:,3])
+    # density_0 += np.nanmean(base_density)
     # transmittance_0 = 10**(-density_0)
     rgb_0 = np.ones(3)*transmittance_0
 
@@ -91,15 +93,15 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     
     fit = scipy.optimize.least_squares(residues, [1.0, 1.0, 1.0])
     d_cmy_metameric = fit.x
-    profile.info.density_midscale_neutral = d_cmy_metameric[1]
+    profile.info.fitted_cmy_midscale_neutral_density = d_cmy_metameric[1]
     d_cmy_scale = d_cmy_metameric / d_cmy_metameric[1]
     mid = midscale_neutral(d_cmy_metameric)
     # rgb = rgb_mid(mid, viewing_illuminant=p.info.viewing_illuminant)
     print('--- Balance Metameric Neutral')
     print('Density CMY of metameric neutral: ', d_cmy_metameric)
     print('Apllied density scale factors: ', d_cmy_scale)
-    profile.data.dye_density[:,4] = mid
-    profile.data.dye_density[:, :3] *= d_cmy_scale
+    profile.data.channel_density = channel_density * d_cmy_scale
+    profile.data.midscale_neutral_density = mid
     return profile
 
 

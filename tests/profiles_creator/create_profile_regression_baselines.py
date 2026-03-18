@@ -126,27 +126,31 @@ def _sample_indices(length: int, count: int) -> np.ndarray:
 
 def snapshot_profile(profile) -> dict[str, np.ndarray]:
     log_sensitivity = np.asarray(profile.data.log_sensitivity, dtype=np.float64)
-    dye_density = np.asarray(profile.data.dye_density, dtype=np.float64)
+    channel_density = np.asarray(profile.data.channel_density, dtype=np.float64)
+    base_density = np.asarray(profile.data.base_density, dtype=np.float64)
+    midscale_neutral_density = np.asarray(profile.data.midscale_neutral_density, dtype=np.float64)
     density_curves = np.asarray(profile.data.density_curves, dtype=np.float64)
     density_curves_layers = np.asarray(profile.data.density_curves_layers, dtype=np.float64)
     log_exposure = np.asarray(profile.data.log_exposure, dtype=np.float64)
     wavelengths = np.asarray(profile.data.wavelengths, dtype=np.float64)
 
     density_sample_idx = _sample_indices(density_curves.shape[0], 7)
-    spectral_sample_idx = _sample_indices(dye_density.shape[0], 7)
+    spectral_sample_idx = _sample_indices(channel_density.shape[0], 7)
 
     return {
         'log_sensitivity_channel_mean': np.nanmean(log_sensitivity, axis=0),
         'log_sensitivity_channel_max': np.nanmax(log_sensitivity, axis=0),
-        'dye_density_sample': dye_density[spectral_sample_idx],
-        'dye_density_channel_mean': np.nanmean(dye_density, axis=0),
+        'channel_density_sample': channel_density[spectral_sample_idx],
+        'channel_density_channel_mean': np.nanmean(channel_density, axis=0),
+        'base_density_sample': base_density[spectral_sample_idx],
+        'midscale_neutral_density_sample': midscale_neutral_density[spectral_sample_idx],
         'density_curves_sample': density_curves[density_sample_idx],
         'density_curves_channel_mean': np.nanmean(density_curves, axis=0),
         'density_curves_channel_max': np.nanmax(density_curves, axis=0),
         'density_curves_layers_sample': density_curves_layers[density_sample_idx],
         'log_exposure_sample': log_exposure[density_sample_idx],
         'wavelength_sample': wavelengths[spectral_sample_idx],
-        'density_midscale_neutral': np.asarray(profile.info.density_midscale_neutral, dtype=np.float64),
+        'fitted_cmy_midscale_neutral_density': np.asarray(profile.info.fitted_cmy_midscale_neutral_density, dtype=np.float64),
     }
 
 

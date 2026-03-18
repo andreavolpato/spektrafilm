@@ -10,27 +10,26 @@ from profiles_creator.data.loader import load_agx_emulsion_data, load_densitomet
 
 from spectral_film_lab.model.density_curves import fit_density_curve, compute_density_curves, compute_density_curves_layers
 from spectral_film_lab.profiles.io import load_profile, profile_from_dict
-from spectral_film_lab.model.illuminants import standard_illuminant
 
 ################################################################################
 # Fittings
 ################################################################################
 
-def find_midscale_neutral_coefficients(dye_density, fit=True):
-    mid_over_base = dye_density[:,4] - dye_density[:,3]
+def find_midscale_neutral_coefficients(channel_density, base_density, midscale_neutral_density, fit=True):
+    mid_over_base = midscale_neutral_density - base_density
     
     if fit:
-        sel = np.all(~np.isnan(dye_density), axis=1)
+        sel = np.all(~np.isnan(channel_density), axis=1)
         def residues_midscale_neutral_dye_density(x):
-            res = mid_over_base - np.nansum(dye_density[:,0:3]*x, axis=1)
+            res = mid_over_base - np.nansum(channel_density*x, axis=1)
             res = res[sel]
             return res
         fit = scipy.optimize.least_squares(residues_midscale_neutral_dye_density, [1,1,1])
         x = fit.x
     else:
         # find the max of dye density and compute at that wavelength mid_over_base
-        dd_max = np.nanmax(dye_density[:,:3], axis=0)
-        index_max = np.nanargmax(dye_density[:,:3], axis=0)
+        dd_max = np.nanmax(channel_density, axis=0)
+        index_max = np.nanargmax(channel_density, axis=0)
         d_mid = np.zeros(3)
         for i, imax in enumerate(index_max):
             d_mid[i] = np.interp(imax, np.arange(np.size(mid_over_base)), mid_over_base)
@@ -40,11 +39,11 @@ def find_midscale_neutral_coefficients(dye_density, fit=True):
 def fit_density_curves(log_exposure,
                        density,
                        model='norm_cdfs',
-                       type='negative'):
+                       profile_type='negative'):
     fitted_parameters = np.zeros((3,9))
     for i in np.arange(3):
         fitted_parameters[i] = fit_density_curve(log_exposure, density[:,i],
-                                                 type, model=model)
+                                                 profile_type, model=model)
     return fitted_parameters
 
 ################################################################################
@@ -110,12 +109,18 @@ def fit_log_scaled_absortion_coefficients(sensitivity, crosstalk_matrix, density
     log_absorption_coefficients = np.zeros(sensitivity_log_exposures.shape)
     log_absorption_coefficients_0 = np.log10(sensitivity)
     log_absorption_coefficients_0[np.isnan(log_absorption_coefficients_0)] = np.nanmin(log_absorption_coefficients_0)-2
-    for i in np.arange(sensitivity_log_exposures.shape[0]): # for every i-th wavelength
-        def residues(log_absorption_coefficients_rgb):
-            res = target - densitometer_densities_at_sensitivity_log_exposures(log_absorption_coefficients_rgb, sensitivity_log_exposures[i,:])
-            return res
-        fit = scipy.optimize.least_squares(residues, log_absorption_coefficients_0[i,:], method='lm')
-        log_absorption_coefficients[i,:] = fit.x
+    def residues(log_absorption_coefficients_rgb, sensitivity_row):
+        res = target - densitometer_densities_at_sensitivity_log_exposures(log_absorption_coefficients_rgb, sensitivity_row)
+        return res
+    for wavelength_index in np.arange(sensitivity_log_exposures.shape[0]): # for every i-th wavelength
+        sensitivity_log_exposures_row = sensitivity_log_exposures[wavelength_index, :]
+        fit = scipy.optimize.least_squares(
+            residues,
+            log_absorption_coefficients_0[wavelength_index,:],
+            args=(sensitivity_log_exposures_row,),
+            method='lm',
+        )
+        log_absorption_coefficients[wavelength_index,:] = fit.x
     
     log_absorption_coefficients[np.isnan(sensitivity)] = np.nan
     return log_absorption_coefficients
@@ -130,7 +135,7 @@ def find_log_exposure_reference(log_exposure, density_curves, density_reference=
     for i in np.arange(3):
         log_exposure_reference += np.interp(sign*density_reference,
                                             sign*density_curves[sel,i], log_exposure[sel])
-    log_exposure_reference /= 3 # TODO: think if the mean is the correct choice or if I should keep the reference for each channel
+    log_exposure_reference /= 3
     return log_exposure_reference
 
 def unmix_sensitivity(profile, control_plot=False):
@@ -140,16 +145,16 @@ def unmix_sensitivity(profile, control_plot=False):
 
     log_sensitivity = profile.data.log_sensitivity
     density_curves = profile.data.density_curves
-    dye_density = profile.data.dye_density
+    channel_density = np.asarray(profile.data.channel_density)
     log_exposure = profile.data.log_exposure
     wavelengths = profile.data.wavelengths
-    type = profile.info.type
+    profile_type = profile.info.type
     sensitivity_density_level = profile.info.log_sensitivity_density_over_min
     sensitivity = 10**log_sensitivity
 
     # cross talk matrix
     dr = load_densitometer_data(densitometer_type=profile.info.densitometer)
-    densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(dr, dye_density[:,0:3])
+    densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(dr, channel_density)
     density_curves_densitometer_minus_dmin = np.einsum('ij,kj->ki', densitometer_crosstalk_matrix, density_curves)
 
     log_sensitivity_prefit = np.copy(log_sensitivity)
@@ -157,7 +162,7 @@ def unmix_sensitivity(profile, control_plot=False):
     log_exposure_reference_sensitivity = find_log_exposure_reference(log_exposure,
                                                            density_curves_densitometer_minus_dmin,
                                                            sensitivity_density_level,
-                                                           decreasing_density=type=='positive')
+                                                           decreasing_density=profile_type=='positive')
     print('Log-exposure reference for sensitivity: ', log_exposure_reference_sensitivity)
     # log_exposure_sensitivity is not really necessary but good in order to get final 1/exposure=sensitivity unmixed close to the originals
     log_absorption_coefficients = fit_log_scaled_absortion_coefficients(sensitivity,
@@ -191,7 +196,7 @@ def unmix_sensitivity(profile, control_plot=False):
 ################################################################################
 
 def create_profile(stock='kodak_portra_400',
-                   type='negative', # negative, positive, or paper
+                   profile_type='negative', # negative, positive, or paper
                    color=True,
                    name=None,
                    densitometer='status_M', # status_A or status_M
@@ -202,26 +207,27 @@ def create_profile(stock='kodak_portra_400',
                    dye_density_min_mid_donor=None,
                    reference_illuminant='D55-KG3',
                    viewing_illuminant='D50',
+                   **kwargs,
                    ):
+    if 'type' in kwargs:
+        profile_type = kwargs.pop('type')
+    if kwargs:
+        unexpected = ', '.join(sorted(kwargs))
+        raise TypeError(f"Unexpected keyword arguments: {unexpected}")
     ls, d, wl, c, le = load_agx_emulsion_data(stock=stock,
                                               log_sensitivity_donor=log_sensitivity_donor,
                                               denisty_curves_donor=denisty_curves_donor,
                                               dye_density_cmy_donor=dye_density_cmy_donor,
                                               dye_density_min_mid_donor=dye_density_min_mid_donor,
-                                              type=type,
+                                              type=profile_type,
                                               color=color,
                                               )
-    print(stock,' - ',type)
+    print(stock,' - ',profile_type)
     
     profile = profile_from_dict(
         {
             'info': {},
-            'data': {'tune': {}},
-            'glare': {},
-            'grain': {},
-            'halation': {},
-            'dir_couplers': {},
-            'masking_couplers': {},
+            'data': {},
         }
     )
     profile.info.stock = stock
@@ -229,7 +235,7 @@ def create_profile(stock='kodak_portra_400',
         profile.info.name = stock
     else:
         profile.info.name = name
-    profile.info.type = type
+    profile.info.type = profile_type
     profile.info.color = color
     profile.info.densitometer = densitometer
     profile.info.log_sensitivity_density_over_min = log_sensitivity_density_over_min
@@ -240,70 +246,21 @@ def create_profile(stock='kodak_portra_400',
     profile.data.wavelengths = wl    
     profile.data.density_curves = c
     profile.data.log_exposure = le
-    profile.data.dye_density = d
-    profile.data.tune.gamma_factor = 1.0
-    profile.data.tune.dye_density_min_factor = 1.0
-    # profile.data.tune.gamma_correction = [1.0,1.0,1.0] # affects colors when comparing different exposures
-    # profile.data.tune.log_exposure_correction = [0.0,0.0,0.0] # affects color of underexposed areas
+    channel_density = np.asarray(d[:, :3])
+    base_density = np.asarray(d[:, 3])
+    midscale_neutral_density = np.asarray(d[:, 4])
+    profile.data.channel_density = channel_density
+    profile.data.base_density = base_density
+    profile.data.midscale_neutral_density = midscale_neutral_density
     profile.data.density_curves_layers = np.array((0,3,3))
-    
-    # profile.parametric.density_curves.active = False
-    # profile.parametric.density_curves.gamma = [0.7,0.7,0.7]
-    # profile.parametric.density_curves.log_exposure_0 = [-1.4,-1.4,-1.52]
-    # profile.parametric.density_curves.density_max = [2.75,2.75,2.84]
-    # profile.parametric.density_curves.toe_size = [0.3,0.3,0.3]
-    # profile.parametric.density_curves.shoulder_size = [0.85,0.85,0.85]
-    
-    profile.glare.active = False
-    profile.glare.percent = 0.0
-    profile.glare.roughness = 0.25
-    profile.glare.blur = 0.5
-    
-    if type=='negative' or type=='positive':
-        profile.grain.active = True
-        profile.grain.sublayers_active = True
-        profile.grain.agx_particle_area_um2 = 0.2 # approx 200 iso
-        profile.grain.agx_particle_scale = [0.8,1,2]
-        profile.grain.agx_particle_scale_layers = [2.5,1,0.5]
-        profile.grain.density_min = [0.07, 0.08, 0.12]
-        profile.grain.uniformity = [0.97,0.97,0.99]
-        profile.grain.blur = 0.55
-        profile.grain.blur_dye_clouds_um = 1.0
-        profile.grain.micro_structure = (0.2, 0.5)
-        profile.grain.n_sub_layers = 1
-        
-        profile.halation.active = True
-        profile.halation.strength = [0.03,0.003,0.001]
-        profile.halation.size_um = [200,200,200]
-        profile.halation.scattering_strength = [0.01,0.02,0.04]
-        profile.halation.scattering_size_um = [30,20,15]
-
-        profile.dir_couplers.active = True
-        profile.dir_couplers.amount = 1.0
-        profile.dir_couplers.ratio_rgb = (1.0,1.0,1.0)
-        profile.dir_couplers.diffusion_interlayer = 2.0
-        profile.dir_couplers.diffusion_size_um = 10.0
-        profile.dir_couplers.high_exposure_shift = 0.0 # increase saturation and contrast with overexposure
-        
-        profile.masking_couplers.cross_over_points = [585, 510, 200]
-        profile.masking_couplers.transition_widths = [ 15,  15,   1]
-        profile.masking_couplers.gaussian_model = [ [[435, 20, 0.09], [560, 20, 0.09]],
-                                                    [[470, 20, 0.09]                 ], 
-                                                    [[520, 20, 0.09]                 ] ] # [wl, width, amount]
-    
-    if type=='paper':    
-        profile.glare.active = True
-        profile.glare.percent = 0.1
-        profile.glare.roughness = 0.4
-        profile.glare.blur = 0.5
-        profile.glare.compensation_removal_factor = 0.0
-        profile.glare.compensation_removal_density = 1.2
-        profile.glare.compensation_removal_transition = 0.3
-        
-        profile.data.tune.dye_density_min_factor = 0.4
-
-        
     return profile
+
+## Keep info on decent default of masking couplers for later
+# profile.masking_couplers.cross_over_points = [585, 510, 200]
+# profile.masking_couplers.transition_widths = [ 15,  15,   1]
+# profile.masking_couplers.gaussian_model = [ [[435, 20, 0.09], [560, 20, 0.09]],
+#                                             [[470, 20, 0.09]                 ], 
+#                                             [[520, 20, 0.09]     
 
 from spectral_film_lab.utils.measure import measure_density_min
 
@@ -311,27 +268,26 @@ def remove_density_min(profile):
     
     le = profile.data.log_exposure
     dc = profile.data.density_curves
-    dd = profile.data.dye_density
+    base_density = np.asarray(profile.data.base_density)
     wl = profile.data.wavelengths
-    type = profile.info.type
+    profile_type = profile.info.type
 
     # take care of density min
     # dc_min = np.nanmin(dc, axis=0)
-    dc_min = measure_density_min(le, dc, type)
+    dc_min = measure_density_min(le, dc, profile_type)
     dc = dc - dc_min
     print('Density curve min values:', dc_min)
     
     # if positive or paper, add b+f to the dye_density min and mid
-    if type=='paper' or type=='positive':
+    if profile_type=='paper' or profile_type=='positive':
         status_a_max_peak = [445, 530, 610] # nm, plus two far values for extrapolation
         smin = np.interp(wl, status_a_max_peak, np.flip(dc_min))
         sigma = 20 # nm
         sigma_points = sigma / np.mean(np.diff(wl))
         smin = scipy.ndimage.gaussian_filter1d(smin, sigma_points)
-        dd[:,3] = smin
+        base_density = smin
 
-    # save dye_density
-    profile.data.dye_density = dd
+    profile.data.base_density = np.asarray(base_density)
     profile.data.density_curves = dc
     return profile
 
@@ -355,34 +311,39 @@ def adjust_log_exposure(profile,
     sel = ~np.isnan(dcg)
     if profile.info.type=='negative' or profile.info.type=='paper':
         le_speed_point = np.interp(speed_point_density, dcg[sel], le[sel])
-    if profile.info.type=='positive':
+    elif profile.info.type=='positive':
         le_speed_point = np.interp(-speed_point_density, -dcg[sel], le[sel])
+    else:
+        raise ValueError(f"Unsupported profile type: {profile.info.type}")
     print('Log exposure refenrece:', le_speed_point)
     le_over_speed_point = np.log10(2**stops_over_speed_point)
     le_midgray = le_speed_point + le_over_speed_point
     profile.data.log_exposure = le - le_midgray
     return profile
 
-def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model='erf'):
-    dd = profile.data.dye_density
-    base = profile.data.dye_density[:,3]
+def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model='erf',
+                           cross_over_points=(585, 510, 200),
+                           transition_widths=(15, 15, 1),
+                           gaussian_model=(((435, 20, 0.09), (560, 20, 0.09)),
+                                           ((470, 20, 0.09),),
+                                           ((520, 20, 0.09),))):
+    channel_density = np.asarray(profile.data.channel_density)
+    base = np.asarray(profile.data.base_density)
+    midscale_neutral_density = np.asarray(profile.data.midscale_neutral_density)
     wl = profile.data.wavelengths
     
     if model == 'erf':
-        cross_over_points = profile.masking_couplers.cross_over_points
-        transition_widths = profile.masking_couplers.transition_widths
-        
         wl_scaled = (wl[:,None]-cross_over_points)/transition_widths
         
         coupler_mask_spectral = (scipy.special.erf(wl_scaled) + 1 + effectiveness)/(2+effectiveness)
-        ddcmy = copy.copy(dd[:,0:3])
+        ddcmy = copy.copy(channel_density)
         
         dd_w_couplers = ddcmy * coupler_mask_spectral
-        profile.data.dye_density[:,0:3] = dd_w_couplers
+        profile.data.channel_density = np.asarray(dd_w_couplers)
     
     if model == 'gaussians':
         # p_couplers = [[ [wl, width, amount] ]] first index is channel, second is peak, third [wl, width, amount]
-        p_couplers = profile.masking_couplers.gaussian_model 
+        p_couplers = gaussian_model
         def spectral_profiles(wl, parameters):
             density = np.zeros((np.size(wl), 3))
             for i in np.arange(3):
@@ -390,18 +351,18 @@ def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model=
                     density[:,i] += ps[2] * np.exp( -(wl-ps[0])**2/(2*ps[1]**2) )
             return density
         coupler_mask_spectral_subtractive = spectral_profiles(wl, p_couplers)
-        ddcmy = copy.copy(dd[:,0:3])
+        ddcmy = copy.copy(channel_density)
         dd_w_couplers = ddcmy - coupler_mask_spectral_subtractive*effectiveness
-        profile.data.dye_density[:,0:3] = dd_w_couplers    
+        profile.data.channel_density = np.asarray(dd_w_couplers)
     
     if control_plot:
         # fit dye density midscale coefficient as a check, not used elsewhere
-        dye_density_midscale_coefficients = find_midscale_neutral_coefficients(dd) # reference is red
+        dye_density_midscale_coefficients = find_midscale_neutral_coefficients(channel_density, base, midscale_neutral_density) # reference is red
         print('midscale_coefficients: ',dye_density_midscale_coefficients)
         mid_sim = dd_w_couplers * dye_density_midscale_coefficients
         mid_sim = np.sum(mid_sim, axis=1) + base
         
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.plot(wl, ddcmy[:,0], color='tab:cyan')
         ax.plot(wl, ddcmy[:,1], color='tab:pink')
         ax.plot(wl, ddcmy[:,2], color='gold')
@@ -409,7 +370,7 @@ def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model=
         ax.plot(wl, dd_w_couplers[:,1], color='tab:pink', linestyle='--', label='_nolegend_')
         ax.plot(wl, dd_w_couplers[:,2], color='gold', linestyle='--', label='_nolegend_')
         ax.plot(wl, base, color='gray', linewidth=1)
-        ax.plot(wl, dd[:,4], color='lightgray', linewidth=1)
+        ax.plot(wl, midscale_neutral_density, color='lightgray', linewidth=1)
         ax.plot(wl, mid_sim, color='gray', linestyle='--', linewidth=1)
         ax.legend(('C','M','Y','Min','Mid','Sim'))
         ax.set_xlabel('Wavelength (nm)')
@@ -419,21 +380,22 @@ def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model=
     return profile
 
 def rescale_dye_density_using_neutral(profile):
-    dd = profile.data.dye_density
-    dye_density_midscale_coefficients = find_midscale_neutral_coefficients(dd)
+    channel_density = np.asarray(profile.data.channel_density)
+    base_density = np.asarray(profile.data.base_density)
+    midscale_neutral_density = np.asarray(profile.data.midscale_neutral_density)
+    dye_density_midscale_coefficients = find_midscale_neutral_coefficients(channel_density, base_density, midscale_neutral_density)
     dye_density_midscale_coefficients /= dye_density_midscale_coefficients[1] # normalize to green
-    dd[:,0:3] *= dye_density_midscale_coefficients
-    profile.data.dye_density = dd
+    profile.data.channel_density = np.asarray(channel_density * dye_density_midscale_coefficients)
     return  profile
 
 def unmix_density(profile):
     dc = profile.data.density_curves
-    dd = profile.data.dye_density
+    channel_density = np.asarray(profile.data.channel_density)
     # dd = dd / np.nanmax(dd, axis=0)
     
     # cross talk matrix
     ds = load_densitometer_data(densitometer_type=profile.info.densitometer)
-    densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(ds, dd[:,0:3])
+    densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(ds, channel_density)
     print('densitometer C: ')
     print(densitometer_crosstalk_matrix)
     
@@ -445,31 +407,31 @@ def unmix_density(profile):
 
 def densitometer_normalization(profile):
     dc = profile.data.density_curves
-    dd = profile.data.dye_density
+    channel_density = np.asarray(profile.data.channel_density)
     dstm = load_densitometer_data(densitometer_type=profile.info.densitometer)
     
-    M = compute_densitometer_crosstalk_matrix(dstm, dd)
+    M = compute_densitometer_crosstalk_matrix(dstm, channel_density)
     norm_coeffs = np.diag(M)
     print('Dye density densitometer normalization coefficients:', norm_coeffs)
-    dd[:,:3] = dd[:,:3] / norm_coeffs
+    channel_density = channel_density / norm_coeffs
     dc = dc * norm_coeffs
     
-    profile.data.dye_density = dd
+    profile.data.channel_density = np.asarray(channel_density)
     profile.data.density_curves = dc
     return profile
 
 def replace_fitted_density_curves(profile, control_plot=False):
     dc = profile.data.density_curves
     le = profile.data.log_exposure
-    type = profile.info.type
+    profile_type = profile.info.type
     
     # fit density for smoother curves and complete toe and shoulder
-    density_curves_fitting_parameters = fit_density_curves(le, dc, type=type)
+    density_curves_fitting_parameters = fit_density_curves(le, dc, profile_type=profile_type)
     print('density_curves_fitting_parameters: ', density_curves_fitting_parameters)
     density_curves_prefit = np.copy(dc)
-    dc = compute_density_curves(le, density_curves_fitting_parameters, type=type)
+    dc = compute_density_curves(le, density_curves_fitting_parameters, type=profile_type)
     profile.data.density_curves = dc
-    profile.data.density_curves_layers = compute_density_curves_layers(le, density_curves_fitting_parameters, type=type)
+    profile.data.density_curves_layers = compute_density_curves_layers(le, density_curves_fitting_parameters, type=profile_type)
     
     if control_plot:
         plt.figure()
@@ -479,27 +441,13 @@ def replace_fitted_density_curves(profile, control_plot=False):
         plt.xlabel('Log Exposure')
         plt.ylabel('Density (over B+F)')
     return profile
-
-# def apply_gamma_shift_correction(profile):
-#     p = copy.copy(profile)
-#     dc = p.data.density_curves
-#     le = p.data.log_exposure
-#     gc = p.data.tune.gamma_correction
-#     les = p.data.tune.log_exposure_correction
-#     dc_out = np.zeros_like(dc)
-#     for i in np.arange(3):
-#         dc_out[:,i] = np.interp(le, le/gc[i] + les[i], dc[:,i])
-#     p.data.density_curves = dc_out
-#     return p
-
-
 ################################################################################
 # Save and Load
 ################################################################################
 
 
 def swap_channels(profile, new_cmy_order=(0,2,1)):
-    profile.data.dye_density[:,:3] = profile.data.dye_density[:,new_cmy_order]
+    profile.data.channel_density = profile.data.channel_density[:,new_cmy_order]
     return profile
 
 
@@ -553,7 +501,11 @@ def plot_profile(profile, unmixed=False, original=None):
     log_exposure = np.asarray(profile.data.log_exposure)
     density_curves = np.asarray(profile.data.density_curves)
     log_sensitivity = np.asarray(profile.data.log_sensitivity)
-    dye_density = np.asarray(profile.data.dye_density)
+    dye_density = np.column_stack((
+        np.asarray(profile.data.channel_density),
+        np.asarray(profile.data.base_density),
+        np.asarray(profile.data.midscale_neutral_density),
+    ))
 
     # Some profile payloads are channel-first Python lists; normalize to NxC for plotting.
     if log_sensitivity.ndim == 2 and log_sensitivity.shape[0] == 3 and log_sensitivity.shape[1] != 3:
@@ -606,9 +558,11 @@ def plot_profile(profile, unmixed=False, original=None):
     axs[2].plot(wavelengths, dye_density[:,4], color='gray', linewidth=1)
     axs[2].legend(('C','M','Y','Min','Mid'))
     if original is not None:
-        original_dye_density = np.asarray(original.data.dye_density)
-        if original_dye_density.ndim == 2 and original_dye_density.shape[0] in (3, 5) and original_dye_density.shape[1] not in (3, 5):
-            original_dye_density = original_dye_density.T
+        original_dye_density = np.column_stack((
+            np.asarray(original.data.channel_density),
+            np.asarray(original.data.base_density),
+            np.asarray(original.data.midscale_neutral_density),
+        ))
         axs[2].plot(wavelengths, original_dye_density[:,0], alpha=0.5, color='tab:cyan', linestyle='--')
         axs[2].plot(wavelengths, original_dye_density[:,1], alpha=0.5, color='tab:pink', linestyle='--')
         axs[2].plot(wavelengths, original_dye_density[:,2], alpha=0.5, color='gold', linestyle='--')
@@ -618,11 +572,9 @@ def plot_profile(profile, unmixed=False, original=None):
     
     fig.suptitle(profile.info.name + ' - ' + profile.info.stock)
 
-# TODO: add subfolters to the profile folder, this should also be added to save_profile and load_profile
-# TODO: add masking couplers to the profiles as gamma matrix of masks, will require model changes
+# Note: profile subfolders are not implemented in save/load yet.
 
 if __name__=='__main__':
-    from spectral_film_lab.profiles.io import load_profile
     # p = create_profile('kodak_portra_400')
     # p = create_profile('kodak_ultra_endura', type='paper')
     # save_profile(p, '_couplers_2')

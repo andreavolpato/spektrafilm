@@ -65,34 +65,34 @@ def compute_random_glare_amount(amount, roughness, blur, shape):
     random_glare /= 100
     return random_glare
 
-def compute_density_spectral(profile, density_cmy):
-    density_spectral = contract('ijk, lk->ijl', density_cmy, profile.data.dye_density[:, 0:3])
-    density_spectral += profile.data.dye_density[:, 3] * profile.data.tune.dye_density_min_factor
+def compute_density_spectral(profile, density_cmy, base_density_scale=1.0):
+    density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(profile.data.channel_density))
+    density_spectral += np.asarray(profile.data.base_density) * base_density_scale
     return density_spectral
 
-def develop_simple(profile, log_raw):
+def develop_simple(profile, log_raw, gamma_factor=1.0):
     density_curves = profile.data.density_curves
     log_exposure = profile.data.log_exposure
-    gamma_factor = profile.data.tune.gamma_factor
     density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, gamma_factor)
     return density_cmy
 
 class AgXEmulsion():
-    def __init__(self, profile):
+    def __init__(self, profile, density_curve_gamma=1.0, base_density_scale=1.0):
         self.sensitivity = 10**np.array(profile.data.log_sensitivity)
-        self.dye_density = np.array(profile.data.dye_density)
+        self.channel_density = np.array(profile.data.channel_density)
+        self.base_density = np.array(profile.data.base_density)
+        self.midscale_neutral_density = np.array(profile.data.midscale_neutral_density)
         self.density_curves = np.array(profile.data.density_curves)
         self.density_curves_layers = np.array(profile.data.density_curves_layers)
         self.log_exposure = np.array(profile.data.log_exposure)
         self.wavelengths = np.array(profile.data.wavelengths)
         
-        self.parametric = profile.parametric
         self.type = profile.info.type
         self.stock = profile.info.stock
         self.reference_illuminant = profile.info.reference_illuminant
         self.viewing_illuminant = profile.info.viewing_illuminant
-        self.gamma_factor = profile.data.tune.gamma_factor
-        self.dye_density_min_factor = profile.data.tune.dye_density_min_factor
+        self.gamma_factor = density_curve_gamma
+        self.base_density_scale = base_density_scale
         
         self.density_curves -= np.nanmin(self.density_curves, axis=0)
         self.sensitivity = np.nan_to_num(self.sensitivity) # replace nans with zeros
@@ -109,18 +109,22 @@ class AgXEmulsion():
         return density_cmy
 
     def _compute_density_spectral(self, density_cmy):
-        density_spectral = contract('ijk, lk->ijl', density_cmy, self.dye_density[:, 0:3])
-        density_spectral += self.dye_density[:, 3] * self.dye_density_min_factor
+        density_spectral = contract('ijk, lk->ijl', density_cmy, self.channel_density)
+        density_spectral += self.base_density * self.base_density_scale
         return density_spectral
 
 class Film(AgXEmulsion):
-    def __init__(self, profile):
-        super().__init__(profile)
+    def __init__(self, profile, render_params):
+        super().__init__(
+            profile,
+            density_curve_gamma=render_params.density_curve_gamma,
+            base_density_scale=render_params.base_density_scale,
+        )
         self.info = profile.info
-        self.grain = profile.grain
-        self.halation = profile.halation
-        self.dir_couplers = profile.dir_couplers
-        self.density_midscale_neutral = profile.info.density_midscale_neutral
+        self.grain = render_params.grain
+        self.halation = render_params.halation
+        self.dir_couplers = render_params.dir_couplers
+        self.fitted_cmy_midscale_neutral_density = getattr(profile.info, 'fitted_cmy_midscale_neutral_density', None)
 
     def develop(self, log_raw, pixel_size_um,
                 bypass_grain=False,
@@ -226,13 +230,6 @@ class Film(AgXEmulsion):
                                                             use_fast_stats=use_fast_stats)
         return density_cmy
 
-    # def get_density_mid(self):
-    #     # assumes that dye density cmy are already scaled to fit the mid diffuse density
-    #     d_mid = self.density_midscale_neutral
-    #     density_spectral = np.sum(self.dye_density[:, :3] * d_mid, axis=1) + self.dye_density[:, 3]
-    #     return density_spectral[None,None,:]
-
-
 def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
     density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], 3, 3)) # x,y,layer,rgb
     # for ch in np.arange(3):
@@ -241,12 +238,12 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
     #                                                   density_curves[:,ch], density_curves_layers[:,lr,ch])
     if positive_film:
         for ch in np.arange(3):
-                density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
-                                                        -density_curves[:,ch], density_curves_layers[:,:,ch])
+            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+                                                       -density_curves[:,ch], density_curves_layers[:,:,ch])
     else:
         for ch in np.arange(3):
-                density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
-                                                        density_curves[:,ch], density_curves_layers[:,:,ch])
+            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+                                                       density_curves[:,ch], density_curves_layers[:,:,ch])
     return density_cmy_layers
     
 ################################################################################
@@ -288,14 +285,6 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
 #         cmy = contract('ijk, kl->ijl', light, self.sensitivity)
 #         return cmy * exposure
 
-#     def _apply_preflashing(self, cmy, negative, preflashing_illuminant, preflashing_exposure):
-#         if preflashing_exposure > 0:
-#             density_base = negative.dye_density[:, 3][None, None, :]
-#             light_preflashing = density_to_light(density_base, preflashing_illuminant)
-#             cmy_preflashing = contract('ijk, kl->ijl', light_preflashing, self.sensitivity)
-#             cmy += cmy_preflashing * preflashing_exposure
-#         return cmy
-
 #     def _scale_cmy_exposure_with_midgray(self, cmy, density_midgray, illuminant):
 #         light_midgray = density_to_light(density_midgray, illuminant)
 #         cmy_midgray = contract('ijk, kl->ijl', light_midgray, self.sensitivity)
@@ -314,18 +303,16 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
 #         else: density_curves = self.density_curves
 #         return density_curves
     
-#     # TODO: move color enlarger into print method
+#     # Move color enlarger into print method.
     
 ################################################################################
 # Various
 ################################################################################
 
-# Some todos
-# TODO: add print dye shift. shift in nanometers of the dye absorption peaks
-#       probably the best way to do this is by modeling the dye density absorption curves
-# TODO: investigate on the behaviour of density curves when changing development conditions
-#       density_curves should probably be modellable, like also sensityvity and dye_density
-# TODO: make a gray card border to check white balance
+# Some future work notes:
+# Add print dye shift in nanometers for dye absorption peaks.
+# Investigate how density curves change with development conditions.
+# Add a gray card border to check white balance.
 
 if __name__=='__main__':
     pass

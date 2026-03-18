@@ -71,21 +71,21 @@ class CalibrationTarget:
         self.clean_params(steps=np.size(values))
         self.title = 'Grain Particle Area (um$^2$)'
         for p, v in zip(self.params, values):
-            p.negative.grain.agx_particle_area_um2 = v
+            p.negative_render.grain.agx_particle_area_um2 = v
             p.label = f'{v:.2f}'
             
     def dir_couplers_ramp(self, values=[0.0, 0.5, 1.0, 1.5, 2.0]):
         self.clean_params(steps=np.size(values))
         self.title = 'DIR Couplers Amount'
         for p, v in zip(self.params, values):
-            p.negative.dir_couplers.amount_rgb = v*np.ones(3)
+            p.negative_render.dir_couplers.amount = v
             p.label = f'{v:.2f}'
     
     def glare_ramp(self, values=[0.02, 0.05, 0.1, 0.2, 0.4]):
         self.clean_params(steps=np.size(values))
         self.title = 'Amount of Glare Light (%)'
         for p, v in zip(self.params, values):
-            p.print_paper.glare.percent = v
+            p.print_render.glare.percent = v
             p.label = f'{v:.2f}'
     
 

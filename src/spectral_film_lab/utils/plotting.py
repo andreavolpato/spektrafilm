@@ -1,7 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from spectral_film_lab.model.color_filters import dichroic_filters
+
 # NOTE: this file will not work at the moment, it is just a draft
+
+
+def _density_matrix(emulsion):
+    if hasattr(emulsion, 'dye_density'):
+        return np.asarray(emulsion.dye_density)
+    return np.column_stack((
+        np.asarray(emulsion.data.channel_density),
+        np.asarray(emulsion.data.base_density),
+        np.asarray(emulsion.data.midscale_neutral_density),
+    ))
 
 def plot(self):
     fig, axs = plt.subplots(1,3)
@@ -18,9 +30,9 @@ def plot(self):
     
     # H_ref = 0
     # D_lim = np.max(self.density_curves.data)*1.05
-    axs[1].plot(self.density_curves.log_exposure, self.density_curves.data[:,0], color='tab:red')
-    axs[1].plot(self.density_curves.log_exposure, self.density_curves.data[:,1], color='tab:green')
-    axs[1].plot(self.density_curves.log_exposure, self.density_curves.data[:,2], color='tab:blue')
+    axs[1].plot(self.log_exposure, self.density_curves[:,0], color='tab:red')
+    axs[1].plot(self.log_exposure, self.density_curves[:,1], color='tab:green')
+    axs[1].plot(self.log_exposure, self.density_curves[:,2], color='tab:blue')
     # axs[1].plot([H_ref, H_ref], [0, D_lim], color='gray', linewidth=1)
     # axs[1].plot([H_ref+1, H_ref+1], [0, D_lim], color='lightgray', linestyle='dashed', linewidth=1)
     # axs[1].plot([H_ref-1.67, H_ref-1.67], [0, D_lim], color='lightgray', linestyle='dashed', linewidth=1)
@@ -29,13 +41,14 @@ def plot(self):
     axs[1].set_ylabel('Density')
     # axs[1].set_ylim(0, D_lim)
     
+    density_matrix = _density_matrix(self)
     axs[2].plot([350, 750], [0,0], color='gray', linewidth=1, label='_nolegend_')
-    axs[2].plot(self.wavelengths, self.dye_density[:,0], color='tab:cyan')
-    axs[2].plot(self.wavelengths, self.dye_density[:,1], color='tab:pink')
-    axs[2].plot(self.wavelengths, self.dye_density[:,2], color='gold')
+    axs[2].plot(self.wavelengths, density_matrix[:,0], color='tab:cyan')
+    axs[2].plot(self.wavelengths, density_matrix[:,1], color='tab:pink')
+    axs[2].plot(self.wavelengths, density_matrix[:,2], color='gold')
     if self.type=='negative':
-        axs[2].plot(self.wavelengths, self.dye_density[:,3], color='gray', linewidth=1)
-        axs[2].plot(self.wavelengths, self.dye_density[:,4], color='lightgray', linewidth=1)
+        axs[2].plot(self.wavelengths, density_matrix[:,3], color='gray', linewidth=1)
+        axs[2].plot(self.wavelengths, density_matrix[:,4], color='lightgray', linewidth=1)
         axs[2].legend(('C','M','Y','Min','Mid','Sim'))
     else:
         axs[2].legend(('C','M','Y'))
@@ -79,7 +92,6 @@ def print_filter_test(self, emulsion, print_illuminant, viewing_illuminant,
     ax.set_xlabel('Y Filter %')
     ax.set_ylabel('M Filter %')
     ax.set_title(emulsion.stock)
-    # TODO: in a separate file create a routine to retrive filter values and create a database of them for all film stocks
 
 def plot_midgray_density_test(self, exposure_bias=1):
     biased_midgray = self.midgray_rgb * exposure_bias
@@ -90,13 +102,14 @@ def plot_midgray_density_test(self, exposure_bias=1):
                                     save_density=False)
     _, ax = plt.subplots()
     wavelengths = self.wavelengths
+    density_matrix = _density_matrix(self)
     if self.type=='negative':
-        ax.plot(wavelengths, self.dye_density[:,3])
-        ax.plot(wavelengths, self.dye_density[:,4])
+        ax.plot(wavelengths, density_matrix[:,3])
+        ax.plot(wavelengths, density_matrix[:,4])
         ax.plot(wavelengths, density_midgray[0,0])
         ax.legend(('Minimum', 'Midgray', 'Midgray Simulated'))
     if np.logical_or(self.type=='positive', self.type=='paper'):
-        ax.plot(wavelengths, np.sum(self.dye_density, axis=1), label='Midgray')
+        ax.plot(wavelengths, np.sum(density_matrix[:, :3], axis=1), label='Midgray')
         ax.plot(wavelengths, density_midgray[0,0], color='k', label='Midgray Simulated')
         ax.legend()
     ax.set_xlabel('Wavelength (nm)')
@@ -106,7 +119,7 @@ def plot_midgray_density_test(self, exposure_bias=1):
 def grain_test(self,
                 multilayer_grain=True,
                 samples=256):
-    loge = self.density_curves.log_exposure
+    loge = self.log_exposure
     gradient_image = 10**loge[None,:,None] * np.ones((samples,1,3))
     area_densitometer_aperture = (48/2)**2*np.pi # um2
     pixel_size_equivalent = np.sqrt(area_densitometer_aperture)
@@ -167,17 +180,4 @@ def plot_density_curves(self):
     ax.plot(self.wavelength, density_curves)
 
 def plot_chromaticity(self, ax=None, color='k'):
-    xy, _ = cromaticity_from_spectral_data(self.log_sensitivity)
-    xy_w, _ = cromaticity_from_spectral_data(Illuminant(self.reference_white).spectral_power)
-    triangle = plt.Polygon(xy.transpose(), facecolor=[0,0,0,0.05], edgecolor=color)
-
-    # _, ax = colour.plotting.plot_chromaticity_diagram_CIE1931()
-    if ax==None:
-        _, ax = plt.subplots()
-    ax.add_patch(triangle)
-    ax.scatter(xy_w[0], xy_w[1], color=color)
-    ax.set_xlim((0,1))
-    ax.set_ylim((0,1))
-    ax.axis('equal')
-    ax.set_xlabel('x Chromaticity')
-    ax.set_ylabel('y Chromaticity')
+    raise NotImplementedError("plot_chromaticity is still a draft helper and needs a dedicated implementation.")

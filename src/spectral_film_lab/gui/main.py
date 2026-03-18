@@ -206,16 +206,16 @@ def simulation(input_layer:Image,
     if special.print_channel_swap.value != (0,1,2):
         params.print_paper = swap_channels(params.print_paper, special.print_channel_swap.value)
     
-    params.negative.data.tune.gamma_factor = special.film_gamma_factor.value
-    params.print_paper.data.tune.gamma_factor = special.print_gamma_factor.value
-    params.print_paper.data.tune.dye_density_min_factor = special.print_density_min_factor.value
-    params.print_paper.glare.active = glare.active.value
-    params.print_paper.glare.percent = glare.percent.value
-    params.print_paper.glare.roughness = glare.roughness.value
-    params.print_paper.glare.blur = glare.blur.value
-    params.print_paper.glare.compensation_removal_factor = glare.compensation_removal_factor.value
-    params.print_paper.glare.compensation_removal_density = glare.compensation_removal_density.value
-    params.print_paper.glare.compensation_removal_transition = glare.compensation_removal_transition.value
+    params.negative_render.density_curve_gamma = special.film_gamma_factor.value
+    params.print_render.density_curve_gamma = special.print_gamma_factor.value
+    params.print_render.base_density_scale = special.print_density_min_factor.value
+    params.print_render.glare.active = glare.active.value
+    params.print_render.glare.percent = glare.percent.value
+    params.print_render.glare.roughness = glare.roughness.value
+    params.print_render.glare.blur = glare.blur.value
+    params.print_render.glare.compensation_removal_factor = glare.compensation_removal_factor.value
+    params.print_render.glare.compensation_removal_density = glare.compensation_removal_density.value
+    params.print_render.glare.compensation_removal_transition = glare.compensation_removal_transition.value
 
     params.camera.lens_blur_um = camera_lens_blur_um
     params.camera.exposure_compensation_ev = exposure_compensation_ev
@@ -239,29 +239,29 @@ def simulation(input_layer:Image,
     # params.io.compute_film_raw = compute_film_raw
     
     # assign parameters to the film stock and paper
-    params.negative.halation.active = halation.active.value
-    params.negative.halation.strength = np.array(halation.halation_strength.value)/100
-    params.negative.halation.size_um = np.array(halation.halation_size_um.value)
-    params.negative.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
-    params.negative.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
+    params.negative_render.halation.active = halation.active.value
+    params.negative_render.halation.strength = np.array(halation.halation_strength.value)/100
+    params.negative_render.halation.size_um = np.array(halation.halation_size_um.value)
+    params.negative_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
+    params.negative_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
     
-    params.negative.grain.active = grain.active.value
-    params.negative.grain.sublayers_active = grain.sublayers_active.value
-    params.negative.grain.agx_particle_area_um2 = grain.particle_area_um2.value
-    params.negative.grain.agx_particle_scale = grain.particle_scale.value
-    params.negative.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
-    params.negative.grain.density_min = grain.density_min.value
-    params.negative.grain.uniformity = grain.uniformity.value
-    params.negative.grain.blur = grain.blur.value
-    params.negative.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
-    params.negative.grain.micro_structure = grain.micro_structure.value
+    params.negative_render.grain.active = grain.active.value
+    params.negative_render.grain.sublayers_active = grain.sublayers_active.value
+    params.negative_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
+    params.negative_render.grain.agx_particle_scale = grain.particle_scale.value
+    params.negative_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
+    params.negative_render.grain.density_min = grain.density_min.value
+    params.negative_render.grain.uniformity = grain.uniformity.value
+    params.negative_render.grain.blur = grain.blur.value
+    params.negative_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
+    params.negative_render.grain.micro_structure = grain.micro_structure.value
     
-    params.negative.dir_couplers.active = couplers.active.value
-    params.negative.dir_couplers.amount = couplers.dir_couplers_amount.value 
-    params.negative.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
-    params.negative.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
-    params.negative.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
-    params.negative.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
+    params.negative_render.dir_couplers.active = couplers.active.value
+    params.negative_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
+    params.negative_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
+    params.negative_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
+    params.negative_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
+    params.negative_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
         
     # # parametric curves
     # params.negative.parametric.density_curves.active = curves.use_parametric_curves.value
