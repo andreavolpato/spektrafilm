@@ -10,415 +10,411 @@
         "viewing_illuminant": "D50"
     },
     "data": {
-        "tune": {
-            "gamma_factor": 1.0,
-            "dye_density_min_factor": 1.0
-        },
         "log_sensitivity": [
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 0.8544182948633058
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.1500437916401376
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.277979852392412
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3413994939209275
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3715893868705906
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3830127578654718
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3861891559156392
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3880457328473477
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.388941917354206
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.3916207799095754
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.4010842016469653
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.423805363841902
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.464923568936669
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.5321149399568992
             ],
             [
-                NaN,
-                NaN,
+                null,
+                null,
                 1.578303463403885
             ],
             [
-                NaN,
+                null,
                 -0.12532439600400055,
                 1.5697099888158177
             ],
             [
-                NaN,
+                null,
                 0.09871596134587131,
                 1.497060296442345
             ],
             [
-                NaN,
+                null,
                 0.30847625793949873,
                 1.3043400122162414
             ],
             [
-                NaN,
+                null,
                 0.4823179101054938,
                 0.9260418964228543
             ],
             [
-                NaN,
+                null,
                 0.6306448776260453,
                 0.2145923151351007
             ],
             [
-                NaN,
+                null,
                 0.7531948941053231,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 0.8337175135934226,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 0.903983593797571,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 0.9604798701211998,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.010307916177481,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.0881126105655636,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.1835857472423357,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.2753046026493875,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.355104691197805,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.421829999498047,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.4715437898581163,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.4993335423218166,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.4967324633862042,
-                NaN
+                null
             ],
             [
-                NaN,
+                null,
                 1.4570423822869858,
-                NaN
+                null
             ],
             [
                 0.24273935042898523,
                 1.3351387756158588,
-                NaN
+                null
             ],
             [
                 0.4834321694333403,
                 1.02644355640084,
-                NaN
+                null
             ],
             [
                 0.6730567484696269,
                 0.6105240303992894,
-                NaN
+                null
             ],
             [
                 0.8388569181364973,
                 0.13256044510269763,
-                NaN
+                null
             ],
             [
                 0.9561089660455662,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.0512190950289388,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.1262726898224549,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.1772448399896969,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.2056061956441888,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.218943846102455,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.2291961495436434,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.2363440539689112,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.237536828225965,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.2273551114983432,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.1835697654276107,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 1.0170923655024509,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 0.7759337141480991,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 0.523878180599376,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 0.2575687171845858,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
                 0.0024460881087268955,
-                NaN,
-                NaN
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ]
         ],
         "wavelengths": [
@@ -506,199 +502,199 @@
         ],
         "density_curves": [
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
                 0.13682698106975866,
@@ -1398,392 +1394,392 @@
             [
                 2.0613976020589213,
                 2.5489048343331344,
-                NaN
+                null
             ],
             [
                 2.079076032012995,
                 2.5678252387757907,
-                NaN
+                null
             ],
             [
                 2.0964361370040643,
                 2.5832094490967408,
-                NaN
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ],
             [
-                NaN,
-                NaN,
-                NaN
+                null,
+                null,
+                null
             ]
         ],
         "log_exposure": [
@@ -2044,692 +2040,583 @@
             3.9725490196078432,
             4.0
         ],
-        "dye_density": [
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                0.28700365801595096,
-                0.05093826175542117,
-                0.2711116067568881,
-                NaN,
-                NaN
-            ],
-            [
-                0.28224811433490854,
-                0.04693250238000488,
-                0.323057009463892,
-                NaN,
-                NaN
-            ],
-            [
-                0.27236731365927336,
-                0.043073211691081435,
-                0.39069180618230215,
-                NaN,
-                NaN
-            ],
-            [
-                0.2548868364787763,
-                0.04003575539267133,
-                0.4689105681048881,
-                NaN,
-                NaN
-            ],
-            [
-                0.23033416974047438,
-                0.03897574939912619,
-                0.5439390381354986,
-                0.848553008688969,
-                1.524159504019664
-            ],
-            [
-                0.20484888417846495,
-                0.03918472604254339,
-                0.6189250301221806,
-                0.827516523738512,
-                1.5495315941255987
-            ],
-            [
-                0.18327881411546712,
-                0.04112074728195758,
-                0.6939245401233677,
-                0.8194640160983325,
-                1.5851747130914506
-            ],
-            [
-                0.16496181108692495,
-                0.04329077172377318,
-                0.7675500494578609,
-                0.823125192498743,
-                1.6444327172458122
-            ],
-            [
-                0.14866836265915254,
-                0.04632913085498609,
-                0.8345713696073506,
-                0.8332578347468532,
-                1.7574603696268016
-            ],
-            [
-                0.13366413606156363,
-                0.04930664415876172,
-                0.8983879362936665,
-                0.842165596532671,
-                1.8415090985062614
-            ],
-            [
-                0.11916373982952082,
-                0.05280474182458239,
-                0.9433720971420442,
-                0.8489463229857995,
-                1.8981585761604283
-            ],
-            [
-                0.10927092895111536,
-                0.056250880525918104,
-                0.9759055567184756,
-                0.8495832892039802,
-                1.9335422187645361
-            ],
-            [
-                0.09777560491511914,
-                0.05956423138384582,
-                0.9930068088583406,
-                0.8427194727673385,
-                1.9522613427685027
-            ],
-            [
-                0.08878439924977428,
-                0.065066705658929,
-                0.9992623319120257,
-                0.8332905118163255,
-                1.958116095445581
-            ],
-            [
-                0.08215244352251025,
-                0.07324989158709082,
-                0.987197150231132,
-                0.8223997825204477,
-                1.9474746696597989
-            ],
-            [
-                0.07506870061658631,
-                0.08961639843258681,
-                0.9574427141994525,
-                0.8098601386605712,
-                1.918734219127656
-            ],
-            [
-                0.06922671129437928,
-                0.10874085015864549,
-                0.9136466397899943,
-                0.7959332164554803,
-                1.8706024104971686
-            ],
-            [
-                0.06410744861263723,
-                0.12953834162758252,
-                0.854390018587523,
-                0.7813644014361893,
-                1.805829760161104
-            ],
-            [
-                0.05855810912598754,
-                0.14896848185852737,
-                0.7857656550555815,
-                0.7657761201775865,
-                1.729011896052641
-            ],
-            [
-                0.05407372435939756,
-                0.1824926777187743,
-                0.7068745225849674,
-                0.7500723106149959,
-                1.6501313042023007
-            ],
-            [
-                0.04922005078490889,
-                0.2250862341925027,
-                0.6241073392491281,
-                0.7338182667487441,
-                1.5798826820664895
-            ],
-            [
-                0.046523534393300404,
-                0.2789771501393336,
-                0.5484760246497131,
-                0.7179944923254079,
-                1.5291082386986483
-            ],
-            [
-                0.04375746038992806,
-                0.33537259283859183,
-                0.4720387124320066,
-                0.7019739832318441,
-                1.4988263249303917
-            ],
-            [
-                0.0423738382874284,
-                0.40021754555414724,
-                0.3985257570466038,
-                0.6871967698004688,
-                1.4907287833670584
-            ],
-            [
-                0.04139553262050595,
-                0.470633991822333,
-                0.3323483655787783,
-                0.674231149234032,
-                1.5007860144267247
-            ],
-            [
-                0.04187809667051828,
-                0.5511978942654484,
-                0.27288943827115025,
-                0.6634120301694711,
-                1.524466176006339
-            ],
-            [
-                0.04381853799859145,
-                0.6276625137776645,
-                0.2242994498604084,
-                0.6540422291238335,
-                1.5567432025216938
-            ],
-            [
-                0.04690560643750969,
-                0.7005547485446029,
-                0.18290460072987233,
-                0.645162734771734,
-                1.5960069912716408
-            ],
-            [
-                0.0505488894752798,
-                0.7714535743409586,
-                0.14837788733789467,
-                0.6359597955539683,
-                1.637163613055821
-            ],
-            [
-                0.05596149398203452,
-                0.8356922694788333,
-                0.12245612273847647,
-                0.6262713414711548,
-                1.676858486173064
-            ],
-            [
-                0.06309847383051144,
-                0.8879740816396072,
-                0.09909576282425069,
-                0.6158536482663574,
-                1.7109535968810228
-            ],
-            [
-                0.07206882290549102,
-                0.9358348917607068,
-                0.08151343435513907,
-                0.6046262518691587,
-                1.7379891856826903
-            ],
-            [
-                0.08287524391462445,
-                0.9728865897966273,
-                0.06573530408352665,
-                0.5923525619114535,
-                1.7550687176607913
-            ],
-            [
-                0.09472954613392523,
-                0.9937960379948297,
-                0.056006912455242454,
-                0.579417926045988,
-                1.7600681309699493
-            ],
-            [
-                0.10734415628243621,
-                0.991118025924763,
-                0.0480121349231247,
-                0.5662375891032295,
-                1.7383721584411256
-            ],
-            [
-                0.12335835434188314,
-                0.9717544761796968,
-                0.04083545222076108,
-                0.5523060633879057,
-                1.6895549515980581
-            ],
-            [
-                0.1405389128565333,
-                0.9384393677256645,
-                0.0349324282803375,
-                0.5348259196052901,
-                1.6249615716708867
-            ],
-            [
-                0.15952633825032145,
-                0.8936199392733856,
-                0.030390709924013704,
-                0.5040854283448829,
-                1.5505992511135007
-            ],
-            [
-                0.18045220651919427,
-                0.833525436460029,
-                0.02683146259845075,
-                0.46768515058369636,
-                1.4696732541547253
-            ],
-            [
-                0.2058344489524558,
-                0.7625251223655394,
-                0.023833965444553892,
-                0.42938678429269855,
-                1.385029520188611
-            ],
-            [
-                0.23344704844483957,
-                0.6815735647614395,
-                0.021462458098263297,
-                0.39108624833775185,
-                1.2989937437337706
-            ],
-            [
-                0.2673777221702239,
-                0.5947517205147166,
-                0.01928024930790916,
-                0.35353494692253673,
-                1.2142011938028596
-            ],
-            [
-                0.30344999213961715,
-                0.5079445009347164,
-                0.017413111762428168,
-                0.3185469253122506,
-                1.1405666887048613
-            ],
-            [
-                0.33882021655138406,
-                0.4326119571911308,
-                0.01613691348356527,
-                0.2871016495629718,
-                1.097635600840258
-            ],
-            [
-                0.3761278302763849,
-                0.36519131855848275,
-                0.01599159773193426,
-                0.2629742365178706,
-                1.0837554127042042
-            ],
-            [
-                0.41524377301482707,
-                0.30264930647611454,
-                0.015377866507714548,
-                0.25019154158944823,
-                1.096235954858626
-            ],
-            [
-                0.4564941181500898,
-                0.2496297558251732,
-                0.014747170508543619,
-                0.2439700948963204,
-                1.1365960682696619
-            ],
-            [
-                0.500616192048695,
-                0.20559147577940523,
-                0.01358326516904222,
-                0.24003929585242753,
-                1.1865844983588432
-            ],
-            [
-                0.5438478838616237,
-                0.17065470608029634,
-                0.011844386510383872,
-                0.23989245871777198,
-                1.2398866114292169
-            ],
-            [
-                0.5856683301025053,
-                0.1424226215395197,
-                0.009601328940257852,
-                0.24181564963760097,
-                1.294860052731568
-            ],
-            [
-                0.6273226582983508,
-                0.12256102525767114,
-                0.006789743065555861,
-                0.2458181836168175,
-                1.3501086569624952
-            ],
-            [
-                0.6724169901174253,
-                0.10388581690401945,
-                0.003974214410565059,
-                0.25127048376530425,
-                1.4053946789153862
-            ],
-            [
-                0.7180817760888624,
-                0.08834924185427086,
-                0.0033009501703866622,
-                0.25780271320810255,
-                1.4592823920367808
-            ],
-            [
-                0.7584200709745247,
-                0.07587281976608566,
-                0.0027082177559296042,
-                0.2651567404594378,
-                1.5124128501309198
-            ],
-            [
-                0.7989299755599953,
-                0.06716389949553847,
-                0.0021858923851847275,
-                0.2723543050910275,
-                1.562234476230569
-            ],
-            [
-                0.8375248969008972,
-                0.05974594755089566,
-                0.0017300147792700376,
-                0.27961764952279233,
-                1.610555863105255
-            ],
-            [
-                0.8736648723663266,
-                0.053968537011638326,
-                0.00133662565930354,
-                0.28331522296346034,
-                1.6555327575885581
-            ],
-            [
-                0.9096932101001356,
-                0.04950638769574816,
-                0.0010017657464032423,
-                0.28158259559327636,
-                1.6963129174853848
-            ],
-            [
-                0.9398272234117845,
-                0.04529509941758793,
-                0.0007214757616871511,
-                0.27636468392565133,
-                1.7329193863600945
-            ],
-            [
-                0.9645707763630165,
-                0.04190650805565899,
-                0.0004917964262732714,
-                0.26995851048800806,
-                1.764165074787909
-            ],
-            [
-                0.9775948280407435,
-                0.038850502612227875,
-                0.00030876846127960984,
-                0.26280401092678213,
-                1.7891081454631645
-            ],
-            [
-                0.9861054758649965,
-                0.03665994244906318,
-                0.0001684325878241736,
-                0.25566077216448524,
-                1.806547081366668
-            ],
-            [
-                0.9934613662485043,
-                0.03486140057503418,
-                6.682952702496709e-05,
-                0.24829449633751158,
-                1.815116304372417
-            ],
-            [
-                0.9938846062092231,
-                0.033421435903158866,
-                0.0,
-                0.2402909301636863,
-                1.8123222932630678
-            ],
-            [
-                0.9842574027401696,
-                0.03262566896381212,
-                -5.5954978047207825e-05,
-                0.23244021147081084,
-                1.805191755313657
-            ],
-            [
-                0.9679877060413263,
-                0.03179842786268628,
-                -0.00011773100143244951,
-                0.2241199186524528,
-                1.7918905855368095
-            ],
-            [
-                0.9396029236901517,
-                0.03157388812874607,
-                -0.00017848226331669504,
-                0.2154892075974518,
-                1.7691465435578033
-            ],
-            [
-                0.9032867306746082,
-                0.030576841139105748,
-                -0.00023136295686091438,
-                0.2073548902036079,
-                NaN
-            ],
-            [
-                0.8590862500891976,
-                0.030569171155711672,
-                -0.00026952727522607753,
-                NaN,
-                NaN
-            ],
-            [
-                0.8133517147109817,
-                0.030555743622693688,
-                -0.00028612941157315445,
-                NaN,
-                NaN
-            ],
-            [
-                0.7626496085577333,
-                0.029653758830557972,
-                -0.0002743235590631152,
-                NaN,
-                NaN
-            ],
-            [
-                0.707644989553139,
-                0.029368100160019353,
-                -0.00022726391085692982,
-                NaN,
-                NaN
-            ],
-            [
-                0.651955207958659,
-                0.028706100812219238,
-                -0.0001381046601155679,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                0.028090356445199634,
-                0.0,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ],
-            [
-                NaN,
-                NaN,
-                NaN,
-                NaN,
-                NaN
-            ]
-        ],
         "density_curves_layers": [
             0,
             3,
             3
-        ]
-    },
-    "glare": {
-        "active": false,
-        "percent": 0.0,
-        "roughness": 0.25,
-        "blur": 0.5
-    },
-    "grain": {
-        "active": true,
-        "sublayers_active": true,
-        "agx_particle_area_um2": 0.2,
-        "agx_particle_scale": [
-            0.8,
-            1,
-            2
         ],
-        "agx_particle_scale_layers": [
-            2.5,
-            1,
-            0.5
-        ],
-        "density_min": [
-            0.07,
-            0.08,
-            0.12
-        ],
-        "uniformity": [
-            0.97,
-            0.97,
-            0.99
-        ],
-        "blur": 0.55,
-        "blur_dye_clouds_um": 1.0,
-        "micro_structure": [
-            0.2,
-            0.5
-        ],
-        "n_sub_layers": 1
-    },
-    "halation": {
-        "active": true,
-        "strength": [
-            0.03,
-            0.003,
-            0.001
-        ],
-        "size_um": [
-            200,
-            200,
-            200
-        ],
-        "scattering_strength": [
-            0.01,
-            0.02,
-            0.04
-        ],
-        "scattering_size_um": [
-            30,
-            20,
-            15
-        ]
-    },
-    "dir_couplers": {
-        "active": true,
-        "amount": 1.0,
-        "ratio_rgb": [
-            1.0,
-            1.0,
-            1.0
-        ],
-        "diffusion_interlayer": 2.0,
-        "diffusion_size_um": 10.0,
-        "high_exposure_shift": 0.0
-    },
-    "masking_couplers": {
-        "cross_over_points": [
-            585,
-            510,
-            200
-        ],
-        "transition_widths": [
-            15,
-            15,
-            1
-        ],
-        "gaussian_model": [
+        "channel_density": [
             [
-                [
-                    435,
-                    20,
-                    0.09
-                ],
-                [
-                    560,
-                    20,
-                    0.09
-                ]
+                null,
+                null,
+                null
             ],
             [
-                [
-                    470,
-                    20,
-                    0.09
-                ]
+                0.28700365801595096,
+                0.05093826175542117,
+                0.2711116067568881
             ],
             [
-                [
-                    520,
-                    20,
-                    0.09
-                ]
+                0.28224811433490854,
+                0.04693250238000488,
+                0.323057009463892
+            ],
+            [
+                0.27236731365927336,
+                0.043073211691081435,
+                0.39069180618230215
+            ],
+            [
+                0.2548868364787763,
+                0.04003575539267133,
+                0.4689105681048881
+            ],
+            [
+                0.23033416974047438,
+                0.03897574939912619,
+                0.5439390381354986
+            ],
+            [
+                0.20484888417846495,
+                0.03918472604254339,
+                0.6189250301221806
+            ],
+            [
+                0.18327881411546712,
+                0.04112074728195758,
+                0.6939245401233677
+            ],
+            [
+                0.16496181108692495,
+                0.04329077172377318,
+                0.7675500494578609
+            ],
+            [
+                0.14866836265915254,
+                0.04632913085498609,
+                0.8345713696073506
+            ],
+            [
+                0.13366413606156363,
+                0.04930664415876172,
+                0.8983879362936665
+            ],
+            [
+                0.11916373982952082,
+                0.05280474182458239,
+                0.9433720971420442
+            ],
+            [
+                0.10927092895111536,
+                0.056250880525918104,
+                0.9759055567184756
+            ],
+            [
+                0.09777560491511914,
+                0.05956423138384582,
+                0.9930068088583406
+            ],
+            [
+                0.08878439924977428,
+                0.065066705658929,
+                0.9992623319120257
+            ],
+            [
+                0.08215244352251025,
+                0.07324989158709082,
+                0.987197150231132
+            ],
+            [
+                0.07506870061658631,
+                0.08961639843258681,
+                0.9574427141994525
+            ],
+            [
+                0.06922671129437928,
+                0.10874085015864549,
+                0.9136466397899943
+            ],
+            [
+                0.06410744861263723,
+                0.12953834162758252,
+                0.854390018587523
+            ],
+            [
+                0.05855810912598754,
+                0.14896848185852737,
+                0.7857656550555815
+            ],
+            [
+                0.05407372435939756,
+                0.1824926777187743,
+                0.7068745225849674
+            ],
+            [
+                0.04922005078490889,
+                0.2250862341925027,
+                0.6241073392491281
+            ],
+            [
+                0.046523534393300404,
+                0.2789771501393336,
+                0.5484760246497131
+            ],
+            [
+                0.04375746038992806,
+                0.33537259283859183,
+                0.4720387124320066
+            ],
+            [
+                0.0423738382874284,
+                0.40021754555414724,
+                0.3985257570466038
+            ],
+            [
+                0.04139553262050595,
+                0.470633991822333,
+                0.3323483655787783
+            ],
+            [
+                0.04187809667051828,
+                0.5511978942654484,
+                0.27288943827115025
+            ],
+            [
+                0.04381853799859145,
+                0.6276625137776645,
+                0.2242994498604084
+            ],
+            [
+                0.04690560643750969,
+                0.7005547485446029,
+                0.18290460072987233
+            ],
+            [
+                0.0505488894752798,
+                0.7714535743409586,
+                0.14837788733789467
+            ],
+            [
+                0.05596149398203452,
+                0.8356922694788333,
+                0.12245612273847647
+            ],
+            [
+                0.06309847383051144,
+                0.8879740816396072,
+                0.09909576282425069
+            ],
+            [
+                0.07206882290549102,
+                0.9358348917607068,
+                0.08151343435513907
+            ],
+            [
+                0.08287524391462445,
+                0.9728865897966273,
+                0.06573530408352665
+            ],
+            [
+                0.09472954613392523,
+                0.9937960379948297,
+                0.056006912455242454
+            ],
+            [
+                0.10734415628243621,
+                0.991118025924763,
+                0.0480121349231247
+            ],
+            [
+                0.12335835434188314,
+                0.9717544761796968,
+                0.04083545222076108
+            ],
+            [
+                0.1405389128565333,
+                0.9384393677256645,
+                0.0349324282803375
+            ],
+            [
+                0.15952633825032145,
+                0.8936199392733856,
+                0.030390709924013704
+            ],
+            [
+                0.18045220651919427,
+                0.833525436460029,
+                0.02683146259845075
+            ],
+            [
+                0.2058344489524558,
+                0.7625251223655394,
+                0.023833965444553892
+            ],
+            [
+                0.23344704844483957,
+                0.6815735647614395,
+                0.021462458098263297
+            ],
+            [
+                0.2673777221702239,
+                0.5947517205147166,
+                0.01928024930790916
+            ],
+            [
+                0.30344999213961715,
+                0.5079445009347164,
+                0.017413111762428168
+            ],
+            [
+                0.33882021655138406,
+                0.4326119571911308,
+                0.01613691348356527
+            ],
+            [
+                0.3761278302763849,
+                0.36519131855848275,
+                0.01599159773193426
+            ],
+            [
+                0.41524377301482707,
+                0.30264930647611454,
+                0.015377866507714548
+            ],
+            [
+                0.4564941181500898,
+                0.2496297558251732,
+                0.014747170508543619
+            ],
+            [
+                0.500616192048695,
+                0.20559147577940523,
+                0.01358326516904222
+            ],
+            [
+                0.5438478838616237,
+                0.17065470608029634,
+                0.011844386510383872
+            ],
+            [
+                0.5856683301025053,
+                0.1424226215395197,
+                0.009601328940257852
+            ],
+            [
+                0.6273226582983508,
+                0.12256102525767114,
+                0.006789743065555861
+            ],
+            [
+                0.6724169901174253,
+                0.10388581690401945,
+                0.003974214410565059
+            ],
+            [
+                0.7180817760888624,
+                0.08834924185427086,
+                0.0033009501703866622
+            ],
+            [
+                0.7584200709745247,
+                0.07587281976608566,
+                0.0027082177559296042
+            ],
+            [
+                0.7989299755599953,
+                0.06716389949553847,
+                0.0021858923851847275
+            ],
+            [
+                0.8375248969008972,
+                0.05974594755089566,
+                0.0017300147792700376
+            ],
+            [
+                0.8736648723663266,
+                0.053968537011638326,
+                0.00133662565930354
+            ],
+            [
+                0.9096932101001356,
+                0.04950638769574816,
+                0.0010017657464032423
+            ],
+            [
+                0.9398272234117845,
+                0.04529509941758793,
+                0.0007214757616871511
+            ],
+            [
+                0.9645707763630165,
+                0.04190650805565899,
+                0.0004917964262732714
+            ],
+            [
+                0.9775948280407435,
+                0.038850502612227875,
+                0.00030876846127960984
+            ],
+            [
+                0.9861054758649965,
+                0.03665994244906318,
+                0.0001684325878241736
+            ],
+            [
+                0.9934613662485043,
+                0.03486140057503418,
+                6.682952702496709e-05
+            ],
+            [
+                0.9938846062092231,
+                0.033421435903158866,
+                0.0
+            ],
+            [
+                0.9842574027401696,
+                0.03262566896381212,
+                -5.5954978047207825e-05
+            ],
+            [
+                0.9679877060413263,
+                0.03179842786268628,
+                -0.00011773100143244951
+            ],
+            [
+                0.9396029236901517,
+                0.03157388812874607,
+                -0.00017848226331669504
+            ],
+            [
+                0.9032867306746082,
+                0.030576841139105748,
+                -0.00023136295686091438
+            ],
+            [
+                0.8590862500891976,
+                0.030569171155711672,
+                -0.00026952727522607753
+            ],
+            [
+                0.8133517147109817,
+                0.030555743622693688,
+                -0.00028612941157315445
+            ],
+            [
+                0.7626496085577333,
+                0.029653758830557972,
+                -0.0002743235590631152
+            ],
+            [
+                0.707644989553139,
+                0.029368100160019353,
+                -0.00022726391085692982
+            ],
+            [
+                0.651955207958659,
+                0.028706100812219238,
+                -0.0001381046601155679
+            ],
+            [
+                null,
+                0.028090356445199634,
+                0.0
+            ],
+            [
+                null,
+                null,
+                null
+            ],
+            [
+                null,
+                null,
+                null
+            ],
+            [
+                null,
+                null,
+                null
+            ],
+            [
+                null,
+                null,
+                null
+            ],
+            [
+                null,
+                null,
+                null
+            ],
+            [
+                null,
+                null,
+                null
             ]
+        ],
+        "base_density": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            0.848553008688969,
+            0.827516523738512,
+            0.8194640160983325,
+            0.823125192498743,
+            0.8332578347468532,
+            0.842165596532671,
+            0.8489463229857995,
+            0.8495832892039802,
+            0.8427194727673385,
+            0.8332905118163255,
+            0.8223997825204477,
+            0.8098601386605712,
+            0.7959332164554803,
+            0.7813644014361893,
+            0.7657761201775865,
+            0.7500723106149959,
+            0.7338182667487441,
+            0.7179944923254079,
+            0.7019739832318441,
+            0.6871967698004688,
+            0.674231149234032,
+            0.6634120301694711,
+            0.6540422291238335,
+            0.645162734771734,
+            0.6359597955539683,
+            0.6262713414711548,
+            0.6158536482663574,
+            0.6046262518691587,
+            0.5923525619114535,
+            0.579417926045988,
+            0.5662375891032295,
+            0.5523060633879057,
+            0.5348259196052901,
+            0.5040854283448829,
+            0.46768515058369636,
+            0.42938678429269855,
+            0.39108624833775185,
+            0.35353494692253673,
+            0.3185469253122506,
+            0.2871016495629718,
+            0.2629742365178706,
+            0.25019154158944823,
+            0.2439700948963204,
+            0.24003929585242753,
+            0.23989245871777198,
+            0.24181564963760097,
+            0.2458181836168175,
+            0.25127048376530425,
+            0.25780271320810255,
+            0.2651567404594378,
+            0.2723543050910275,
+            0.27961764952279233,
+            0.28331522296346034,
+            0.28158259559327636,
+            0.27636468392565133,
+            0.26995851048800806,
+            0.26280401092678213,
+            0.25566077216448524,
+            0.24829449633751158,
+            0.2402909301636863,
+            0.23244021147081084,
+            0.2241199186524528,
+            0.2154892075974518,
+            0.2073548902036079,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ],
+        "midscale_neutral_density": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            1.524159504019664,
+            1.5495315941255987,
+            1.5851747130914506,
+            1.6444327172458122,
+            1.7574603696268016,
+            1.8415090985062614,
+            1.8981585761604283,
+            1.9335422187645361,
+            1.9522613427685027,
+            1.958116095445581,
+            1.9474746696597989,
+            1.918734219127656,
+            1.8706024104971686,
+            1.805829760161104,
+            1.729011896052641,
+            1.6501313042023007,
+            1.5798826820664895,
+            1.5291082386986483,
+            1.4988263249303917,
+            1.4907287833670584,
+            1.5007860144267247,
+            1.524466176006339,
+            1.5567432025216938,
+            1.5960069912716408,
+            1.637163613055821,
+            1.676858486173064,
+            1.7109535968810228,
+            1.7379891856826903,
+            1.7550687176607913,
+            1.7600681309699493,
+            1.7383721584411256,
+            1.6895549515980581,
+            1.6249615716708867,
+            1.5505992511135007,
+            1.4696732541547253,
+            1.385029520188611,
+            1.2989937437337706,
+            1.2142011938028596,
+            1.1405666887048613,
+            1.097635600840258,
+            1.0837554127042042,
+            1.096235954858626,
+            1.1365960682696619,
+            1.1865844983588432,
+            1.2398866114292169,
+            1.294860052731568,
+            1.3501086569624952,
+            1.4053946789153862,
+            1.4592823920367808,
+            1.5124128501309198,
+            1.562234476230569,
+            1.610555863105255,
+            1.6555327575885581,
+            1.6963129174853848,
+            1.7329193863600945,
+            1.764165074787909,
+            1.7891081454631645,
+            1.806547081366668,
+            1.815116304372417,
+            1.8123222932630678,
+            1.805191755313657,
+            1.7918905855368095,
+            1.7691465435578033,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
         ]
     }
 }

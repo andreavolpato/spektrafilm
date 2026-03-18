@@ -10,6 +10,8 @@ class TestPhotoParamsDefaults:
         for section in (
             'negative',
             'print_paper',
+            'negative_render',
+            'print_render',
             'camera',
             'enlarger',
             'scanner',
@@ -45,6 +47,16 @@ class TestPhotoParamsDefaults:
         assert params.scanner.lens_blur == 0.0
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
+        assert params.negative_render.density_curve_gamma == 1.0
+        assert params.negative_render.base_density_scale == 1.0
+        assert params.negative_render.grain.active is True
+        assert params.negative_render.halation.active is True
+        assert params.negative_render.dir_couplers.active is True
+
+        assert params.print_render.density_curve_gamma == 1.0
+        assert params.print_render.base_density_scale == 0.4
+        assert params.print_render.glare.active is True
+
         assert params.io.input_color_space == 'ProPhoto RGB'
         assert params.io.input_cctf_decoding is False
         assert params.io.output_color_space == 'sRGB'
@@ -79,12 +91,12 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.negative.halation.size_um == [0, 0, 0]
-        assert photo.negative.halation.scattering_size_um == [0, 0, 0]
-        assert photo.negative.dir_couplers.diffusion_size_um == 0
-        assert photo.negative.grain.blur == 0.0
-        assert photo.negative.grain.blur_dye_clouds_um == 0.0
-        assert photo.print_paper.glare.blur == 0
+        assert photo.negative_render.halation.size_um == [0, 0, 0]
+        assert photo.negative_render.halation.scattering_size_um == [0, 0, 0]
+        assert photo.negative_render.dir_couplers.diffusion_size_um == 0
+        assert photo.negative_render.grain.blur == 0.0
+        assert photo.negative_render.grain.blur_dye_clouds_um == 0.0
+        assert photo.print_render.glare.blur == 0
         assert photo.camera.lens_blur_um == 0.0
         assert photo.enlarger.lens_blur == 0.0
         assert photo.scanner.lens_blur == 0.0
@@ -96,9 +108,8 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.negative.grain.active is False
-        assert photo.negative.glare.active is False
-        assert photo.print_paper.glare.active is False
+        assert photo.negative_render.grain.active is False
+        assert photo.print_render.glare.active is False
 
 
 class TestRuntimeParamsCompatibility:
@@ -121,6 +132,8 @@ class TestRuntimeParamsCompatibility:
         legacy_params = {
             'negative': params.negative,
             'print_paper': params.print_paper,
+            'negative_render': vars(params.negative_render).copy(),
+            'print_render': vars(params.print_render).copy(),
             'camera': vars(params.camera).copy(),
             'enlarger': vars(params.enlarger).copy(),
             'scanner': vars(params.scanner).copy(),
@@ -136,5 +149,5 @@ class TestRuntimeParamsCompatibility:
         photo = AgXPhoto(legacy_params)
 
         assert photo.debug.deactivate_spatial_effects is True
-        assert photo.negative.halation.size_um == [0, 0, 0]
+        assert photo.negative_render.halation.size_um == [0, 0, 0]
         assert photo.debug.luts.enlarger_lut is None

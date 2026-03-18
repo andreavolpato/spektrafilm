@@ -6,6 +6,7 @@ import lmfit
 
 from profiles_creator.data.loader import load_densitometer_data
 from spectral_film_lab.utils.measure import measure_slopes_at_exposure
+from spectral_film_lab.profiles.io import load_profile
 
 ########################################################################################
 # General functions
@@ -121,6 +122,7 @@ def make_reconstruct_dye_density_params(model='model_a'):
 
 def density_mid_min_model(params, wl, cmy_model, model):
     dmin = np.zeros_like(wl)
+    filters = np.zeros_like(cmy_model)
     dye = shift_stretch_cmy(wl, cmy_model, params['dye_amp0'], params['dye_width0'], params['dye_shift0'],
                                         params['dye_amp1'], params['dye_width1'], params['dye_shift1'],
                                         params['dye_amp2'], params['dye_width2'], params['dye_shift2'],)
@@ -216,7 +218,7 @@ def slopes_of_concentrations(log_exposure, density_curves, dstm_cm):
     c = np.zeros_like(density_curves)
     for i in range(3):
         for j in range(3):
-            c[:,i] += np.linalg.inv(dstm_cm)[i,j] * density_curves[:,j] # TODO fix order of indexes of crosstalk matrix according to formalism
+            c[:,i] += np.linalg.inv(dstm_cm)[i,j] * density_curves[:,j]
     gammas = measure_slopes_at_exposure(log_exposure, c)
     return gammas
 
@@ -256,15 +258,15 @@ from spectral_film_lab.model.illuminants import standard_illuminant
 from spectral_film_lab.model.color_filters import dichroic_filters
 
 def reconstruct_dye_density(profile, params=None, control_plot=False, print_params=False,
-                            target_print_paper=None, ymc_filter_values=[0.8,0.6,0.2],
+                            target_print_paper=None, ymc_filter_values=(0.8, 0.6, 0.2),
                             max_nfev=500, tol=5e-5, model='dmid_dmin', biases=(1,2,0)
                             ):
-    cmy_model = profile.data.dye_density[:,:3]
+    cmy_model = np.asarray(profile.data.channel_density)
     wl = profile.data.wavelengths
     le = profile.data.log_exposure
     dc = profile.data.density_curves
-    dmid = profile.data.dye_density[:,4]
-    dmin = profile.data.dye_density[:,3]
+    dmid = np.asarray(profile.data.midscale_neutral_density)
+    dmin = np.asarray(profile.data.base_density)
     dmid_minus_min = dmid-dmin
     exp = np.concatenate((dmid_minus_min, dmin))
     
@@ -347,7 +349,7 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
         axs[1].legend()
         
         if model=='dmid_dmin':
-            dmin_sim, cpl, scat, fog, base, dmax = density_min_model(out.params, wl, cmy, filters, [0,0,1,1,2])
+            dmin_sim, cpl, scat, fog, base, _ = density_min_model(out.params, wl, cmy, filters, [0,0,1,1,2])
             axs[2].plot(wl, np.ones_like(wl)*base, 'tab:green', label='Base')
             axs[2].plot(wl, base+scat, 'tab:blue', label='Scattering')
             axs[2].plot(wl, base+scat+np.sum(fog*cmy, axis=1) + cpl[:,0], color='tab:cyan', label='Mask C')
@@ -367,16 +369,12 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
             
             
 
-    profile.info.density_midscale_neutral = np.nanmax(cmy, axis=0).tolist()
-    profile.data.dye_density[:,:3] = cmy/np.nanmax(cmy, axis=0)
-    # profile.info.density_midscale_neutral = np.nanmax(cmy[:,1])
-    # profile.data.dye_density[:,:3] = cmy/np.nanmax(cmy[:,1])
+    profile.info.fitted_cmy_midscale_neutral_density = np.nanmax(cmy, axis=0).tolist()
+    profile.data.channel_density = cmy/np.nanmax(cmy, axis=0)
     return profile
 
 
 if __name__ == '__main__':
-    from spectral_film_lab.profiles.io import load_profile
-    
     # params = make_reconstruct_dye_density_params()
     # profile = load_profile('kodak_portra_400_v2')
     # profile = load_profile('fuji_pro_400h_v2')
@@ -390,10 +388,10 @@ if __name__ == '__main__':
                  'kodak_vision3_50d'
                  ]
     for neg in negatives:
-        profile = load_profile(neg)
-        profile = reconstruct_dye_density(profile,
-                                          control_plot=True,
-                                          print_params=True)
+        example_profile = load_profile(neg)
+        example_profile = reconstruct_dye_density(example_profile,
+                                                  control_plot=True,
+                                                  print_params=True)
 
     # profile = process_profile(profile)
     # plot_profile(profile)

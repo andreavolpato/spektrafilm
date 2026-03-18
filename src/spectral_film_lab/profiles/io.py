@@ -36,6 +36,20 @@ def profile_to_dict(data):
     return data
 
 
+def _json_safe(data):
+    if isinstance(data, dict):
+        return {k: _json_safe(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_json_safe(v) for v in data]
+    if isinstance(data, tuple):
+        return [_json_safe(v) for v in data]
+    if isinstance(data, np.ndarray):
+        return _json_safe(data.tolist())
+    if isinstance(data, float) and np.isnan(data):
+        return None
+    return data
+
+
 def _validate_profile(profile, stock):
     try:
         data = profile.data
@@ -47,9 +61,13 @@ def _validate_profile(profile, stock):
             and data.log_sensitivity.ndim == 2
             and data.log_sensitivity.shape[1] == 3
             and data.wavelengths.ndim == 1
-            and data.dye_density.ndim == 2
-            and data.dye_density.shape[0] == data.wavelengths.shape[0]
-            and data.dye_density.shape[1] >= 4
+            and data.channel_density.ndim == 2
+            and data.channel_density.shape[1] == 3
+            and data.channel_density.shape[0] == data.wavelengths.shape[0]
+            and data.base_density.ndim == 1
+            and data.base_density.shape[0] == data.wavelengths.shape[0]
+            and data.midscale_neutral_density.ndim == 1
+            and data.midscale_neutral_density.shape[0] == data.wavelengths.shape[0]
         )
     except (AttributeError, IndexError, KeyError, TypeError):
         raise ValueError(f"Invalid profile '{stock}'") from None
@@ -64,7 +82,9 @@ def save_profile(profile, suffix=''):
     profile.data.log_sensitivity = np.asarray(profile.data.log_sensitivity).tolist()
     profile.data.density_curves = np.asarray(profile.data.density_curves).tolist()
     profile.data.density_curves_layers = np.asarray(profile.data.density_curves_layers).tolist()
-    profile.data.dye_density = np.asarray(profile.data.dye_density).tolist()
+    profile.data.channel_density = np.asarray(profile.data.channel_density).tolist()
+    profile.data.base_density = np.asarray(profile.data.base_density).tolist()
+    profile.data.midscale_neutral_density = np.asarray(profile.data.midscale_neutral_density).tolist()
     profile.data.log_exposure = np.asarray(profile.data.log_exposure).tolist()
     profile.data.wavelengths = np.asarray(profile.data.wavelengths).tolist()
     package = pkg_resources.files('spectral_film_lab.data.profiles')
@@ -72,7 +92,7 @@ def save_profile(profile, suffix=''):
     resource = package / filename
     print('Saving to:', filename)
     with resource.open("w") as file:
-        json.dump(profile_to_dict(profile), file, indent=4)
+        json.dump(_json_safe(profile_to_dict(profile)), file, indent=4, allow_nan=False)
 
 def load_profile(stock):
     package = pkg_resources.files('spectral_film_lab.data.profiles')
@@ -80,12 +100,14 @@ def load_profile(stock):
     resource = package / filename
     with resource.open("r") as file:
         profile = profile_from_dict(json.load(file))
-    profile.data.log_sensitivity = np.array(profile.data.log_sensitivity)
-    profile.data.dye_density = np.array(profile.data.dye_density)
-    profile.data.density_curves = np.array(profile.data.density_curves)
-    profile.data.log_exposure = np.array(profile.data.log_exposure)
-    profile.data.wavelengths = np.array(profile.data.wavelengths)
-    profile.data.density_curves_layers = np.array(profile.data.density_curves_layers)
+    profile.data.log_sensitivity = np.array(profile.data.log_sensitivity, dtype=float)
+    profile.data.channel_density = np.array(profile.data.channel_density, dtype=float)
+    profile.data.base_density = np.array(profile.data.base_density, dtype=float)
+    profile.data.midscale_neutral_density = np.array(profile.data.midscale_neutral_density, dtype=float)
+    profile.data.density_curves = np.array(profile.data.density_curves, dtype=float)
+    profile.data.log_exposure = np.array(profile.data.log_exposure, dtype=float)
+    profile.data.wavelengths = np.array(profile.data.wavelengths, dtype=float)
+    profile.data.density_curves_layers = np.array(profile.data.density_curves_layers, dtype=float)
     _validate_profile(profile, stock)
     return profile
 

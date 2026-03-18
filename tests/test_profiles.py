@@ -14,7 +14,9 @@ class TestLoadProfile:
         assert hasattr(p, 'data')
         assert hasattr(p.data, 'log_sensitivity')
         assert hasattr(p.data, 'density_curves')
-        assert hasattr(p.data, 'dye_density')
+        assert hasattr(p.data, 'channel_density')
+        assert hasattr(p.data, 'base_density')
+        assert hasattr(p.data, 'midscale_neutral_density')
         assert hasattr(p.data, 'log_exposure')
         assert hasattr(p.data, 'wavelengths')
 
@@ -43,9 +45,13 @@ class TestLoadProfile:
         assert profile.data.log_sensitivity.shape[1] == 3
 
         assert profile.data.wavelengths.ndim == 1
-        assert profile.data.dye_density.ndim == 2
-        assert profile.data.dye_density.shape[0] == profile.data.wavelengths.shape[0]
-        assert profile.data.dye_density.shape[1] >= 4
+        assert profile.data.channel_density.ndim == 2
+        assert profile.data.channel_density.shape[0] == profile.data.wavelengths.shape[0]
+        assert profile.data.channel_density.shape[1] == 3
+        assert profile.data.base_density.ndim == 1
+        assert profile.data.base_density.shape[0] == profile.data.wavelengths.shape[0]
+        assert profile.data.midscale_neutral_density.ndim == 1
+        assert profile.data.midscale_neutral_density.shape[0] == profile.data.wavelengths.shape[0]
 
     def test_profile_namespace_round_trip_preserves_core_fields(self, portra_400_profile):
         profile_dict = profile_to_dict(portra_400_profile)

@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 import scipy.interpolate
 import copy
 from spectral_film_lab.runtime.process import photo_process, photo_params
@@ -15,7 +16,7 @@ def compute_densitometer_correction(dye_density, densitometer_type='status_A'):
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     log_exposure_midscale_neutral = np.zeros((3,))
-    d_mid = profile.info.density_midscale_neutral
+    d_mid = profile.info.fitted_cmy_midscale_neutral_density
     if np.size(d_mid)==1: 
         d_mid = np.ones(3) * d_mid
     if reference_channel=='green':
@@ -113,7 +114,7 @@ def gray_ramp(p0, ev_ramp, density_scale=[1,1,1], shift_corr=[0,0,0], stretch_co
     pl.io.input_color_space = 'sRGB'
     pl.debug.deactivate_spatial_effects = True
     pl.debug.deactivate_stochastic_effects = True
-    pl.print_paper.glare.active = False
+    pl.print_render.glare.active = False
     pl.io.output_cctf_encoding = False
     # pl.settings.rgb_to_raw_method = 'mallett2019'
     pl.negative = apply_scale_shift_stretch_density_curves(pl.negative, density_scale, shift_corr, stretch_corr)

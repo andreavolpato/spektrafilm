@@ -10,7 +10,7 @@ def fit_print_filters_iter(profile):
     p = copy.copy(profile)
     p.debug.deactivate_spatial_effects = True
     p.debug.deactivate_stochastic_effects = True
-    p.print_paper.glare.compensation_removal_factor = 0.0
+    p.print_render.glare.compensation_removal_factor = 0.0
     p.io.input_cctf_decoding = False
     p.io.input_color_space = "sRGB"
     p.io.resize_factor = 1.0

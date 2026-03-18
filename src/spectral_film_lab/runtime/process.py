@@ -43,8 +43,10 @@ class AgXPhoto():
         # main components
         self.camera = params.camera
         self.negative = params.negative
+        self.negative_render = params.negative_render
         self.enlarger = params.enlarger
         self.print_paper = params.print_paper
+        self.print_render = params.print_render
         self.scanner = params.scanner
         # auxiliary and special
         self.io = params.io
@@ -55,21 +57,20 @@ class AgXPhoto():
 
     def _apply_debug_switches(self):
         if self.debug.deactivate_spatial_effects:
-            self.negative.halation.size_um = [0,0,0]
-            self.negative.halation.scattering_size_um = [0,0,0]
-            self.negative.dir_couplers.diffusion_size_um = 0
-            self.negative.grain.blur = 0.0
-            self.negative.grain.blur_dye_clouds_um = 0.0
-            self.print_paper.glare.blur = 0
+            self.negative_render.halation.size_um = [0,0,0]
+            self.negative_render.halation.scattering_size_um = [0,0,0]
+            self.negative_render.dir_couplers.diffusion_size_um = 0
+            self.negative_render.grain.blur = 0.0
+            self.negative_render.grain.blur_dye_clouds_um = 0.0
+            self.print_render.glare.blur = 0
             self.camera.lens_blur_um = 0.0
             self.enlarger.lens_blur = 0.0
             self.scanner.lens_blur = 0.0
             self.scanner.unsharp_mask = (0.0, 0.0)
 
         if self.debug.deactivate_stochastic_effects:
-            self.negative.grain.active = False
-            self.negative.glare.active = False
-            self.print_paper.glare.active = False
+            self.negative_render.grain.active = False
+            self.print_render.glare.active = False
 
     def process(self, image):
         image = np.double(np.array(image)[:,:,0:3])
@@ -82,10 +83,8 @@ class AgXPhoto():
         self._apply_profiles_changes()
         
         if not self.io.full_image: # activate grain, halation, and glare only with full image
-            self.negative.grain.active = False
-            self.negative.halation.active = False
-            # self.negative.glare.active = False
-            # self.print_paper.glare.active = False
+            self.negative_render.grain.active = False
+            self.negative_render.halation.active = False
         
         # film exposure in camera and chemical development
         raw = self._expose_film(image, exposure_ev, pixel_size_um)
@@ -139,28 +138,27 @@ class AgXPhoto():
     
     @timeit('_apply_profiles_changes')
     def _apply_profiles_changes(self):
-        if self.print_paper.glare.compensation_removal_factor>0:
+        if self.print_render.glare.compensation_removal_factor>0:
             le = self.print_paper.data.log_exposure
             dc = self.print_paper.data.density_curves
             dc_out = remove_viewing_glare_comp(le, dc,
-                                      factor=self.print_paper.glare.compensation_removal_factor,
-                                      density=self.print_paper.glare.compensation_removal_density,
-                                      transition=self.print_paper.glare.compensation_removal_transition)
+                                      factor=self.print_render.glare.compensation_removal_factor,
+                                      density=self.print_render.glare.compensation_removal_density,
+                                      transition=self.print_render.glare.compensation_removal_transition)
             self.print_paper.data.density_curves = dc_out    
                 
     @timeit('_expose_film')
     def _expose_film(self, image, exposure_ev, pixel_size_um):
         raw = self._rgb_to_film_raw(image, exposure_ev,
                                     color_space=self.io.input_color_space,
-                                    apply_cctf_decoding=self.io.input_cctf_decoding,
-                                    use_lut=self.settings.use_camera_lut)
+                                    apply_cctf_decoding=self.io.input_cctf_decoding)
         raw = apply_gaussian_blur_um(raw, self.camera.lens_blur_um, pixel_size_um)
-        raw = apply_halation_um(raw, self.negative.halation, pixel_size_um)
+        raw = apply_halation_um(raw, self.negative_render.halation, pixel_size_um)
         return raw
 
     @timeit('_develop_film')
     def _develop_film(self, log_raw, pixel_size_um):
-        film = Film(self.negative)
+        film = Film(self.negative, self.negative_render)
         density_cmy = film.develop(log_raw, pixel_size_um,
                                    use_fast_stats=self.settings.use_fast_stats)
         return density_cmy
@@ -178,7 +176,7 @@ class AgXPhoto():
     
     @timeit('_develop_print')
     def _develop_print(self, log_raw):
-        density_cmy = develop_simple(self.print_paper, log_raw)
+        density_cmy = develop_simple(self.print_paper, log_raw, gamma_factor=self.print_render.density_curve_gamma)
         return density_cmy
     
     @timeit('_scan')
@@ -214,8 +212,7 @@ class AgXPhoto():
     # Film calculations (maybe move them in emulsion)
 
     def _rgb_to_film_raw(self, rgb, exposure_ev,
-                         color_space='sRGB', apply_cctf_decoding=False,
-                         use_lut=False):
+                         color_space='sRGB', apply_cctf_decoding=False):
         sensitivity = 10**self.negative.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity) # replace nans with zeros
         
@@ -246,14 +243,14 @@ class AgXPhoto():
 
     def _normalize_film_density(self, denisty_cmy):
         density_max = np.nanmax(self.negative.data.density_curves, axis=0)
-        density_min = self.negative.grain.density_min
+        density_min = self.negative_render.grain.density_min
         density_max += density_min
         density_cmy_normalized = (denisty_cmy + density_min) / density_max
         return density_cmy_normalized
     
     def _denormalize_film_density(self, density_cmy_normalized):
         density_max = np.nanmax(self.negative.data.density_curves, axis=0)
-        density_min = self.negative.grain.density_min
+        density_min = self.negative_render.grain.density_min
         density_max += density_min
         density_cmy = density_cmy_normalized * density_max - density_min
         return density_cmy
@@ -267,7 +264,7 @@ class AgXPhoto():
         enlarger_light_source = standard_illuminant(self.enlarger.illuminant)
         raw = np.zeros_like(density_cmy)
         if not self.enlarger.just_preflash:
-            density_spectral = compute_density_spectral(self.negative, density_cmy)
+            density_spectral = compute_density_spectral(self.negative, density_cmy, base_density_scale=self.negative_render.base_density_scale)
             print_illuminant = self._compute_print_illuminant(enlarger_light_source)
             light = density_to_light(density_spectral, print_illuminant)
             raw = contract('ijk, kl->ijl', light, sensitivity)
@@ -297,7 +294,7 @@ class AgXPhoto():
     def _compute_raw_preflash(self, light_source, sensitivity):
         if self.enlarger.preflash_exposure > 0:
             preflash_illuminant = self._compute_preflash_illuminant(light_source)
-            density_base = self.negative.data.dye_density[:, 3][None, None, :]
+            density_base = np.asarray(self.negative.data.base_density)[None, None, :]
             light_preflash = density_to_light(density_base, preflash_illuminant)
             raw_preflash = contract('ijk, kl->ijl', light_preflash, sensitivity)
             raw_preflash *= self.enlarger.preflash_exposure
@@ -311,11 +308,10 @@ class AgXPhoto():
         else:
             neg_exp_comp_ev = 0.0
         rgb_midgray = np.array([[[0.184]*3]]) * 2**neg_exp_comp_ev
-        raw_midgray = self._rgb_to_film_raw(rgb_midgray, exposure_ev=0.0, use_lut=False)
+        raw_midgray = self._rgb_to_film_raw(rgb_midgray, exposure_ev=0.0)
         log_raw_midgray = np.log10(raw_midgray + 1e-10)
-        # film = Film(self.negative) # TODO: fix this using a function 
-        density_cmy_midgray = develop_simple(self.negative, log_raw_midgray)
-        density_spectral_midgray = compute_density_spectral(self.negative, density_cmy_midgray)
+        density_cmy_midgray = develop_simple(self.negative, log_raw_midgray, gamma_factor=self.negative_render.density_curve_gamma)
+        density_spectral_midgray = compute_density_spectral(self.negative, density_cmy_midgray, base_density_scale=self.negative_render.base_density_scale)
         light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
         raw_midgray = contract('ijk, kl->ijl', light_midgray, sensitivity)
         factor = 1/raw_midgray[:,:,1]
@@ -338,9 +334,13 @@ class AgXPhoto():
         if self.io.compute_negative:
             density_cmy_n = self._normalize_film_density(density_cmy)
             profile = self.negative
+            base_density_scale = self.negative_render.base_density_scale
+            glare = None
         else:
             density_cmy_n = self._normalize_print_density(density_cmy)
             profile = self.print_paper
+            base_density_scale = self.print_render.base_density_scale
+            glare = self.print_render.glare
         scan_illuminant = standard_illuminant(profile.info.viewing_illuminant)
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
         
@@ -350,7 +350,7 @@ class AgXPhoto():
                 density_cmy = self._denormalize_film_density(density_cmy_n)
             else:
                 density_cmy = self._denormalize_print_density(density_cmy_n)
-            density_spectral = compute_density_spectral(profile, density_cmy)
+            density_spectral = compute_density_spectral(profile, density_cmy, base_density_scale=base_density_scale)
             light = density_to_light(density_spectral, scan_illuminant)            
             xyz = contract('ijk,kl->ijl', light, STANDARD_OBSERVER_CMFS[:]) / normalization
             log_xyz = np.log10(xyz + 1e-10)
@@ -360,7 +360,7 @@ class AgXPhoto():
         xyz = 10**log_xyz
         
         illuminant_xyz = contract('k,kl->l', scan_illuminant, STANDARD_OBSERVER_CMFS[:]) / normalization
-        xyz = add_glare(xyz, illuminant_xyz, profile)
+        xyz = add_glare(xyz, illuminant_xyz, glare)
         illuminant_xy = colour.XYZ_to_xy(illuminant_xyz)
         rgb = colour.XYZ_to_RGB(xyz,
                                 colourspace=self.io.output_color_space, 
@@ -384,11 +384,11 @@ class AgXPhoto():
         rgb = np.clip(rgb, a_min=0, a_max=1)
         return rgb
         
-def add_glare(xyz, illuminant_xyz, profile):
-    if profile.glare.active and profile.glare.percent>0:
-        glare_amount = compute_random_glare_amount(profile.glare.percent,
-                                                profile.glare.roughness,
-                                                profile.glare.blur,
+def add_glare(xyz, illuminant_xyz, glare):
+    if glare is not None and glare.active and glare.percent>0:
+        glare_amount = compute_random_glare_amount(glare.percent,
+                                                glare.roughness,
+                                                glare.blur,
                                                 xyz.shape[:2])
         xyz += glare_amount[:,:,None] * illuminant_xyz[None,None,:]
     return xyz
