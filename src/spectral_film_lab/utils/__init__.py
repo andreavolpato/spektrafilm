@@ -51,7 +51,7 @@ class IOParams:
     preview_resize_factor: float = 1.0
     upscale_factor: float = 1.0
     full_image: bool = False
-    compute_negative: bool = False
+    compute_source: bool = False
     compute_film_raw: bool = False
 
 
@@ -65,8 +65,8 @@ class DebugLuts:
 class DebugParams:
     deactivate_spatial_effects: bool = False
     deactivate_stochastic_effects: bool = False
-    input_negative_density_cmy: bool = False
-    return_negative_density_cmy: bool = False
+    input_source_density_cmy: bool = False
+    return_source_density_cmy: bool = False
     return_print_density_cmy: bool = False
     print_timings: bool = False
     luts: DebugLuts = field(default_factory=DebugLuts)
@@ -83,8 +83,8 @@ class SettingsParams:
 
 @dataclass
 class RuntimePhotoParams:
-    negative: Any
-    print_paper: Any
+    source: Any
+    print: Any
     camera: CameraParams = field(default_factory=CameraParams)
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
     scanner: ScannerParams = field(default_factory=ScannerParams)
@@ -138,19 +138,19 @@ def coerce_runtime_params(params: Any) -> RuntimePhotoParams:
     else:
         raise TypeError("Unsupported params type; expected RuntimePhotoParams, mapping, or object with attributes")
 
-    if "negative" not in source or "print_paper" not in source:
-        raise ValueError("Params must include 'negative' and 'print_paper'")
+    if "source" not in source or "print" not in source:
+        raise ValueError("Params must include 'source' and 'print'")
 
-    negative = source["negative"]
-    print_paper = source["print_paper"]
-    if isinstance(negative, Mapping):
-        negative = _mapping_to_namespace(negative)
-    if isinstance(print_paper, Mapping):
-        print_paper = _mapping_to_namespace(print_paper)
+    source_profile = source["source"]
+    print_profile = source["print"]
+    if isinstance(source_profile, Mapping):
+        source_profile = _mapping_to_namespace(source_profile)
+    if isinstance(print_profile, Mapping):
+        print_profile = _mapping_to_namespace(print_profile)
 
     return RuntimePhotoParams(
-        negative=negative,
-        print_paper=print_paper,
+        source=source_profile,
+        print=print_profile,
         camera=_coerce_section(source.get("camera"), CameraParams),
         enlarger=_coerce_section(source.get("enlarger"), EnlargerParams),
         scanner=_coerce_section(source.get("scanner"), ScannerParams),

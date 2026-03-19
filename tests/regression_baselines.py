@@ -13,8 +13,8 @@ BASELINES_DIR = Path(__file__).resolve().parent / "baselines"
 @dataclass(frozen=True)
 class RegressionCase:
     case_id: str
-    negative: str
-    print_paper: str
+    source: str
+    print: str
     image_recipe: str
     output_mode: str
 
@@ -22,36 +22,36 @@ class RegressionCase:
 REGRESSION_CASES: tuple[RegressionCase, ...] = (
     RegressionCase(
         case_id="print_rgb_portra_endura_gray_ramp16",
-        negative="kodak_portra_400_auc",
-        print_paper="kodak_portra_endura_uc",
+        source="kodak_portra_400_auc",
+        print="kodak_portra_endura_uc",
         image_recipe="gray_ramp_16",
         output_mode="print_rgb",
     ),
     RegressionCase(
         case_id="negative_density_portra_endura_gray_ramp16",
-        negative="kodak_portra_400_auc",
-        print_paper="kodak_portra_endura_uc",
+        source="kodak_portra_400_auc",
+        print="kodak_portra_endura_uc",
         image_recipe="gray_ramp_16",
         output_mode="negative_density",
     ),
     RegressionCase(
         case_id="film_raw_portra_endura_gray_ramp16",
-        negative="kodak_portra_400_auc",
-        print_paper="kodak_portra_endura_uc",
+        source="kodak_portra_400_auc",
+        print="kodak_portra_endura_uc",
         image_recipe="gray_ramp_16",
         output_mode="film_raw",
     ),
     RegressionCase(
         case_id="print_rgb_fuji_crystal_gray_ramp16",
-        negative="fujifilm_pro_400h_auc",
-        print_paper="fujifilm_crystal_archive_typeii_uc",
+        source="fujifilm_pro_400h_auc",
+        print="fujifilm_crystal_archive_typeii_uc",
         image_recipe="gray_ramp_16",
         output_mode="print_rgb",
     ),
     RegressionCase(
         case_id="print_rgb_portra_endura_green_patch8",
-        negative="kodak_portra_400_auc",
-        print_paper="kodak_portra_endura_uc",
+        source="kodak_portra_400_auc",
+        print="kodak_portra_endura_uc",
         image_recipe="green_patch_8",
         output_mode="print_rgb",
     ),
@@ -81,8 +81,8 @@ def build_case_image(image_recipe: str) -> np.ndarray:
     raise KeyError(f"Unknown image recipe: {image_recipe}")
 
 
-def make_deterministic_params(negative: str, print_paper: str):
-    params = photo_params(negative=negative, print_paper=print_paper)
+def make_deterministic_params(source: str, print_profile: str):
+    params = photo_params(source=source, print_profile=print_profile)
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True
     params.settings.use_enlarger_lut = False
@@ -99,10 +99,10 @@ def make_deterministic_params(negative: str, print_paper: str):
 def compute_case_output(case: RegressionCase) -> np.ndarray:
     np.random.seed(0)
     image = build_case_image(case.image_recipe)
-    params = make_deterministic_params(case.negative, case.print_paper)
+    params = make_deterministic_params(case.source, case.print)
 
     if case.output_mode == "negative_density":
-        params.debug.return_negative_density_cmy = True
+        params.debug.return_source_density_cmy = True
     elif case.output_mode == "film_raw":
         params.io.compute_film_raw = True
     elif case.output_mode != "print_rgb":

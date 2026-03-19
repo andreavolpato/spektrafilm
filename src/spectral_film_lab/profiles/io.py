@@ -130,18 +130,19 @@ def _coerce_profile_data(data: Any) -> ProfileData:
     return ProfileData(**kwargs)
 
 
-def profile_from_dict(data):
+def profile_from_dict(data: Any) -> Profile:
     if isinstance(data, Profile):
         return data
-    if isinstance(data, Mapping) and 'info' in data and 'data' in data:
-        return Profile(info=data['info'], data=data['data'])
-    if isinstance(data, dict):
-        return {k: profile_from_dict(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [profile_from_dict(v) for v in data]
-    if isinstance(data, tuple):
-        return tuple(profile_from_dict(v) for v in data)
-    return data
+
+    if not isinstance(data, Mapping):
+        raise TypeError('Unsupported profile payload')
+
+    info_payload = data.get('info', {})
+    data_payload = data.get('data', {})
+    return Profile(
+        info=_coerce_profile_info(info_payload),
+        data=_coerce_profile_data(data_payload),
+    )
 
 
 def profile_to_dict(data):
@@ -172,7 +173,6 @@ def _json_safe(data):
 
 def _validate_profile(profile, stock):
     try:
-        profile.info = _coerce_profile_info(profile.info)
         data = profile.data
         valid = (
             data.log_exposure.ndim == 1

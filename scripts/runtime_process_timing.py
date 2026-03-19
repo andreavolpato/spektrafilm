@@ -11,22 +11,22 @@ warmup()
 image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
 # image = [[[0.184,0.184,0.184]]]
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
-params = photo_params(print_paper='kodak_portra_endura_uc')
+params = photo_params(print_profile='kodak_portra_endura_uc')
 params.io.input_cctf_decoding = True
-params.print_paper.glare.active = False
+params.print_render.glare.active = False
 params.debug.deactivate_stochastic_effects = False
 params.camera.exposure_compensation_ev = 0
 params.camera.auto_exposure = True
 params.io.preview_resize_factor = 0.3
 params.io.upscale_factor = 3.0
 params.io.full_image = False
-params.io.compute_negative = False
-params.negative.grain.agx_particle_area_um2 = 1
+params.io.compute_source = False
+params.source_render.grain.agx_particle_area_um2 = 1
 params.enlarger.preflash_exposure = 0.0
 params.enlarger.print_exposure_compensation = True
 params.enlarger.print_exposure = 1.0
-params.negative.grain.active = False
-params.debug.return_negative_density_cmy = False
+params.source_render.grain.active = False
+params.debug.return_source_density_cmy = False
 params.debug.return_print_density_cmy = False
 
 params.settings.use_fast_stats = True

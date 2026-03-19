@@ -282,7 +282,7 @@ def fit_print_filters_iter(profile):
 
 
 def fit_print_filters(profile, iterations=10):
-    print(profile.negative.info.stock)
+    print(profile.source.info.stock)
     for i in range(iterations):
         filter_y, filter_m, residues = fit_print_filters_iter(profile)
         if np.sum(np.abs(residues)) < 1e-4 or i == iterations - 1:
@@ -335,8 +335,8 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
                     m0 = np.clip(m0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
 
                     p = photo_params(
-                        negative=stock.value,
-                        print_paper=paper.value,
+                        source=stock.value,
+                        print=paper.value,
                         ymc_filters_from_database=False,
                     )
                     p.enlarger.illuminant = light.value

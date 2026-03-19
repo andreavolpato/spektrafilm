@@ -183,7 +183,7 @@ def simulation(input_layer:Image,
                auto_exposure=True,
                auto_exposure_method=AutoExposureMethods.center_weighted,
                # print parameters
-               print_paper=PrintPapers.kodak_supra_endura,
+               print=PrintPapers.kodak_supra_endura,
                print_illuminant=Illuminants.lamp,
                print_exposure=1.0,
                print_exposure_compensation=True,
@@ -196,17 +196,17 @@ def simulation(input_layer:Image,
                output_color_space=RGBColorSpaces.sRGB,
                output_cctf_encoding=True,
             #    compute_film_raw=False,
-               compute_negative=False,
+               compute_source=False,
                compute_full_image=False,
                )->ImageData:    
-    params = photo_params(film_stock.value, print_paper.value)
+    params = photo_params(film_stock.value, print.value)
     
     if special.film_channel_swap.value != (0,1,2):
-        params.negative = swap_channels(params.negative, special.film_channel_swap.value)
+        params.source = swap_channels(params.source, special.film_channel_swap.value)
     if special.print_channel_swap.value != (0,1,2):
-        params.print_paper = swap_channels(params.print_paper, special.print_channel_swap.value)
+        params.print = swap_channels(params.print, special.print_channel_swap.value)
     
-    params.negative_render.density_curve_gamma = special.film_gamma_factor.value
+    params.source_render.density_curve_gamma = special.film_gamma_factor.value
     params.print_render.density_curve_gamma = special.print_gamma_factor.value
     params.print_render.base_density_scale = special.print_density_min_factor.value
     params.print_render.glare.active = glare.active.value
@@ -235,41 +235,41 @@ def simulation(input_layer:Image,
     params.io.output_color_space = output_color_space.value
     params.io.output_cctf_encoding = output_cctf_encoding
     params.io.full_image = compute_full_image
-    params.io.compute_negative = compute_negative
+    params.io.compute_source = compute_source
     # params.io.compute_film_raw = compute_film_raw
     
     # assign parameters to the film stock and paper
-    params.negative_render.halation.active = halation.active.value
-    params.negative_render.halation.strength = np.array(halation.halation_strength.value)/100
-    params.negative_render.halation.size_um = np.array(halation.halation_size_um.value)
-    params.negative_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
-    params.negative_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
+    params.source_render.halation.active = halation.active.value
+    params.source_render.halation.strength = np.array(halation.halation_strength.value)/100
+    params.source_render.halation.size_um = np.array(halation.halation_size_um.value)
+    params.source_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
+    params.source_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
     
-    params.negative_render.grain.active = grain.active.value
-    params.negative_render.grain.sublayers_active = grain.sublayers_active.value
-    params.negative_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
-    params.negative_render.grain.agx_particle_scale = grain.particle_scale.value
-    params.negative_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
-    params.negative_render.grain.density_min = grain.density_min.value
-    params.negative_render.grain.uniformity = grain.uniformity.value
-    params.negative_render.grain.blur = grain.blur.value
-    params.negative_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
-    params.negative_render.grain.micro_structure = grain.micro_structure.value
+    params.source_render.grain.active = grain.active.value
+    params.source_render.grain.sublayers_active = grain.sublayers_active.value
+    params.source_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
+    params.source_render.grain.agx_particle_scale = grain.particle_scale.value
+    params.source_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
+    params.source_render.grain.density_min = grain.density_min.value
+    params.source_render.grain.uniformity = grain.uniformity.value
+    params.source_render.grain.blur = grain.blur.value
+    params.source_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
+    params.source_render.grain.micro_structure = grain.micro_structure.value
     
-    params.negative_render.dir_couplers.active = couplers.active.value
-    params.negative_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
-    params.negative_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
-    params.negative_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
-    params.negative_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
-    params.negative_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
+    params.source_render.dir_couplers.active = couplers.active.value
+    params.source_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
+    params.source_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
+    params.source_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
+    params.source_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
+    params.source_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
         
     # # parametric curves
-    # params.negative.parametric.density_curves.active = curves.use_parametric_curves.value
-    # params.negative.parametric.density_curves.gamma = curves.gamma.value
-    # params.negative.parametric.density_curves.log_exposure_0 = curves.log_exposure_0.value
-    # params.negative.parametric.density_curves.density_max = curves.density_max.value
-    # params.negative.parametric.density_curves.toe_size = curves.toe_size.value
-    # params.negative.parametric.density_curves.shoulder_size = curves.shoulder_size.value
+    # params.source.parametric.density_curves.active = curves.use_parametric_curves.value
+    # params.source.parametric.density_curves.gamma = curves.gamma.value
+    # params.source.parametric.density_curves.log_exposure_0 = curves.log_exposure_0.value
+    # params.source.parametric.density_curves.density_max = curves.density_max.value
+    # params.source.parametric.density_curves.toe_size = curves.toe_size.value
+    # params.source.parametric.density_curves.shoulder_size = curves.shoulder_size.value
 
     params.enlarger.illuminant = print_illuminant.value
     params.enlarger.print_exposure = print_exposure
@@ -317,7 +317,7 @@ def main():
     simulation.auto_exposure.tooltip = 'Automatically adjust exposure based on the image content'
     simulation.film_format_mm.tooltip = 'Long edge of the film format in millimeters, e.g. 35mm or 60mm'
     simulation.camera_lens_blur_um.tooltip = 'Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.'
-    simulation.print_paper.tooltip = 'Print paper to simulate'
+    simulation.print.tooltip = 'Print paper to simulate'
     simulation.print_illuminant.tooltip = 'Print illuminant to simulate'
     simulation.print_exposure.tooltip = 'Exposure value for the print (proportional to seconds of exposure, not ev)'
     simulation.print_exposure_compensation.tooltip = 'Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time.'
@@ -328,7 +328,7 @@ def main():
     simulation.scan_unsharp_mask.tooltip = 'Apply unsharp mask to the scan, [sigma in pixel, amount]'
     simulation.output_color_space.tooltip = 'Color space of the output image'
     simulation.output_cctf_encoding.tooltip = 'Apply the cctf transfer function of the color space. If false, data is linear.'
-    simulation.compute_negative.tooltip = 'Show a scan of the negative instead of the print'
+    simulation.compute_source.tooltip = 'Show a scan of the negative instead of the print'
     simulation.compute_full_image.tooltip = 'Do not apply preview resize, compute full resolution image. Keeps the crop if active.'
     simulation.call_button.tooltip = 'Run the simulation. Note: grain and halation computed only when compute_full_image is clicked.'
 

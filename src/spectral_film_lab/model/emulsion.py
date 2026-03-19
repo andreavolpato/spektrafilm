@@ -10,40 +10,6 @@ from spectral_film_lab.utils.fast_interp import fast_interp
 ################################################################################
 # AgXEmusion main class
 
-def remove_viewing_glare_comp(le, dc, factor=0.2, density=1.0, transition=0.3):
-    """
-    Removes viewing glare compensation from the density curves of print paper.
-    Parameters:
-    le (numpy.ndarray): The log exposure values.
-    dc (numpy.ndarray): density curves of the print paper. Shape (n,3).
-    factor (float, optional): The factor by which to reduce the light exposure values of the shadows. (brighter shadows). Default is 0.1.
-    density (float, optional): The density value of the transition point. Default is 1.2.
-    transition (float, optional): The transition density range used for Gaussian filtering. Default is 0.3.
-    Returns:
-    numpy.ndarray: density curves with viewing glare compensation removed.
-    """
-    def _measure_slope(le, density_curve, le_center, range_ev=1):
-        le_delta = np.log10(2**range_ev)/2
-        le_0 = le_center - le_delta
-        le_1 = le_center + le_delta
-        density_0 = np.interp(le_0, le, density_curve)
-        density_1 = np.interp(le_1, le, density_curve)
-        slope = (density_1 - density_0)/(le_1 - le_0)
-        return slope    
-    
-    dc_mean = np.mean(dc, axis=1)
-    le_center = np.interp(density, dc_mean, le)
-    slope = _measure_slope(le, dc_mean, le_center)
-    le_step = np.mean(np.diff(le))
-    dc_out = np.zeros_like(dc)
-    for i in np.arange(3):
-        le_nl = np.copy(le)
-        le_nl[le>le_center] -= (le[le>le_center]-le_center)*factor
-        le_transition = transition/slope
-        le_nl = scipy.ndimage.gaussian_filter(le_nl, le_transition/le_step)
-        dc_out[:,i] = np.interp(le_nl, le, dc[:,i])
-    return dc_out
-
 def lognorm_from_mean_std(M, S):
     """
     Returns a frozen lognormal distribution object (scipy.stats.rv_frozen)
@@ -56,14 +22,6 @@ def lognorm_from_mean_std(M, S):
     mu = np.log(M) - 0.5 * sigma_sq
     # 3. In scipy.lognorm, 's' = sigma (the shape), and 'scale' = exp(mu)
     return scipy.stats.lognorm(s=sigma, scale=np.exp(mu))
-
-def compute_random_glare_amount(amount, roughness, blur, shape):
-    random_glare = fast_lognormal_from_mean_std(amount*np.ones(shape),
-                                                roughness*amount*np.ones(shape))
-    random_glare = scipy.ndimage.gaussian_filter(random_glare, blur)
-    # random_glare = fast_gaussian_filter(random_glare, blur)
-    random_glare /= 100
-    return random_glare
 
 def compute_density_spectral(profile, density_cmy, base_density_scale=1.0):
     density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(profile.data.channel_density))
@@ -246,69 +204,6 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
             density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
                                                        density_curves[:,ch], density_curves_layers[:,:,ch])
     return density_cmy_layers
-    
-################################################################################
-
-# class PrintPaper(AgXEmulsion):
-#     def __init__(self, profile):
-#         super().__init__(profile)
-#         self.glare = profile.glare
-        
-#     def print(self, negative_density_spectral, illuminant, negative,
-#               exposure=1, negative_exposure_compensation_ev=0.0,
-#               preflashing_illuminant=None, preflashing_exposure=0.0,
-#               lens_blur=0.55):
-#         if preflashing_illuminant is None:
-#             preflashing_illuminant = illuminant
-#         density_midgray      = self._expose_midgray(negative, negative_exposure_compensation_ev)
-#         cmy                  = self._compute_cmy_layer_exposures(negative_density_spectral, illuminant, exposure)
-#         del negative_density_spectral
-#         gc.collect()
-#         cmy                  = self._apply_preflashing(cmy, negative, preflashing_illuminant, preflashing_exposure)
-#         cmy                  = self._scale_cmy_exposure_with_midgray(cmy, density_midgray, illuminant)
-#         cmy                  = self._gaussian_blur(cmy, lens_blur) # of printing projection lens
-#         log_cmy              = np.log10(cmy + 1e-10)
-#         density_curves       = self._apply_viewing_glare_compensation_removal()
-#         density_cmy          = self._interpolate_density_with_curves(log_cmy, density_curves)
-#         density_spectral     = self._compute_density_spectral(density_cmy)
-
-#         return density_spectral
-
-#     def _expose_midgray(self, emulsion, negative_exposure_compensation_ev):
-#         return emulsion.expose(self.midgray_rgb * 2**negative_exposure_compensation_ev,
-#                                color_space='sRGB',
-#                                apply_cctf_decoding=False,
-#                                exposure_ev=0.0,
-#                                compute_reference_exposure=True)
-
-#     def _compute_cmy_layer_exposures(self, negative_density_spectral, illuminant, exposure):
-#         light = density_to_light(negative_density_spectral, illuminant)
-#         cmy = contract('ijk, kl->ijl', light, self.sensitivity)
-#         return cmy * exposure
-
-#     def _scale_cmy_exposure_with_midgray(self, cmy, density_midgray, illuminant):
-#         light_midgray = density_to_light(density_midgray, illuminant)
-#         cmy_midgray = contract('ijk, kl->ijl', light_midgray, self.sensitivity)
-#         cmy /= cmy_midgray[:,:,1]
-#         return cmy
-    
-#     def _apply_viewing_glare_compensation_removal(self):
-#         factor = self.glare.compensation_removal_factor
-#         transition_density = self.glare.compensation_removal_density
-#         transition_density_range = self.glare.compensation_removal_transition
-#         if factor>0:
-#             density_curves = remove_viewing_glare_comp(self.log_exposure, self.density_curves,
-#                                                        factor=factor,
-#                                                        density=transition_density,
-#                                                        transition=transition_density_range)
-#         else: density_curves = self.density_curves
-#         return density_curves
-    
-#     # Move color enlarger into print method.
-    
-################################################################################
-# Various
-################################################################################
 
 # Some future work notes:
 # Add print dye shift in nanometers for dye absorption peaks.

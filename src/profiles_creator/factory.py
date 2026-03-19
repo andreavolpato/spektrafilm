@@ -10,7 +10,7 @@ from profiles_creator.data.loader import load_agx_emulsion_data, load_densitomet
 from profiles_creator.fitting import compute_density_curves, compute_density_curves_layers, fit_density_curves
 from profiles_creator.plotting import plot_profile
 
-from spectral_film_lab.profiles.io import Profile, ProfileData, ProfileInfo, load_profile
+from spectral_film_lab.profiles.io import Profile, ProfileData, ProfileInfo
 from spectral_film_lab.utils.measure import measure_density_min
 
 def find_midscale_neutral_coefficients(channel_density, base_density, midscale_neutral_density, fit=True):

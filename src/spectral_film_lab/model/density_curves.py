@@ -53,3 +53,36 @@ def apply_gamma_shift_correction(log_exposure, density_curves, gamma_correction,
     return dc_out
 
 
+def remove_viewing_glare_comp(le, dc, factor=0.2, density=1.0, transition=0.3):
+    """
+    Removes viewing glare compensation from the density curves of print paper.
+    Parameters:
+    le (numpy.ndarray): The log exposure values.
+    dc (numpy.ndarray): density curves of the print paper. Shape (n,3).
+    factor (float, optional): The factor by which to reduce the light exposure values of the shadows. (brighter shadows). Default is 0.1.
+    density (float, optional): The density value of the transition point. Default is 1.2.
+    transition (float, optional): The transition density range used for Gaussian filtering. Default is 0.3.
+    Returns:
+    numpy.ndarray: density curves with viewing glare compensation removed.
+    """
+    def _measure_slope(le, density_curve, le_center, range_ev=1):
+        le_delta = np.log10(2**range_ev)/2
+        le_0 = le_center - le_delta
+        le_1 = le_center + le_delta
+        density_0 = np.interp(le_0, le, density_curve)
+        density_1 = np.interp(le_1, le, density_curve)
+        slope = (density_1 - density_0)/(le_1 - le_0)
+        return slope    
+    
+    dc_mean = np.mean(dc, axis=1)
+    le_center = np.interp(density, dc_mean, le)
+    slope = _measure_slope(le, dc_mean, le_center)
+    le_step = np.mean(np.diff(le))
+    dc_out = np.zeros_like(dc)
+    for i in np.arange(3):
+        le_nl = np.copy(le)
+        le_nl[le>le_center] -= (le[le>le_center]-le_center)*factor
+        le_transition = transition/slope
+        le_nl = scipy.ndimage.gaussian_filter(le_nl, le_transition/le_step)
+        dc_out[:,i] = np.interp(le_nl, le, dc[:,i])
+    return dc_out

@@ -2,14 +2,18 @@ import time
 import functools
 import matplotlib.pyplot as plt
 
-def timeit(label):
+
+def timeit(label=None, *, include_class=True):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             start = time.perf_counter()
             result = func(self, *args, **kwargs)
             elapsed = time.perf_counter() - start
-            self.timings[label] = elapsed
+            key = label if label is not None else func.__name__
+            if include_class:
+                key = f"{self.__class__.__name__}.{key}"
+            self.timings[key] = elapsed
             return result
         return wrapper
     return decorator

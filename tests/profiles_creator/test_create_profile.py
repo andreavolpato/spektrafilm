@@ -11,8 +11,8 @@ from tests.profiles_creator.create_profile_regression_baselines import (
 )
 
 
-def make_runtime_params(print_paper: str):
-    params = photo_params(print_paper=print_paper)
+def make_runtime_params(print_profile: str):
+    params = photo_params(print_profile=print_profile)
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True
     params.settings.use_enlarger_lut = False
@@ -56,7 +56,7 @@ class TestCreateProfile:
     def test_generated_processed_profile_runs_in_runtime_pipeline(self, portra_400_processed_profile):
         case, profile = portra_400_processed_profile
         params = make_runtime_params(case.runtime_print_paper)
-        params.negative = profile
+        params.source = profile
         image = np.ones((8, 8, 3), dtype=np.float64) * 0.184
 
         output = np.asarray(photo_process(image, params), dtype=np.float64)
@@ -83,7 +83,7 @@ class TestCreateProfile:
     def test_generated_processed_paper_profile_runs_in_runtime_pipeline(self, portra_endura_paper_processed_profile):
         case, profile = portra_endura_paper_processed_profile
         params = make_runtime_params(case.runtime_print_paper)
-        params.print_paper = profile
+        params.print = profile
         image = np.ones((8, 8, 3), dtype=np.float64) * 0.184
 
         output = np.asarray(photo_process(image, params), dtype=np.float64)

@@ -15,7 +15,7 @@ class TestPipelineSmoke:
 
     def test_negative_output_valid(self, small_rgb_image, default_params):
         """Computing negative scan should also produce valid output."""
-        default_params.io.compute_negative = True
+        default_params.io.compute_source = True
         result = photo_process(small_rgb_image, default_params)
         assert result.shape[2] == 3
         assert np.all(np.isfinite(result))
@@ -24,10 +24,10 @@ class TestPipelineSmoke:
         """Negative scan mode should produce a different valid result than print mode."""
         patch = np.ones((4, 4, 3)) * np.array([0.30, 0.10, 0.05])
 
-        default_params.io.compute_negative = False
+        default_params.io.compute_source = False
         print_result = photo_process(patch, default_params)
 
-        default_params.io.compute_negative = True
+        default_params.io.compute_source = True
         negative_result = photo_process(patch, default_params)
 
         assert print_result.shape == (4, 4, 3)
@@ -39,7 +39,7 @@ class TestPipelineSmoke:
         assert np.all(negative_result >= 0.0)
         assert np.all(negative_result <= 1.0)
         assert not np.allclose(print_result, negative_result, atol=1e-3), (
-            "compute_negative should change the pipeline branch and produce a different result"
+            "compute_source should change the pipeline branch and produce a different result"
         )
 
     def test_uniform_gray_input(self, default_params):
@@ -50,6 +50,45 @@ class TestPipelineSmoke:
         for i in range(1, 6):
             for j in range(1, 6):
                 np.testing.assert_allclose(result[i, j, :], pixel_0, atol=1e-6)
+
+    def test_upscale_factor_increases_output_size(self, default_params):
+        """Upscaling with upscale_factor>1 should increase final output dimensions."""
+        patch = np.ones((4, 4, 3)) * np.array([0.30, 0.10, 0.05])
+        default_params.io.preview_resize_factor = 1.0
+        default_params.io.upscale_factor = 2.0
+
+        result = photo_process(patch, default_params)
+
+        assert result.shape == (8, 8, 3)
+        assert np.all(np.isfinite(result))
+        assert np.all(result >= 0.0)
+        assert np.all(result <= 1.0)
+        
+    def test_preview_resize_factor_keeps_output_size(self, default_params):
+        """Downscaling with preview_resize_factor<1 should reduce final output dimensions."""
+        patch = np.ones((8, 8, 3)) * np.array([0.30, 0.10, 0.05])
+        default_params.io.preview_resize_factor = 0.5
+        default_params.io.upscale_factor = 1.0
+
+        result = photo_process(patch, default_params)
+
+        assert result.shape == (8, 8, 3)
+        assert np.all(np.isfinite(result))
+        assert np.all(result >= 0.0)
+        assert np.all(result <= 1.0)
+
+    def test_upscale_factor_reduces_output_size(self, default_params):
+        """Downscaling with upscale_factor<1 should reduce final output dimensions."""
+        patch = np.ones((8, 8, 3)) * np.array([0.30, 0.10, 0.05])
+        default_params.io.preview_resize_factor = 1.0
+        default_params.io.upscale_factor = 0.5
+
+        result = photo_process(patch, default_params)
+
+        assert result.shape == (4, 4, 3)
+        assert np.all(np.isfinite(result))
+        assert np.all(result >= 0.0)
+        assert np.all(result <= 1.0)
 
     def test_black_input_no_crash(self, default_params):
         """Black input should not crash (no log(0) or division-by-zero)."""
@@ -135,7 +174,7 @@ class TestPipelineSmoke:
         green_patch = np.ones((4, 4, 3)) * np.array([0.05, 0.4, 0.05])
         result_portra = photo_process(green_patch, default_params)  # default is portra 400
 
-        params_fuji = photo_params(negative='fujifilm_c200_auc')
+        params_fuji = photo_params(source='fujifilm_c200_auc')
         params_fuji.debug.deactivate_spatial_effects = True
         params_fuji.debug.deactivate_stochastic_effects = True
         params_fuji.camera.auto_exposure = False

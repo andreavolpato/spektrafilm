@@ -106,14 +106,14 @@ def plot_grain_chart(profile=None, film_format_mm=35):
     film_format_mm = np.max(image.shape) * pixel_size / 1000
 
     params = photo_params()
-    params.negative = profile
+    params.source = profile
     params.camera.film_format_mm = film_format_mm
     params.io.input_cctf_decoding = False
     params.camera.auto_exposure = False
     params.camera.exposure_compensation_ev = 0
-    params.io.compute_negative = True
+    params.io.compute_source = True
     params.debug.deactivate_spatial_effects = True
-    params.debug.return_negative_density_cmy = True
+    params.debug.return_source_density_cmy = True
     density_cmy = photo_process(image, params)
 
     rms = np.std(density_cmy, axis=0) * 1000

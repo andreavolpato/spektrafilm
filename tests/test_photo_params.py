@@ -8,9 +8,9 @@ class TestPhotoParamsDefaults:
         params = photo_params()
 
         for section in (
-            'negative',
-            'print_paper',
-            'negative_render',
+            'source',
+            'print',
+            'source_render',
             'print_render',
             'camera',
             'enlarger',
@@ -21,12 +21,12 @@ class TestPhotoParamsDefaults:
         ):
             assert hasattr(params, section)
 
-        assert hasattr(params.negative, 'info')
-        assert hasattr(params.negative, 'data')
-        assert hasattr(params.print_paper, 'info')
-        assert hasattr(params.print_paper, 'data')
-        assert params.negative.info.stock == 'kodak_portra_400_auc'
-        assert params.print_paper.info.stock == 'kodak_portra_endura_uc'
+        assert hasattr(params.source, 'info')
+        assert hasattr(params.source, 'data')
+        assert hasattr(params.print, 'info')
+        assert hasattr(params.print, 'data')
+        assert params.source.info.stock == 'kodak_portra_400_auc'
+        assert params.print.info.stock == 'kodak_portra_endura_uc'
 
         assert params.camera.exposure_compensation_ev == 0.0
         assert params.camera.auto_exposure is True
@@ -47,11 +47,11 @@ class TestPhotoParamsDefaults:
         assert params.scanner.lens_blur == 0.0
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
-        assert params.negative_render.density_curve_gamma == 1.0
-        assert params.negative_render.base_density_scale == 1.0
-        assert params.negative_render.grain.active is True
-        assert params.negative_render.halation.active is True
-        assert params.negative_render.dir_couplers.active is True
+        assert params.source_render.density_curve_gamma == 1.0
+        assert params.source_render.base_density_scale == 1.0
+        assert params.source_render.grain.active is True
+        assert params.source_render.halation.active is True
+        assert params.source_render.dir_couplers.active is True
 
         assert params.print_render.density_curve_gamma == 1.0
         assert params.print_render.base_density_scale == 0.4
@@ -65,12 +65,12 @@ class TestPhotoParamsDefaults:
         assert params.io.preview_resize_factor == 1.0
         assert params.io.upscale_factor == 1.0
         assert params.io.full_image is False
-        assert params.io.compute_negative is False
+        assert params.io.compute_source is False
         assert params.io.compute_film_raw is False
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
-        assert params.debug.return_negative_density_cmy is False
+        assert params.debug.return_source_density_cmy is False
         assert params.debug.return_print_density_cmy is False
         assert params.debug.print_timings is False
         assert hasattr(params.debug, 'luts')
@@ -90,11 +90,11 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.negative_render.halation.size_um == [0, 0, 0]
-        assert photo.negative_render.halation.scattering_size_um == [0, 0, 0]
-        assert photo.negative_render.dir_couplers.diffusion_size_um == 0
-        assert photo.negative_render.grain.blur == 0.0
-        assert photo.negative_render.grain.blur_dye_clouds_um == 0.0
+        assert photo.source_render.halation.size_um == [0, 0, 0]
+        assert photo.source_render.halation.scattering_size_um == [0, 0, 0]
+        assert photo.source_render.dir_couplers.diffusion_size_um == 0
+        assert photo.source_render.grain.blur == 0.0
+        assert photo.source_render.grain.blur_dye_clouds_um == 0.0
         assert photo.print_render.glare.blur == 0
         assert photo.camera.lens_blur_um == 0.0
         assert photo.enlarger.lens_blur == 0.0
@@ -107,7 +107,7 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.negative_render.grain.active is False
+        assert photo.source_render.grain.active is False
         assert photo.print_render.glare.active is False
 
 
@@ -129,9 +129,9 @@ class TestRuntimeParamsCompatibility:
     def test_accepts_legacy_dict_like_params(self):
         params = photo_params()
         legacy_params = {
-            'negative': params.negative,
-            'print_paper': params.print_paper,
-            'negative_render': vars(params.negative_render).copy(),
+            'source': params.source,
+            'print': params.print,
+            'source_render': vars(params.source_render).copy(),
             'print_render': vars(params.print_render).copy(),
             'camera': vars(params.camera).copy(),
             'enlarger': vars(params.enlarger).copy(),
@@ -148,5 +148,5 @@ class TestRuntimeParamsCompatibility:
         photo = AgXPhoto(legacy_params)
 
         assert photo.debug.deactivate_spatial_effects is True
-        assert photo.negative_render.halation.size_um == [0, 0, 0]
+        assert photo.source_render.halation.size_um == [0, 0, 0]
         assert photo.debug.luts.enlarger_lut is None

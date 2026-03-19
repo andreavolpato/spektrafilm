@@ -151,7 +151,7 @@ You should load an image that you converted from a raw file and kept linear, I u
 ![Example of GUI interface with color test image.](img/readme/gui_screenshot.png)
 
 Please bear in mind that this is a highly experimental project and many controls are left exposed in the GUI with poor or no documentation. Make use of the help tooltips by hovering the control boxes or explore the code.
-Play with `exposure_compensation_ev` to change the exposure of the negative. You can visualize a virtual scan of the negative by pressing `compute_negative` and `Run`.
+Play with `exposure_compensation_ev` to change the exposure of the negative. You can visualize a virtual scan of the negative by pressing `compute_source` and `Run`.
 
 For fine tuning of halation play with `scattering size`, `scattering strength`, `halation size`, `halation strength`. There are three controls for each that define the effect on the three color channels (RGB). `scattering size` and `halation size` represent the value of sigma for Gaussian blurring. `scattering strength` and `halation strength` refers to the percentage of scattered of halation light.
 `y filter shift` and `m filter shift` are the control for the virtual yellow and magenta filters of the color enlarger. They are the number of steps for the shift from a neutral position, i.e. starting settings that make an 18% gray target photographed with correct reference illuminant fully neutral in the final print. The enlarger has 170 steps.
