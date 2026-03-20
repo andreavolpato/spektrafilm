@@ -20,7 +20,6 @@ class PrintingStage:
         enlarger_params,
         filming_stage,
         lut_cache,
-        film_density_normalizer,
         illuminant_service,
         *,
         camera_exposure_compensation_ev: float,
@@ -34,7 +33,6 @@ class PrintingStage:
         self._enlarger = enlarger_params
         self._filming_stage = filming_stage
         self._lut_cache = lut_cache
-        self._film_density_normalizer = film_density_normalizer
         self._illuminant_service = illuminant_service
         self._use_enlarger_lut = use_enlarger_lut
 
@@ -53,15 +51,11 @@ class PrintingStage:
 
     @timeit("_expose_print")
     def expose(self, film_density_channels: np.ndarray) -> np.ndarray:
-        film_density_normalized = self._film_density_normalizer.normalize(film_density_channels)
-
-        def spectral_calculation(density_channels_normalized):
-            density_channels = self._film_density_normalizer.denormalize(density_channels_normalized)
-            return self.film_density_to_print_log_raw(density_channels)
-
         return self._lut_cache.compute(
-            film_density_normalized,
-            spectral_calculation,
+            film_density_channels,
+            data_min=-np.array(self._source_render.grain.density_min),
+            data_max=np.nanmax(self._source.data.density_curves, axis=0),
+            spectral_calculation=self.film_density_to_print_log_raw,
             use_lut=self._use_enlarger_lut,
             save_enlarger_lut=True,
         )

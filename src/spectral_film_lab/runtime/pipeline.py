@@ -7,8 +7,6 @@ import numpy as np
 from spectral_film_lab.runtime.params_schema import coerce_runtime_params
 from spectral_film_lab.runtime.services import (
     EnlargerIlluminant,
-    FilmDensityNormalizer,
-    PrintDensityNormalizer,
     ResizingService,
     SpectralLUTCache,
 )
@@ -37,9 +35,9 @@ class RuntimePipeline:
 
         self._apply_debug_switches()
 
-        self._lut_cache = SpectralLUTCache(self.settings.lut_resolution, self.debug.luts)
-        self._film_density_normalizer = FilmDensityNormalizer(self.source, self.source_render.grain.density_min)
-        self._print_density_normalizer = PrintDensityNormalizer(self.print)
+        self._lut_service = SpectralLUTCache(self.settings.lut_resolution, self.debug.luts)
+        # self._film_density_normalizer = FilmDensityNormalizer(self.source, self.source_render.grain.density_min)
+        # self._print_density_normalizer = PrintDensityNormalizer(self.print)
         self._illuminant_service = EnlargerIlluminant(self.enlarger)
         self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
 
@@ -57,8 +55,7 @@ class RuntimePipeline:
             self.print_render,
             self.enlarger,
             self._filming_stage,
-            self._lut_cache,
-            self._film_density_normalizer,
+            self._lut_service,
             self._illuminant_service,
             camera_exposure_compensation_ev=self.camera.exposure_compensation_ev,
             use_enlarger_lut=self.settings.use_enlarger_lut,
@@ -70,9 +67,7 @@ class RuntimePipeline:
             self.print_render,
             self.scanner,
             self.io,
-            self._lut_cache,
-            self._film_density_normalizer,
-            self._print_density_normalizer,
+            self._lut_service,
             use_scanner_lut=self.settings.use_scanner_lut,
         )
         self._filming_stage.timings = self.timings

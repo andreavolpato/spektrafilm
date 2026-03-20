@@ -87,6 +87,7 @@ def cubic_interp_lut_at_3d(lut, r, g, b):
 def apply_lut_cubic_3d(lut, image):
     """
     Applies a 3D LUT (shape: LxLxLx3) to an image (shape: HxWx3) using cubic interpolation.
+    Data is assumed to be normalized in the range [0, 1] and will be scaled to [0, L-1] for LUT indexing.
     """
     height, width, _ = image.shape
     output = np.empty((height, width, 3), dtype=np.float64)

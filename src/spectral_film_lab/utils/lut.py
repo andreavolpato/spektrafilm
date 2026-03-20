@@ -1,9 +1,22 @@
 import numpy as np
 from spectral_film_lab.utils.fast_interp_lut import apply_lut_cubic_3d, apply_lut_cubic_2d
 
-def _create_lut_3d(function, xmin=0, xmax=1, steps=32):
-    x = np.linspace(xmin, xmax, steps, endpoint=True)
-    X = np.meshgrid(x,x,x, indexing='ij')
+def _as_channel_bounds(bounds):
+    bounds_array = np.asarray(bounds, dtype=np.float64)
+    if bounds_array.ndim == 0:
+        return np.full(3, bounds_array, dtype=np.float64)
+    if bounds_array.shape == (3,):
+        return bounds_array
+    raise ValueError('bounds must be a scalar or length-3 sequence')
+
+
+def _create_lut_3d(function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=32):
+    xmin = _as_channel_bounds(xmin)
+    xmax = _as_channel_bounds(xmax)
+    x_r = np.linspace(xmin[0], xmax[0], steps, endpoint=True)
+    x_g = np.linspace(xmin[1], xmax[1], steps, endpoint=True)
+    x_b = np.linspace(xmin[2], xmax[2], steps, endpoint=True)
+    X = np.meshgrid(x_r, x_g, x_b, indexing='ij')
     X = np.stack(X, axis=3)
     X = np.reshape(X, (steps**2, steps, 3)) # shape as an image to be compatible with image processing
     lut = np.reshape(function(X), (steps, steps, steps, 3))
@@ -17,9 +30,18 @@ def _create_lut_3d(function, xmin=0, xmax=1, steps=32):
 #     lut = np.reshape(function(X), (steps, steps, 3))
 #     return lut
 
-def compute_with_lut(data, function, xmin=0, xmax=1, steps=32):
+def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=32):
+    # Computes the function on the data using a 3D LUT for acceleration.
+    # The data is assumed to be in the range [xmin, xmax] and will be normalized for LUT indexing.
+    # The lut is created on the fly in the range [xmin, xmax] with the specified number of steps.
+    # Note: apply_lut_cubic_3d expects the data to be normalized to [0, 1] for proper indexing into the LUT.
+    xmin = _as_channel_bounds(xmin)
+    xmax = _as_channel_bounds(xmax)
+    if np.any(xmax <= xmin):
+        raise ValueError('xmax must be greater than xmin')
     lut = _create_lut_3d(function, xmin, xmax, steps)
-    return apply_lut_cubic_3d(lut, data), lut
+    data_normalized = (data - xmin) / (xmax - xmin)
+    return apply_lut_cubic_3d(lut, data_normalized), lut
 
 def warmup_luts():
     """
@@ -54,6 +76,18 @@ def warmup_luts():
 
 if __name__=='__main__':
     import matplotlib.pyplot as plt
+
+    def run_quick_test(label, xmin=0.0, xmax=1.0):
+        sample_data = np.random.uniform(xmin, xmax, size=(300, 200, 3))
+        data_finterp, lut3d = compute_with_lut(sample_data, mycalculation, xmin=xmin, xmax=xmax)
+        error = mycalculation(sample_data) - data_finterp
+        print(f'{label} range [{xmin}, {xmax}]')
+        print('  Max interpolation error:', np.max(error))
+        print('  Mean interpolation error:', np.mean(np.abs(error)))
+        print('  Max LUT value:', np.max(lut3d))
+        print('  Min LUT value:', np.min(lut3d))
+        print('  Max computed value:', np.max(data_finterp))
+        print('  Min computed value:', np.min(data_finterp))
         
     def mycalculation(x):
         y = np.zeros_like(x)
@@ -64,10 +98,6 @@ if __name__=='__main__':
 
     warmup_luts()
     np.random.seed(0)
-    data = np.random.uniform(0,1,size=(300,200,3))
-    lut3d = _create_lut_3d(mycalculation)
-    data_finterp = apply_lut_cubic_3d(lut3d, data)
-    error = mycalculation(data)-data_finterp
-    print('Max interpolation error:',np.max(error))
-    print('Mean interpolation error:',np.mean(np.abs(error)))
+    run_quick_test('Default')
+    run_quick_test('Extended', xmin=-1.0, xmax=2.0)
     plt.show()

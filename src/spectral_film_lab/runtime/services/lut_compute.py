@@ -13,6 +13,8 @@ class SpectralLUTCache:
     def compute(
         self,
         data,
+        data_min,
+        data_max,
         spectral_calculation: Callable,
         *,
         use_lut: bool = False,
@@ -20,7 +22,11 @@ class SpectralLUTCache:
         save_scanner_lut: bool = False,
     ):
         if use_lut:
-            data_out, lut = compute_with_lut(data, spectral_calculation, steps=self._lut_resolution)
+            data_out, lut = compute_with_lut(data,
+                                             spectral_calculation,
+                                             xmin=data_min,
+                                             xmax=data_max,
+                                             steps=self._lut_resolution)
             if save_enlarger_lut:
                 self._debug_luts.enlarger_lut = lut
             if save_scanner_lut:

@@ -23,8 +23,6 @@ class ScanningStage:
         scanner_params,
         io_params,
         lut_cache,
-        film_density_normalizer,
-        print_density_normalizer,
         *,
         use_scanner_lut: bool,
     ):
@@ -35,8 +33,6 @@ class ScanningStage:
         self._scanner = scanner_params
         self._io = io_params
         self._lut_cache = lut_cache
-        self._film_density_normalizer = film_density_normalizer
-        self._print_density_normalizer = print_density_normalizer
         self._use_scanner_lut = use_scanner_lut
 
     @timeit("_scan")
@@ -47,31 +43,32 @@ class ScanningStage:
 
     def density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._io.compute_source:
-            density_channels_normalized = self._film_density_normalizer.normalize(density_channels)
             profile = self._source
             base_density_scale = self._source_render.base_density_scale
             glare = None
-            denormalizer = self._film_density_normalizer.denormalize
+            density_min = -np.array(self._source_render.grain.density_min)
+            density_max = np.nanmax(self._source.data.density_curves, axis=0)
         else:
-            density_channels_normalized = self._print_density_normalizer.normalize(density_channels)
             profile = self._print
             base_density_scale = self._print_render.base_density_scale
             glare = self._print_render.glare
-            denormalizer = self._print_density_normalizer.denormalize
+            density_min = np.nanmin(self._print.data.density_curves, axis=0)
+            density_max = np.nanmax(self._print.data.density_curves, axis=0)
 
         scan_illuminant = standard_illuminant(profile.info.viewing_illuminant)
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
-        def spectral_calculation(density_n):
-            density_local = denormalizer(density_n)
-            density_spectral = compute_density_spectral(profile, density_local, base_density_scale=base_density_scale)
+        def spectral_calculation(density_cmy: np.ndarray) -> np.ndarray:
+            density_spectral = compute_density_spectral(profile, density_cmy, base_density_scale=base_density_scale)
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
             return np.log10(xyz + 1e-10)
 
         log_xyz = self._lut_cache.compute(
-            density_channels_normalized,
-            spectral_calculation,
+            density_channels,
+            data_min=density_min,
+            data_max=density_max,
+            spectral_calculation=spectral_calculation,
             use_lut=use_lut,
             save_scanner_lut=True,
         )
