@@ -28,9 +28,7 @@ def compute_density_spectral(profile, density_cmy, base_density_scale=1.0):
     density_spectral += np.asarray(profile.data.base_density) * base_density_scale
     return density_spectral
 
-def develop_simple(profile, log_raw, gamma_factor=1.0):
-    density_curves = profile.data.density_curves
-    log_exposure = profile.data.log_exposure
+def develop_simple(log_raw, log_exposure, density_curves, gamma_factor=1.0):
     density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, gamma_factor)
     return density_cmy
 

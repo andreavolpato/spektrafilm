@@ -18,12 +18,12 @@ class PrintingStage:
         source_render_params,
         print_render_params,
         enlarger_params,
+        settings_params,
         filming_stage,
         lut_cache,
-        illuminant_service,
+        enlarger_service,
         *,
         camera_exposure_compensation_ev: float,
-        use_enlarger_lut: bool,
     ):
         self._source = source_profile
         self._print = print_profile
@@ -31,23 +31,10 @@ class PrintingStage:
         self._print_render = print_render_params
         self._camera_exposure_compensation_ev = camera_exposure_compensation_ev
         self._enlarger = enlarger_params
+        self._settings = settings_params
         self._filming_stage = filming_stage
         self._lut_cache = lut_cache
-        self._illuminant_service = illuminant_service
-        self._use_enlarger_lut = use_enlarger_lut
-
-    @timeit("_apply_profiles_changes")
-    def apply_profiles_changes(self):
-        if self._print_render.glare.compensation_removal_factor > 0:
-            log_exposure = self._print.data.log_exposure
-            density_curves = self._print.data.density_curves
-            self._print.data.density_curves = remove_viewing_glare_comp(
-                log_exposure,
-                density_curves,
-                factor=self._print_render.glare.compensation_removal_factor,
-                density=self._print_render.glare.compensation_removal_density,
-                transition=self._print_render.glare.compensation_removal_transition,
-            )
+        self._enlarger_service = enlarger_service
 
     @timeit("_expose_print")
     def expose(self, film_density_channels: np.ndarray) -> np.ndarray:
@@ -56,15 +43,16 @@ class PrintingStage:
             data_min=-np.array(self._source_render.grain.density_min),
             data_max=np.nanmax(self._source.data.density_curves, axis=0),
             spectral_calculation=self.film_density_to_print_log_raw,
-            use_lut=self._use_enlarger_lut,
+            use_lut=self._settings.use_enlarger_lut,
             save_enlarger_lut=True,
         )
 
     @timeit("_develop_print")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
         return develop_simple(
-            self._print,
             log_raw,
+            self._print.data.log_exposure,
+            self._print_corrected_density_curves(),
             gamma_factor=self._print_render.density_curve_gamma,
         )
 
@@ -80,7 +68,7 @@ class PrintingStage:
                 density_channels,
                 base_density_scale=self._source_render.base_density_scale,
             )
-            print_illuminant = self._illuminant_service.print_illuminant(enlarger_light_source)
+            print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
             light = density_to_light(density_spectral, print_illuminant)
             raw = contract("ijk, kl->ijl", light, sensitivity)
             raw *= self._enlarger.print_exposure
@@ -88,11 +76,11 @@ class PrintingStage:
 
         raw_preflash = self.compute_raw_preflash(enlarger_light_source, sensitivity)
         raw += raw_preflash
-        return np.log10(raw + 1e-10)
+        return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
     def compute_raw_preflash(self, light_source, sensitivity):
         if self._enlarger.preflash_exposure > 0:
-            preflash_illuminant = self._illuminant_service.preflash_illuminant(light_source)
+            preflash_illuminant = self._enlarger_service.preflash_filtered_illuminant(light_source)
             density_base = np.asarray(self._source.data.base_density)[None, None, :]
             light_preflash = density_to_light(density_base, preflash_illuminant)
             raw_preflash = contract("ijk, kl->ijl", light_preflash, sensitivity)
@@ -102,11 +90,12 @@ class PrintingStage:
     def compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
         neg_exp_comp_ev = self._camera_exposure_compensation_ev if self._enlarger.print_exposure_compensation else 0.0
         rgb_midgray = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
-        raw_midgray = self._filming_stage.rgb_to_film_raw(rgb_midgray, exposure_ev=0.0)
+        raw_midgray = self._filming_stage.rgb_to_film_raw(rgb_midgray)
         log_raw_midgray = np.log10(raw_midgray + 1e-10)
         density_midgray = develop_simple(
-            self._source,
             log_raw_midgray,
+            self._source.data.log_exposure,
+            self._source.data.density_curves,
             gamma_factor=self._source_render.density_curve_gamma,
         )
         density_spectral_midgray = compute_density_spectral(
@@ -117,3 +106,18 @@ class PrintingStage:
         light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
         raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
         return 1 / raw_midgray[:, :, 1]
+
+    def _print_corrected_density_curves(self):
+        if self._print_render.glare.compensation_removal_factor > 0:
+            log_exposure = self._print.data.log_exposure
+            density_curves = self._print.data.density_curves
+            density_curves = remove_viewing_glare_comp(
+                log_exposure,
+                density_curves,
+                factor=self._print_render.glare.compensation_removal_factor,
+                density=self._print_render.glare.compensation_removal_density,
+                transition=self._print_render.glare.compensation_removal_transition,
+            )
+            return density_curves
+        else:
+            return self._print.data.density_curves

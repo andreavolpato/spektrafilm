@@ -62,7 +62,7 @@ class ScanningStage:
             density_spectral = compute_density_spectral(profile, density_cmy, base_density_scale=base_density_scale)
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
-            return np.log10(xyz + 1e-10)
+            return np.log10(np.fmax(xyz, 0.0) + 1e-10)
 
         log_xyz = self._lut_cache.compute(
             density_channels,

@@ -11,12 +11,13 @@ from spectral_film_lab.utils.timings import timeit
 
 
 class FilmingStage:
-    def __init__(self, source_profile, source_render_params, camera_params, io_params, rgb_to_raw_method):
+    def __init__(self, source_profile, source_render_params, camera_params, io_params, settings_params, resizing_service):
         self._source = source_profile
         self._source_render = source_render_params
         self._camera = camera_params
         self._io = io_params
-        self._rgb_to_raw_method = rgb_to_raw_method
+        self._settings = settings_params
+        self._resizing_service = resizing_service
 
     @timeit("_auto_exposure")
     def auto_exposure(self, image: np.ndarray) -> float:
@@ -27,30 +28,31 @@ class FilmingStage:
                 self._io.input_cctf_decoding,
                 method=self._camera.auto_exposure_method,
             )
-            return autoexposure_ev + self._camera.exposure_compensation_ev
-        return self._camera.exposure_compensation_ev
+            return image * 2 ** autoexposure_ev
+        return image
 
     @timeit("_expose_film")
-    def expose(self, image: np.ndarray, exposure_ev: float, pixel_size_um: float) -> np.ndarray:
+    def expose(self, image: np.ndarray) -> np.ndarray:
         raw = self.rgb_to_film_raw(
             image,
-            exposure_ev,
             color_space=self._io.input_color_space,
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
-        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, pixel_size_um)
-        raw = apply_halation_um(raw, self._source_render.halation, pixel_size_um)
-        return raw
+        raw *= 2 ** self._camera.exposure_compensation_ev
+        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._resizing_service.pixel_size_um)
+        raw = apply_halation_um(raw, self._source_render.halation, self._resizing_service.pixel_size_um)
+        log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
+        return log_raw
 
     @timeit("_develop_film")
-    def develop(self, log_raw: np.ndarray, pixel_size_um: float, use_fast_stats: bool) -> np.ndarray:
+    def develop(self, log_raw: np.ndarray) -> np.ndarray:
         film = Film(self._source, self._source_render)
-        return film.develop(log_raw, pixel_size_um, use_fast_stats=use_fast_stats)
+        return film.develop(log_raw, self._resizing_service.pixel_size_um,
+                            use_fast_stats=self._settings.use_fast_stats)
 
     def rgb_to_film_raw(
         self,
         rgb: np.ndarray,
-        exposure_ev: float,
         *,
         color_space: str = "sRGB",
         apply_cctf_decoding: bool = False,
@@ -62,7 +64,7 @@ class FilmingStage:
             band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
             sensitivity *= band_pass_filter[:, None]
 
-        method = self._rgb_to_raw_method
+        method = self._settings.rgb_to_raw_method
         if method == "mallett2019":
             raw = rgb_to_raw_mallett2019(
                 rgb,
@@ -82,4 +84,4 @@ class FilmingStage:
         else:
             raise ValueError(f"Unsupported rgb_to_raw_method: {method}")
 
-        return raw * 2 ** exposure_ev
+        return raw

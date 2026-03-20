@@ -6,8 +6,8 @@ def measure_autoexposure_ev(image, color_space='sRGB', apply_cctf_decoding=True,
     image_XYZ = colour.RGB_to_XYZ(image, color_space, apply_cctf_decoding=apply_cctf_decoding)
     image_Y = image_XYZ[:,:,1]
     if method == 'median':
-        Y_exposure = np.median(image_Y)
-    if method == 'center_weighted':
+        exposure = np.median(image_Y) / 0.184
+    elif method == 'center_weighted':
         norm_shape = image.shape[0:2]/np.max(image.shape[0:2])
         x = np.arange(image.shape[1]) / image.shape[1]
         y = np.arange(image.shape[0]) / image.shape[0]
@@ -18,9 +18,10 @@ def measure_autoexposure_ev(image, color_space='sRGB', apply_cctf_decoding=True,
         sigma = 0.2 # should be 0.2 to 0.3
         mask = np.exp(-(x**2 + y[:,None]**2)/(2*sigma**2))
         mask /= np.sum(mask)
-        Y_exposure = np.sum(image_Y*mask)
+        exposure = np.sum(image_Y*mask) / 0.184
+    else:
+        exposure = 1.0
 
-    exposure = Y_exposure / 0.184
     exposure_compensation_ev = - np.log2(exposure)
     if np.isinf(exposure_compensation_ev):
         exposure_compensation_ev = 0.0

@@ -6,7 +6,7 @@ import numpy as np
 
 from spectral_film_lab.runtime.params_schema import coerce_runtime_params
 from spectral_film_lab.runtime.services import (
-    EnlargerIlluminant,
+    EnlargerService,
     ResizingService,
     SpectralLUTCache,
 )
@@ -36,9 +36,7 @@ class RuntimePipeline:
         self._apply_debug_switches()
 
         self._lut_service = SpectralLUTCache(self.settings.lut_resolution, self.debug.luts)
-        # self._film_density_normalizer = FilmDensityNormalizer(self.source, self.source_render.grain.density_min)
-        # self._print_density_normalizer = PrintDensityNormalizer(self.print)
-        self._illuminant_service = EnlargerIlluminant(self.enlarger)
+        self._enlarger_service = EnlargerService(self.enlarger)
         self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
 
         self._filming_stage = FilmingStage(
@@ -46,7 +44,8 @@ class RuntimePipeline:
             self.source_render,
             self.camera,
             self.io,
-            rgb_to_raw_method=self.settings.rgb_to_raw_method,
+            self.settings,
+            self._resizing_service, # pixel size for grain, halation, and lens blur calculations
         )
         self._printing_stage = PrintingStage(
             self.source,
@@ -54,11 +53,11 @@ class RuntimePipeline:
             self.source_render,
             self.print_render,
             self.enlarger,
-            self._filming_stage,
+            self.settings,
+            self._filming_stage, # to be removed
             self._lut_service,
-            self._illuminant_service,
+            self._enlarger_service,
             camera_exposure_compensation_ev=self.camera.exposure_compensation_ev,
-            use_enlarger_lut=self.settings.use_enlarger_lut,
         )
         self._scanning_stage = ScanningStage(
             self.source,
@@ -74,35 +73,35 @@ class RuntimePipeline:
         self._printing_stage.timings = self.timings
         self._scanning_stage.timings = self.timings
 
-    def process(self, image):
-        image = np.double(np.array(image)[:, :, 0:3])
-        image, preview_resize_factor, pixel_size_um = self._resizing_service.crop_and_rescale(image)
-        
-        exposure_ev = self._filming_stage.auto_exposure(image)
-
+    def process(self, rgb_image):
         if not self.io.full_image:
             self.source_render.grain.active = False
             self.source_render.halation.active = False
-
-        raw_film = self._filming_stage.expose(image, exposure_ev, pixel_size_um)
-        if self.io.compute_film_raw:
-            return raw_film
-
-        log_raw_film = np.log10(np.fmax(raw_film, 0.0) + 1e-10)
-        density_channels = self._filming_stage.develop(log_raw_film, pixel_size_um, self.settings.use_fast_stats)
-        if self.debug.return_source_density_cmy:
-            return density_channels
-
-        self._printing_stage.apply_profiles_changes()
+            
+        rgb_image = np.double(np.array(rgb_image)[:, :, 0:3])
+        rgb_image = self._filming_stage.auto_exposure(rgb_image)
+        image = self._resizing_service.crop_and_rescale(rgb_image)
         
-        if not self.io.compute_source:
-            lof_raw_print = self._printing_stage.expose(density_channels)
-            density_channels = self._printing_stage.develop(lof_raw_print)
-            if self.debug.return_print_density_cmy:
-                return density_channels
+        log_raw_film = self._filming_stage.expose(image)
+        
+        if self.io.compute_film_raw:
+            return 10**log_raw_film
 
-        scan = self._scanning_stage.scan(density_channels)
-        return self._resizing_service.rescale_to_original(scan, preview_resize_factor)
+        cmy_film = self._filming_stage.develop(log_raw_film)
+        
+        if self.debug.return_source_density_cmy:
+            return cmy_film
+
+        if self.io.compute_source:
+            scan = self._scanning_stage.scan(cmy_film)
+        else:
+            lof_raw_print = self._printing_stage.expose(cmy_film)
+            cmy_print = self._printing_stage.develop(lof_raw_print)
+            if self.debug.return_print_density_cmy:
+                return cmy_print
+            scan = self._scanning_stage.scan(cmy_print)
+        
+        return self._resizing_service.rescale_to_original(scan)
 
     def _apply_debug_switches(self):
         if self.debug.deactivate_spatial_effects:
