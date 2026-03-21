@@ -17,27 +17,26 @@ class ScanningStage:
     def __init__(
         self,
         source_profile,
-        print_profile,
         source_render_params,
+        print_profile,
         print_render_params,
         scanner_params,
         io_params,
+        settings_params,
         lut_cache,
-        *,
-        use_scanner_lut: bool,
     ):
         self._source = source_profile
-        self._print = print_profile
         self._source_render = source_render_params
+        self._print = print_profile
         self._print_render = print_render_params
         self._scanner = scanner_params
         self._io = io_params
+        self._settings = settings_params
         self._lut_cache = lut_cache
-        self._use_scanner_lut = use_scanner_lut
 
     @timeit("_scan")
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
-        rgb = self.density_to_rgb(density_channels, use_lut=self._use_scanner_lut)
+        rgb = self.density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
         rgb = self.apply_blur_and_unsharp(rgb)
         return self.apply_cctf_encoding_and_clip(rgb)
 

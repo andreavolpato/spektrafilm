@@ -13,7 +13,7 @@ from spectral_film_lab.runtime.services import (
 from spectral_film_lab.runtime.stages import FilmingStage, PrintingStage, ScanningStage
 
 
-class RuntimePipeline:
+class SimulationPipeline:
     """Thin runtime orchestrator that composes stage objects."""
 
     def __init__(self, params):
@@ -46,61 +46,63 @@ class RuntimePipeline:
             self.io,
             self.settings,
             self._resizing_service, # pixel size for grain, halation, and lens blur calculations
+            self._enlarger_service, # to compute and save density spectral midgray to balance print
         )
         self._printing_stage = PrintingStage(
             self.source,
-            self.print,
             self.source_render,
+            self.print,
             self.print_render,
             self.enlarger,
             self.settings,
-            self._filming_stage, # to be removed
             self._lut_service,
             self._enlarger_service,
-            camera_exposure_compensation_ev=self.camera.exposure_compensation_ev,
         )
         self._scanning_stage = ScanningStage(
             self.source,
-            self.print,
             self.source_render,
+            self.print,
             self.print_render,
             self.scanner,
             self.io,
+            self.settings,
             self._lut_service,
-            use_scanner_lut=self.settings.use_scanner_lut,
         )
         self._filming_stage.timings = self.timings
         self._printing_stage.timings = self.timings
         self._scanning_stage.timings = self.timings
 
     def process(self, rgb_image):
-        if not self.io.full_image:
-            self.source_render.grain.active = False
-            self.source_render.halation.active = False
-            
+        rgb_image = self._preprocess(rgb_image)
+        rgb_image = self._pipeline(rgb_image)
+        rgb_image = self._postprocess(rgb_image)
+        return rgb_image
+
+    def _preprocess(self, rgb_image):
         rgb_image = np.double(np.array(rgb_image)[:, :, 0:3])
-        rgb_image = self._filming_stage.auto_exposure(rgb_image)
-        image = self._resizing_service.crop_and_rescale(rgb_image)
-        
-        log_raw_film = self._filming_stage.expose(image)
-        
-        if self.io.compute_film_raw:
-            return 10**log_raw_film
+        rgb_image = self._filming_stage.auto_exposure(rgb_image) # autoexposure service?
+        rgb_image = self._resizing_service.crop_and_rescale(rgb_image)
+        return rgb_image
 
-        cmy_film = self._filming_stage.develop(log_raw_film)
-        
-        if self.debug.return_source_density_cmy:
-            return cmy_film
-
-        if self.io.compute_source:
+    def _pipeline(self, rgb_image):                  
+        if self.io.compute_source: # replace with route switch
+            log_raw_film = self._filming_stage.expose(rgb_image)
+            cmy_film = self._filming_stage.develop(log_raw_film)
             scan = self._scanning_stage.scan(cmy_film)
         else:
-            lof_raw_print = self._printing_stage.expose(cmy_film)
-            cmy_print = self._printing_stage.develop(lof_raw_print)
-            if self.debug.return_print_density_cmy:
-                return cmy_print
+            log_raw_film = self._filming_stage.expose(rgb_image)
+            cmy_film = self._filming_stage.develop(log_raw_film)
+            log_raw_print = self._printing_stage.expose(cmy_film)
+            cmy_print = self._printing_stage.develop(log_raw_print)
             scan = self._scanning_stage.scan(cmy_print)
         
+        # debugging outputs
+        if self.io.compute_film_raw: return 10**log_raw_film # move to debug, export log_raw_film
+        if self.debug.return_source_density_cmy: return cmy_film
+        if self.debug.return_print_density_cmy: return cmy_print
+        return scan
+    
+    def _postprocess(self, scan):
         return self._resizing_service.rescale_to_original(scan)
 
     def _apply_debug_switches(self):

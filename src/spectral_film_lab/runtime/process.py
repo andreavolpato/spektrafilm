@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from spectral_film_lab.runtime.factory import build_runtime_params
-from spectral_film_lab.runtime.pipeline import RuntimePipeline
+from spectral_film_lab.runtime.pipeline import SimulationPipeline
+from spectral_film_lab.runtime.diagnostics import DiagnosticsPipeline
 from spectral_film_lab.utils.timings import plot_timings
 
 
@@ -20,8 +21,11 @@ def photo_params(
 class AgXPhoto:
     """Compatibility class over the modular runtime pipeline."""
 
-    def __init__(self, params):
-        self._pipeline = RuntimePipeline(params)
+    def __init__(self, params, debug=True):
+        #if debug:
+        #    self._pipeline = DiagnosticsPipeline(params)
+        #else:
+        self._pipeline = SimulationPipeline(params)
         self.camera = self._pipeline.camera
         self.source = self._pipeline.source
         self.source_render = self._pipeline.source_render

@@ -6,6 +6,8 @@ from spectral_film_lab.model.color_filters import color_enlarger
 
 class EnlargerService:
     def __init__(self, enlarger_params):
+        self.density_spectral_midgray = None
+        self.print_exposure_compensation = enlarger_params.print_exposure_compensation
         self._enlarger = enlarger_params
 
     def enlarger_filtered_illuminant(self, light_source):

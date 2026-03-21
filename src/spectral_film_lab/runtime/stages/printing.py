@@ -14,25 +14,20 @@ class PrintingStage:
     def __init__(
         self,
         source_profile,
-        print_profile,
         source_render_params,
+        print_profile,
         print_render_params,
         enlarger_params,
         settings_params,
-        filming_stage,
         lut_cache,
         enlarger_service,
-        *,
-        camera_exposure_compensation_ev: float,
     ):
         self._source = source_profile
-        self._print = print_profile
         self._source_render = source_render_params
+        self._print = print_profile
         self._print_render = print_render_params
-        self._camera_exposure_compensation_ev = camera_exposure_compensation_ev
         self._enlarger = enlarger_params
         self._settings = settings_params
-        self._filming_stage = filming_stage
         self._lut_cache = lut_cache
         self._enlarger_service = enlarger_service
 
@@ -88,21 +83,7 @@ class PrintingStage:
         return np.zeros((3,))
 
     def compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
-        neg_exp_comp_ev = self._camera_exposure_compensation_ev if self._enlarger.print_exposure_compensation else 0.0
-        rgb_midgray = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
-        raw_midgray = self._filming_stage.rgb_to_film_raw(rgb_midgray)
-        log_raw_midgray = np.log10(raw_midgray + 1e-10)
-        density_midgray = develop_simple(
-            log_raw_midgray,
-            self._source.data.log_exposure,
-            self._source.data.density_curves,
-            gamma_factor=self._source_render.density_curve_gamma,
-        )
-        density_spectral_midgray = compute_density_spectral(
-            self._source,
-            density_midgray,
-            base_density_scale=self._source_render.base_density_scale,
-        )
+        density_spectral_midgray = self._enlarger_service.density_spectral_midgray
         light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
         raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
         return 1 / raw_midgray[:, :, 1]
