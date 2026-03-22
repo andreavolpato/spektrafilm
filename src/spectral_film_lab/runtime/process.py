@@ -7,12 +7,12 @@ from spectral_film_lab.utils.timings import plot_timings
 
 
 def photo_params(
-    source: str = "kodak_portra_400_auc",
+    film_profile: str = "kodak_portra_400_auc",
     print_profile: str = "kodak_portra_endura_uc",
     ymc_filters_from_database: bool = True,
 ):
     return build_runtime_params(
-        source=source,
+        film_profile=film_profile,
         print_profile=print_profile,
         ymc_filters_from_database=ymc_filters_from_database,
     )
@@ -27,8 +27,8 @@ class AgXPhoto:
         #else:
         self._pipeline = SimulationPipeline(params)
         self.camera = self._pipeline.camera
-        self.source = self._pipeline.source
-        self.source_render = self._pipeline.source_render
+        self.film = self._pipeline.film
+        self.film_render = self._pipeline.film_render
         self.enlarger = self._pipeline.enlarger
         self.print = self._pipeline.print
         self.print_render = self._pipeline.print_render

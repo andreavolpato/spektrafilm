@@ -11,9 +11,9 @@ from spectral_film_lab.utils.timings import timeit
 
 
 class FilmingStage:
-    def __init__(self, source_profile, source_render_params, camera_params, io_params, settings_params, resizing_service, enlarger_service):
-        self._source = source_profile
-        self._source_render = source_render_params
+    def __init__(self, film, film_render_params, camera_params, io_params, settings_params, resizing_service, enlarger_service):
+        self._film = film
+        self._film_render = film_render_params
         self._camera = camera_params
         self._io = io_params
         self._settings = settings_params
@@ -42,16 +42,16 @@ class FilmingStage:
         )
         raw *= 2 ** self._camera.exposure_compensation_ev
         raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._resizing_service.pixel_size_um)
-        raw = apply_halation_um(raw, self._source_render.halation, self._resizing_service.pixel_size_um)
+        raw = apply_halation_um(raw, self._film_render.halation, self._resizing_service.pixel_size_um)
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
 
     @timeit("_develop_film")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
         if not self._io.full_image: 
-            self._source_render.grain.active = False # to be changed
-            self._source_render.halation.active = False # to be changed
-        film = Film(self._source, self._source_render)
+            self._film_render.grain.active = False # to be changed
+            self._film_render.halation.active = False # to be changed
+        film = Film(self._film, self._film_render)
         return film.develop(log_raw, self._resizing_service.pixel_size_um,
                             use_fast_stats=self._settings.use_fast_stats)
 
@@ -62,7 +62,7 @@ class FilmingStage:
         color_space: str = "sRGB",
         apply_cctf_decoding: bool = False,
     ) -> np.ndarray:
-        sensitivity = 10 ** self._source.data.log_sensitivity
+        sensitivity = 10 ** self._film.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
 
         if self._camera.filter_uv[0] > 0 or self._camera.filter_ir[0] > 0:
@@ -76,7 +76,7 @@ class FilmingStage:
                 sensitivity,
                 color_space=color_space,
                 apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._source.info.reference_illuminant,
+                reference_illuminant=self._film.info.reference_illuminant,
             )
         elif method == "hanatos2025":
             raw = rgb_to_raw_hanatos2025(
@@ -84,7 +84,7 @@ class FilmingStage:
                 sensitivity,
                 color_space=color_space,
                 apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._source.info.reference_illuminant,
+                reference_illuminant=self._film.info.reference_illuminant,
             )
         else:
             raise ValueError(f"Unsupported rgb_to_raw_method: {method}")
@@ -101,13 +101,13 @@ class FilmingStage:
         log_raw_midgray = np.log10(raw_midgray + 1e-10)
         density_midgray = develop_simple(
             log_raw_midgray,
-            self._source.data.log_exposure,
-            self._source.data.density_curves,
-            gamma_factor=self._source_render.density_curve_gamma,
+            self._film.data.log_exposure,
+            self._film.data.density_curves,
+            gamma_factor=self._film_render.density_curve_gamma,
         )
         density_spectral_midgray = compute_density_spectral(
-            self._source,
+            self._film,
             density_midgray,
-            base_density_scale=self._source_render.base_density_scale,
+            base_density_scale=self._film_render.base_density_scale,
         )
         return density_spectral_midgray

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from spectral_film_lab.runtime.process import AgXPhoto, photo_params
 
@@ -8,9 +9,9 @@ class TestPhotoParamsDefaults:
         params = photo_params()
 
         for section in (
-            'source',
+            'film',
             'print',
-            'source_render',
+            'film_render',
             'print_render',
             'camera',
             'enlarger',
@@ -21,11 +22,11 @@ class TestPhotoParamsDefaults:
         ):
             assert hasattr(params, section)
 
-        assert hasattr(params.source, 'info')
-        assert hasattr(params.source, 'data')
+        assert hasattr(params.film, 'info')
+        assert hasattr(params.film, 'data')
         assert hasattr(params.print, 'info')
         assert hasattr(params.print, 'data')
-        assert params.source.info.stock == 'kodak_portra_400_auc'
+        assert params.film.info.stock == 'kodak_portra_400_auc'
         assert params.print.info.stock == 'kodak_portra_endura_uc'
 
         assert params.camera.exposure_compensation_ev == 0.0
@@ -47,11 +48,11 @@ class TestPhotoParamsDefaults:
         assert params.scanner.lens_blur == 0.0
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
-        assert params.source_render.density_curve_gamma == 1.0
-        assert params.source_render.base_density_scale == 1.0
-        assert params.source_render.grain.active is True
-        assert params.source_render.halation.active is True
-        assert params.source_render.dir_couplers.active is True
+        assert params.film_render.density_curve_gamma == 1.0
+        assert params.film_render.base_density_scale == 1.0
+        assert params.film_render.grain.active is True
+        assert params.film_render.halation.active is True
+        assert params.film_render.dir_couplers.active is True
 
         assert params.print_render.density_curve_gamma == 1.0
         assert params.print_render.base_density_scale == 0.4
@@ -65,22 +66,19 @@ class TestPhotoParamsDefaults:
         assert params.io.preview_resize_factor == 1.0
         assert params.io.upscale_factor == 1.0
         assert params.io.full_image is False
-        assert params.io.compute_source is False
-        assert params.io.compute_film_raw is False
+        assert params.io.scan_film is False
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
-        assert params.debug.return_source_density_cmy is False
+        assert params.debug.return_film_log_raw is False
+        assert params.debug.return_film_density_cmy is False
         assert params.debug.return_print_density_cmy is False
         assert params.debug.print_timings is False
-        assert hasattr(params.debug, 'luts')
-        assert params.debug.luts.enlarger_lut is None
-        assert params.debug.luts.scanner_lut is None
 
         assert params.settings.rgb_to_raw_method == 'hanatos2025'
         assert params.settings.use_enlarger_lut is False
         assert params.settings.use_scanner_lut is False
-        assert params.settings.lut_resolution == 17
+        assert params.settings.lut_resolution == 32
         assert params.settings.use_fast_stats is False
 
 class TestAgXPhotoDebugSwitches:
@@ -90,11 +88,11 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.source_render.halation.size_um == [0, 0, 0]
-        assert photo.source_render.halation.scattering_size_um == [0, 0, 0]
-        assert photo.source_render.dir_couplers.diffusion_size_um == 0
-        assert photo.source_render.grain.blur == 0.0
-        assert photo.source_render.grain.blur_dye_clouds_um == 0.0
+        assert photo.film_render.halation.size_um == [0, 0, 0]
+        assert photo.film_render.halation.scattering_size_um == [0, 0, 0]
+        assert photo.film_render.dir_couplers.diffusion_size_um == 0
+        assert photo.film_render.grain.blur == 0.0
+        assert photo.film_render.grain.blur_dye_clouds_um == 0.0
         assert photo.print_render.glare.blur == 0
         assert photo.camera.lens_blur_um == 0.0
         assert photo.enlarger.lens_blur == 0.0
@@ -107,7 +105,7 @@ class TestAgXPhotoDebugSwitches:
 
         photo = AgXPhoto(params)
 
-        assert photo.source_render.grain.active is False
+        assert photo.film_render.grain.active is False
         assert photo.print_render.glare.active is False
 
 
@@ -122,31 +120,3 @@ class TestRuntimeParamsCompatibility:
 
         image = np.ones((4, 4, 3), dtype=np.float64) * 0.18
         photo.process(image)
-
-        assert photo.debug.luts.enlarger_lut is not None
-        assert photo.debug.luts.scanner_lut is not None
-
-    def test_accepts_legacy_dict_like_params(self):
-        params = photo_params()
-        legacy_params = {
-            'source': params.source,
-            'print': params.print,
-            'source_render': vars(params.source_render).copy(),
-            'print_render': vars(params.print_render).copy(),
-            'camera': vars(params.camera).copy(),
-            'enlarger': vars(params.enlarger).copy(),
-            'scanner': vars(params.scanner).copy(),
-            'io': vars(params.io).copy(),
-            'debug': {
-                **vars(params.debug),
-                'luts': vars(params.debug.luts).copy(),
-            },
-            'settings': vars(params.settings).copy(),
-        }
-        legacy_params['debug']['deactivate_spatial_effects'] = True
-
-        photo = AgXPhoto(legacy_params)
-
-        assert photo.debug.deactivate_spatial_effects is True
-        assert photo.source_render.halation.size_um == [0, 0, 0]
-        assert photo.debug.luts.enlarger_lut is None

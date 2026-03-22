@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
-from types import SimpleNamespace
-from typing import Any, Mapping, Optional
+from dataclasses import dataclass, field
+from typing import Any
+
+from spectral_film_lab.profiles.io import Profile
 
 
 @dataclass
@@ -85,12 +86,13 @@ class GlareParams:
 
 
 @dataclass
-class NegativeRenderingParams:
+class FilmRenderingParams:
     density_curve_gamma: float = 1.0
     base_density_scale: float = 1.0
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
+    glare: None = None
 
 
 @dataclass
@@ -112,14 +114,7 @@ class IOParams:
     preview_resize_factor: float = 1.0
     upscale_factor: float = 1.0
     full_image: bool = False
-    compute_source: bool = False
-    compute_film_raw: bool = False
-
-
-@dataclass
-class DebugLuts:
-    enlarger_lut: Optional[Any] = None
-    scanner_lut: Optional[Any] = None
+    scan_film: bool = False
 
 
 @dataclass
@@ -127,10 +122,10 @@ class DebugParams:
     deactivate_spatial_effects: bool = False
     deactivate_stochastic_effects: bool = False
     input_source_density_cmy: bool = False
-    return_source_density_cmy: bool = False
+    return_film_log_raw: bool = False
+    return_film_density_cmy: bool = False
     return_print_density_cmy: bool = False
     print_timings: bool = False
-    luts: DebugLuts = field(default_factory=DebugLuts)
 
 
 @dataclass
@@ -138,15 +133,15 @@ class SettingsParams:
     rgb_to_raw_method: str = "hanatos2025"
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
-    lut_resolution: int = 17
+    lut_resolution: int = 32
     use_fast_stats: bool = False
 
 
 @dataclass
 class RuntimePhotoParams:
-    source: Any
-    print: Any
-    source_render: NegativeRenderingParams = field(default_factory=NegativeRenderingParams)
+    film: Profile
+    print: Profile
+    film_render: FilmRenderingParams = field(default_factory=FilmRenderingParams)
     print_render: PrintRenderingParams = field(default_factory=PrintRenderingParams)
     camera: CameraParams = field(default_factory=CameraParams)
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
@@ -155,77 +150,8 @@ class RuntimePhotoParams:
     debug: DebugParams = field(default_factory=DebugParams)
     settings: SettingsParams = field(default_factory=SettingsParams)
 
-
-def _mapping_to_namespace(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return SimpleNamespace(**{k: _mapping_to_namespace(v) for k, v in value.items()})
-    if isinstance(value, list):
-        return [_mapping_to_namespace(v) for v in value]
-    if isinstance(value, tuple):
-        return tuple(_mapping_to_namespace(v) for v in value)
-    return value
-
-
-def _coerce_section(value: Any, section_type: type[Any]) -> Any:
-    if isinstance(value, section_type):
-        return value
-    if isinstance(value, Mapping):
-        source = value
-    elif hasattr(value, "__dict__"):
-        source = vars(value)
-    else:
-        source = {}
-
-    kwargs: dict[str, Any] = {}
-    field_names = {f.name for f in fields(section_type)}
-    for key in field_names:
-        if key in source:
-            kwargs[key] = source[key]
-
-    section = section_type(**kwargs)
-    if isinstance(section, DebugParams):
-        section.luts = _coerce_section(section.luts, DebugLuts)
-    if isinstance(section, NegativeRenderingParams):
-        section.grain = _coerce_section(section.grain, GrainParams)
-        section.halation = _coerce_section(section.halation, HalationParams)
-        section.dir_couplers = _coerce_section(section.dir_couplers, DirCouplersParams)
-    if isinstance(section, PrintRenderingParams):
-        section.glare = _coerce_section(section.glare, GlareParams)
-    return section
-
-
-def coerce_runtime_params(params: Any) -> RuntimePhotoParams:
-    if isinstance(params, RuntimePhotoParams):
-        if not isinstance(params.debug.luts, DebugLuts):
-            params.debug.luts = _coerce_section(params.debug.luts, DebugLuts)
-        return params
-
-    if isinstance(params, Mapping):
-        source = params
-    elif hasattr(params, "__dict__"):
-        source = vars(params)
-    else:
-        raise TypeError("Unsupported params type; expected RuntimePhotoParams, mapping, or object with attributes")
-
-    if "source" not in source or "print" not in source:
-        raise ValueError("Params must include 'source' and 'print'")
-
-    source_profile = source["source"]
-    print_profile = source["print"]
-    if isinstance(source_profile, Mapping):
-        source_profile = _mapping_to_namespace(source_profile)
-    if isinstance(print_profile, Mapping):
-        print_profile = _mapping_to_namespace(print_profile)
-
-    return RuntimePhotoParams(
-        source=source_profile,
-        print=print_profile,
-        source_render=_coerce_section(source.get("source_render"), NegativeRenderingParams),
-        print_render=_coerce_section(source.get("print_render"), PrintRenderingParams),
-        camera=_coerce_section(source.get("camera"), CameraParams),
-        enlarger=_coerce_section(source.get("enlarger"), EnlargerParams),
-        scanner=_coerce_section(source.get("scanner"), ScannerParams),
-        io=_coerce_section(source.get("io"), IOParams),
-        debug=_coerce_section(source.get("debug"), DebugParams),
-        settings=_coerce_section(source.get("settings"), SettingsParams),
-    )
+    def __post_init__(self):
+        if not isinstance(self.film, Profile):
+            raise TypeError("film must be a Profile instance")
+        if not isinstance(self.print, Profile):
+            raise TypeError("print must be a Profile instance")

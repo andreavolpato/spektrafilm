@@ -195,18 +195,21 @@ def simulation(input_layer:Image,
                scan_unsharp_mask=(0.7,0.7),
                output_color_space=RGBColorSpaces.sRGB,
                output_cctf_encoding=True,
-            #    compute_film_raw=False,
-               compute_source=False,
+            #    return_film_log_raw=False,
+               scan_film=False,
                compute_full_image=False,
                )->ImageData:    
-    params = photo_params(film_stock.value, print.value)
+    params = photo_params(
+        film_profile=film_stock.value,
+        print_profile=print.value,
+    )
     
     if special.film_channel_swap.value != (0,1,2):
-        params.source = swap_channels(params.source, special.film_channel_swap.value)
+        params.film = swap_channels(params.film, special.film_channel_swap.value)
     if special.print_channel_swap.value != (0,1,2):
         params.print = swap_channels(params.print, special.print_channel_swap.value)
     
-    params.source_render.density_curve_gamma = special.film_gamma_factor.value
+    params.film_render.density_curve_gamma = special.film_gamma_factor.value
     params.print_render.density_curve_gamma = special.print_gamma_factor.value
     params.print_render.base_density_scale = special.print_density_min_factor.value
     params.print_render.glare.active = glare.active.value
@@ -235,33 +238,33 @@ def simulation(input_layer:Image,
     params.io.output_color_space = output_color_space.value
     params.io.output_cctf_encoding = output_cctf_encoding
     params.io.full_image = compute_full_image
-    params.io.compute_source = compute_source
-    # params.io.compute_film_raw = compute_film_raw
+    params.io.scan_film = scan_film
+    # params.debug.return_film_log_raw = return_film_log_raw
     
     # assign parameters to the film stock and paper
-    params.source_render.halation.active = halation.active.value
-    params.source_render.halation.strength = np.array(halation.halation_strength.value)/100
-    params.source_render.halation.size_um = np.array(halation.halation_size_um.value)
-    params.source_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
-    params.source_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
+    params.film_render.halation.active = halation.active.value
+    params.film_render.halation.strength = np.array(halation.halation_strength.value)/100
+    params.film_render.halation.size_um = np.array(halation.halation_size_um.value)
+    params.film_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
+    params.film_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
     
-    params.source_render.grain.active = grain.active.value
-    params.source_render.grain.sublayers_active = grain.sublayers_active.value
-    params.source_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
-    params.source_render.grain.agx_particle_scale = grain.particle_scale.value
-    params.source_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
-    params.source_render.grain.density_min = grain.density_min.value
-    params.source_render.grain.uniformity = grain.uniformity.value
-    params.source_render.grain.blur = grain.blur.value
-    params.source_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
-    params.source_render.grain.micro_structure = grain.micro_structure.value
+    params.film_render.grain.active = grain.active.value
+    params.film_render.grain.sublayers_active = grain.sublayers_active.value
+    params.film_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
+    params.film_render.grain.agx_particle_scale = grain.particle_scale.value
+    params.film_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
+    params.film_render.grain.density_min = grain.density_min.value
+    params.film_render.grain.uniformity = grain.uniformity.value
+    params.film_render.grain.blur = grain.blur.value
+    params.film_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
+    params.film_render.grain.micro_structure = grain.micro_structure.value
     
-    params.source_render.dir_couplers.active = couplers.active.value
-    params.source_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
-    params.source_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
-    params.source_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
-    params.source_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
-    params.source_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
+    params.film_render.dir_couplers.active = couplers.active.value
+    params.film_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
+    params.film_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
+    params.film_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
+    params.film_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
+    params.film_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
         
     # # parametric curves
     # params.source.parametric.density_curves.active = curves.use_parametric_curves.value
@@ -293,7 +296,7 @@ def simulation(input_layer:Image,
 
     image = np.double(input_layer.data[:,:,:3])
     scan = photo_process(image, params)
-    # if params.io.compute_film_raw:
+    # if params.debug.return_film_log_raw:
     #     scan = np.vstack((scan[:, :, 0], scan[:, :, 1], scan[:, :, 2]))
     scan = np.uint8(scan*255)
     return scan
@@ -328,7 +331,7 @@ def main():
     simulation.scan_unsharp_mask.tooltip = 'Apply unsharp mask to the scan, [sigma in pixel, amount]'
     simulation.output_color_space.tooltip = 'Color space of the output image'
     simulation.output_cctf_encoding.tooltip = 'Apply the cctf transfer function of the color space. If false, data is linear.'
-    simulation.compute_source.tooltip = 'Show a scan of the negative instead of the print'
+    simulation.scan_film.tooltip = 'Show a scan of the negative instead of the print'
     simulation.compute_full_image.tooltip = 'Do not apply preview resize, compute full resolution image. Keeps the crop if active.'
     simulation.call_button.tooltip = 'Run the simulation. Note: grain and halation computed only when compute_full_image is clicked.'
 

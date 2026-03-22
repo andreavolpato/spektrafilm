@@ -4,7 +4,7 @@ import ast
 import inspect
 
 from spectral_film_lab.model import stocks
-from spectral_film_lab.profiles.io import load_profile, profile_to_dict, profile_from_dict
+from spectral_film_lab.profiles.io import Profile, load_profile, profile_to_dict, profile_from_dict
 
 
 class TestLoadProfile:
@@ -60,6 +60,10 @@ class TestLoadProfile:
         assert profile_rt.info.stock == portra_400_profile.info.stock
         assert np.array(profile_rt.data.log_exposure).shape == portra_400_profile.data.log_exposure.shape
         assert np.array(profile_rt.data.density_curves).shape == portra_400_profile.data.density_curves.shape
+
+    def test_profile_constructor_rejects_dict_payloads(self):
+        with pytest.raises(TypeError, match='ProfileInfo'):
+            Profile(info={}, data={})
 
 
 class TestDependencyBoundaries:

@@ -13,30 +13,30 @@ from spectral_film_lab.utils.conversions import density_to_light
 class PrintingStage:
     def __init__(
         self,
-        source_profile,
-        source_render_params,
-        print_profile,
+        film,
+        film_render_params,
+        print,
         print_render_params,
         enlarger_params,
         settings_params,
-        lut_cache,
+        lut_service,
         enlarger_service,
     ):
-        self._source = source_profile
-        self._source_render = source_render_params
-        self._print = print_profile
+        self._film = film
+        self._film_render = film_render_params
+        self._print = print
         self._print_render = print_render_params
         self._enlarger = enlarger_params
         self._settings = settings_params
-        self._lut_cache = lut_cache
+        self._lut_service = lut_service
         self._enlarger_service = enlarger_service
 
     @timeit("_expose_print")
     def expose(self, film_density_channels: np.ndarray) -> np.ndarray:
-        return self._lut_cache.compute(
+        return self._lut_service.compute(
             film_density_channels,
-            data_min=-np.array(self._source_render.grain.density_min),
-            data_max=np.nanmax(self._source.data.density_curves, axis=0),
+            data_min=-np.array(self._film_render.grain.density_min),
+            data_max=np.nanmax(self._film.data.density_curves, axis=0),
             spectral_calculation=self.film_density_to_print_log_raw,
             use_lut=self._settings.use_enlarger_lut,
             save_enlarger_lut=True,
@@ -59,9 +59,9 @@ class PrintingStage:
         raw = np.zeros_like(density_channels)
         if not self._enlarger.just_preflash:
             density_spectral = compute_density_spectral(
-                self._source,
+                self._film,
                 density_channels,
-                base_density_scale=self._source_render.base_density_scale,
+                base_density_scale=self._film_render.base_density_scale,
             )
             print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
             light = density_to_light(density_spectral, print_illuminant)
@@ -76,7 +76,7 @@ class PrintingStage:
     def compute_raw_preflash(self, light_source, sensitivity):
         if self._enlarger.preflash_exposure > 0:
             preflash_illuminant = self._enlarger_service.preflash_filtered_illuminant(light_source)
-            density_base = np.asarray(self._source.data.base_density)[None, None, :]
+            density_base = np.asarray(self._film.data.base_density)[None, None, :]
             light_preflash = density_to_light(density_base, preflash_illuminant)
             raw_preflash = contract("ijk, kl->ijl", light_preflash, sensitivity)
             return raw_preflash * self._enlarger.preflash_exposure

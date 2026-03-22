@@ -335,8 +335,8 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
                     m0 = np.clip(m0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
 
                     p = photo_params(
-                        source=stock.value,
-                        print=paper.value,
+                        film_profile=stock.value,
+                        print_profile=paper.value,
                         ymc_filters_from_database=False,
                     )
                     p.enlarger.illuminant = light.value

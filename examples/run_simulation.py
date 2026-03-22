@@ -22,7 +22,7 @@ def run_simulation():
     params.camera.film_format_mm = 35
     params.print_render.glare.active = True
     print_scan = photo_process(image, params)
-    params.io.compute_source = True
+    params.io.scan_film = True
     negative_scan = photo_process(image, params)
 
     _, axs = plt.subplots(1, 2)

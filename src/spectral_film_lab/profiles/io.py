@@ -1,7 +1,7 @@
 import copy
 import importlib.resources as pkg_resources
 import json
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, is_dataclass
 from typing import Any, Mapping
 
 import numpy as np
@@ -91,43 +91,9 @@ class Profile:
 
     def __post_init__(self):
         if not isinstance(self.info, ProfileInfo):
-            self.info = _coerce_profile_info(self.info)
+            raise TypeError('info must be a ProfileInfo instance')
         if not isinstance(self.data, ProfileData):
-            self.data = _coerce_profile_data(self.data)
-
-
-def _coerce_profile_info(data: Any) -> ProfileInfo:
-    if isinstance(data, ProfileInfo):
-        return data
-    if isinstance(data, Mapping):
-        source = dict(data)
-    elif hasattr(data, '__dict__'):
-        source = vars(data)
-    else:
-        raise TypeError('Unsupported profile info payload')
-
-    kwargs = {}
-    for profile_field in fields(ProfileInfo):
-        if profile_field.name in source:
-            kwargs[profile_field.name] = source[profile_field.name]
-    return ProfileInfo(**kwargs)
-
-
-def _coerce_profile_data(data: Any) -> ProfileData:
-    if isinstance(data, ProfileData):
-        return data
-    if isinstance(data, Mapping):
-        source = dict(data)
-    elif hasattr(data, '__dict__'):
-        source = vars(data)
-    else:
-        raise TypeError('Unsupported profile data payload')
-
-    kwargs = {}
-    for profile_field in fields(ProfileData):
-        if profile_field.name in source:
-            kwargs[profile_field.name] = source[profile_field.name]
-    return ProfileData(**kwargs)
+            raise TypeError('data must be a ProfileData instance')
 
 
 def profile_from_dict(data: Any) -> Profile:
@@ -139,9 +105,14 @@ def profile_from_dict(data: Any) -> Profile:
 
     info_payload = data.get('info', {})
     data_payload = data.get('data', {})
+    if not isinstance(info_payload, Mapping):
+        raise TypeError("Profile 'info' must be a mapping")
+    if not isinstance(data_payload, Mapping):
+        raise TypeError("Profile 'data' must be a mapping")
+
     return Profile(
-        info=_coerce_profile_info(info_payload),
-        data=_coerce_profile_data(data_payload),
+        info=ProfileInfo(**dict(info_payload)),
+        data=ProfileData(**dict(data_payload)),
     )
 
 

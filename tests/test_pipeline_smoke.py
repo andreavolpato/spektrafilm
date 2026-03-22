@@ -15,7 +15,7 @@ class TestPipelineSmoke:
 
     def test_negative_output_valid(self, small_rgb_image, default_params):
         """Computing negative scan should also produce valid output."""
-        default_params.io.compute_source = True
+        default_params.io.scan_film = True
         result = photo_process(small_rgb_image, default_params)
         assert result.shape[2] == 3
         assert np.all(np.isfinite(result))
@@ -24,10 +24,10 @@ class TestPipelineSmoke:
         """Negative scan mode should produce a different valid result than print mode."""
         patch = np.ones((4, 4, 3)) * np.array([0.30, 0.10, 0.05])
 
-        default_params.io.compute_source = False
+        default_params.io.scan_film = False
         print_result = photo_process(patch, default_params)
 
-        default_params.io.compute_source = True
+        default_params.io.scan_film = True
         negative_result = photo_process(patch, default_params)
 
         assert print_result.shape == (4, 4, 3)
@@ -39,7 +39,7 @@ class TestPipelineSmoke:
         assert np.all(negative_result >= 0.0)
         assert np.all(negative_result <= 1.0)
         assert not np.allclose(print_result, negative_result, atol=1e-3), (
-            "compute_source should change the pipeline branch and produce a different result"
+            "scan_film should change the pipeline branch and produce a different result"
         )
 
     def test_uniform_gray_input(self, default_params):
@@ -174,7 +174,7 @@ class TestPipelineSmoke:
         green_patch = np.ones((4, 4, 3)) * np.array([0.05, 0.4, 0.05])
         result_portra = photo_process(green_patch, default_params)  # default is portra 400
 
-        params_fuji = photo_params(source='fujifilm_c200_auc')
+        params_fuji = photo_params(film_profile='fujifilm_c200_auc')
         params_fuji.debug.deactivate_spatial_effects = True
         params_fuji.debug.deactivate_stochastic_effects = True
         params_fuji.camera.auto_exposure = False
@@ -256,11 +256,10 @@ class TestPipelineSmoke:
             f"Auto-exposure produced a flat gray of {np.mean(result_auto):.4f}, expected around 0.48"
         )
 
-    def test_compute_film_raw_early_return(self, default_params):
-        """compute_film_raw should return raw film exposure before development."""
+    def test_return_film_log_raw_early_return(self, default_params):
+        """return_film_log_raw should return raw film exposure before development."""
         gray = np.ones((4, 4, 3)) * 0.18
-        default_params.io.compute_film_raw = True
+        default_params.debug.return_film_log_raw = True
         result = photo_process(gray, default_params)
         assert result.shape == (4, 4, 3)
         assert np.all(np.isfinite(result))
-        assert np.all(result >= 0.0), "Raw film exposure should be non-negative"

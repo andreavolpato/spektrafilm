@@ -56,7 +56,7 @@ class TestCreateProfile:
     def test_generated_processed_profile_runs_in_runtime_pipeline(self, portra_400_processed_profile):
         case, profile = portra_400_processed_profile
         params = make_runtime_params(case.runtime_print_paper)
-        params.source = profile
+        params.film = profile
         image = np.ones((8, 8, 3), dtype=np.float64) * 0.184
 
         output = np.asarray(photo_process(image, params), dtype=np.float64)

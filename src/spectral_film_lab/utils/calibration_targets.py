@@ -71,14 +71,14 @@ class CalibrationTarget:
         self.clean_params(steps=np.size(values))
         self.title = 'Grain Particle Area (um$^2$)'
         for p, v in zip(self.params, values):
-            p.source_render.grain.agx_particle_area_um2 = v
+            p.film_render.grain.agx_particle_area_um2 = v
             p.label = f'{v:.2f}'
             
     def dir_couplers_ramp(self, values=[0.0, 0.5, 1.0, 1.5, 2.0]):
         self.clean_params(steps=np.size(values))
         self.title = 'DIR Couplers Amount'
         for p, v in zip(self.params, values):
-            p.source_render.dir_couplers.amount = v
+            p.film_render.dir_couplers.amount = v
             p.label = f'{v:.2f}'
     
     def glare_ramp(self, values=[0.02, 0.05, 0.1, 0.2, 0.4]):
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     from spectral_film_lab.utils.io import load_image_oiio
     
     image = load_image_oiio('img/targets/cc11.tiff')
-    p = photo_params(source='kodak_portra_400_auc')
+    p = photo_params(film_profile='kodak_portra_400_auc')
     p.io.input_cctf_decoding = True
       
     strip = CalibrationTarget(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), resize_factor=0.05, rotate=True)

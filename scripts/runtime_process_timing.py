@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from spectral_film_lab.utils.io import load_image_oiio
 from spectral_film_lab.utils.numba_warmup import warmup
 from spectral_film_lab.runtime import photo_params, photo_process
+from spectral_film_lab.utils.timings import plot_timings
 
 warmup()
 
@@ -20,13 +21,13 @@ params.camera.auto_exposure = True
 params.io.preview_resize_factor = 0.3
 params.io.upscale_factor = 3.0
 params.io.full_image = False
-params.io.compute_source = False
+params.io.scan_film = False
 params.source_render.grain.agx_particle_area_um2 = 1
 params.enlarger.preflash_exposure = 0.0
 params.enlarger.print_exposure_compensation = True
 params.enlarger.print_exposure = 1.0
 params.source_render.grain.active = False
-params.debug.return_source_density_cmy = False
+params.debug.return_film_density_cmy = False
 params.debug.return_print_density_cmy = False
 
 params.settings.use_fast_stats = True

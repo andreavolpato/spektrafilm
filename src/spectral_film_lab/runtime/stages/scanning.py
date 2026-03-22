@@ -16,23 +16,23 @@ from spectral_film_lab.utils.conversions import density_to_light
 class ScanningStage:
     def __init__(
         self,
-        source_profile,
-        source_render_params,
-        print_profile,
+        film,
+        film_render_params,
+        print,
         print_render_params,
         scanner_params,
         io_params,
         settings_params,
-        lut_cache,
+        lut_service,
     ):
-        self._source = source_profile
-        self._source_render = source_render_params
-        self._print = print_profile
+        self._film = film
+        self._film_render = film_render_params
+        self._print = print
         self._print_render = print_render_params
         self._scanner = scanner_params
         self._io = io_params
         self._settings = settings_params
-        self._lut_cache = lut_cache
+        self._lut_service = lut_service
 
     @timeit("_scan")
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
@@ -41,12 +41,12 @@ class ScanningStage:
         return self.apply_cctf_encoding_and_clip(rgb)
 
     def density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
-        if self._io.compute_source:
-            profile = self._source
-            base_density_scale = self._source_render.base_density_scale
+        if self._io.scan_film:
+            profile = self._film
+            base_density_scale = self._film_render.base_density_scale
             glare = None
-            density_min = -np.array(self._source_render.grain.density_min)
-            density_max = np.nanmax(self._source.data.density_curves, axis=0)
+            density_min = -np.array(self._film_render.grain.density_min)
+            density_max = np.nanmax(self._film.data.density_curves, axis=0)
         else:
             profile = self._print
             base_density_scale = self._print_render.base_density_scale
@@ -63,7 +63,7 @@ class ScanningStage:
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
             return np.log10(np.fmax(xyz, 0.0) + 1e-10)
 
-        log_xyz = self._lut_cache.compute(
+        log_xyz = self._lut_service.compute(
             density_channels,
             data_min=density_min,
             data_max=density_max,

@@ -1,11 +1,11 @@
 """Runtime shared services."""
 
-from .illuminant import EnlargerService
-from .lut_compute import SpectralLUTCache
-from .resizing import ResizingService
+from .filter_enlarger_source import EnlargerService
+from .spectral_lut_compute import SpectralLUTService
+from .resize import ResizingService
 
 __all__ = [
     "EnlargerService",
-    "SpectralLUTCache",
+    "SpectralLUTService",
     "ResizingService",
 ]

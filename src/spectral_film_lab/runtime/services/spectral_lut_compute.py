@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+import numpy as np
 
 from spectral_film_lab.utils.lut import compute_with_lut
 
 
-class SpectralLUTCache:
-    def __init__(self, lut_resolution: int, debug_luts: Any):
+class SpectralLUTService:
+    def __init__(self, lut_resolution: int):
         self._lut_resolution = lut_resolution
-        self._debug_luts = debug_luts
+        self.enlarger_lut : np.ndarray | None = None
+        self.scanner_lut : np.ndarray | None = None
 
     def compute(
         self,
@@ -28,8 +30,8 @@ class SpectralLUTCache:
                                              xmax=data_max,
                                              steps=self._lut_resolution)
             if save_enlarger_lut:
-                self._debug_luts.enlarger_lut = lut
+                self.enlarger_lut = lut
             if save_scanner_lut:
-                self._debug_luts.scanner_lut = lut
+                self.scanner_lut = lut
             return data_out
         return spectral_calculation(data)
