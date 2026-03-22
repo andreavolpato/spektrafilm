@@ -1,6 +1,6 @@
 import numpy as np
 import napari
-from enum import Enum
+import json
 from napari.layers import Image
 from napari.types import ImageData
 from napari.settings import get_settings
@@ -9,12 +9,23 @@ from pathlib import Path
 # import matplotlib.pyplot as plt
 
 from spectral_film_lab.config import ENLARGER_STEPS
+from spectral_film_lab.gui.magicgui_bridge import (
+    apply_gui_state,
+    collect_gui_state,
+    DEFAULT_AUTO_EXPOSURE_METHOD,
+    DEFAULT_FILM_STOCK_MEMBER,
+    DEFAULT_GUI_STATE,
+    DEFAULT_INPUT_COLOR_SPACE,
+    DEFAULT_OUTPUT_COLOR_SPACE,
+    DEFAULT_PRINT_ILLUMINANT,
+    DEFAULT_PRINT_PAPER_MEMBER,
+    DEFAULT_SPECTRAL_UPSAMPLING_METHOD,
+    MagicGuiWidgets,
+)
+from spectral_film_lab.gui.params_mapper import build_params_from_state
 from spectral_film_lab.utils.io import load_image_oiio
-from spectral_film_lab.runtime.process import  photo_params, photo_process
-from spectral_film_lab.model.stocks import FilmStocks, PrintPapers
-from spectral_film_lab.model.illuminants import Illuminants
+from spectral_film_lab.runtime.process import photo_process
 from spectral_film_lab.profiles.io import profile_to_dict
-from profiles_creator.factory import swap_channels
 from spectral_film_lab.utils.numba_warmup import warmup
 
 # precompile numba functions
@@ -22,9 +33,10 @@ warmup()
 
 # create a viewer and add a couple image layers
 viewer = napari.Viewer()
+viewer.window._qt_window.showMaximized()
 viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 viewer.window._qt_viewer.dockLayerList.setVisible(False)
-layer_list = viewer.window.qt_viewer.dockLayerList
+layer_list = viewer.window._qt_viewer.dockLayerList
 settings = get_settings()
 settings.appearance.theme = 'light'
 
@@ -32,119 +44,67 @@ settings.appearance.theme = 'light'
 # viewer.add_image(portrait,
 #                  name="portrait")
 
-class RGBColorSpaces(Enum):
-    sRGB = 'sRGB'
-    DCI_P3 = 'DCI-P3'
-    DisplayP3 = 'Display P3'
-    AdobeRGB = 'Adobe RGB (1998)'
-    ITU_R_BT2020 = 'ITU-R BT.2020'
-    ProPhotoRGB = 'ProPhoto RGB'
-    ACES2065_1 = 'ACES2065-1'
-
-class RGBtoRAWMethod(Enum):
-    hanatos2025 = 'hanatos2025'
-    mallett2019 = 'mallett2019'
-
-class AutoExposureMethods(Enum):
-    median = 'median'
-    center_weighted = 'center_weighted'
-
 @magicgui(layout="vertical", call_button='None')
-def grain(active=True,
-          sublayers_active=True,
-          particle_area_um2=0.2,
-          particle_scale=(0.8,1.0,2),
-          particle_scale_layers=(2.5,1.0,0.5),
-          density_min=(0.07, 0.08, 0.12),
-          uniformity=(0.97,0.97,0.99),
-          blur=0.65,
-          blur_dye_clouds_um=1.0,
-          micro_structure=(0.1, 30),
+def grain(active=DEFAULT_GUI_STATE.grain.active,
+          sublayers_active=DEFAULT_GUI_STATE.grain.sublayers_active,
+          particle_area_um2=DEFAULT_GUI_STATE.grain.particle_area_um2,
+          particle_scale=DEFAULT_GUI_STATE.grain.particle_scale,
+          particle_scale_layers=DEFAULT_GUI_STATE.grain.particle_scale_layers,
+          density_min=DEFAULT_GUI_STATE.grain.density_min,
+          uniformity=DEFAULT_GUI_STATE.grain.uniformity,
+          blur=DEFAULT_GUI_STATE.grain.blur,
+          blur_dye_clouds_um=DEFAULT_GUI_STATE.grain.blur_dye_clouds_um,
+          micro_structure=DEFAULT_GUI_STATE.grain.micro_structure,
           ):
     return
 
 @magicgui(layout="vertical", call_button='None')
-def input_image(preview_resize_factor=0.3,
-                upscale_factor=1.0,
-                crop=False,
-                crop_center=(0.50,0.50),
-                crop_size=(0.1,0.1),
-                input_color_space=RGBColorSpaces.ProPhotoRGB,
-                apply_cctf_decoding=False,
-                spectral_upsampling_method=RGBtoRAWMethod.hanatos2025,
-                filter_uv=(1,410,8),
-                filter_ir=(1,675,15),
+def input_image(preview_resize_factor=DEFAULT_GUI_STATE.input_image.preview_resize_factor,
+                upscale_factor=DEFAULT_GUI_STATE.input_image.upscale_factor,
+                crop=DEFAULT_GUI_STATE.input_image.crop,
+                crop_center=DEFAULT_GUI_STATE.input_image.crop_center,
+                crop_size=DEFAULT_GUI_STATE.input_image.crop_size,
+                input_color_space=DEFAULT_INPUT_COLOR_SPACE,
+                apply_cctf_decoding=DEFAULT_GUI_STATE.input_image.apply_cctf_decoding,
+                spectral_upsampling_method=DEFAULT_SPECTRAL_UPSAMPLING_METHOD,
+                filter_uv=DEFAULT_GUI_STATE.input_image.filter_uv,
+                filter_ir=DEFAULT_GUI_STATE.input_image.filter_ir,
                 ):
     return
 
 @magicgui(layout="vertical", call_button='None')
-def preflashing(exposure=0.0,
-                y_filter_shift=0,
-                m_filter_shift=0,
-                just_preflash=False):
+def preflashing(exposure=DEFAULT_GUI_STATE.preflashing.exposure,
+                y_filter_shift=DEFAULT_GUI_STATE.preflashing.y_filter_shift,
+                m_filter_shift=DEFAULT_GUI_STATE.preflashing.m_filter_shift,
+                just_preflash=DEFAULT_GUI_STATE.preflashing.just_preflash):
     return
 
 @magicgui(layout="vertical", call_button='None')
-def halation(active=True,
-             scattering_strength=(1.0,2.0,4.0),
-             scattering_size_um=(30,20,15),
-             halation_strength=(3.0,0.30,0.1),
-             halation_size_um=(200,200,200)):
+def halation(active=DEFAULT_GUI_STATE.halation.active,
+             scattering_strength=DEFAULT_GUI_STATE.halation.scattering_strength,
+             scattering_size_um=DEFAULT_GUI_STATE.halation.scattering_size_um,
+             halation_strength=DEFAULT_GUI_STATE.halation.halation_strength,
+             halation_size_um=DEFAULT_GUI_STATE.halation.halation_size_um):
     return
 
 @magicgui(layout="vertical", call_button='None')
-def couplers(active=True,
-             dir_couplers_amount=1.0,
-             dir_couplers_ratio=(1.0,1.0,1.0),
-             dir_couplers_diffusion_um=10,
-             diffusion_interlayer=2.0,
-             high_exposure_shift=0.0):
+def couplers(active=DEFAULT_GUI_STATE.couplers.active,
+             dir_couplers_amount=DEFAULT_GUI_STATE.couplers.dir_couplers_amount,
+             dir_couplers_ratio=DEFAULT_GUI_STATE.couplers.dir_couplers_ratio,
+             dir_couplers_diffusion_um=DEFAULT_GUI_STATE.couplers.dir_couplers_diffusion_um,
+             diffusion_interlayer=DEFAULT_GUI_STATE.couplers.diffusion_interlayer,
+             high_exposure_shift=DEFAULT_GUI_STATE.couplers.high_exposure_shift):
     return
 
 @magicgui(layout="vertical", call_button='None')
-def glare(active=True,
-          percent=0.10,
-          roughness=0.4,
-          blur=0.5,
-          compensation_removal_factor=0.0,
-          compensation_removal_density=1.2,
-          compensation_removal_transition=0.3):
+def glare(active=DEFAULT_GUI_STATE.glare.active,
+          percent=DEFAULT_GUI_STATE.glare.percent,
+          roughness=DEFAULT_GUI_STATE.glare.roughness,
+          blur=DEFAULT_GUI_STATE.glare.blur,
+          compensation_removal_factor=DEFAULT_GUI_STATE.glare.compensation_removal_factor,
+          compensation_removal_density=DEFAULT_GUI_STATE.glare.compensation_removal_density,
+          compensation_removal_transition=DEFAULT_GUI_STATE.glare.compensation_removal_transition):
     return
-
-# @magicgui(layout="vertical", call_button='plot curves')
-# def curves(use_parametric_curves=False,
-#            gamma=(0.7,0.7,0.7),
-#            log_exposure_0=(-1.4,-1.4,-1.52),
-#            density_max=(2.75,2.75,2.84),
-#            toe_size=(0.3,0.3,0.3),
-#            shoulder_size=(0.85,0.85,0.85),):
-#     profile = load_profile(simulation.film_stock.value.value)
-#     print(simulation.film_stock.value.value)
-#     log_exposure = profile.data.log_exposure
-#     density_curves = parametric_density_curves_model(log_exposure,
-#                                 gamma,
-#                                 log_exposure_0,
-#                                 density_max,
-#                                 toe_size,
-#                                 shoulder_size)
-#     plt.figure()
-#     colors = ['tab:red', 'tab:green', 'tab:blue']
-#     labels = ['R', 'G', 'B']
-#     gamma_factor = simulation.film_gamma_factor.value
-#     for i in range(3):
-#         plt.plot(log_exposure, density_curves[:,i], color=colors[i], label=labels[i])
-#         plt.plot(log_exposure/gamma_factor[i], profile.data.density_curves, color=colors[i], linestyle='--', label=None)
-#     plt.xlabel('log(Exposure)')
-#     plt.ylabel('Density')
-#     plt.legend()
-#     plt.title(profile.info.stock)
-#     plt.show()
-#     return
-
-# @magicgui(layout="vertical", call_button='fit negative density curves')
-# def fit_density_curves():
-#     return
-
 
 @magicgui(filename={"mode": "r"}, call_button='load image (e.g. png/exr)')
 def filepicker(filename=Path("./")) -> ImageData:
@@ -153,15 +113,13 @@ def filepicker(filename=Path("./")) -> ImageData:
     return img_array
 
 @magicgui(layout="vertical", call_button='None')
-def special(film_channel_swap=(0,1,2),
-            film_gamma_factor=1.0,
-            print_channel_swap=(0,1,2),
-            print_gamma_factor=1.0,
-            print_density_min_factor=0.4,
+def special(film_channel_swap=DEFAULT_GUI_STATE.special.film_channel_swap,
+        film_gamma_factor=DEFAULT_GUI_STATE.special.film_gamma_factor,
+        print_channel_swap=DEFAULT_GUI_STATE.special.print_channel_swap,
+        print_gamma_factor=DEFAULT_GUI_STATE.special.print_gamma_factor,
+        print_density_min_factor=DEFAULT_GUI_STATE.special.print_density_min_factor,
             ):
     return
-
-import json
 
 def export_parameters(filepath, params):
     with open(filepath, 'w') as f:
@@ -176,123 +134,51 @@ def load_parameters(filepath):
 # https://napari.org/guides/magicgui.html#return-annotations
 @magicgui(layout="vertical")
 def simulation(input_layer:Image,
-               film_stock=FilmStocks.kodak_gold_200,
-               film_format_mm=35.0,
-               camera_lens_blur_um=0.0,
-               exposure_compensation_ev=0.0,
-               auto_exposure=True,
-               auto_exposure_method=AutoExposureMethods.center_weighted,
+                    film_stock=DEFAULT_FILM_STOCK_MEMBER,
+                    film_format_mm=DEFAULT_GUI_STATE.simulation.film_format_mm,
+                    camera_lens_blur_um=DEFAULT_GUI_STATE.simulation.camera_lens_blur_um,
+                    exposure_compensation_ev=DEFAULT_GUI_STATE.simulation.exposure_compensation_ev,
+                    auto_exposure=DEFAULT_GUI_STATE.simulation.auto_exposure,
+                    auto_exposure_method=DEFAULT_AUTO_EXPOSURE_METHOD,
                # print parameters
-               print=PrintPapers.kodak_supra_endura,
-               print_illuminant=Illuminants.lamp,
-               print_exposure=1.0,
-               print_exposure_compensation=True,
-               print_y_filter_shift=0,
-               print_m_filter_shift=0,
+                    print=DEFAULT_PRINT_PAPER_MEMBER,
+                    print_illuminant=DEFAULT_PRINT_ILLUMINANT,
+                    print_exposure=DEFAULT_GUI_STATE.simulation.print_exposure,
+                    print_exposure_compensation=DEFAULT_GUI_STATE.simulation.print_exposure_compensation,
+                    print_y_filter_shift=DEFAULT_GUI_STATE.simulation.print_y_filter_shift,
+                    print_m_filter_shift=DEFAULT_GUI_STATE.simulation.print_m_filter_shift,
             #    print_lens_blur=0.0,
                # scanner
-               scan_lens_blur=0.00,
-               scan_unsharp_mask=(0.7,0.7),
-               output_color_space=RGBColorSpaces.sRGB,
-               output_cctf_encoding=True,
+                    scan_lens_blur=DEFAULT_GUI_STATE.simulation.scan_lens_blur,
+                    scan_unsharp_mask=DEFAULT_GUI_STATE.simulation.scan_unsharp_mask,
+                    output_color_space=DEFAULT_OUTPUT_COLOR_SPACE,
+                    output_cctf_encoding=DEFAULT_GUI_STATE.simulation.output_cctf_encoding,
             #    return_film_log_raw=False,
-               scan_film=False,
-               compute_full_image=False,
+                    scan_film=DEFAULT_GUI_STATE.simulation.scan_film,
+                    compute_full_image=DEFAULT_GUI_STATE.simulation.compute_full_image,
                )->ImageData:    
-    params = photo_params(
-        film_profile=film_stock.value,
-        print_profile=print.value,
+    state = collect_gui_state(
+        widgets=GUI_WIDGETS,
+        film_stock=film_stock,
+        film_format_mm=film_format_mm,
+        camera_lens_blur_um=camera_lens_blur_um,
+        exposure_compensation_ev=exposure_compensation_ev,
+        auto_exposure=auto_exposure,
+        auto_exposure_method=auto_exposure_method,
+        print_paper=print,
+        print_illuminant=print_illuminant,
+        print_exposure=print_exposure,
+        print_exposure_compensation=print_exposure_compensation,
+        print_y_filter_shift=print_y_filter_shift,
+        print_m_filter_shift=print_m_filter_shift,
+        scan_lens_blur=scan_lens_blur,
+        scan_unsharp_mask=scan_unsharp_mask,
+        output_color_space=output_color_space,
+        output_cctf_encoding=output_cctf_encoding,
+        scan_film=scan_film,
+        compute_full_image=compute_full_image,
     )
-    
-    if special.film_channel_swap.value != (0,1,2):
-        params.film = swap_channels(params.film, special.film_channel_swap.value)
-    if special.print_channel_swap.value != (0,1,2):
-        params.print = swap_channels(params.print, special.print_channel_swap.value)
-    
-    params.film_render.density_curve_gamma = special.film_gamma_factor.value
-    params.print_render.density_curve_gamma = special.print_gamma_factor.value
-    params.print_render.base_density_scale = special.print_density_min_factor.value
-    params.print_render.glare.active = glare.active.value
-    params.print_render.glare.percent = glare.percent.value
-    params.print_render.glare.roughness = glare.roughness.value
-    params.print_render.glare.blur = glare.blur.value
-    params.print_render.glare.compensation_removal_factor = glare.compensation_removal_factor.value
-    params.print_render.glare.compensation_removal_density = glare.compensation_removal_density.value
-    params.print_render.glare.compensation_removal_transition = glare.compensation_removal_transition.value
-
-    params.camera.lens_blur_um = camera_lens_blur_um
-    params.camera.exposure_compensation_ev = exposure_compensation_ev
-    params.camera.auto_exposure = auto_exposure
-    params.camera.auto_exposure_method = auto_exposure_method.value
-    params.camera.film_format_mm = film_format_mm
-    params.camera.filter_uv = input_image.filter_uv.value
-    params.camera.filter_ir = input_image.filter_ir.value
-    
-    params.io.preview_resize_factor = input_image.preview_resize_factor.value
-    params.io.upscale_factor = input_image.upscale_factor.value
-    params.io.crop = input_image.crop.value
-    params.io.crop_center = input_image.crop_center.value
-    params.io.crop_size = input_image.crop_size.value
-    params.io.input_color_space = input_image.input_color_space.value.value
-    params.io.input_cctf_decoding = input_image.apply_cctf_decoding.value
-    params.io.output_color_space = output_color_space.value
-    params.io.output_cctf_encoding = output_cctf_encoding
-    params.io.full_image = compute_full_image
-    params.io.scan_film = scan_film
-    # params.debug.return_film_log_raw = return_film_log_raw
-    
-    # assign parameters to the film stock and paper
-    params.film_render.halation.active = halation.active.value
-    params.film_render.halation.strength = np.array(halation.halation_strength.value)/100
-    params.film_render.halation.size_um = np.array(halation.halation_size_um.value)
-    params.film_render.halation.scattering_strength = np.array(halation.scattering_strength.value)/100
-    params.film_render.halation.scattering_size_um = np.array(halation.scattering_size_um.value)
-    
-    params.film_render.grain.active = grain.active.value
-    params.film_render.grain.sublayers_active = grain.sublayers_active.value
-    params.film_render.grain.agx_particle_area_um2 = grain.particle_area_um2.value
-    params.film_render.grain.agx_particle_scale = grain.particle_scale.value
-    params.film_render.grain.agx_particle_scale_layers = grain.particle_scale_layers.value
-    params.film_render.grain.density_min = grain.density_min.value
-    params.film_render.grain.uniformity = grain.uniformity.value
-    params.film_render.grain.blur = grain.blur.value
-    params.film_render.grain.blur_dye_clouds_um = grain.blur_dye_clouds_um.value
-    params.film_render.grain.micro_structure = grain.micro_structure.value
-    
-    params.film_render.dir_couplers.active = couplers.active.value
-    params.film_render.dir_couplers.amount = couplers.dir_couplers_amount.value 
-    params.film_render.dir_couplers.ratio_rgb = couplers.dir_couplers_ratio.value
-    params.film_render.dir_couplers.diffusion_size_um = couplers.dir_couplers_diffusion_um.value
-    params.film_render.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
-    params.film_render.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
-        
-    # # parametric curves
-    # params.source.parametric.density_curves.active = curves.use_parametric_curves.value
-    # params.source.parametric.density_curves.gamma = curves.gamma.value
-    # params.source.parametric.density_curves.log_exposure_0 = curves.log_exposure_0.value
-    # params.source.parametric.density_curves.density_max = curves.density_max.value
-    # params.source.parametric.density_curves.toe_size = curves.toe_size.value
-    # params.source.parametric.density_curves.shoulder_size = curves.shoulder_size.value
-
-    params.enlarger.illuminant = print_illuminant.value
-    params.enlarger.print_exposure = print_exposure
-    params.enlarger.print_exposure_compensation = print_exposure_compensation
-    params.enlarger.y_filter_shift = print_y_filter_shift
-    params.enlarger.m_filter_shift = print_m_filter_shift
-    # params.enlarger.print_lens_blur = print_lens_blur
-    params.enlarger.preflash_exposure = preflashing.exposure.value
-    params.enlarger.preflash_y_filter_shift = preflashing.y_filter_shift.value
-    params.enlarger.preflash_m_filter_shift = preflashing.m_filter_shift.value
-    params.enlarger.just_preflash = preflashing.just_preflash.value
-    
-    params.scanner.lens_blur = scan_lens_blur
-    params.scanner.unsharp_mask = scan_unsharp_mask
-    
-    params.settings.rgb_to_raw_method = input_image.spectral_upsampling_method.value.value
-    params.settings.use_enlarger_lut = True
-    params.settings.use_scanner_lut = True
-    params.settings.lut_resolution = 32
-    params.settings.use_fast_stats = True
+    params = build_params_from_state(state)
 
     image = np.double(input_layer.data[:,:,:3])
     scan = photo_process(image, params)
@@ -301,98 +187,295 @@ def simulation(input_layer:Image,
     scan = np.uint8(scan*255)
     return scan
 
+
+GUI_WIDGETS = MagicGuiWidgets(
+    input_image=input_image,
+    grain=grain,
+    preflashing=preflashing,
+    halation=halation,
+    couplers=couplers,
+    glare=glare,
+    special=special,
+    simulation=simulation,
+)
+
+
+def _configure_widget(widget, *, tooltip=None, min_value=None, max_value=None, step=None):
+    if tooltip is not None:
+        widget.tooltip = tooltip
+    if min_value is not None:
+        widget.min = min_value
+    if max_value is not None:
+        widget.max = max_value
+    if step is not None:
+        widget.step = step
+
+
+def _configure_widget_controls():
+    _configure_widget(
+        simulation.film_stock,
+        tooltip='Film stock to simulate',
+    )
+    _configure_widget(
+        simulation.exposure_compensation_ev,
+        tooltip='Exposure compensation value in ev of the negative',
+        min_value=-100,
+        max_value=100,
+        step=0.5,
+    )
+    _configure_widget(
+        simulation.auto_exposure,
+        tooltip='Automatically adjust exposure based on the image content',
+    )
+    _configure_widget(
+        simulation.film_format_mm,
+        tooltip='Long edge of the film format in millimeters, e.g. 35mm or 60mm',
+    )
+    _configure_widget(
+        simulation.camera_lens_blur_um,
+        tooltip='Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.',
+    )
+    _configure_widget(
+        simulation.print,
+        tooltip='Print paper to simulate',
+    )
+    _configure_widget(
+        simulation.print_illuminant,
+        tooltip='Print illuminant to simulate',
+    )
+    _configure_widget(
+        simulation.print_exposure,
+        tooltip='Exposure value for the print (proportional to seconds of exposure, not ev)',
+        step=0.05,
+    )
+    _configure_widget(
+        simulation.print_exposure_compensation,
+        tooltip='Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time.',
+    )
+    _configure_widget(
+        simulation.print_y_filter_shift,
+        tooltip='Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps',
+        min_value=-ENLARGER_STEPS,
+        max_value=ENLARGER_STEPS,
+    )
+    _configure_widget(
+        simulation.print_m_filter_shift,
+        tooltip='M filter shift of the color enlarger from a neutral position, enlarger has 170 steps',
+        min_value=-ENLARGER_STEPS,
+        max_value=ENLARGER_STEPS,
+    )
+    _configure_widget(
+        simulation.scan_lens_blur,
+        tooltip='Sigma of gaussian filter in pixel for the scanner lens blur',
+        step=0.05,
+    )
+    _configure_widget(
+        simulation.scan_unsharp_mask,
+        tooltip='Apply unsharp mask to the scan, [sigma in pixel, amount]',
+    )
+    _configure_widget(
+        simulation.output_color_space,
+        tooltip='Color space of the output image',
+    )
+    _configure_widget(
+        simulation.output_cctf_encoding,
+        tooltip='Apply the cctf transfer function of the color space. If false, data is linear.',
+    )
+    _configure_widget(
+        simulation.scan_film,
+        tooltip='Show a scan of the negative instead of the print',
+    )
+    _configure_widget(
+        simulation.compute_full_image,
+        tooltip='Do not apply preview resize, compute full resolution image. Keeps the crop if active.',
+    )
+    _configure_widget(
+        simulation.call_button,
+        tooltip='Run the simulation. Note: grain and halation computed only when compute_full_image is clicked.',
+    )
+
+    _configure_widget(
+        special.film_gamma_factor,
+        tooltip='Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast',
+    )
+    _configure_widget(
+        special.print_gamma_factor,
+        tooltip='Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast',
+        step=0.05,
+    )
+    _configure_widget(
+        special.print_density_min_factor,
+        tooltip='Minimum density factor of the print paper (0-1), make the white less white',
+        min_value=0,
+        max_value=1,
+        step=0.2,
+    )
+
+    _configure_widget(
+        glare.active,
+        tooltip='Add glare to the print',
+    )
+    _configure_widget(
+        glare.percent,
+        tooltip='Percentage of the glare light (typically 0.1-0.25)',
+        step=0.05,
+    )
+    _configure_widget(
+        glare.roughness,
+        tooltip='Roughness of the glare light (0-1)',
+    )
+    _configure_widget(
+        glare.blur,
+        tooltip='Sigma of gaussian blur in pixels for the glare',
+    )
+    _configure_widget(
+        glare.compensation_removal_factor,
+        tooltip='Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0).',
+        step=0.05,
+    )
+    _configure_widget(
+        glare.compensation_removal_density,
+        tooltip='Density of the glare compensation removal from the print, typical values (1.0-1.5).',
+    )
+    _configure_widget(
+        glare.compensation_removal_transition,
+        tooltip='Transition density range of the glare compensation removal from the print, typical values (0.1-0.5).',
+    )
+
+    _configure_widget(
+        halation.scattering_strength,
+        tooltip='Fraction of scattered light (0-100, percentage) for each channel [R,G,B]',
+    )
+    _configure_widget(
+        halation.scattering_size_um,
+        tooltip='Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.',
+    )
+    _configure_widget(
+        halation.halation_strength,
+        tooltip='Fraction of halation light (0-100, percentage) for each channel [R,G,B]',
+    )
+    _configure_widget(
+        halation.halation_size_um,
+        tooltip='Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.',
+    )
+
+    _configure_widget(
+        couplers.dir_couplers_amount,
+        tooltip='Amount of coupler inhibitors, control saturation, typical values (0.8-1.2).',
+        step=0.05,
+    )
+    _configure_widget(
+        couplers.dir_couplers_diffusion_um,
+        tooltip='Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.',
+        step=5,
+    )
+    _configure_widget(
+        couplers.diffusion_interlayer,
+        tooltip='Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.',
+    )
+
+    _configure_widget(
+        grain.active,
+        tooltip='Add grain to the negative',
+    )
+    _configure_widget(
+        grain.particle_area_um2,
+        tooltip='Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on.',
+        step=0.1,
+    )
+    _configure_widget(
+        grain.particle_scale,
+        tooltip='Scale of particle area for the RGB layers, multiplies particle_area_um2',
+    )
+    _configure_widget(
+        grain.particle_scale_layers,
+        tooltip='Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2',
+    )
+    _configure_widget(
+        grain.density_min,
+        tooltip='Minimum density of the grain, typical values (0.03-0.06)',
+    )
+    _configure_widget(
+        grain.uniformity,
+        tooltip='Uniformity of the grain, typical values (0.94-0.98)',
+    )
+    _configure_widget(
+        grain.blur,
+        tooltip='Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res).',
+    )
+    _configure_widget(
+        grain.blur_dye_clouds_um,
+        tooltip='Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)',
+    )
+    _configure_widget(
+        grain.micro_structure,
+        tooltip='Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.',
+    )
+
+    _configure_widget(
+        preflashing.exposure,
+        tooltip='Preflash exposure value in ev for the print',
+        step=0.005,
+    )
+    _configure_widget(
+        preflashing.just_preflash,
+        tooltip='Only apply preflash to the print, to visualize the preflash effect',
+    )
+    _configure_widget(
+        preflashing.y_filter_shift,
+        tooltip='Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps',
+        min_value=-ENLARGER_STEPS,
+    )
+    _configure_widget(
+        preflashing.m_filter_shift,
+        tooltip='Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps',
+        min_value=-ENLARGER_STEPS,
+    )
+
+    _configure_widget(
+        input_image.preview_resize_factor,
+        tooltip='Scale image size down (0-1) to speed up preview processing',
+    )
+    _configure_widget(
+        input_image.crop,
+        tooltip='Crop image to a fraction of the original size to preview details at full scale',
+    )
+    _configure_widget(
+        input_image.crop_center,
+        tooltip='Center of the crop region in relative coordinates in x, y (0-1)',
+    )
+    _configure_widget(
+        input_image.crop_size,
+        tooltip='Normalized size of the crop region in x, y (0,1), as fraction of the long side.',
+    )
+    _configure_widget(
+        input_image.input_color_space,
+        tooltip='Color space of the input image, will be internally converted to sRGB and negative values clipped',
+    )
+    _configure_widget(
+        input_image.apply_cctf_decoding,
+        tooltip='Apply the inverse cctf transfer function of the color space',
+    )
+    _configure_widget(
+        input_image.upscale_factor,
+        tooltip='Scale image size up to increase resolution',
+    )
+    _configure_widget(
+        input_image.spectral_upsampling_method,
+        tooltip='Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).',
+    )
+    _configure_widget(
+        input_image.filter_uv,
+        tooltip='Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.',
+    )
+    _configure_widget(
+        input_image.filter_ir,
+        tooltip='Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.',
+    )
+
 def main():
-    # add our new magicgui widget to the viewer
-    simulation.exposure_compensation_ev.min = -100
-    simulation.exposure_compensation_ev.max = 100
-    simulation.exposure_compensation_ev.step = 0.5
-    simulation.print_exposure.step = 0.05
-    simulation.print_y_filter_shift.min = -ENLARGER_STEPS
-    simulation.print_y_filter_shift.max = ENLARGER_STEPS
-    simulation.print_m_filter_shift.min = -ENLARGER_STEPS
-    simulation.print_m_filter_shift.max = ENLARGER_STEPS
-    # simulation.print_lens_blur.step = 0.05
-    simulation.scan_lens_blur.step = 0.05
-
-    # tooltips to help users understand what the widgets do
-    simulation.film_stock.tooltip = 'Film stock to simulate'
-    simulation.exposure_compensation_ev.tooltip = 'Exposure compensation value in ev of the negative'
-    simulation.auto_exposure.tooltip = 'Automatically adjust exposure based on the image content'
-    simulation.film_format_mm.tooltip = 'Long edge of the film format in millimeters, e.g. 35mm or 60mm'
-    simulation.camera_lens_blur_um.tooltip = 'Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.'
-    simulation.print.tooltip = 'Print paper to simulate'
-    simulation.print_illuminant.tooltip = 'Print illuminant to simulate'
-    simulation.print_exposure.tooltip = 'Exposure value for the print (proportional to seconds of exposure, not ev)'
-    simulation.print_exposure_compensation.tooltip = 'Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time.'
-    simulation.print_y_filter_shift.tooltip = 'Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps'
-    simulation.print_m_filter_shift.tooltip = 'M filter shift of the color enlarger from a neutral position, enlarger has 170 steps'
-    # simulation.print_lens_blur.tooltip = 'Sigma of gaussian filter in pixel for the print lens blur'
-    simulation.scan_lens_blur.tooltip = 'Sigma of gaussian filter in pixel for the scanner lens blur'
-    simulation.scan_unsharp_mask.tooltip = 'Apply unsharp mask to the scan, [sigma in pixel, amount]'
-    simulation.output_color_space.tooltip = 'Color space of the output image'
-    simulation.output_cctf_encoding.tooltip = 'Apply the cctf transfer function of the color space. If false, data is linear.'
-    simulation.scan_film.tooltip = 'Show a scan of the negative instead of the print'
-    simulation.compute_full_image.tooltip = 'Do not apply preview resize, compute full resolution image. Keeps the crop if active.'
-    simulation.call_button.tooltip = 'Run the simulation. Note: grain and halation computed only when compute_full_image is clicked.'
-
-    special.film_gamma_factor.tooltip = 'Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast'
-    special.print_gamma_factor.tooltip = 'Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast'
-    special.print_gamma_factor.step = 0.05
-    special.print_density_min_factor.tooltip = 'Minimum density factor of the print paper (0-1), make the white less white'
-    special.print_density_min_factor.min = 0
-    special.print_density_min_factor.step = 0.2
-    special.print_density_min_factor.max = 1
-
-    glare.active.tooltip = 'Add glare to the print'
-    glare.percent.tooltip = 'Percentage of the glare light (typically 0.1-0.25)'
-    glare.percent.step = 0.05
-    glare.roughness.tooltip = 'Roughness of the glare light (0-1)'
-    glare.blur.tooltip = 'Sigma of gaussian blur in pixels for the glare'
-    glare.compensation_removal_factor.tooltip = 'Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0).'
-    glare.compensation_removal_factor.step = 0.05
-    glare.compensation_removal_density.tooltip = 'Density of the glare compensation removal from the print, typical values (1.0-1.5).'
-    glare.compensation_removal_transition.tooltip = 'Transition density range of the glare compensation removal from the print, typical values (0.1-0.5).'
-
-    halation.scattering_strength.tooltip = 'Fraction of scattered light (0-100, percentage) for each channel [R,G,B]'
-    halation.scattering_size_um.tooltip = 'Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.'
-    halation.halation_strength.tooltip = 'Fraction of halation light (0-100, percentage) for each channel [R,G,B]'
-    halation.halation_size_um.tooltip = 'Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.'
-
-    couplers.dir_couplers_amount.tooltip = 'Amount of coupler inhibitors, control saturation, typical values (0.8-1.2).'
-    couplers.dir_couplers_amount.step = 0.05
-    couplers.dir_couplers_diffusion_um.tooltip = 'Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.'
-    couplers.dir_couplers_diffusion_um.step = 5
-    couplers.diffusion_interlayer.tooltip = 'Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.'
-
-    grain.active.tooltip = 'Add grain to the negative'
-    grain.particle_area_um2.tooltip = 'Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on.'
-    grain.particle_area_um2.step = 0.1
-    grain.particle_scale.tooltip = 'Scale of particle area for the RGB layers, multiplies particle_area_um2'
-    grain.particle_scale_layers.tooltip = 'Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2'
-    grain.density_min.tooltip = 'Minimum density of the grain, typical values (0.03-0.06)'
-    grain.uniformity.tooltip = 'Uniformity of the grain, typical values (0.94-0.98)'
-    grain.blur.tooltip = 'Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res).'
-    grain.blur_dye_clouds_um.tooltip = 'Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)'
-    grain.micro_structure.tooltip = 'Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.'
-
-    preflashing.exposure.tooltip = 'Preflash exposure value in ev for the print'
-    preflashing.just_preflash.tooltip = 'Only apply preflash to the print, to visualize the preflash effect'
-    preflashing.y_filter_shift.tooltip = 'Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps'
-    preflashing.m_filter_shift.tooltip = 'Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps'
-    preflashing.exposure.step = 0.005
-    preflashing.y_filter_shift.min = -ENLARGER_STEPS
-    preflashing.m_filter_shift.min = -ENLARGER_STEPS
-
-    input_image.preview_resize_factor.tooltip = 'Scale image size down (0-1) to speed up preview processing'
-    input_image.crop.tooltip = 'Crop image to a fraction of the original size to preview details at full scale'
-    input_image.crop_center.tooltip = 'Center of the crop region in relative coordinates in x, y (0-1)'
-    input_image.crop_size.tooltip = 'Normalized size of the crop region in x, y (0,1), as fraction of the long side.'
-    input_image.input_color_space.tooltip = 'Color space of the input image, will be internally converted to sRGB and negative values clipped'
-    input_image.apply_cctf_decoding.tooltip = 'Apply the inverse cctf transfer function of the color space'
-    input_image.upscale_factor.tooltip = 'Scale image size up to increase resolution'
-    input_image.spectral_upsampling_method.tooltip = 'Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).'
-    input_image.filter_uv.tooltip = 'Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.'
-    input_image.filter_ir.tooltip = 'Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.'
+    apply_gui_state(DEFAULT_GUI_STATE, widgets=GUI_WIDGETS)
+    _configure_widget_controls()
 
     # tab1 = Container(layout='vertical', widgets=[grain, preflashing])
     viewer.window.add_dock_widget(input_image, area="right", name='input', tabify=True)

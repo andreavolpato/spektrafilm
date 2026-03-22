@@ -49,9 +49,9 @@ class GrainParams:
     agx_particle_scale_layers: tuple[float, float, float] = (2.5, 1.0, 0.5)
     density_min: tuple[float, float, float] = (0.07, 0.08, 0.12)
     uniformity: tuple[float, float, float] = (0.97, 0.97, 0.99)
-    blur: float = 0.55
+    blur: float = 0.65
     blur_dye_clouds_um: float = 1.0
-    micro_structure: tuple[float, float] = (0.2, 0.5)
+    micro_structure: tuple[float, float] = (0.2, 30)
     n_sub_layers: int = 1
 
 
@@ -110,8 +110,8 @@ class IOParams:
     output_cctf_encoding: bool = True
     crop: bool = False
     crop_center: tuple[float, float] = (0.5, 0.5)
-    crop_size: tuple[float, float] = (0.1, 1.0)
-    preview_resize_factor: float = 1.0
+    crop_size: tuple[float, float] = (0.1, 0.1)
+    preview_resize_factor: float = 0.3
     upscale_factor: float = 1.0
     full_image: bool = False
     scan_film: bool = False

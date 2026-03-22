@@ -171,7 +171,7 @@ class TestPipelineSmoke:
 
     def test_different_film_stocks(self, default_params):
         """Different negative profiles must produce visibly different results."""
-        green_patch = np.ones((4, 4, 3)) * np.array([0.05, 0.4, 0.05])
+        green_patch = np.ones((10, 10, 3)) * np.array([0.05, 0.4, 0.05])
         result_portra = photo_process(green_patch, default_params)  # default is portra 400
 
         params_fuji = photo_params(film_profile='fujifilm_c200_auc')
