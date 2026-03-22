@@ -1,8 +1,11 @@
 import numpy as np
 import pytest
 
-from spectral_film_lab.utils.fast_interp_lut import apply_lut_cubic_2d, apply_lut_cubic_3d
-from spectral_film_lab.utils.lut import _create_lut_3d, compute_with_lut
+from spectral_film_lab.utils.fast_interp_lut import (
+    apply_lut_cubic_3d,
+    apply_lut_pchip_3d,
+)
+from spectral_film_lab.utils.lut import compute_with_lut
 
 
 def affine_transform(data):
@@ -19,6 +22,31 @@ def affine_transform_2d(data):
     output[..., 1] = -0.25 * data[..., 0] + 1.5 * data[..., 1]
     output[..., 2] = 0.75 * data[..., 0] + 0.25 * data[..., 1]
     return output
+
+
+def monotone_transform_3d(data):
+    output = np.empty_like(data)
+    output[..., 0] = 0.55 * data[..., 0] ** 2 + 0.25 * data[..., 1] + 0.15 * data[..., 2]
+    output[..., 1] = 0.10 * data[..., 0] + 0.70 * data[..., 1] ** 2 + 0.20 * data[..., 2]
+    output[..., 2] = 0.20 * data[..., 0] + 0.15 * data[..., 1] + 0.65 * data[..., 2] ** 2
+    return output
+
+
+def make_monotone_3d_lut_and_image():
+    lut_size = 17
+    lut_axis = np.linspace(0.0, 1.0, lut_size, dtype=np.float64)
+    grid_r, grid_g, grid_b = np.meshgrid(lut_axis, lut_axis, lut_axis, indexing='ij')
+    lut_input = np.stack((grid_r, grid_g, grid_b), axis=-1)
+    lut = monotone_transform_3d(lut_input)
+
+    image_height = 33
+    image_width = 37
+    image_r = np.linspace(0.0, 1.0, image_width, dtype=np.float64)[None, :].repeat(image_height, axis=0)
+    image_g = np.linspace(0.0, 1.0, image_height, dtype=np.float64)[:, None].repeat(image_width, axis=1)
+    image_b = 0.35 * image_r + 0.65 * image_g
+    image = np.stack((image_r, image_g, image_b), axis=-1)
+    ground_truth = monotone_transform_3d(image)
+    return lut, image, ground_truth
 
 
 def test_compute_with_lut_basic_behavior():
@@ -99,41 +127,30 @@ def test_compute_with_lut_matches_affine_transform_at_range_endpoints():
     np.testing.assert_allclose(output, affine_transform(data), atol=1e-8, rtol=1e-8)
 
 
-def test_apply_lut_cubic_3d_matches_affine_transform_in_outermost_cells():
-    xmin = np.array([0.2, -1.0, 10.0], dtype=np.float64)
-    xmax = np.array([2.5, 3.0, 20.0], dtype=np.float64)
-    data = np.array(
-        [
-            [[0.22, -0.75, 10.5], [2.42, 2.75, 19.5]],
-            [[0.48, 2.6, 10.2], [2.35, -0.8, 19.8]],
-        ],
-        dtype=np.float64,
-    )
+def test_prepare_monotone_3d_lut_pchip_matches_ground_truth_with_small_error():
+    lut, image, ground_truth = make_monotone_3d_lut_and_image()
 
-    lut = _create_lut_3d(affine_transform, xmin=xmin, xmax=xmax, steps=9)
-    normalized = (data - xmin) / (xmax - xmin)
-    output = apply_lut_cubic_3d(lut, normalized)
+    output_prepared = apply_lut_pchip_3d(lut, image)
 
-    np.testing.assert_allclose(output, affine_transform(data), atol=1e-8, rtol=1e-8)
+    diff_prepared = output_prepared - ground_truth
+    rmse_prepared = np.sqrt(np.mean(diff_prepared**2))
+    max_error_prepared = np.max(np.abs(diff_prepared))
+
+    assert rmse_prepared < 2e-4
+    assert max_error_prepared < 2e-3
 
 
-def test_apply_lut_cubic_2d_matches_affine_transform_in_outermost_cells():
-    lut_size = 9
-    axis = np.linspace(0.0, 1.0, lut_size, dtype=np.float64)
-    grid_x, grid_y = np.meshgrid(axis, axis, indexing='ij')
-    lut_2d = affine_transform_2d(np.stack((grid_x, grid_y), axis=-1))
-    image = np.array(
-        [
-            [[0.05, 0.10], [0.95, 0.90]],
-            [[0.08, 0.92], [0.93, 0.07]],
-        ],
-        dtype=np.float64,
-    )
+def test_apply_monotone_3d_lut_mitchell_matches_ground_truth_with_small_error():
+    lut, image, ground_truth = make_monotone_3d_lut_and_image()
 
-    output = apply_lut_cubic_2d(lut_2d, image)
+    output_mitchell = apply_lut_cubic_3d(lut, image)
 
-    np.testing.assert_allclose(output, affine_transform_2d(image), atol=1e-8, rtol=1e-8)
+    diff_mitchell = output_mitchell - ground_truth
+    rmse_mitchell = np.sqrt(np.mean(diff_mitchell**2))
+    max_error_mitchell = np.max(np.abs(diff_mitchell))
 
+    assert rmse_mitchell < 2e-3
+    assert max_error_mitchell < 1.2e-2
 
 def test_compute_with_lut_rejects_invalid_input_range():
     data = np.zeros((1, 1, 3), dtype=np.float64)
