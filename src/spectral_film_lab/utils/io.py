@@ -54,10 +54,11 @@ def save_image_oiio(filename, image_data, bit_depth=32):
     """
     Save a floating-point (double) image with 3 channels as a 16-bit image file.
     For PNG files, the image data is scaled to the [0,65535] range and saved as uint16.
+    For JPEG files, the image data is scaled to the [0,255] range and saved as uint8.
     For EXR files, the image data is converted to 16-bit half floats.
     
     Parameters:
-      filename (str): The output file name (e.g., "saved_image.png" or "saved_image.exr")
+            filename (str): The output file name (e.g., "saved_image.png", "saved_image.jpg", or "saved_image.exr")
       image_data (np.ndarray): The input image data as a NumPy array with shape (height, width, 3).
     """
     # Extract image dimensions and number of channels
@@ -73,6 +74,11 @@ def save_image_oiio(filename, image_data, bit_depth=32):
         img_uint16 = img_uint16.astype(np.uint16)
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint16"))
         data_to_write = img_uint16
+    elif ext in {"jpg", "jpeg"}:
+        img_uint8 = np.clip(image_data, 0, 1) * 255.0
+        img_uint8 = img_uint8.astype(np.uint8)
+        spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint8"))
+        data_to_write = img_uint8
     elif ext=="exr" and bit_depth==16:
         # Convert the image data to 16-bit half precision.
         # Note: numpy's float16 is used here; OpenImageIO accepts "half" for 16-bit floats.

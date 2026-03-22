@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from spectral_film_lab.profiles.io import Profile
 
@@ -11,7 +10,7 @@ class CameraParams:
     exposure_compensation_ev: float = 0.0
     auto_exposure: bool = True
     auto_exposure_method: str = "center_weighted"
-    lens_blur_um: float = 0.0
+    lens_blur_um: float = 1.0
     film_format_mm: float = 35.0
     filter_uv: tuple[float, float, float] = (1.0, 410.0, 8.0)
     filter_ir: tuple[float, float, float] = (1.0, 675.0, 15.0)
