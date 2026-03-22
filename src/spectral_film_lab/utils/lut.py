@@ -1,5 +1,5 @@
 import numpy as np
-from spectral_film_lab.utils.fast_interp_lut import apply_lut_cubic_3d, apply_lut_cubic_2d
+from spectral_film_lab.utils.fast_interp_lut import apply_lut_3d, apply_lut_cubic_2d
 
 def _as_channel_bounds(bounds):
     bounds_array = np.asarray(bounds, dtype=np.float64)
@@ -34,14 +34,14 @@ def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0),
     # Computes the function on the data using a 3D LUT for acceleration.
     # The data is assumed to be in the range [xmin, xmax] and will be normalized for LUT indexing.
     # The lut is created on the fly in the range [xmin, xmax] with the specified number of steps.
-    # Note: apply_lut_cubic_3d expects the data to be normalized to [0, 1] for proper indexing into the LUT.
+    # Note: apply_lut_3d expects the data to be normalized to [0, 1] for proper indexing into the LUT.
     xmin = _as_channel_bounds(xmin)
     xmax = _as_channel_bounds(xmax)
     if np.any(xmax <= xmin):
         raise ValueError('xmax must be greater than xmin')
     lut = _create_lut_3d(function, xmin, xmax, steps)
     data_normalized = (data - xmin) / (xmax - xmin)
-    return apply_lut_cubic_3d(lut, data_normalized), lut
+    return apply_lut_3d(lut, data_normalized), lut
 
 def warmup_luts():
     """
@@ -59,7 +59,7 @@ def warmup_luts():
     y = np.linspace(0, 1, height, dtype=np.float64)
     X, Y = np.meshgrid(x, y)
     image_3d = np.stack((X, Y, 0.5 * np.ones_like(X)), axis=-1)
-    _ = apply_lut_cubic_3d(lut_3d, image_3d)
+    _ = apply_lut_3d(lut_3d, image_3d)
     
     # --- Warmup 2D LUT ---
     # Define a 2D LUT mapping (x,y) chromaticities to RGB.
