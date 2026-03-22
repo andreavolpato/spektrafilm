@@ -63,7 +63,7 @@ class TestPhotoParamsDefaults:
         assert params.io.output_color_space == 'sRGB'
         assert params.io.output_cctf_encoding is True
         assert params.io.crop is False
-        assert params.io.preview_resize_factor == 1.0
+        assert params.io.preview_resize_factor == 0.3
         assert params.io.upscale_factor == 1.0
         assert params.io.full_image is False
         assert params.io.scan_film is False
