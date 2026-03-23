@@ -452,15 +452,64 @@ class FilePickerSection(QWidget):
         self.file_path.setText(path)
 
 
+class GuiConfigSection(QWidget):
+    save_current_as_default_requested = Signal()
+    save_current_to_file_requested = Signal()
+    load_from_file_requested = Signal()
+    restore_factory_default_requested = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        self.save_current_as_default_button = QPushButton("Save current as default")
+        self.save_current_as_default_button.clicked.connect(self.save_current_as_default_requested.emit)
+
+        self.save_current_to_file_button = QPushButton("Save current to file")
+        self.save_current_to_file_button.clicked.connect(self.save_current_to_file_requested.emit)
+
+        self.load_from_file_button = QPushButton("Load from file")
+        self.load_from_file_button.clicked.connect(self.load_from_file_requested.emit)
+
+        self.restore_factory_default_button = QPushButton("Restore factory default")
+        self.restore_factory_default_button.clicked.connect(self.restore_factory_default_requested.emit)
+
+        first_row = QHBoxLayout()
+        first_row.setContentsMargins(0, 0, 0, 0)
+        first_row.setSpacing(6)
+        first_row.addWidget(self.save_current_as_default_button)
+        first_row.addWidget(self.save_current_to_file_button)
+
+        second_row = QHBoxLayout()
+        second_row.setContentsMargins(0, 0, 0, 0)
+        second_row.setSpacing(6)
+        second_row.addWidget(self.load_from_file_button)
+        second_row.addWidget(self.restore_factory_default_button)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(6)
+        content_layout.addLayout(first_row)
+        content_layout.addLayout(second_row)
+
+        root = QVBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(CollapsibleSection("GUI parameters", content, expanded=True))
+        self.setLayout(root)
+
+
 class SimulationInputSection(QWidget):
     def __init__(self):
         super().__init__()
         self.input_layer = QComboBox()
 
         form = QFormLayout()
-        form.addRow("Input layer", self.input_layer)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.addRow("Simulation input", self.input_layer)
 
-        self.setLayout(_build_collapsible_form_section("Simulation input", form, expanded=True))
+        self.setLayout(form)
 
     def set_available_layers(self, layer_names: list[str], *, selected_name: str | None = None) -> None:
         current_name = selected_name or self.selected_input_layer_name()

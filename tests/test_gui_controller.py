@@ -358,3 +358,75 @@ def test_prepare_output_display_image_reports_transform_failure(monkeypatch) -> 
 
     assert preview.dtype == np.uint8
     assert status == "Display transform: transform failed, using raw preview"
+
+
+def test_save_current_as_default_persists_collected_state(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    gui_state = make_gui_state()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, "save_default_gui_state", lambda state: captured.setdefault("state", state))
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.save_current_as_default()
+
+    assert captured["state"] is gui_state
+    assert captured["status"] == "Saved current GUI state as the startup default"
+
+
+def test_save_current_state_to_file_persists_json(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    gui_state = make_gui_state()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, "dialog_parent", lambda viewer: None)
+    monkeypatch.setattr(
+        controller_module.QFileDialog,
+        "getSaveFileName",
+        staticmethod(lambda *args, **kwargs: ("gui_state.json", "JSON (*.json)")),
+    )
+    monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, "save_gui_state_to_path", lambda state, path: captured.setdefault("saved", (state, path)))
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.save_current_state_to_file()
+
+    assert captured["saved"] == (gui_state, "gui_state.json")
+    assert captured["status"] == "Saved GUI state to gui_state.json"
+
+
+def test_load_state_from_file_applies_loaded_state(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    gui_state = make_gui_state()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, "dialog_parent", lambda viewer: None)
+    monkeypatch.setattr(
+        controller_module.QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *args, **kwargs: ("gui_state.json", "JSON (*.json)")),
+    )
+    monkeypatch.setattr(controller_module, "load_gui_state_from_path", lambda path: gui_state)
+    monkeypatch.setattr(controller_module, "apply_gui_state", lambda state, *, widgets: captured.setdefault("applied", (state, widgets)))
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.load_state_from_file()
+
+    assert captured["applied"] == (gui_state, controller._widgets)
+    assert captured["status"] == "Loaded GUI state from gui_state.json"
+
+
+def test_restore_factory_default_clears_saved_default_and_applies_factory_state(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, "clear_saved_default_gui_state", lambda: captured.setdefault("cleared", True))
+    monkeypatch.setattr(controller_module, "apply_gui_state", lambda state, *, widgets: captured.setdefault("applied", (state, widgets)))
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.restore_factory_default()
+
+    assert captured["cleared"] is True
+    assert captured["applied"] == (PROJECT_DEFAULT_GUI_STATE, controller._widgets)
+    assert captured["status"] == "Restored factory default GUI state"

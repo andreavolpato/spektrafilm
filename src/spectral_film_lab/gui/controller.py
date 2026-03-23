@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -9,7 +10,14 @@ from PIL import Image as PILImage
 from PIL import ImageCms
 from qtpy.QtWidgets import QFileDialog, QMessageBox
 
-from spectral_film_lab.gui.state_bridge import GuiWidgets, collect_gui_state
+from spectral_film_lab.gui.persistence import (
+    clear_saved_default_gui_state,
+    load_gui_state_from_path,
+    save_default_gui_state,
+    save_gui_state_to_path,
+)
+from spectral_film_lab.gui.state import PROJECT_DEFAULT_GUI_STATE
+from spectral_film_lab.gui.state_bridge import GuiWidgets, apply_gui_state, collect_gui_state
 from spectral_film_lab.gui.napari_layout import dialog_parent, set_status
 from spectral_film_lab.gui.params_mapper import build_params_from_state
 from spectral_film_lab.runtime.process import photo_process
@@ -115,6 +123,64 @@ class GuiController:
             return
 
         set_status(self._viewer, f'Saved output image to {filepath}')
+
+    def save_current_as_default(self) -> None:
+        gui_state = collect_gui_state(widgets=self._widgets)
+        try:
+            save_default_gui_state(gui_state)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), 'Save current as default', f'Failed to save default GUI state.\n\n{exc}')
+            return
+
+        set_status(self._viewer, 'Saved current GUI state as the startup default')
+
+    def save_current_state_to_file(self) -> None:
+        filepath, _ = QFileDialog.getSaveFileName(
+            dialog_parent(self._viewer),
+            'Save GUI state',
+            'gui_state.json',
+            'JSON (*.json)',
+        )
+        if not filepath:
+            return
+
+        gui_state = collect_gui_state(widgets=self._widgets)
+        try:
+            save_gui_state_to_path(gui_state, filepath)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), 'Save GUI state', f'Failed to save GUI state.\n\n{exc}')
+            return
+
+        set_status(self._viewer, f'Saved GUI state to {filepath}')
+
+    def load_state_from_file(self) -> None:
+        filepath, _ = QFileDialog.getOpenFileName(
+            dialog_parent(self._viewer),
+            'Load GUI state',
+            '',
+            'JSON (*.json)',
+        )
+        if not filepath:
+            return
+
+        try:
+            gui_state = load_gui_state_from_path(filepath)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), 'Load GUI state', f'Failed to load GUI state.\n\n{exc}')
+            return
+
+        apply_gui_state(gui_state, widgets=self._widgets)
+        set_status(self._viewer, f'Loaded GUI state from {filepath}')
+
+    def restore_factory_default(self) -> None:
+        try:
+            clear_saved_default_gui_state()
+        except OSError as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), 'Restore factory default', f'Failed to clear the saved startup default.\n\n{exc}')
+            return
+
+        apply_gui_state(PROJECT_DEFAULT_GUI_STATE, widgets=self._widgets)
+        set_status(self._viewer, 'Restored factory default GUI state')
 
     def _available_input_layers(self) -> list[NapariImageLayer]:
         return [layer for layer in self._viewer.layers if _is_napari_image_layer(layer)]

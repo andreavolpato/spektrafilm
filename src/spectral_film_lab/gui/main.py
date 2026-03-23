@@ -5,9 +5,9 @@ import napari
 from napari.settings import get_settings
 
 from spectral_film_lab.gui.controller import GuiController
+from spectral_film_lab.gui.persistence import load_default_gui_state
 from spectral_film_lab.gui.state_bridge import (
     apply_gui_state,
-    DEFAULT_GUI_STATE,
     GuiWidgets,
 )
 from spectral_film_lab.gui.napari_layout import (
@@ -24,6 +24,7 @@ from spectral_film_lab.gui.widgets import (
     FilePickerSection,
     GlareSection,
     GrainSection,
+    GuiConfigSection,
     HalationSection,
     InputImageSection,
     OutputSection,
@@ -63,6 +64,7 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
     couplers = CouplersSection()
     glare = GlareSection()
     filepicker = FilePickerSection()
+    gui_config = GuiConfigSection()
     simulation_input = SimulationInputSection()
     simulation = SimulationSection()
     special = SpecialSection(simulation)
@@ -77,6 +79,7 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
 
     gui_widgets = GuiWidgets(
         filepicker=filepicker,
+        gui_config=gui_config,
         simulation_input=simulation_input,
         input_image=input_image,
         grain=grain,
@@ -103,6 +106,7 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
         couplers=couplers,
         glare=glare,
         filepicker=filepicker,
+        gui_config=gui_config,
         special=special,
         simulation=simulation,
         simulation_input=simulation_input,
@@ -112,6 +116,10 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
 
 def _connect_controller_signals(controller: GuiController, widgets: GuiWidgets) -> None:
     widgets.filepicker.load_requested.connect(controller.load_input_image)
+    widgets.gui_config.save_current_as_default_requested.connect(controller.save_current_as_default)
+    widgets.gui_config.save_current_to_file_requested.connect(controller.save_current_state_to_file)
+    widgets.gui_config.load_from_file_requested.connect(controller.load_state_from_file)
+    widgets.gui_config.restore_factory_default_requested.connect(controller.restore_factory_default)
     widgets.simulation.preview_requested.connect(controller.run_preview)
     widgets.simulation.scan_requested.connect(controller.run_scan)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
@@ -122,7 +130,7 @@ def create_app() -> GuiApp:
     warmup()
     viewer = _create_viewer()
     widgets, panel_widgets = _create_widgets()
-    apply_gui_state(DEFAULT_GUI_STATE, widgets=widgets)
+    apply_gui_state(load_default_gui_state(), widgets=widgets)
     controller = GuiController(viewer=viewer, widgets=widgets)
     _connect_controller_signals(controller, widgets)
     controller.refresh_input_layers()

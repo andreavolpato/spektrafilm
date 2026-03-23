@@ -49,6 +49,7 @@ def _make_state() -> GuiState:
 def _make_widgets(state: GuiState) -> GuiWidgets:
     return GuiWidgets(
         filepicker=object(),
+        gui_config=object(),
         simulation_input=object(),
         input_image=StubSection(deepcopy(state.input_image)),
         grain=StubSection(deepcopy(state.grain)),

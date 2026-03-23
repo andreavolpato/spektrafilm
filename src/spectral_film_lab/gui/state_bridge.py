@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         FilePickerSection,
         GlareSection,
         GrainSection,
+        GuiConfigSection,
         HalationSection,
         InputImageSection,
         PreflashingSection,
@@ -38,6 +39,7 @@ GUI_STATE_SECTION_NAMES = tuple(field_info.name for field_info in fields(GuiStat
 @dataclass(slots=True)
 class GuiWidgets:
     filepicker: FilePickerSection
+    gui_config: GuiConfigSection
     simulation_input: SimulationInputSection
     input_image: InputImageSection
     grain: GrainSection

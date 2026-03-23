@@ -7,12 +7,14 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication, QFrame, QLabel, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
 from spectral_film_lab.gui.widgets import (
+    CollapsibleSection,
     CouplersSection,
     EnlargerSection,
     ExposureControlSection,
     FilePickerSection,
     GlareSection,
     GrainSection,
+    GuiConfigSection,
     HalationSection,
     InputImageSection,
     OutputSection,
@@ -46,6 +48,7 @@ class ControlsPanelWidgets:
     filepicker: FilePickerSection
     special: SpecialSection
     simulation: SimulationSection
+    gui_config: GuiConfigSection
     simulation_input: SimulationInputSection
     spectral_upsampling: SpectralUpsamplingSection
     tune: TuneSection
@@ -145,18 +148,27 @@ def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -
     panel.addTab(_wrap_scrollable(paper_tab), 'Print')
     panel.addTab(_wrap_scrollable(advanced_tab), 'Advanced')
 
+    config_tab = QWidget()
+    config_layout = QVBoxLayout(config_tab)
+    config_layout.setContentsMargins(0, 0, 0, 0)
+    config_layout.addWidget(widgets.gui_config)
+
+    napari_layers_content = QWidget()
+    napari_layers_content_layout = QVBoxLayout(napari_layers_content)
+    napari_layers_content_layout.setContentsMargins(0, 0, 0, 0)
+    napari_layers_content_layout.setSpacing(6)
+    napari_layers_content_layout.addWidget(widgets.simulation_input)
+
     qt_viewer = getattr(viewer.window, '_qt_viewer', None)
     layer_list = getattr(qt_viewer, 'dockLayerList', None) if qt_viewer is not None else None
     if layer_list is not None and hasattr(layer_list, 'widget'):
         layer_list_widget = layer_list.widget()
         if layer_list_widget is not None:
-            napari_layers_tab = QWidget()
-            napari_layers_layout = QVBoxLayout(napari_layers_tab)
-            napari_layers_layout.setContentsMargins(0, 0, 0, 0)
-            napari_layers_layout.addWidget(widgets.simulation_input)
-            napari_layers_layout.addWidget(_wrap_framed_panel('napari layers', layer_list_widget))
-            napari_layers_layout.addStretch(1)
-            panel.addTab(_wrap_scrollable(napari_layers_tab), 'Layers')
+            napari_layers_content_layout.addWidget(layer_list_widget)
+
+    config_layout.addWidget(CollapsibleSection('Napari Layers', napari_layers_content, expanded=False))
+    config_layout.addStretch(1)
+    panel.addTab(_wrap_scrollable(config_tab), 'Config')
 
     container = QWidget()
     container_layout = QVBoxLayout(container)
