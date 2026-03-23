@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from spectral_film_lab.gui.napari_layout import dialog_parent, set_host_window, set_status, take_viewer_widget
+from spektrafilm_gui.napari_layout import dialog_parent, set_host_window, set_status, take_viewer_widget
 
 
 class FakeStatusBar:

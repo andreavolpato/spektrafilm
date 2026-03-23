@@ -2,11 +2,11 @@ import copy
 
 import numpy as np
 
-from spectral_film_lab.runtime.process import photo_params
-from spectral_film_lab.model.stocks import FilmStocks, PrintPapers
-from spectral_film_lab.model.illuminants import Illuminants
-from profiles_creator.fitting import fit_print_filters
-from spectral_film_lab.utils.io import save_ymc_filter_values
+from spektrafilm.runtime.process import photo_params
+from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm.model.illuminants import Illuminants
+from spektrafilm_profile_creator.fitting import fit_print_filters
+from spektrafilm.utils.io import save_ymc_filter_values
 
 
 def make_ymc_filters_dictionary():

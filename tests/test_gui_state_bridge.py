@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from spectral_film_lab.gui.state import PROJECT_DEFAULT_GUI_STATE, GuiState
-from spectral_film_lab.gui.state_bridge import GUI_STATE_SECTION_NAMES, GuiWidgets, apply_gui_state, collect_gui_state
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, GuiState
+from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, GuiWidgets, apply_gui_state, collect_gui_state
 
 
 class StubSection:

@@ -6,8 +6,8 @@ pipeline, and displays the result using matplotlib.
 """
 
 import matplotlib.pyplot as plt
-from spectral_film_lab.runtime.process import photo_params, photo_process
-from spectral_film_lab.utils.io import load_image_oiio
+from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm.utils.io import load_image_oiio
 
 
 def run_simulation():

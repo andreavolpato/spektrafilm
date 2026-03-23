@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spectral_film_lab.runtime.process import AgXPhoto, photo_params
+from spektrafilm.runtime.process import AgXPhoto, photo_params
 
 
 class TestPhotoParamsDefaults:

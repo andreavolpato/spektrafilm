@@ -5,15 +5,15 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from spectral_film_lab.gui import controller as controller_module
-from spectral_film_lab.gui.controller import (
+from spektrafilm_gui import controller as controller_module
+from spektrafilm_gui.controller import (
     GuiController,
     OUTPUT_CCTF_ENCODING_KEY,
     OUTPUT_COLOR_SPACE_KEY,
     OUTPUT_DISPLAY_TRANSFORM_KEY,
     OUTPUT_FLOAT_DATA_KEY,
 )
-from spectral_film_lab.gui.state import PROJECT_DEFAULT_GUI_STATE
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 
 
 class FakeLayer:

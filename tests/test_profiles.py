@@ -3,8 +3,8 @@ import pytest
 import ast
 import inspect
 
-from spectral_film_lab.model import stocks
-from spectral_film_lab.profiles.io import Profile, load_profile, profile_to_dict, profile_from_dict
+from spektrafilm.model import stocks
+from spektrafilm.profiles.io import Profile, load_profile, profile_to_dict, profile_from_dict
 
 
 class TestLoadProfile:
@@ -71,7 +71,7 @@ class TestDependencyBoundaries:
         tree = ast.parse(inspect.getsource(stocks))
         for node in tree.body:
             if isinstance(node, ast.ImportFrom):
-                assert node.module != 'spectral_film_lab.runtime.process'
+                assert node.module != 'spektrafilm.runtime.process'
 
     def test_stocks_module_has_no_main_script_block(self):
         tree = ast.parse(inspect.getsource(stocks))
