@@ -3,24 +3,31 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import Any, get_args, get_origin, get_type_hints
 
-from qtpy.QtCore import Qt, Signal
-from qtpy.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QFrame,
-    QFileDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QSizePolicy,
-    QSpinBox,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+from qtpy import QtCore, QtGui, QtWidgets
+
+QCheckBox = QtWidgets.QCheckBox
+QComboBox = QtWidgets.QComboBox
+QDoubleSpinBox = QtWidgets.QDoubleSpinBox
+QFileDialog = QtWidgets.QFileDialog
+QFormLayout = QtWidgets.QFormLayout
+QFrame = QtWidgets.QFrame
+QHBoxLayout = QtWidgets.QHBoxLayout
+QLabel = QtWidgets.QLabel
+QLineEdit = QtWidgets.QLineEdit
+QPointF = getattr(QtCore, 'QPointF')
+QPushButton = QtWidgets.QPushButton
+QRect = getattr(QtCore, 'QRect')
+QSize = getattr(QtCore, 'QSize')
+QSizePolicy = QtWidgets.QSizePolicy
+QSpinBox = QtWidgets.QSpinBox
+QToolButton = QtWidgets.QToolButton
+QVBoxLayout = QtWidgets.QVBoxLayout
+QWidget = QtWidgets.QWidget
+QColor = QtGui.QColor
+QPainter = QtGui.QPainter
+QPen = QtGui.QPen
+Qt = QtCore.Qt
+Signal = QtCore.Signal
 
 from spectral_film_lab.gui.state import (
     CouplersState,
@@ -39,6 +46,10 @@ def _enum_values(enum_cls):
     return [member.value for member in enum_cls]
 
 
+def _normalize_ui_text(text: str) -> str:
+    return text.lower()
+
+
 def _build_collapsible_form_section(
     title: str,
     form: QFormLayout,
@@ -46,12 +57,88 @@ def _build_collapsible_form_section(
     expanded: bool,
 ) -> QVBoxLayout:
     content = QWidget()
+    content.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
     content.setLayout(form)
 
     root = QVBoxLayout()
     root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
     root.addWidget(CollapsibleSection(title, content, expanded=expanded))
     return root
+
+
+def _new_form_layout() -> QFormLayout:
+    form = QFormLayout()
+    form.setContentsMargins(0, 0, 0, 0)
+    form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+    form.setFormAlignment(Qt.AlignTop | Qt.AlignLeft)
+    return form
+
+
+def _add_form_rows(form: QFormLayout, rows: list[tuple[str | QLabel, QWidget]]) -> None:
+    for label, widget in rows:
+        if isinstance(label, str):
+            label = _normalize_ui_text(label)
+        form.addRow(label, widget)
+
+
+def _build_linked_form_section(
+    title: str,
+    rows: list[tuple[str | QLabel, QWidget]],
+    *,
+    expanded: bool,
+) -> QVBoxLayout:
+    form = _new_form_layout()
+    _add_form_rows(form, rows)
+    return _build_collapsible_form_section(title, form, expanded=expanded)
+
+
+def _build_button(
+    text: str,
+    callback: Any,
+    *,
+    tooltip: str | None = None,
+    preserve_case: bool = False,
+) -> QPushButton:
+    button = QPushButton(text if preserve_case else _normalize_ui_text(text))
+    if tooltip:
+        button.setToolTip(tooltip)
+    button.clicked.connect(callback)
+    return button
+
+
+def _build_button_row(*widgets: QWidget, stretch: int | None = None, spacing: int = 6) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(spacing)
+    for widget in widgets:
+        if stretch is None:
+            row.addWidget(widget)
+        else:
+            row.addWidget(widget, stretch)
+    return row
+
+
+def _build_vertical_container(*items: QHBoxLayout | QFormLayout | QWidget, spacing: int = 6) -> QWidget:
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(spacing)
+    layout.setAlignment(Qt.AlignTop)
+    for item in items:
+        if isinstance(item, QWidget):
+            layout.addWidget(item)
+        else:
+            layout.addLayout(item)
+    return container
+
+
+def _set_single_collapsible_layout(widget: QWidget, title: str, content: QWidget, *, expanded: bool = True) -> None:
+    root = QVBoxLayout()
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
+    root.addWidget(CollapsibleSection(_normalize_ui_text(title), content, expanded=expanded))
+    widget.setLayout(root)
 
 
 class CollapsibleSection(QWidget):
@@ -60,7 +147,7 @@ class CollapsibleSection(QWidget):
         self._content = content
 
         self._toggle = QToolButton()
-        self._toggle.setText(title)
+        self._toggle.setText(_normalize_ui_text(title))
         self._toggle.setCheckable(True)
         self._toggle.setChecked(expanded)
         self._toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -72,12 +159,15 @@ class CollapsibleSection(QWidget):
         self._frame.setFrameShape(QFrame.StyledPanel)
         self._frame.setFrameShadow(QFrame.Plain)
         frame_layout = QVBoxLayout(self._frame)
-        frame_layout.setContentsMargins(8, 8, 8, 8)
+        frame_layout.setContentsMargins(24, 8, 8, 8)
+        frame_layout.setSpacing(0)
+        frame_layout.setAlignment(Qt.AlignTop)
         frame_layout.addWidget(self._content)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
+        layout.setAlignment(Qt.AlignTop)
         layout.addWidget(self._toggle)
         layout.addWidget(self._frame)
 
@@ -95,6 +185,7 @@ class FloatEditor(QDoubleSpinBox):
         self.setMinimum(minimum)
         self.setMaximum(maximum)
         self.setKeyboardTracking(False)
+        self.setFixedHeight(24)
 
     @property
     def value(self) -> float:
@@ -111,6 +202,7 @@ class IntEditor(QSpinBox):
         self.setMinimum(minimum)
         self.setMaximum(maximum)
         self.setKeyboardTracking(False)
+        self.setFixedHeight(24)
 
     @property
     def value(self) -> int:
@@ -122,6 +214,12 @@ class IntEditor(QSpinBox):
 
 
 class BoolEditor(QCheckBox):
+    def __init__(self):
+        super().__init__()
+        self.setText('')
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setFixedHeight(24)
+
     @property
     def value(self) -> bool:
         return self.isChecked()
@@ -129,6 +227,48 @@ class BoolEditor(QCheckBox):
     @value.setter
     def value(self, value: bool) -> None:
         self.setChecked(value)
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API name
+        return QSize(24, 24)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API name
+        return self.sizeHint()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        del event
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.Antialiasing, True)
+
+            indicator_rect = self._indicator_rect()
+            is_enabled = self.isEnabled()
+            fill_color = QColor('#8a8a8a' if is_enabled else '#858585')
+            checked_color = QColor('#969696' if is_enabled else '#8c8c8c')
+            border_color = QColor('#a7a7a7' if self.isChecked() else '#8f8f8f')
+
+            painter.setPen(QPen(border_color, 1))
+            painter.setBrush(checked_color if self.isChecked() else fill_color)
+            painter.drawRect(indicator_rect)
+
+            if self.isChecked():
+                self._draw_check_mark(painter, indicator_rect)
+        finally:
+            painter.end()
+
+    def _indicator_rect(self) -> QRect:
+        return QRect(1, max(1, (self.height() - 14) // 2), 14, 14)
+
+    @staticmethod
+    def _draw_check_mark(painter: QPainter, indicator_rect: QRect) -> None:
+        painter.setPen(QPen(QColor('#f7f7f7'), 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.drawLine(
+            QPointF(indicator_rect.left() + 3.0, indicator_rect.center().y() + 0.5),
+            QPointF(indicator_rect.left() + 6.0, indicator_rect.bottom() - 3.5),
+        )
+        painter.drawLine(
+            QPointF(indicator_rect.left() + 6.0, indicator_rect.bottom() - 3.5),
+            QPointF(indicator_rect.right() - 2.5, indicator_rect.top() + 3.5),
+        )
 
 
 class EnumEditor(QComboBox):
@@ -157,7 +297,8 @@ class TupleEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         for editor in self._editors:
-            editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            editor.setMinimumWidth(56)
+            editor.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             layout.addWidget(editor)
         self.setLayout(layout)
 
@@ -189,9 +330,7 @@ class IntTupleEditor(TupleEditor):
 
 
 def _format_label(field_name: str) -> str:
-    label = field_name.replace("_", " ")
-    label = label.replace("uv", "UV").replace("ir", "IR").replace("cctf", "CCTF")
-    return label.capitalize()
+    return _normalize_ui_text(field_name.replace("_", " "))
 
 
 class DataclassSection(QWidget):
@@ -223,7 +362,7 @@ class DataclassSection(QWidget):
         return
 
     def _build_ui(self) -> None:
-        form = QFormLayout()
+        form = _new_form_layout()
         self._add_extra_rows_before(form)
         for field_info in fields(self._state_cls):
             field_name = field_info.name
@@ -231,7 +370,7 @@ class DataclassSection(QWidget):
             widget = self._build_editor(field_name, annotation)
             setattr(self, field_name, widget)
             if field_name not in self._hidden_fields:
-                form.addRow(self._field_labels.get(field_name, _format_label(field_name)), widget)
+                form.addRow(_normalize_ui_text(self._field_labels.get(field_name, _format_label(field_name))), widget)
         self._add_extra_rows_after(form)
 
         content = QWidget()
@@ -243,9 +382,11 @@ class DataclassSection(QWidget):
         self.setLayout(root)
 
     def _add_extra_rows_before(self, form: QFormLayout) -> None:
+        del form
         return
 
     def _add_extra_rows_after(self, form: QFormLayout) -> None:
+        del form
         return
 
     def _build_editor(self, field_name: str, annotation: Any) -> QWidget:
@@ -299,75 +440,102 @@ class DataclassSection(QWidget):
         return self._state_cls(**values)
 
 
-class InputImageSection(DataclassSection):
+class SimpleDataclassSection(DataclassSection):
+    STATE_CLS: type[Any]
+    SECTION_NAME: str
+    TITLE: str
+    COLLAPSED_BY_DEFAULT = True
+    ENUM_FIELDS_KEY: str | None = None
+    FIELD_LABELS: dict[str, str] = {}
+    HIDDEN_FIELDS: set[str] = set()
+
     def __init__(self):
         super().__init__(
-            state_cls=InputImageState,
-            section_name="input_image",
-            title="Input",
-            enum_fields=GUI_SECTION_ENUMS["input_image"],
-            collapsed_by_default=True,
-            field_labels={
-                "preview_resize_factor": "Preview resize",
-                "upscale_factor": "Upscale factor",
-                "crop": "Crop",
-                "crop_center": "Crop center",
-                "crop_size": "Crop size",
-                "input_color_space": "Input color space",
-                "apply_cctf_decoding": "Apply CCTF decoding",
-                "spectral_upsampling_method": "Spectral upsampling",
-                "filter_uv": "UV filter",
-                "filter_ir": "IR filter",
-            },
-            hidden_fields={
-                "preview_resize_factor",
-                "upscale_factor",
-                "crop",
-                "crop_center",
-                "crop_size",
-                "spectral_upsampling_method",
-                "filter_uv",
-                "filter_ir",
-            },
+            state_cls=self.STATE_CLS,
+            section_name=self.SECTION_NAME,
+            title=self.TITLE,
+            enum_fields=GUI_SECTION_ENUMS[self.ENUM_FIELDS_KEY] if self.ENUM_FIELDS_KEY is not None else None,
+            field_labels=self.FIELD_LABELS,
+            hidden_fields=self.HIDDEN_FIELDS,
+            collapsed_by_default=self.COLLAPSED_BY_DEFAULT,
         )
+
+
+class InputImageSection(SimpleDataclassSection):
+    STATE_CLS = InputImageState
+    SECTION_NAME = "input_image"
+    TITLE = "Input"
+    ENUM_FIELDS_KEY = "input_image"
+    FIELD_LABELS = {
+        "preview_resize_factor": "Preview resize",
+        "upscale_factor": "Upscale factor",
+        "crop": "Crop",
+        "crop_center": "Crop center",
+        "crop_size": "Crop size",
+        "input_color_space": "Input color space",
+        "apply_cctf_decoding": "Apply CCTF decoding",
+        "spectral_upsampling_method": "Spectral upsampling",
+        "filter_uv": "UV filter",
+        "filter_ir": "IR filter",
+    }
+    HIDDEN_FIELDS = {
+        "preview_resize_factor",
+        "upscale_factor",
+        "crop",
+        "crop_center",
+        "crop_size",
+        "spectral_upsampling_method",
+        "filter_uv",
+        "filter_ir",
+    }
 
 
 class PreviewCropSection(QWidget):
     def __init__(self, input_image_section: InputImageSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Preview resize", input_image_section.preview_resize_factor)
-        form.addRow("Upscale factor", input_image_section.upscale_factor)
-        form.addRow("Crop", input_image_section.crop)
-        form.addRow("Crop center", input_image_section.crop_center)
-        form.addRow("Crop size", input_image_section.crop_size)
-
-        self.setLayout(_build_collapsible_form_section("Preview and crop", form, expanded=False))
-
-
-class GrainSection(DataclassSection):
-    def __init__(self):
-        super().__init__(state_cls=GrainState, section_name="grain", title="Grain", collapsed_by_default=True)
-
-
-class PreflashingSection(DataclassSection):
-    def __init__(self):
-        super().__init__(state_cls=PreflashingState, section_name="preflashing", title="Preflash", collapsed_by_default=True)
+        self.setLayout(
+            _build_linked_form_section(
+                "Preview and crop",
+                [
+                    ("Preview resize", input_image_section.preview_resize_factor),
+                    ("Upscale factor", input_image_section.upscale_factor),
+                    ("Crop", input_image_section.crop),
+                    ("Crop center", input_image_section.crop_center),
+                    ("Crop size", input_image_section.crop_size),
+                ],
+                expanded=False,
+            ),
+        )
 
 
-class HalationSection(DataclassSection):
-    def __init__(self):
-        super().__init__(state_cls=HalationState, section_name="halation", title="Halation", collapsed_by_default=True)
+class GrainSection(SimpleDataclassSection):
+    STATE_CLS = GrainState
+    SECTION_NAME = "grain"
+    TITLE = "Grain"
 
 
-class CouplersSection(DataclassSection):
-    def __init__(self):
-        super().__init__(state_cls=CouplersState, section_name="couplers", title="Couplers", collapsed_by_default=True)
+class PreflashingSection(SimpleDataclassSection):
+    STATE_CLS = PreflashingState
+    SECTION_NAME = "preflashing"
+    TITLE = "Preflash"
 
 
-class GlareSection(DataclassSection):
-    def __init__(self):
-        super().__init__(state_cls=GlareState, section_name="glare", title="Glare", collapsed_by_default=True)
+class HalationSection(SimpleDataclassSection):
+    STATE_CLS = HalationState
+    SECTION_NAME = "halation"
+    TITLE = "Halation"
+
+
+class CouplersSection(SimpleDataclassSection):
+    STATE_CLS = CouplersState
+    SECTION_NAME = "couplers"
+    TITLE = "Couplers"
+
+
+class GlareSection(SimpleDataclassSection):
+    STATE_CLS = GlareState
+    SECTION_NAME = "glare"
+    TITLE = "Glare"
 
 
 class SpecialSection(DataclassSection):
@@ -386,29 +554,39 @@ class SpecialSection(DataclassSection):
         )
 
     def _add_extra_rows_before(self, form: QFormLayout) -> None:
-        form.addRow("Print illuminant", self._simulation_section.print_illuminant)
+        form.addRow(_normalize_ui_text("Print illuminant"), self._simulation_section.print_illuminant)
 
 
 class SpectralUpsamplingSection(QWidget):
     def __init__(self, input_image_section: InputImageSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Spectral upsampling", input_image_section.spectral_upsampling_method)
-        form.addRow("UV filter", input_image_section.filter_uv)
-        form.addRow("IR filter", input_image_section.filter_ir)
-
-        self.setLayout(_build_collapsible_form_section("Spectral upsampling", form, expanded=False))
+        self.setLayout(
+            _build_linked_form_section(
+                "Spectral upsampling",
+                [
+                    ("Spectral upsampling", input_image_section.spectral_upsampling_method),
+                    ("UV filter", input_image_section.filter_uv),
+                    ("IR filter", input_image_section.filter_ir),
+                ],
+                expanded=False,
+            ),
+        )
 
 
 class TuneSection(QWidget):
     def __init__(self, special_section: SpecialSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Film gamma factor", special_section.film_gamma_factor)
-        form.addRow("Print gamma factor", special_section.print_gamma_factor)
-        form.addRow("Print density min factor", special_section.print_density_min_factor)
-
-        self.setLayout(_build_collapsible_form_section("Tune", form, expanded=True))
+        self.setLayout(
+            _build_linked_form_section(
+                "Tune",
+                [
+                    ("Film gamma factor", special_section.film_gamma_factor),
+                    ("Print gamma factor", special_section.print_gamma_factor),
+                    ("Print density min factor", special_section.print_density_min_factor),
+                ],
+                expanded=True,
+            ),
+        )
 
 
 class FilePickerSection(QWidget):
@@ -421,28 +599,14 @@ class FilePickerSection(QWidget):
     def _build_ui(self) -> None:
         self.file_path = QLineEdit()
         self.file_path.setReadOnly(True)
-        self.file_path.setPlaceholderText("No image selected")
+        self.file_path.setPlaceholderText(_normalize_ui_text("No image selected"))
 
-        browse_button = QPushButton("Select file")
-        browse_button.clicked.connect(self._choose_file)
-
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(self.file_path)
-        row.addWidget(browse_button)
-
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.addLayout(row)
-
-        root = QVBoxLayout()
-        root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(CollapsibleSection("Image loader", content))
-        self.setLayout(root)
+        browse_button = _build_button("Select file", self._choose_file)
+        content = _build_vertical_container(_build_button_row(self.file_path, browse_button, spacing=4), spacing=0)
+        _set_single_collapsible_layout(self, "Image loader", content)
 
     def _choose_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Select input image")
+        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text("Select input image"))
         if not path:
             return
         self.file_path.setText(path)
@@ -463,41 +627,25 @@ class GuiConfigSection(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        self.save_current_as_default_button = QPushButton("Save current as default")
-        self.save_current_as_default_button.clicked.connect(self.save_current_as_default_requested.emit)
+        self.save_current_as_default_button = _build_button(
+            "Save current as default",
+            self.save_current_as_default_requested.emit,
+        )
+        self.save_current_to_file_button = _build_button(
+            "Save current to file",
+            self.save_current_to_file_requested.emit,
+        )
+        self.load_from_file_button = _build_button("Load from file", self.load_from_file_requested.emit)
+        self.restore_factory_default_button = _build_button(
+            "Restore factory default",
+            self.restore_factory_default_requested.emit,
+        )
 
-        self.save_current_to_file_button = QPushButton("Save current to file")
-        self.save_current_to_file_button.clicked.connect(self.save_current_to_file_requested.emit)
-
-        self.load_from_file_button = QPushButton("Load from file")
-        self.load_from_file_button.clicked.connect(self.load_from_file_requested.emit)
-
-        self.restore_factory_default_button = QPushButton("Restore factory default")
-        self.restore_factory_default_button.clicked.connect(self.restore_factory_default_requested.emit)
-
-        first_row = QHBoxLayout()
-        first_row.setContentsMargins(0, 0, 0, 0)
-        first_row.setSpacing(6)
-        first_row.addWidget(self.save_current_as_default_button)
-        first_row.addWidget(self.save_current_to_file_button)
-
-        second_row = QHBoxLayout()
-        second_row.setContentsMargins(0, 0, 0, 0)
-        second_row.setSpacing(6)
-        second_row.addWidget(self.load_from_file_button)
-        second_row.addWidget(self.restore_factory_default_button)
-
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(6)
-        content_layout.addLayout(first_row)
-        content_layout.addLayout(second_row)
-
-        root = QVBoxLayout()
-        root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(CollapsibleSection("GUI parameters", content, expanded=True))
-        self.setLayout(root)
+        content = _build_vertical_container(
+            _build_button_row(self.save_current_as_default_button, self.save_current_to_file_button),
+            _build_button_row(self.load_from_file_button, self.restore_factory_default_button),
+        )
+        _set_single_collapsible_layout(self, "GUI parameters", content, expanded=True)
 
 
 class SimulationInputSection(QWidget):
@@ -505,9 +653,8 @@ class SimulationInputSection(QWidget):
         super().__init__()
         self.input_layer = QComboBox()
 
-        form = QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.addRow("Simulation input", self.input_layer)
+        form = _new_form_layout()
+        form.addRow(_normalize_ui_text("Simulation input"), self.input_layer)
 
         self.setLayout(form)
 
@@ -584,38 +731,33 @@ class SimulationSection(DataclassSection):
         )
 
     def _init_extra_widgets(self) -> None:
-        self.bottom_scan_film = QCheckBox()
-        self.preview_button = QPushButton("Preview")
-        self.preview_button.setToolTip("Run the simulation in preview mode, grain and halation are deactivated for speed")
-        self.preview_button.clicked.connect(self.preview_requested.emit)
+        self.bottom_scan_film = BoolEditor()
+        self.preview_button = _build_button(
+            "PREVIEW",
+            self.preview_requested.emit,
+            tooltip="Run the simulation in preview mode, grain and halation are deactivated for speed",
+            preserve_case=True,
+        )
+        self.scan_button = _build_button(
+            "SCAN",
+            self.scan_requested.emit,
+            tooltip="Run the simulation at full resolution and with grain and halation",
+            preserve_case=True,
+        )
+        self.save_button = _build_button(
+            "SAVE",
+            self.save_requested.emit,
+            tooltip="Save the current output layer to an image file",
+            preserve_case=True,
+        )
 
-        self.scan_button = QPushButton("Scan")
-        self.scan_button.setToolTip("Run the simulation at full resolution and with grain and halation")
-        self.scan_button.clicked.connect(self.scan_requested.emit)
+        scan_film_row = _new_form_layout()
+        scan_film_row.addRow(_normalize_ui_text("Scan film"), self.bottom_scan_film)
 
-        self.save_button = QPushButton("Save")
-        self.save_button.setToolTip("Save the current output layer to an image file")
-        self.save_button.clicked.connect(self.save_requested.emit)
+        action_buttons = QWidget()
+        action_buttons.setLayout(_build_button_row(self.preview_button, self.scan_button, self.save_button, stretch=1))
 
-        self.action_buttons = QWidget()
-        buttons_layout = QHBoxLayout(self.action_buttons)
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.setSpacing(6)
-        buttons_layout.addWidget(self.preview_button, 1)
-        buttons_layout.addWidget(self.scan_button, 1)
-        buttons_layout.addWidget(self.save_button, 1)
-
-        self.bottom_bar = QWidget()
-        bottom_layout = QVBoxLayout(self.bottom_bar)
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
-        bottom_layout.setSpacing(6)
-
-        scan_film_row = QFormLayout()
-        scan_film_row.setContentsMargins(0, 0, 0, 0)
-        scan_film_row.addRow("Scan film", self.bottom_scan_film)
-
-        bottom_layout.addLayout(scan_film_row)
-        bottom_layout.addWidget(self.action_buttons)
+        self.bottom_bar = _build_vertical_container(scan_film_row, action_buttons)
 
     def _add_extra_rows_after(self, form: QFormLayout) -> None:
         return
@@ -633,19 +775,24 @@ class SimulationSection(DataclassSection):
 class OutputSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Output color space", simulation_section.output_color_space)
-        form.addRow("Saving color space", simulation_section.saving_color_space)
-        form.addRow("Saving CCTF encoding", simulation_section.saving_cctf_encoding)
-        form.addRow("Use display transform", simulation_section.use_display_transform)
-
-        self.setLayout(_build_collapsible_form_section("Output", form, expanded=False))
+        self.setLayout(
+            _build_linked_form_section(
+                "Output",
+                [
+                    ("Output color space", simulation_section.output_color_space),
+                    ("Saving color space", simulation_section.saving_color_space),
+                    ("Saving CCTF encoding", simulation_section.saving_cctf_encoding),
+                    ("Use display transform", simulation_section.use_display_transform),
+                ],
+                expanded=False,
+            ),
+        )
 
 
 class ExposureControlSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
-        form = QFormLayout()
+        form = _new_form_layout()
         self._add_tooltip_row(
             form,
             "Camera auto exposure",
@@ -674,7 +821,7 @@ class ExposureControlSection(QWidget):
         self.setLayout(_build_collapsible_form_section("Exposure control", form, expanded=True))
 
     def _add_tooltip_row(self, form: QFormLayout, label_text: str, widget: QWidget, tooltip: str) -> None:
-        label = QLabel(label_text)
+        label = QLabel(_normalize_ui_text(label_text))
         label.setToolTip(tooltip)
         widget.setToolTip(tooltip)
         form.addRow(label, widget)
@@ -683,28 +830,44 @@ class ExposureControlSection(QWidget):
 class EnlargerSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Print Y filter shift", simulation_section.print_y_filter_shift)
-        form.addRow("Print M filter shift", simulation_section.print_m_filter_shift)
-
-        self.setLayout(_build_collapsible_form_section("Enlarger", form, expanded=True))
+        self.setLayout(
+            _build_linked_form_section(
+                "Enlarger",
+                [
+                    ("Print Y filter shift", simulation_section.print_y_filter_shift),
+                    ("Print M filter shift", simulation_section.print_m_filter_shift),
+                ],
+                expanded=True,
+            ),
+        )
 
 
 class ScannerSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Scan lens blur", simulation_section.scan_lens_blur)
-        form.addRow("Scan unsharp mask", simulation_section.scan_unsharp_mask)
-
-        self.setLayout(_build_collapsible_form_section("Scanner", form, expanded=False))
+        self.setLayout(
+            _build_linked_form_section(
+                "Scanner",
+                [
+                    ("Scan lens blur", simulation_section.scan_lens_blur),
+                    ("Scan unsharp mask", simulation_section.scan_unsharp_mask),
+                ],
+                expanded=False,
+            ),
+        )
 
 
 class CameraSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
-        form = QFormLayout()
-        form.addRow("Film format mm", simulation_section.film_format_mm)
-        form.addRow("Auto exposure method", simulation_section.auto_exposure_method)
-        form.addRow("Camera lens blur um", simulation_section.camera_lens_blur_um)
-        self.setLayout(_build_collapsible_form_section("Camera", form, expanded=False))
+        self.setLayout(
+            _build_linked_form_section(
+                "Camera",
+                [
+                    ("Film format mm", simulation_section.film_format_mm),
+                    ("Auto exposure method", simulation_section.auto_exposure_method),
+                    ("Camera lens blur um", simulation_section.camera_lens_blur_um),
+                ],
+                expanded=False,
+            ),
+        )

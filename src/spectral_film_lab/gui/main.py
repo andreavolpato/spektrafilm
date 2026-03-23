@@ -3,6 +3,7 @@ from typing import Any, cast
 
 import napari
 from napari.settings import get_settings
+from qtpy import QtWidgets
 
 from spectral_film_lab.gui.controller import GuiController
 from spectral_film_lab.gui.persistence import load_default_gui_state
@@ -12,7 +13,7 @@ from spectral_film_lab.gui.state_bridge import (
 )
 from spectral_film_lab.gui.napari_layout import (
     ControlsPanelWidgets,
-    add_dock_widget,
+    build_main_window,
     build_controls_panel,
     configure_napari_chrome,
     show_viewer_window,
@@ -46,13 +47,15 @@ class GuiApp:
     widgets: GuiWidgets
     panel_widgets: ControlsPanelWidgets
     controller: GuiController
+    main_window: QtWidgets.QMainWindow
 
 
 def _create_viewer() -> Any:
-    viewer = napari.Viewer(show=False)
+    viewer = cast(Any, getattr(napari, 'Viewer'))(show=False)
     settings = get_settings()
-    appearance = cast(Any, settings.appearance)
-    appearance.theme = 'light'
+    appearance = getattr(settings, 'appearance', None)
+    if appearance is not None:
+        setattr(cast(Any, appearance), 'theme', 'light')
     return viewer
 
 
@@ -134,19 +137,19 @@ def create_app() -> GuiApp:
     controller = GuiController(viewer=viewer, widgets=widgets)
     _connect_controller_signals(controller, widgets)
     controller.refresh_input_layers()
+    configure_napari_chrome(viewer)
+    controls_panel = build_controls_panel(viewer, panel_widgets)
+    main_window = build_main_window(viewer, controls_panel)
     return GuiApp(
         viewer=viewer,
         widgets=widgets,
         panel_widgets=panel_widgets,
         controller=controller,
+        main_window=main_window,
     )
 
 def main():
     app = create_app()
-    configure_napari_chrome(app.viewer)
-    controls_panel = build_controls_panel(app.viewer, app.panel_widgets)
-
-    add_dock_widget(app.viewer, controls_panel, area="right", name='controls', tabify=False)
     show_viewer_window(app.viewer)
     napari.run()
 
