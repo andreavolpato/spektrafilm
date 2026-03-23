@@ -1,8 +1,7 @@
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, cast
 
-import napari
-from napari.settings import get_settings
 from qtpy import QtWidgets
 
 from spektrafilm_gui.controller import GuiController
@@ -20,6 +19,7 @@ from spektrafilm_gui.napari_layout import (
 )
 from spektrafilm_gui.widgets import (
     CouplersSection,
+    DisplaySection,
     EnlargerSection,
     ExposureControlSection,
     FilePickerSection,
@@ -31,7 +31,6 @@ from spektrafilm_gui.widgets import (
     OutputSection,
     PreflashingSection,
     SimulationSection,
-    SimulationInputSection,
     SpectralUpsamplingSection,
     ScannerSection,
     SpecialSection,
@@ -51,7 +50,10 @@ class GuiApp:
 
 
 def _create_viewer() -> Any:
-    viewer = cast(Any, getattr(napari, 'Viewer'))(show=False)
+    napari = import_module('napari')
+    get_settings = import_module('napari.settings').get_settings
+    viewer_cls = cast(Any, getattr(napari, 'Viewer'))
+    viewer = viewer_cls(show=False)
     settings = get_settings()
     appearance = getattr(settings, 'appearance', None)
     if appearance is not None:
@@ -68,7 +70,7 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
     glare = GlareSection()
     filepicker = FilePickerSection()
     gui_config = GuiConfigSection()
-    simulation_input = SimulationInputSection()
+    display = DisplaySection()
     simulation = SimulationSection()
     special = SpecialSection(simulation)
     spectral_upsampling = SpectralUpsamplingSection(input_image)
@@ -83,7 +85,7 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
     gui_widgets = GuiWidgets(
         filepicker=filepicker,
         gui_config=gui_config,
-        simulation_input=simulation_input,
+        display=display,
         input_image=input_image,
         grain=grain,
         preflashing=preflashing,
@@ -110,15 +112,16 @@ def _create_widgets() -> tuple[GuiWidgets, ControlsPanelWidgets]:
         glare=glare,
         filepicker=filepicker,
         gui_config=gui_config,
+        display=display,
         special=special,
         simulation=simulation,
-        simulation_input=simulation_input,
     )
     return gui_widgets, panel_widgets
 
 
 def _connect_controller_signals(controller: GuiController, widgets: GuiWidgets) -> None:
     widgets.filepicker.load_requested.connect(controller.load_input_image)
+    widgets.filepicker.input_layer.currentTextChanged.connect(controller.select_input_layer)
     widgets.gui_config.save_current_as_default_requested.connect(controller.save_current_as_default)
     widgets.gui_config.save_current_to_file_requested.connect(controller.save_current_state_to_file)
     widgets.gui_config.load_from_file_requested.connect(controller.load_state_from_file)
@@ -126,7 +129,7 @@ def _connect_controller_signals(controller: GuiController, widgets: GuiWidgets) 
     widgets.simulation.preview_requested.connect(controller.run_preview)
     widgets.simulation.scan_requested.connect(controller.run_scan)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
-    widgets.simulation.use_display_transform.toggled.connect(controller.report_display_transform_status)
+    widgets.display.use_display_transform.toggled.connect(controller.report_display_transform_status)
 
 
 def create_app() -> GuiApp:
@@ -135,6 +138,7 @@ def create_app() -> GuiApp:
     widgets, panel_widgets = _create_widgets()
     apply_gui_state(load_default_gui_state(), widgets=widgets)
     controller = GuiController(viewer=viewer, widgets=widgets)
+    controller.sync_display_transform_availability(report_status=False)
     _connect_controller_signals(controller, widgets)
     controller.refresh_input_layers()
     configure_napari_chrome(viewer)
@@ -149,6 +153,7 @@ def create_app() -> GuiApp:
     )
 
 def main():
+    napari = import_module('napari')
     app = create_app()
     show_viewer_window(app.viewer)
     napari.run()

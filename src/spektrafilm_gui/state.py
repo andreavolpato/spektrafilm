@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, replace
+from typing import TypeVar
 
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.runtime.process import photo_params
+
+
+StateSection = TypeVar('StateSection')
 
 
 @dataclass(slots=True)
@@ -101,9 +105,14 @@ class SimulationState:
     output_color_space: str
     saving_color_space: str
     saving_cctf_encoding: bool
-    use_display_transform: bool
     scan_film: bool
     compute_full_image: bool
+
+
+@dataclass(slots=True)
+class DisplayState:
+    use_display_transform: bool
+    white_padding: float
 
 
 @dataclass(slots=True)
@@ -116,6 +125,27 @@ class GuiState:
     glare: GlareState
     special: SpecialState
     simulation: SimulationState
+    display: DisplayState
+
+
+def clone_state_section(section: StateSection) -> StateSection:
+    if not is_dataclass(section):
+        raise TypeError('Expected a dataclass instance to clone.')
+    return replace(section)
+
+
+def clone_gui_state(state: GuiState) -> GuiState:
+    return GuiState(
+        input_image=clone_state_section(state.input_image),
+        grain=clone_state_section(state.grain),
+        preflashing=clone_state_section(state.preflashing),
+        halation=clone_state_section(state.halation),
+        couplers=clone_state_section(state.couplers),
+        glare=clone_state_section(state.glare),
+        special=clone_state_section(state.special),
+        simulation=clone_state_section(state.simulation),
+        display=clone_state_section(state.display),
+    )
 
 
 def gui_state_from_params(
@@ -204,9 +234,12 @@ def gui_state_from_params(
             output_color_space="sRGB",
             saving_color_space="sRGB",
             saving_cctf_encoding=params.io.output_cctf_encoding,
-            use_display_transform=True,
             scan_film=params.io.scan_film,
             compute_full_image=params.io.full_image,
+        ),
+        display=DisplayState(
+            use_display_transform=True,
+            white_padding=0.03,
         ),
     )
 

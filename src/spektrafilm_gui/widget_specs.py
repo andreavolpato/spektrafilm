@@ -11,10 +11,18 @@ from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
 @dataclass(frozen=True, slots=True)
 class WidgetSpec:
+    label: str | None = None
     tooltip: str | None = None
     min_value: float | int | None = None
     max_value: float | int | None = None
     step: float | int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ButtonSpec:
+    text: str
+    tooltip: str | None = None
+    preserve_case: bool = False
 
 
 GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
@@ -35,64 +43,97 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
 
 GUI_WIDGET_SPECS = {
     "simulation": {
-        "film_stock": WidgetSpec(tooltip="Film stock to simulate"),
+        "film_stock": WidgetSpec(label="Film profile", tooltip="Film stock to simulate"),
         "exposure_compensation_ev": WidgetSpec(
-            tooltip="Exposure compensation value in ev of the negative",
+            label="Camera compensation ev",
+            tooltip="Add a bias to the auto-exposure of the camera",
             min_value=-100,
             max_value=100,
             step=0.5,
         ),
-        "auto_exposure": WidgetSpec(tooltip="Automatically adjust exposure based on the image content"),
-        "film_format_mm": WidgetSpec(tooltip="Long edge of the film format in millimeters, e.g. 35mm or 60mm"),
+        "auto_exposure": WidgetSpec(
+            label="Camera auto exposure",
+            tooltip="Use the auto-exposure feature of the virtual camera",
+        ),
+        "film_format_mm": WidgetSpec(
+            label="Film format mm",
+            tooltip="Long edge of the film format in millimeters, e.g. 35mm or 60mm",
+        ),
         "camera_lens_blur_um": WidgetSpec(
+            label="Camera lens blur um",
             tooltip="Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.",
         ),
-        "print_paper": WidgetSpec(tooltip="Print paper to simulate"),
-        "print_illuminant": WidgetSpec(tooltip="Print illuminant to simulate"),
+        "print_paper": WidgetSpec(label="Print profile", tooltip="Print paper to simulate"),
+        "print_illuminant": WidgetSpec(label="Print illuminant", tooltip="Print illuminant to simulate"),
         "print_exposure": WidgetSpec(
-            tooltip="Exposure value for the print (proportional to seconds of exposure, not ev)",
+            label="Print exposure",
+            tooltip="Changes the exposure time set in the virtual enlarger",
             step=0.05,
         ),
         "print_exposure_compensation": WidgetSpec(
-            tooltip="Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time.",
+            label="Print auto compensation",
+            tooltip="Auto adjust the print exposure for the camera exposure compensation ev",
         ),
         "print_y_filter_shift": WidgetSpec(
+            label="Print Y filter shift",
             tooltip="Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
             min_value=-ENLARGER_STEPS,
             max_value=ENLARGER_STEPS,
         ),
         "print_m_filter_shift": WidgetSpec(
+            label="Print M filter shift",
             tooltip="M filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
             min_value=-ENLARGER_STEPS,
             max_value=ENLARGER_STEPS,
         ),
         "scan_lens_blur": WidgetSpec(
+            label="Scan lens blur",
             tooltip="Sigma of gaussian filter in pixel for the scanner lens blur",
             step=0.05,
         ),
-        "scan_unsharp_mask": WidgetSpec(tooltip="Apply unsharp mask to the scan, [sigma in pixel, amount]"),
-        "output_color_space": WidgetSpec(tooltip="Output color space of the simulation"),
-        "saving_color_space": WidgetSpec(tooltip="Color space of the saved image file"),
+        "scan_unsharp_mask": WidgetSpec(
+            label="Scan unsharp mask",
+            tooltip="Apply unsharp mask to the scan, [sigma in pixel, amount]",
+        ),
+        "output_color_space": WidgetSpec(label="Output color space", tooltip="Output color space of the simulation"),
+        "saving_color_space": WidgetSpec(label="Saving color space", tooltip="Color space of the saved image file"),
         "saving_cctf_encoding": WidgetSpec(
+            label="Saving CCTF encoding",
             tooltip="Add or not the CCTF to the saved image file",
         ),
-        "use_display_transform": WidgetSpec(
-            tooltip="Use Pillow.ImageCms to retrive the display transform and apply it to the napari viewer output, if disabled the output color space is used",
-        ),
-        "scan_film": WidgetSpec(tooltip="Show a scan of the negative instead of the print"),
+        "scan_film": WidgetSpec(label="Scan film", tooltip="Show a scan of the negative instead of the print"),
         "compute_full_image": WidgetSpec(
+            label="Compute full image",
             tooltip="Do not apply preview resize, compute full resolution image. Keeps the crop if active.",
+        ),
+    },
+    "display": {
+        "use_display_transform": WidgetSpec(
+            label="Use display transform",
+            tooltip="Use Pillow.ImageCms to retrive the display transform (only in Windows) and apply it to the napari viewer output, if disabled the output color space is used",
+        ),
+        "white_padding": WidgetSpec(
+            label="White padding",
+            tooltip="Pad the simulated output on every side with a white border expressed as a fraction of the image long edge.",
+            min_value=0,
+            max_value=1,
+            step=0.01,
         ),
     },
     "special": {
         "film_gamma_factor": WidgetSpec(
+            label="Film gamma factor",
             tooltip="Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast",
         ),
+        "film_channel_swap": WidgetSpec(label="Film channel swap"),
         "print_gamma_factor": WidgetSpec(
+            label="Print gamma factor",
             tooltip="Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast",
             step=0.05,
         ),
+        "print_channel_swap": WidgetSpec(label="Print channel swap"),
         "print_density_min_factor": WidgetSpec(
+            label="Print density min factor",
             tooltip="Minimum density factor of the print paper (0-1), make the white less white",
             min_value=0,
             max_value=1,
@@ -183,27 +224,78 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "input_image": {
-        "preview_resize_factor": WidgetSpec(tooltip="Scale image size down (0-1) to speed up preview processing"),
-        "crop": WidgetSpec(tooltip="Crop image to a fraction of the original size to preview details at full scale"),
-        "crop_center": WidgetSpec(tooltip="Center of the crop region in relative coordinates in x, y (0-1)"),
+        "preview_resize_factor": WidgetSpec(
+            label="Preview resize",
+            tooltip="Scale image size down (0-1) to speed up preview processing",
+        ),
+        "crop": WidgetSpec(label="Crop", tooltip="Crop image to a fraction of the original size to preview details at full scale"),
+        "crop_center": WidgetSpec(
+            label="Crop center",
+            tooltip="Center of the crop region in relative coordinates in x, y (0-1)",
+        ),
         "crop_size": WidgetSpec(
+            label="Crop size",
             tooltip="Normalized size of the crop region in x, y (0,1), as fraction of the long side.",
         ),
         "input_color_space": WidgetSpec(
+            label="Input color space",
             tooltip="Color space of the input image, will be internally converted to sRGB and negative values clipped",
         ),
         "apply_cctf_decoding": WidgetSpec(
+            label="Apply CCTF decoding",
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
-        "upscale_factor": WidgetSpec(tooltip="Scale image size up to increase resolution"),
+        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution"),
         "spectral_upsampling_method": WidgetSpec(
+            label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
         ),
         "filter_uv": WidgetSpec(
+            label="UV filter",
             tooltip="Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.",
         ),
         "filter_ir": WidgetSpec(
+            label="IR filter",
             tooltip="Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.",
         ),
     },
 }
+
+
+GUI_AUXILIARY_SPECS = {
+    "input_layer": WidgetSpec(label="Input layer"),
+}
+
+
+GUI_BUTTON_SPECS = {
+    "preview": ButtonSpec(
+        text="PREVIEW",
+        tooltip="Run the simulation in preview mode, grain and halation are deactivated for speed",
+        preserve_case=True,
+    ),
+    "scan": ButtonSpec(
+        text="SCAN",
+        tooltip="Run the simulation at full resolution and with grain and halation",
+        preserve_case=True,
+    ),
+    "save": ButtonSpec(
+        text="SAVE",
+        tooltip="Save the current output layer to an image file",
+        preserve_case=True,
+    ),
+}
+
+
+EMPTY_WIDGET_SPEC = WidgetSpec()
+
+
+def get_widget_spec(section_name: str, field_name: str) -> WidgetSpec:
+    return GUI_WIDGET_SPECS.get(section_name, {}).get(field_name, EMPTY_WIDGET_SPEC)
+
+
+def get_auxiliary_spec(name: str) -> WidgetSpec:
+    return GUI_AUXILIARY_SPECS.get(name, EMPTY_WIDGET_SPEC)
+
+
+def get_button_spec(name: str) -> ButtonSpec:
+    return GUI_BUTTON_SPECS[name]

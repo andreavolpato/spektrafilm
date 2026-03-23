@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -15,12 +14,14 @@ from spektrafilm_gui.persistence import (
     save_gui_state_to_path,
 )
 from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
+from tests.gui_test_utils import make_gui_state
 
 
 def test_gui_state_round_trip_preserves_tuple_fields() -> None:
-    state = deepcopy(PROJECT_DEFAULT_GUI_STATE)
+    state = make_gui_state()
     state.input_image.crop_size = (0.25, 0.4)
     state.grain.particle_scale = (1.1, 1.2, 1.3)
+    state.display.white_padding = 0.18
 
     restored = gui_state_from_dict(gui_state_to_dict(state))
 
@@ -30,9 +31,10 @@ def test_gui_state_round_trip_preserves_tuple_fields() -> None:
 
 
 def test_save_and_load_gui_state_file(tmp_path: Path) -> None:
-    state = deepcopy(PROJECT_DEFAULT_GUI_STATE)
+    state = make_gui_state()
     state.simulation.print_exposure = 1.4
     state.special.print_gamma_factor = 1.2
+    state.display.white_padding = 0.12
     destination = tmp_path / "gui_state.json"
 
     save_gui_state_to_path(state, destination)
@@ -59,7 +61,7 @@ def test_save_default_and_clear_saved_default(monkeypatch, tmp_path: Path) -> No
         "spektrafilm_gui.persistence.default_gui_state_path",
         lambda: default_path,
     )
-    state = deepcopy(PROJECT_DEFAULT_GUI_STATE)
+    state = make_gui_state()
     state.simulation.output_color_space = "ACES2065-1"
 
     saved_path = save_default_gui_state(state)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -8,6 +9,7 @@ import colour
 import numpy as np
 from PIL import Image as PILImage
 from PIL import ImageCms
+from qtpy import QtCore
 from qtpy.QtWidgets import QFileDialog, QMessageBox
 
 from spektrafilm_gui.persistence import (
@@ -27,6 +29,8 @@ OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
 OUTPUT_COLOR_SPACE_KEY = 'pipeline_output_color_space'
 OUTPUT_CCTF_ENCODING_KEY = 'pipeline_output_cctf_encoding'
 OUTPUT_DISPLAY_TRANSFORM_KEY = 'pipeline_use_display_transform'
+INPUT_RAW_DATA_KEY = 'input_raw_data'
+INPUT_PADDING_PIXELS_KEY = 'input_display_padding_pixels'
 DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
 
 if TYPE_CHECKING:
@@ -34,7 +38,60 @@ if TYPE_CHECKING:
     from napari.layers import Image as NapariImageLayer
 
 
+QObject = QtCore.QObject
+QRunnable = QtCore.QRunnable
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+
+
+@dataclass(slots=True)
+class SimulationRequest:
+    mode_label: str
+    image: np.ndarray
+    params: object
+    output_color_space: str
+    use_display_transform: bool
+    padding_pixels: int
+
+
+@dataclass(slots=True)
+class SimulationResult:
+    mode_label: str
+    display_image: np.ndarray
+    float_image: np.ndarray
+    output_color_space: str
+    use_display_transform: bool
+    status_message: str
+
+
+class _SimulationWorkerSignals(QObject):
+    finished = Signal(object)
+    failed = Signal(str)
+
+
+class _SimulationWorker(QRunnable):
+    def __init__(self, request: SimulationRequest):
+        super().__init__()
+        self._request = request
+        self.signals = _SimulationWorkerSignals()
+
+    def run(self) -> None:
+        try:
+            result = GuiController._execute_simulation_request(self._request)
+        except Exception as exc:  # noqa: BLE001 - surface unexpected pipeline failures to the UI
+            self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
+            return
+        self.signals.finished.emit(result)
+
+
 def _is_napari_image_layer(layer: object) -> bool:
+    if getattr(layer, '_type_string', None) == 'image':
+        return True
+
+    layer_type = type(layer)
+    if layer_type.__name__ == 'Image' and layer_type.__module__.startswith('napari.layers.image'):
+        return True
+
     try:
         from napari.layers import Image as NapariImageLayer
     except ImportError:
@@ -46,31 +103,62 @@ class GuiController:
     def __init__(self, *, viewer: napari.Viewer, widgets: GuiWidgets):
         self._viewer = viewer
         self._widgets = widgets
+        self._thread_pool = QThreadPool.globalInstance()
+        self._active_simulation_worker: _SimulationWorker | None = None
+        self._active_simulation_label: str | None = None
 
     def refresh_input_layers(self, *, selected_name: str | None = None) -> None:
-        self._widgets.simulation_input.set_available_layers(
+        self._widgets.filepicker.set_available_layers(
             [layer.name for layer in self._available_input_layers()],
             selected_name=selected_name,
         )
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
+        gui_state = collect_gui_state(widgets=self._widgets)
+        padding_pixels = self._padding_pixels_for_image(image, gui_state.display.white_padding)
+        display_image = self._apply_white_padding(image, padding_pixels)
         layer_name = Path(path).stem
         existing_layer = next((layer for layer in self._available_input_layers() if layer.name == layer_name), None)
         if existing_layer is None:
-            self._viewer.add_image(image, name=layer_name)
+            layer = self._viewer.add_image(display_image, name=layer_name)
+            self._set_input_layer_metadata(layer, raw_image=image, padding_pixels=padding_pixels)
         else:
-            existing_layer.data = image
+            existing_layer.data = display_image
+            self._set_input_layer_metadata(existing_layer, raw_image=image, padding_pixels=padding_pixels)
+            layer = existing_layer
+        self._move_layer_to_top(layer)
+        self._show_only_layer(layer)
         self.refresh_input_layers(selected_name=layer_name)
 
+    def select_input_layer(self, layer_name: str) -> None:
+        if not layer_name:
+            return
+        layer = next((item for item in self._available_input_layers() if item.name == layer_name), None)
+        if layer is None:
+            return
+        self._move_layer_to_top(layer)
+        self._show_only_layer(layer)
+
     def run_preview(self) -> None:
-        self._run_simulation(compute_full_image=False)
+        self._start_simulation(compute_full_image=False, mode_label='Preview')
 
     def run_scan(self) -> None:
-        self._run_simulation(compute_full_image=True)
+        self._start_simulation(compute_full_image=True, mode_label='Scan')
 
     def report_display_transform_status(self, enabled: bool) -> None:
+        if enabled and not self.sync_display_transform_availability(report_status=True):
+            return
         set_status(self._viewer, self._display_transform_status_message(enabled))
+
+    def sync_display_transform_availability(self, *, report_status: bool) -> bool:
+        if self._display_profile_available():
+            return True
+
+        self._set_display_transform_checked(False)
+        if report_status:
+            set_status(self._viewer, 'Display transform unavailable: no display profile detected, disabled')
+        return False
 
     def save_output_layer(self) -> None:
         output_layer = self._output_layer()
@@ -186,13 +274,33 @@ class GuiController:
         return [layer for layer in self._viewer.layers if _is_napari_image_layer(layer)]
 
     def _selected_input_layer(self) -> NapariImageLayer | None:
-        layer_name = self._widgets.simulation_input.selected_input_layer_name()
+        layer_name = self._widgets.filepicker.selected_input_layer_name()
         if not layer_name:
             return None
         for layer in self._available_input_layers():
             if layer.name == layer_name:
                 return layer
         return None
+
+    @staticmethod
+    def _set_input_layer_metadata(
+        layer: NapariImageLayer,
+        *,
+        raw_image: np.ndarray,
+        padding_pixels: float,
+    ) -> None:
+        layer.metadata[INPUT_RAW_DATA_KEY] = np.asarray(raw_image)
+        layer.metadata[INPUT_PADDING_PIXELS_KEY] = float(padding_pixels)
+
+    @staticmethod
+    def _processing_input_image(layer: NapariImageLayer) -> np.ndarray:
+        metadata = getattr(layer, 'metadata', None)
+        if not isinstance(metadata, dict):
+            return np.asarray(layer.data)[..., :3]
+        raw_image = metadata.get(INPUT_RAW_DATA_KEY)
+        if raw_image is None:
+            return np.asarray(layer.data)[..., :3]
+        return np.asarray(raw_image)[..., :3]
 
     def _set_or_add_output_layer(
         self,
@@ -288,21 +396,52 @@ class GuiController:
             return image.astype(np.float32) / max_value
         return image.astype(np.float32)
 
+    @staticmethod
+    def _apply_white_padding(image_data: np.ndarray, padding_pixels: float) -> np.ndarray:
+        padding = max(0, int(round(padding_pixels)))
+        if padding == 0:
+            return np.asarray(image_data)
+
+        image = np.asarray(image_data)
+        if image.ndim < 2:
+            return image
+
+        if np.issubdtype(image.dtype, np.integer):
+            fill_value = np.iinfo(image.dtype).max
+        else:
+            fill_value = 1.0
+
+        pad_width = [(padding, padding), (padding, padding)]
+        pad_width.extend((0, 0) for _ in range(image.ndim - 2))
+        return np.pad(image, pad_width, mode='constant', constant_values=fill_value)
+
+    @staticmethod
+    def _padding_pixels_for_image(image_data: np.ndarray, padding_fraction: float) -> int:
+        image = np.asarray(image_data)
+        if image.ndim < 2:
+            return 0
+
+        padding_fraction = max(0.0, float(padding_fraction))
+        long_edge = max(int(image.shape[0]), int(image.shape[1]))
+        return int(np.floor(long_edge * padding_fraction))
+
+    @staticmethod
     def _prepare_output_display_image(
-        self,
         image_data: np.ndarray,
         *,
         output_color_space: str,
         use_display_transform: bool,
+        padding_pixels: float = 0.0,
     ) -> tuple[np.ndarray, str]:
-        normalized_image = self._normalized_image_data(np.asarray(image_data)[..., :3])
+        normalized_image = GuiController._normalized_image_data(np.asarray(image_data)[..., :3])
         preview_image = np.uint8(np.clip(normalized_image, 0.0, 1.0) * 255)
         if not use_display_transform:
-            return preview_image, self._display_transform_status_message(False)
+            return GuiController._apply_white_padding(preview_image, padding_pixels), GuiController._display_transform_status_message(False)
         try:
-            return self._apply_display_transform(normalized_image, output_color_space=output_color_space)
+            transformed_image, status = GuiController._apply_display_transform(normalized_image, output_color_space=output_color_space)
+            return GuiController._apply_white_padding(transformed_image, padding_pixels), status
         except (OSError, ValueError, TypeError, ImageCms.PyCMSError):
-            return preview_image, 'Display transform: transform failed, using raw preview'
+            return GuiController._apply_white_padding(preview_image, padding_pixels), 'Display transform: transform failed, using raw preview'
 
     @staticmethod
     def _display_transform_status_message(enabled: bool) -> str:
@@ -312,6 +451,33 @@ class GuiController:
         if display_profile is None:
             return 'Display transform: no display profile, using raw preview'
         return 'Display transform: display profile found'
+
+    @staticmethod
+    def _display_profile_available() -> bool:
+        try:
+            return ImageCms.get_display_profile() is not None
+        except (OSError, ValueError, TypeError, ImageCms.PyCMSError):
+            return False
+
+    def _set_display_transform_checked(self, enabled: bool) -> None:
+        display_section = getattr(self._widgets, 'display', None)
+        toggle = getattr(display_section, 'use_display_transform', None)
+        if toggle is None:
+            return
+
+        block_signals = getattr(toggle, 'blockSignals', None)
+        set_checked = getattr(toggle, 'setChecked', None)
+        if not callable(set_checked):
+            return
+
+        previous_block_state = None
+        if callable(block_signals):
+            previous_block_state = block_signals(True)
+        try:
+            set_checked(enabled)
+        finally:
+            if callable(block_signals):
+                block_signals(bool(previous_block_state))
 
     @staticmethod
     def _apply_display_transform(image_data: np.ndarray, *, output_color_space: str) -> tuple[np.ndarray, str]:
@@ -332,6 +498,88 @@ class GuiController:
         transformed_image = ImageCms.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
         return np.asarray(transformed_image, dtype=np.uint8), 'Display transform: active'
 
+    @staticmethod
+    def _execute_simulation_request(request: SimulationRequest) -> SimulationResult:
+        scan = photo_process(request.image, request.params)
+        scan_display, display_status = GuiController._prepare_output_display_image(
+            scan,
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+            padding_pixels=request.padding_pixels,
+        )
+        return SimulationResult(
+            mode_label=request.mode_label,
+            display_image=scan_display,
+            float_image=np.asarray(scan),
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+            status_message=display_status,
+        )
+
+    def _start_simulation(self, *, compute_full_image: bool, mode_label: str) -> None:
+        if self._active_simulation_worker is not None:
+            set_status(self._viewer, 'Simulation already running')
+            return
+
+        input_layer = self._selected_input_layer()
+        if input_layer is None:
+            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Select an input image layer before running the simulation.')
+            return
+
+        state = collect_gui_state(widgets=self._widgets)
+        state.simulation.compute_full_image = compute_full_image
+        params = build_params_from_state(state)
+
+        image = np.double(self._processing_input_image(input_layer))
+        request = SimulationRequest(
+            mode_label=mode_label,
+            image=image,
+            params=params,
+            output_color_space=state.simulation.output_color_space,
+            use_display_transform=state.display.use_display_transform,
+            padding_pixels=self._padding_pixels_for_image(image, state.display.white_padding),
+        )
+
+        worker = _SimulationWorker(request)
+        worker.signals.finished.connect(self._on_simulation_finished)
+        worker.signals.failed.connect(self._on_simulation_failed)
+        self._active_simulation_worker = worker
+        self._active_simulation_label = mode_label
+        self._set_simulation_controls_enabled(False)
+        set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
+        self._thread_pool.start(worker)
+
+    def _on_simulation_finished(self, result: SimulationResult) -> None:
+        self._active_simulation_worker = None
+        self._active_simulation_label = None
+        self._set_simulation_controls_enabled(True)
+        self._set_or_add_output_layer(
+            result.display_image,
+            float_image=result.float_image,
+            output_color_space=result.output_color_space,
+            output_cctf_encoding=True,
+            use_display_transform=result.use_display_transform,
+        )
+        set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
+
+    def _on_simulation_failed(self, message: str) -> None:
+        self._active_simulation_worker = None
+        mode_label = self._active_simulation_label or 'Simulation'
+        self._active_simulation_label = None
+        self._set_simulation_controls_enabled(True)
+        QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
+        set_status(self._viewer, f'{mode_label} failed')
+
+    def _set_simulation_controls_enabled(self, enabled: bool) -> None:
+        simulation_section = getattr(self._widgets, 'simulation', None)
+        if simulation_section is None:
+            return
+        for button_name in ('preview_button', 'scan_button', 'save_button'):
+            button = getattr(simulation_section, button_name, None)
+            set_enabled = getattr(button, 'setEnabled', None)
+            if callable(set_enabled):
+                set_enabled(enabled)
+
     def _run_simulation(self, *, compute_full_image: bool) -> None:
         input_layer = self._selected_input_layer()
         if input_layer is None:
@@ -342,17 +590,20 @@ class GuiController:
         state.simulation.compute_full_image = compute_full_image
         params = build_params_from_state(state)
 
-        image = np.double(input_layer.data[:, :, :3])
+        image = np.double(self._processing_input_image(input_layer))
+        padding_pixels = self._padding_pixels_for_image(image, state.display.white_padding)
         scan = photo_process(image, params)
         scan_display, display_status = self._prepare_output_display_image(
             scan,
             output_color_space=state.simulation.output_color_space,
-            use_display_transform=state.simulation.use_display_transform,
+            use_display_transform=state.display.use_display_transform,
+            padding_pixels=padding_pixels,
         )
         self._set_or_add_output_layer(
             scan_display,
             float_image=scan,
             output_color_space=state.simulation.output_color_space,
             output_cctf_encoding=True,
-            use_display_transform=state.simulation.use_display_transform,
+            use_display_transform=state.display.use_display_transform,
         )
+        set_status(self._viewer, display_status)

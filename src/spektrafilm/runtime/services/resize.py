@@ -14,6 +14,7 @@ class ResizingService:
         self.film_format_mm = film_format_mm
         self.pixel_size_um = None
         self._preview_resize_factor = None
+        self._interpolation_order = 1 if self._io.full_image else 0
 
     def crop_and_rescale(self, image: np.ndarray) -> tuple[np.ndarray, float, float]:
         preview_resize_factor = self._io.preview_resize_factor
@@ -27,7 +28,7 @@ class ResizingService:
 
         scale = preview_resize_factor * upscale_factor
         if scale != 1.0:
-            image = skimage.transform.rescale(image, scale, channel_axis=2)
+            image = skimage.transform.rescale(image, scale, channel_axis=2, order=self._interpolation_order)
 
         pixel_size_um = self.film_format_mm * 1000 / np.max(image.shape[0:2])
         pixel_size_um /= scale
@@ -38,5 +39,5 @@ class ResizingService:
 
     def rescale_to_original(self, scan: np.ndarray) -> np.ndarray:
         if self._preview_resize_factor != 1.0:
-            scan = skimage.transform.rescale(scan, 1 / self._preview_resize_factor, channel_axis=2)
+            scan = skimage.transform.rescale(scan, 1 / self._preview_resize_factor, channel_axis=2, order=self._interpolation_order)
         return scan

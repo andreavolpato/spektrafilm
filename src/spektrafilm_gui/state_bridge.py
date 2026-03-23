@@ -11,6 +11,7 @@ from spektrafilm_gui.state import (
 if TYPE_CHECKING:
     from spektrafilm_gui.widgets import (
         CouplersSection,
+        DisplaySection,
         FilePickerSection,
         GlareSection,
         GrainSection,
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
         InputImageSection,
         PreflashingSection,
         SimulationSection,
-        SimulationInputSection,
         SpecialSection,
     )
 
@@ -40,7 +40,7 @@ GUI_STATE_SECTION_NAMES = tuple(field_info.name for field_info in fields(GuiStat
 class GuiWidgets:
     filepicker: FilePickerSection
     gui_config: GuiConfigSection
-    simulation_input: SimulationInputSection
+    display: DisplaySection
     input_image: InputImageSection
     grain: GrainSection
     preflashing: PreflashingSection

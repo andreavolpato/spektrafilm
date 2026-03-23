@@ -6,6 +6,7 @@ from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state import (
     DEFAULT_FILM_STOCK,
     DEFAULT_PRINT_PAPER,
+    DisplayState,
     PROJECT_DEFAULT_GUI_STATE,
     build_default_gui_state,
     CouplersState,
@@ -103,9 +104,12 @@ def make_state() -> GuiState:
             output_color_space="ProPhoto RGB",
             saving_color_space="sRGB",
             saving_cctf_encoding=True,
-            use_display_transform=True,
             scan_film=False,
             compute_full_image=False,
+        ),
+        display=DisplayState(
+            use_display_transform=True,
+            white_padding=0.0,
         ),
     )
 
@@ -165,8 +169,9 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.output_color_space == "sRGB"
     assert state.simulation.saving_color_space == "sRGB"
     assert state.simulation.saving_cctf_encoding is True
-    assert state.simulation.use_display_transform is True
+    assert state.display.use_display_transform is True
     assert state.simulation.auto_exposure_method == "center_weighted"
+    assert state.display.white_padding == 0.03
 
 
 def test_project_default_gui_state_matches_builder() -> None:

@@ -1,22 +1,37 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
+from typing import TYPE_CHECKING, Callable
 from typing import Any, cast
 
-import napari
-from qtpy import QtWidgets
+from qtpy import QtGui, QtWidgets
 from qtpy.QtCore import Qt
 
+if TYPE_CHECKING:
+    import napari
+
 QFrame = QtWidgets.QFrame
+QIcon = QtGui.QIcon
 QMainWindow = QtWidgets.QMainWindow
+QPushButton = QtWidgets.QPushButton
 QStatusBar = QtWidgets.QStatusBar
 QScrollArea = QtWidgets.QScrollArea
 QWidget = QtWidgets.QWidget
 
 from spektrafilm_gui.theme import APP_STYLE_SHEET
+from spektrafilm_gui.theme_palette import (
+    GRAY_0,
+    SIZE_APP_MARGIN,
+    SIZE_FOOTER_BOTTOM_INSET,
+    SIZE_FOOTER_ITEM_SPACING,
+    SIZE_PANEL_MARGIN,
+    SIZE_TAB_CONTENT_TOP_MARGIN,
+)
 from spektrafilm_gui.widgets import (
     CollapsibleSection,
     CouplersSection,
+    DisplaySection,
     EnlargerSection,
     ExposureControlSection,
     FilePickerSection,
@@ -29,7 +44,6 @@ from spektrafilm_gui.widgets import (
     PreflashingSection,
     ScannerSection,
     SimulationSection,
-    SimulationInputSection,
     SpectralUpsamplingSection,
     SpecialSection,
     TuneSection,
@@ -72,11 +86,18 @@ class ControlsPanelWidgets:
     special: SpecialSection
     simulation: SimulationSection
     gui_config: GuiConfigSection
-    simulation_input: SimulationInputSection
+    display: DisplaySection
     spectral_upsampling: SpectralUpsamplingSection
     tune: TuneSection
     preview_crop: PreviewCropSection
     camera: CameraSection
+
+
+def _get_current_stylesheet() -> str:
+    try:
+        return str(import_module('napari.qt').get_current_stylesheet())
+    except (ImportError, AttributeError):
+        return ''
 
 
 def configure_napari_chrome(viewer: napari.Viewer) -> None:
@@ -89,6 +110,17 @@ def configure_napari_chrome(viewer: napari.Viewer) -> None:
     qt_viewer = getattr(viewer.window, '_qt_viewer', None)
     if qt_viewer is None:
         return
+
+    if hasattr(qt_viewer, 'setStyleSheet'):
+        qt_viewer.setStyleSheet(f'background: {GRAY_0};')
+
+    canvas = getattr(qt_viewer, 'canvas', None)
+    if canvas is not None:
+        if hasattr(canvas, 'bgcolor'):
+            setattr(canvas, 'bgcolor', GRAY_0)
+        native = getattr(canvas, 'native', None)
+        if native is not None and hasattr(native, 'setStyleSheet'):
+            native.setStyleSheet(f'background: {GRAY_0};')
 
     set_welcome_visible = getattr(qt_viewer, 'set_welcome_visible', None)
     if callable(set_welcome_visible):
@@ -157,7 +189,7 @@ def _build_sidebar(controls_panel: QWidget) -> QFrame:
     sidebar.setObjectName('sidebarPanel')
 
     layout = QtWidgets.QVBoxLayout(sidebar)
-    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setContentsMargins(SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_FOOTER_BOTTOM_INSET)
     layout.setSpacing(0)
     layout.addWidget(controls_panel, 1)
     return sidebar
@@ -166,7 +198,7 @@ def _build_sidebar(controls_panel: QWidget) -> QFrame:
 def _build_controls_tab(*widgets: QWidget) -> QWidget:
     tab = QtWidgets.QWidget()
     layout = QtWidgets.QVBoxLayout(tab)
-    layout.setContentsMargins(0, 16, 0, 0)
+    layout.setContentsMargins(0, SIZE_TAB_CONTENT_TOP_MARGIN, 0, 0)
     layout.setAlignment(Qt.AlignTop)
     for widget in widgets:
         layout.addWidget(widget)
@@ -178,22 +210,77 @@ def _borrow_layer_list_widget(viewer: napari.Viewer) -> QWidget | None:
     layer_list = getattr(qt_viewer, 'dockLayerList', None) if qt_viewer is not None else None
     if layer_list is None or not hasattr(layer_list, 'widget'):
         return None
-    return layer_list.widget()
+    widget = layer_list.widget()
+    if isinstance(widget, QWidget):
+        widget.setStyleSheet(_get_current_stylesheet())
+    return widget
 
 
-def _build_viewer_panel(viewer_widget: QWidget, status_bar: QStatusBar) -> QFrame:
+def _home_view_target_layer(viewer: napari.Viewer) -> object | None:
+    layers = getattr(viewer, 'layers', None)
+    if layers is None:
+        return None
+
+    selection = getattr(layers, 'selection', None)
+    active_layer = getattr(selection, 'active', None)
+    if active_layer is not None and hasattr(active_layer, 'visible'):
+        return active_layer
+
+    for layer in reversed(list(layers)):
+        if getattr(layer, 'visible', False):
+            return layer
+    return None
+
+
+def reset_viewer_camera(viewer: napari.Viewer) -> None:
+    reset_view = getattr(viewer, 'reset_view', None)
+    if callable(reset_view):
+        target_layer = _home_view_target_layer(viewer)
+        if target_layer is None:
+            reset_view()
+            return
+
+        layers = list(getattr(viewer, 'layers', []))
+        visibility_by_layer = [(layer, getattr(layer, 'visible', True)) for layer in layers]
+        try:
+            for layer, _ in visibility_by_layer:
+                if hasattr(layer, 'visible'):
+                    layer.visible = layer is target_layer
+            reset_view()
+        finally:
+            for layer, was_visible in visibility_by_layer:
+                if hasattr(layer, 'visible'):
+                    layer.visible = was_visible
+
+
+def _build_viewer_panel(
+    viewer_widget: QWidget,
+    status_bar: QStatusBar,
+    *,
+    on_home_view: Callable[[], None] | None = None,
+) -> QFrame:
     panel = QtWidgets.QFrame()
     panel.setObjectName('viewerPanel')
 
     status_container = QtWidgets.QWidget()
     status_layout = QtWidgets.QHBoxLayout(status_container)
-    status_layout.setContentsMargins(4, 0, 4, 0)
-    status_layout.setSpacing(0)
+    status_layout.setContentsMargins(0, 0, 0, 0)
+    status_layout.setSpacing(SIZE_FOOTER_ITEM_SPACING)
     status_bar.setContentsMargins(0, 0, 0, 0)
-    status_layout.addWidget(status_bar)
+    status_bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+    status_layout.addWidget(status_bar, 1)
+
+    home_button = QPushButton('reset view')
+    home_button.setObjectName('homeViewButton')
+    if on_home_view is not None:
+        home_button.clicked.connect(on_home_view)
+    row_height = home_button.sizeHint().height()
+    status_bar.setFixedHeight(row_height)
+    status_container.setFixedHeight(row_height)
+    status_layout.addWidget(home_button)
 
     layout = QtWidgets.QVBoxLayout(panel)
-    layout.setContentsMargins(6, 6, 6, 0)
+    layout.setContentsMargins(SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_FOOTER_BOTTOM_INSET)
     layout.setSpacing(0)
     layout.addWidget(viewer_widget, 1)
     layout.addWidget(status_container)
@@ -231,7 +318,6 @@ def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -
     napari_layers_content_layout = QtWidgets.QVBoxLayout(napari_layers_content)
     napari_layers_content_layout.setContentsMargins(0, 0, 0, 0)
     napari_layers_content_layout.setSpacing(6)
-    napari_layers_content_layout.addWidget(widgets.simulation_input)
 
     layer_list_widget = _borrow_layer_list_widget(viewer)
     if layer_list_widget is not None:
@@ -241,6 +327,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -
         _wrap_scrollable(
             _build_controls_tab(
                 widgets.gui_config,
+                widgets.display,
                 CollapsibleSection('napari layers', napari_layers_content, expanded=False),
             ),
         ),
@@ -263,7 +350,8 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
     status_bar.setSizeGripEnabled(False)
 
     main_window = AppMainWindow()
-    main_window.setWindowTitle('agx-emulsion')
+    main_window.setWindowTitle('spektrafilm')
+    main_window.setWindowIcon(QIcon())
     main_window.resize(DEFAULT_CONTROLS_PANEL_WIDTH + DEFAULT_VIEWER_SPLITTER_WIDTH, 980)
     main_window.setStyleSheet(APP_STYLE_SHEET)
     main_window.set_viewer_status_bar(status_bar)
@@ -271,7 +359,7 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
 
     splitter = QtWidgets.QSplitter(Qt.Horizontal)
     splitter.setChildrenCollapsible(False)
-    splitter.addWidget(_build_viewer_panel(viewer_widget, status_bar))
+    splitter.addWidget(_build_viewer_panel(viewer_widget, status_bar, on_home_view=lambda: reset_viewer_camera(viewer)))
     splitter.addWidget(_build_sidebar(controls_panel))
     splitter.setStretchFactor(0, 1)
     splitter.setStretchFactor(1, 0)
@@ -280,7 +368,7 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
     central = QtWidgets.QWidget()
     central.setObjectName('appCentral')
     central_layout = QtWidgets.QHBoxLayout(central)
-    central_layout.setContentsMargins(6, 6, 6, 6)
+    central_layout.setContentsMargins(SIZE_APP_MARGIN, SIZE_APP_MARGIN, SIZE_APP_MARGIN, SIZE_APP_MARGIN)
     central_layout.addWidget(splitter, 1)
 
     main_window.setCentralWidget(central)

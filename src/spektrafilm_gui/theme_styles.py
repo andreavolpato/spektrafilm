@@ -24,6 +24,7 @@ from spektrafilm_gui.theme_palette import (
     SIZE_COMBO_DROPDOWN_WIDTH,
     SIZE_CONTROL_MIN_HEIGHT,
     SIZE_CONTROL_PADDING,
+    SIZE_FOOTER_MIN_HEIGHT,
     SIZE_FORM_SPACING,
     SIZE_HEADER_PADDING,
     SIZE_SCROLLBAR_HANDLE_MIN,
@@ -85,6 +86,7 @@ QLabel#sidebarEyebrow {{
     letter-spacing: 0.08em;
     text-transform: lowercase;
 }}
+
 """
 
 TAB_STYLE = f"""
@@ -333,6 +335,7 @@ QStatusBar {{
     background: {STATUS_BG};
     color: {TEXT_STATUS};
     border: none;
+    min-height: {SIZE_FOOTER_MIN_HEIGHT};
 }}
 
 QStatusBar::item {{

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from copy import deepcopy
+from dataclasses import fields
 
-from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, GuiState
+from spektrafilm_gui.state import GuiState, clone_state_section
 from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, GuiWidgets, apply_gui_state, collect_gui_state
+from tests.gui_test_utils import make_gui_state
 
 
 class StubSection:
@@ -30,7 +31,7 @@ class StubSimulationSection(StubSection):
 
 
 def _make_state() -> GuiState:
-    state = deepcopy(PROJECT_DEFAULT_GUI_STATE)
+    state = make_gui_state()
     state.input_image.preview_resize_factor = 0.45
     state.input_image.upscale_factor = 1.5
     state.grain.active = False
@@ -41,8 +42,9 @@ def _make_state() -> GuiState:
     state.special.print_gamma_factor = 1.15
     state.simulation.print_exposure = 1.3
     state.simulation.saving_cctf_encoding = False
-    state.simulation.use_display_transform = False
     state.simulation.scan_film = True
+    state.display.use_display_transform = False
+    state.display.white_padding = 0.24
     return state
 
 
@@ -50,25 +52,25 @@ def _make_widgets(state: GuiState) -> GuiWidgets:
     return GuiWidgets(
         filepicker=object(),
         gui_config=object(),
-        simulation_input=object(),
-        input_image=StubSection(deepcopy(state.input_image)),
-        grain=StubSection(deepcopy(state.grain)),
-        preflashing=StubSection(deepcopy(state.preflashing)),
-        halation=StubSection(deepcopy(state.halation)),
-        couplers=StubSection(deepcopy(state.couplers)),
-        glare=StubSection(deepcopy(state.glare)),
-        special=StubSection(deepcopy(state.special)),
-        simulation=StubSimulationSection(deepcopy(state.simulation), scan_film=state.simulation.scan_film),
+        display=StubSection(clone_state_section(state.display)),
+        input_image=StubSection(clone_state_section(state.input_image)),
+        grain=StubSection(clone_state_section(state.grain)),
+        preflashing=StubSection(clone_state_section(state.preflashing)),
+        halation=StubSection(clone_state_section(state.halation)),
+        couplers=StubSection(clone_state_section(state.couplers)),
+        glare=StubSection(clone_state_section(state.glare)),
+        special=StubSection(clone_state_section(state.special)),
+        simulation=StubSimulationSection(clone_state_section(state.simulation), scan_film=state.simulation.scan_film),
     )
 
 
 def test_gui_state_section_names_match_gui_state_fields() -> None:
-    assert GUI_STATE_SECTION_NAMES == tuple(GuiState.__dataclass_fields__)
+    assert GUI_STATE_SECTION_NAMES == tuple(field.name for field in fields(GuiState))
 
 
 def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
     source_state = _make_state()
-    widgets = _make_widgets(deepcopy(PROJECT_DEFAULT_GUI_STATE))
+    widgets = _make_widgets(make_gui_state())
 
     apply_gui_state(source_state, widgets=widgets)
 

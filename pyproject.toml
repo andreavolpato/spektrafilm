@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.scripts]
-spektrafilm = "spektrafilm_gui.main:main"
+spektrafilm = "spektrafilm_gui.app:main"
 
 [tool.setuptools]
 zip-safe = false

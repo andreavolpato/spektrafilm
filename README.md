@@ -48,7 +48,7 @@ The codebase is organized as three packages under [src/spektrafilm](src/spektraf
 Canonical import surfaces:
 
 1. Runtime pipeline: [src/spektrafilm/runtime/process.py](src/spektrafilm/runtime/process.py).
-2. GUI entry point: [src/spektrafilm_gui/main.py](src/spektrafilm_gui/main.py).
+2. GUI entry point: [src/spektrafilm_gui/app.py](src/spektrafilm_gui/app.py).
 3. Processed profile I/O: [src/spektrafilm/profiles/io.py](src/spektrafilm/profiles/io.py).
 4. Profile factory entry points: [src/spektrafilm_profile_creator/factory.py](src/spektrafilm_profile_creator/factory.py).
 

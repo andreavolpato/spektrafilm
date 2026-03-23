@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import json
-from copy import deepcopy
 from dataclasses import asdict, fields, is_dataclass
 from pathlib import Path
 from typing import Any, TypeVar, get_origin, get_type_hints
 
 from qtpy.QtCore import QStandardPaths
 
-from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE
+from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE, clone_gui_state
 
 
 DEFAULT_GUI_STATE_FILENAME = "gui_default_state.json"
@@ -29,7 +28,7 @@ def gui_state_from_dict(data: dict[str, Any]) -> GuiState:
 def load_default_gui_state() -> GuiState:
     default_path = default_gui_state_path()
     if not default_path.exists():
-        return deepcopy(PROJECT_DEFAULT_GUI_STATE)
+        return clone_gui_state(PROJECT_DEFAULT_GUI_STATE)
     return load_gui_state_from_path(default_path)
 
 
@@ -62,7 +61,7 @@ def default_gui_state_path() -> Path:
     app_config_location = QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
     if app_config_location:
         return Path(app_config_location) / DEFAULT_GUI_STATE_FILENAME
-    return Path.home() / ".agx-emulsion" / DEFAULT_GUI_STATE_FILENAME
+    return Path.home() / ".spektrafilm" / DEFAULT_GUI_STATE_FILENAME
 
 
 def _deserialize_dataclass(cls: type[GuiStateType], data: dict[str, Any]) -> GuiStateType:
