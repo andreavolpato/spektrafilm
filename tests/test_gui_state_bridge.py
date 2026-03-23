@@ -40,6 +40,8 @@ def _make_state() -> GuiState:
     state.glare.blur = 0.8
     state.special.print_gamma_factor = 1.15
     state.simulation.print_exposure = 1.3
+    state.simulation.saving_cctf_encoding = False
+    state.simulation.use_display_transform = False
     state.simulation.scan_film = True
     return state
 

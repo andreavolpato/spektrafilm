@@ -100,8 +100,10 @@ def make_state() -> GuiState:
             print_m_filter_shift=0.0,
             scan_lens_blur=0.0,
             scan_unsharp_mask=(0.7, 0.7),
-            output_color_space="sRGB",
-            output_cctf_encoding=True,
+            output_color_space="ProPhoto RGB",
+            saving_color_space="sRGB",
+            saving_cctf_encoding=True,
+            use_display_transform=True,
             scan_film=False,
             compute_full_image=False,
         ),
@@ -138,6 +140,7 @@ def test_build_params_maps_runtime_strings() -> None:
     state.input_image.input_color_space = "Display P3"
     state.input_image.spectral_upsampling_method = "mallett2019"
     state.simulation.output_color_space = "ACES2065-1"
+    state.simulation.saving_cctf_encoding = False
 
     params = build_params_from_state(state)
 
@@ -145,6 +148,7 @@ def test_build_params_maps_runtime_strings() -> None:
     assert params.io.input_color_space == "Display P3"
     assert params.settings.rgb_to_raw_method == "mallett2019"
     assert params.io.output_color_space == "ACES2065-1"
+    assert params.io.output_cctf_encoding is True
 
 
 def test_build_default_gui_state_uses_runtime_defaults() -> None:
@@ -159,6 +163,9 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.input_image.preview_resize_factor == 0.3
     assert state.input_image.crop_size == (0.1, 0.1)
     assert state.simulation.output_color_space == "sRGB"
+    assert state.simulation.saving_color_space == "sRGB"
+    assert state.simulation.saving_cctf_encoding is True
+    assert state.simulation.use_display_transform is True
     assert state.simulation.auto_exposure_method == "center_weighted"
 
 

@@ -99,7 +99,9 @@ class SimulationState:
     scan_lens_blur: float
     scan_unsharp_mask: tuple[float, float]
     output_color_space: str
-    output_cctf_encoding: bool
+    saving_color_space: str
+    saving_cctf_encoding: bool
+    use_display_transform: bool
     scan_film: bool
     compute_full_image: bool
 
@@ -199,8 +201,10 @@ def gui_state_from_params(
             print_m_filter_shift=params.enlarger.m_filter_shift,
             scan_lens_blur=params.scanner.lens_blur,
             scan_unsharp_mask=tuple(params.scanner.unsharp_mask),
-            output_color_space=params.io.output_color_space,
-            output_cctf_encoding=params.io.output_cctf_encoding,
+            output_color_space="sRGB",
+            saving_color_space="sRGB",
+            saving_cctf_encoding=params.io.output_cctf_encoding,
+            use_display_transform=True,
             scan_film=params.io.scan_film,
             compute_full_image=params.io.full_image,
         ),
