@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 import napari
+from qtpy import QtWidgets
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QApplication, QFrame, QLabel, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
+QFrame = QtWidgets.QFrame
+QMainWindow = QtWidgets.QMainWindow
+QStatusBar = QtWidgets.QStatusBar
+QScrollArea = QtWidgets.QScrollArea
+QWidget = QtWidgets.QWidget
+
+from spectral_film_lab.gui.theme import APP_STYLE_SHEET
 from spectral_film_lab.gui.widgets import (
     CollapsibleSection,
     CouplersSection,
@@ -31,6 +39,21 @@ from spectral_film_lab.gui.widgets import (
 
 
 DEFAULT_CONTROLS_PANEL_WIDTH = 420
+DEFAULT_VIEWER_SPLITTER_WIDTH = 1040
+
+
+class AppMainWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self._viewer_status_bar: QStatusBar | None = None
+
+    def set_viewer_status_bar(self, status_bar: QStatusBar) -> None:
+        self._viewer_status_bar = status_bar
+
+    def statusBar(self) -> QStatusBar:  # noqa: N802 - Qt API name
+        if self._viewer_status_bar is not None:
+            return self._viewer_status_bar
+        return super().statusBar()
 
 
 @dataclass(slots=True)
@@ -80,130 +103,210 @@ def configure_napari_chrome(viewer: napari.Viewer) -> None:
         layer_list.hide()
 
 
+def set_host_window(viewer: napari.Viewer, host_window: QWidget) -> None:
+    viewer_window = getattr(viewer, 'window', None)
+    if viewer_window is not None:
+        setattr(viewer_window, '_agx_host_window', host_window)
+
+
+def _host_window(viewer: napari.Viewer) -> QWidget | None:
+    viewer_window = getattr(viewer, 'window', None)
+    if viewer_window is None:
+        return None
+    host_window = getattr(viewer_window, '_agx_host_window', None)
+    if host_window is not None:
+        return host_window
+    qt_window = getattr(viewer_window, '_qt_window', None)
+    if qt_window is not None:
+        return qt_window
+    return None
+
+
+def take_viewer_widget(viewer: napari.Viewer) -> QWidget:
+    viewer_window = getattr(viewer, 'window', None)
+    if viewer_window is None:
+        raise RuntimeError('Napari viewer window is not available')
+
+    qt_window = getattr(viewer_window, '_qt_window', None)
+    if qt_window is not None:
+        take_central_widget = getattr(qt_window, 'takeCentralWidget', None)
+        if callable(take_central_widget):
+            central_widget = take_central_widget()
+            if central_widget is not None:
+                return central_widget
+
+    qt_viewer = getattr(viewer_window, '_qt_viewer', None)
+    if qt_viewer is not None:
+        return qt_viewer
+    raise RuntimeError('Napari Qt viewer widget is not available')
+
+
 def _wrap_scrollable(widget: QWidget) -> QScrollArea:
-    scroll = QScrollArea()
+    scroll = QtWidgets.QScrollArea()
     scroll.setWidgetResizable(True)
+    scroll.setSizeAdjustPolicy(QScrollArea.AdjustIgnored)
+    scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     scroll.setFrameShape(QFrame.NoFrame)
     scroll.setWidget(widget)
     return scroll
 
 
-def _wrap_framed_panel(title: str, widget: QWidget) -> QFrame:
-    frame = QFrame()
-    frame.setFrameShape(QFrame.StyledPanel)
-    frame.setFrameShadow(QFrame.Plain)
-    frame.setLineWidth(1)
-    frame.setMidLineWidth(0)
+def _build_sidebar(controls_panel: QWidget) -> QFrame:
+    sidebar = QtWidgets.QFrame()
+    sidebar.setObjectName('sidebarPanel')
 
-    layout = QVBoxLayout(frame)
-    layout.setContentsMargins(8, 8, 8, 8)
-    layout.setSpacing(6)
-    layout.addWidget(QLabel(title))
-    layout.addWidget(widget)
-    return frame
+    layout = QtWidgets.QVBoxLayout(sidebar)
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(0)
+    layout.addWidget(controls_panel, 1)
+    return sidebar
+
+
+def _build_controls_tab(*widgets: QWidget) -> QWidget:
+    tab = QtWidgets.QWidget()
+    layout = QtWidgets.QVBoxLayout(tab)
+    layout.setContentsMargins(0, 16, 0, 0)
+    layout.setAlignment(Qt.AlignTop)
+    for widget in widgets:
+        layout.addWidget(widget)
+    return tab
+
+
+def _borrow_layer_list_widget(viewer: napari.Viewer) -> QWidget | None:
+    qt_viewer = getattr(viewer.window, '_qt_viewer', None)
+    layer_list = getattr(qt_viewer, 'dockLayerList', None) if qt_viewer is not None else None
+    if layer_list is None or not hasattr(layer_list, 'widget'):
+        return None
+    return layer_list.widget()
+
+
+def _build_viewer_panel(viewer_widget: QWidget, status_bar: QStatusBar) -> QFrame:
+    panel = QtWidgets.QFrame()
+    panel.setObjectName('viewerPanel')
+
+    status_container = QtWidgets.QWidget()
+    status_layout = QtWidgets.QHBoxLayout(status_container)
+    status_layout.setContentsMargins(4, 0, 4, 0)
+    status_layout.setSpacing(0)
+    status_bar.setContentsMargins(0, 0, 0, 0)
+    status_layout.addWidget(status_bar)
+
+    layout = QtWidgets.QVBoxLayout(panel)
+    layout.setContentsMargins(6, 6, 6, 0)
+    layout.setSpacing(0)
+    layout.addWidget(viewer_widget, 1)
+    layout.addWidget(status_container)
+    return panel
 
 
 def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -> QWidget:
-    main_tab = QWidget()
-    main_layout = QVBoxLayout(main_tab)
-    main_layout.setContentsMargins(0, 0, 0, 0)
-    main_layout.addWidget(widgets.filepicker)
-    main_layout.addWidget(widgets.preview_crop)
-    main_layout.addWidget(widgets.input_image)
-    main_layout.addWidget(widgets.camera)
-    main_layout.addWidget(widgets.simulation)
-    main_layout.addWidget(widgets.exposure_control)
-    main_layout.addWidget(widgets.enlarger)
-    main_layout.addWidget(widgets.scanner)
-    main_layout.addWidget(widgets.output)
-    main_layout.addStretch(1)
+    panel = QtWidgets.QTabWidget()
+    panel.setObjectName('controlsTabWidget')
+    panel.setDocumentMode(True)
+    panel.addTab(
+        _wrap_scrollable(
+            _build_controls_tab(
+                widgets.filepicker,
+                widgets.preview_crop,
+                widgets.input_image,
+                widgets.camera,
+                widgets.simulation,
+                widgets.exposure_control,
+                widgets.enlarger,
+                widgets.scanner,
+                widgets.output,
+            ),
+        ),
+        'MAIN',
+    )
+    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain)), 'FILM')
+    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.glare, widgets.preflashing)), 'PRINT')
+    panel.addTab(
+        _wrap_scrollable(_build_controls_tab(widgets.spectral_upsampling, widgets.tune, widgets.special)),
+        'ADVANCED',
+    )
 
-    film_tab = QWidget()
-    film_layout = QVBoxLayout(film_tab)
-    film_layout.setContentsMargins(0, 0, 0, 0)
-    film_layout.addWidget(widgets.halation)
-    film_layout.addWidget(widgets.couplers)
-    film_layout.addWidget(widgets.grain)
-    film_layout.addStretch(1)
-
-    paper_tab = QWidget()
-    paper_layout = QVBoxLayout(paper_tab)
-    paper_layout.setContentsMargins(0, 0, 0, 0)
-    paper_layout.addWidget(widgets.glare)
-    paper_layout.addWidget(widgets.preflashing)
-    paper_layout.addStretch(1)
-
-    advanced_tab = QWidget()
-    advanced_layout = QVBoxLayout(advanced_tab)
-    advanced_layout.setContentsMargins(0, 0, 0, 0)
-    advanced_layout.addWidget(widgets.spectral_upsampling)
-    advanced_layout.addWidget(widgets.tune)
-    advanced_layout.addWidget(widgets.special)
-    advanced_layout.addStretch(1)
-
-    panel = QTabWidget()
-    panel.addTab(_wrap_scrollable(main_tab), 'Main')
-    panel.addTab(_wrap_scrollable(film_tab), 'Film')
-    panel.addTab(_wrap_scrollable(paper_tab), 'Print')
-    panel.addTab(_wrap_scrollable(advanced_tab), 'Advanced')
-
-    config_tab = QWidget()
-    config_layout = QVBoxLayout(config_tab)
-    config_layout.setContentsMargins(0, 0, 0, 0)
-    config_layout.addWidget(widgets.gui_config)
-
-    napari_layers_content = QWidget()
-    napari_layers_content_layout = QVBoxLayout(napari_layers_content)
+    napari_layers_content = QtWidgets.QWidget()
+    napari_layers_content_layout = QtWidgets.QVBoxLayout(napari_layers_content)
     napari_layers_content_layout.setContentsMargins(0, 0, 0, 0)
     napari_layers_content_layout.setSpacing(6)
     napari_layers_content_layout.addWidget(widgets.simulation_input)
 
-    qt_viewer = getattr(viewer.window, '_qt_viewer', None)
-    layer_list = getattr(qt_viewer, 'dockLayerList', None) if qt_viewer is not None else None
-    if layer_list is not None and hasattr(layer_list, 'widget'):
-        layer_list_widget = layer_list.widget()
-        if layer_list_widget is not None:
-            napari_layers_content_layout.addWidget(layer_list_widget)
+    layer_list_widget = _borrow_layer_list_widget(viewer)
+    if layer_list_widget is not None:
+        napari_layers_content_layout.addWidget(layer_list_widget)
 
-    config_layout.addWidget(CollapsibleSection('Napari Layers', napari_layers_content, expanded=False))
-    config_layout.addStretch(1)
-    panel.addTab(_wrap_scrollable(config_tab), 'Config')
+    panel.addTab(
+        _wrap_scrollable(
+            _build_controls_tab(
+                widgets.gui_config,
+                CollapsibleSection('napari layers', napari_layers_content, expanded=False),
+            ),
+        ),
+        'CONFIG',
+    )
 
-    container = QWidget()
-    container_layout = QVBoxLayout(container)
+    container = QtWidgets.QWidget()
+    container_layout = QtWidgets.QVBoxLayout(container)
     container_layout.setContentsMargins(0, 0, 0, 0)
-    container_layout.setSpacing(8)
+    container_layout.setSpacing(4)
     container_layout.addWidget(panel, 1)
     container_layout.addWidget(widgets.simulation.action_bar())
 
     return container
 
 
+def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWindow:
+    viewer_widget = take_viewer_widget(viewer)
+    status_bar = QtWidgets.QStatusBar()
+    status_bar.setSizeGripEnabled(False)
+
+    main_window = AppMainWindow()
+    main_window.setWindowTitle('agx-emulsion')
+    main_window.resize(DEFAULT_CONTROLS_PANEL_WIDTH + DEFAULT_VIEWER_SPLITTER_WIDTH, 980)
+    main_window.setStyleSheet(APP_STYLE_SHEET)
+    main_window.set_viewer_status_bar(status_bar)
+    set_host_window(viewer, main_window)
+
+    splitter = QtWidgets.QSplitter(Qt.Horizontal)
+    splitter.setChildrenCollapsible(False)
+    splitter.addWidget(_build_viewer_panel(viewer_widget, status_bar))
+    splitter.addWidget(_build_sidebar(controls_panel))
+    splitter.setStretchFactor(0, 1)
+    splitter.setStretchFactor(1, 0)
+    splitter.setSizes([DEFAULT_VIEWER_SPLITTER_WIDTH, DEFAULT_CONTROLS_PANEL_WIDTH])
+
+    central = QtWidgets.QWidget()
+    central.setObjectName('appCentral')
+    central_layout = QtWidgets.QHBoxLayout(central)
+    central_layout.setContentsMargins(6, 6, 6, 6)
+    central_layout.addWidget(splitter, 1)
+
+    main_window.setCentralWidget(central)
+    main_window.statusBar().showMessage('ready', 3000)
+    return main_window
+
+
 def dialog_parent(viewer: napari.Viewer) -> QWidget | None:
-    return getattr(viewer.window, '_qt_window', None)
+    return _host_window(viewer)
 
 
 def set_status(viewer: napari.Viewer, message: str, *, timeout_ms: int = 5000) -> None:
-    status_bar = getattr(dialog_parent(viewer), 'statusBar', None)
-    if callable(status_bar):
-        status_bar().showMessage(message, timeout_ms)
-
-
-def add_dock_widget(viewer: napari.Viewer, widget: QWidget, *, area: str, name: str, tabify: bool) -> None:
-    widget.setMinimumWidth(DEFAULT_CONTROLS_PANEL_WIDTH)
-    dock_widget = viewer.window.add_dock_widget(widget, area=area, name=name, tabify=tabify)
-    set_title_bar_widget = getattr(dock_widget, 'setTitleBarWidget', None)
-    if callable(set_title_bar_widget):
-        set_title_bar_widget(QWidget(dock_widget))
-    dock_widget.setStyleSheet('QDockWidget { border: none; }')
-    dock_widget.resize(DEFAULT_CONTROLS_PANEL_WIDTH, dock_widget.height())
+    host_window = cast(Any, _host_window(viewer))
+    if host_window is None:
+        return
+    status_bar = host_window.statusBar() if hasattr(host_window, 'statusBar') else None
+    if status_bar is not None:
+        status_bar.showMessage(message, timeout_ms)
 
 
 def show_viewer_window(viewer: napari.Viewer) -> None:
-    viewer.window.show()
+    host_window = _host_window(viewer)
+    if host_window is not None and hasattr(host_window, 'show'):
+        host_window.show()
 
-    app = QApplication.instance()
+    app = QtWidgets.QApplication.instance()
     if app is None:
         return
 
