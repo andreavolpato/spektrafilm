@@ -506,7 +506,9 @@ class SimulationSection(DataclassSection):
                 "scan_lens_blur": "Scan lens blur",
                 "scan_unsharp_mask": "Scan unsharp mask",
                 "output_color_space": "Output color space",
-                "output_cctf_encoding": "Output CCTF encoding",
+                "saving_color_space": "Saving color space",
+                "saving_cctf_encoding": "Saving CCTF encoding",
+                "use_display_transform": "Use display transform",
                 "scan_film": "Scan film",
                 "compute_full_image": "Compute full image",
             },
@@ -526,7 +528,9 @@ class SimulationSection(DataclassSection):
                 "scan_film",
                 "compute_full_image",
                 "output_color_space",
-                "output_cctf_encoding",
+                "saving_color_space",
+                "saving_cctf_encoding",
+                "use_display_transform",
             },
         )
 
@@ -582,7 +586,9 @@ class OutputSection(QWidget):
         super().__init__()
         form = QFormLayout()
         form.addRow("Output color space", simulation_section.output_color_space)
-        form.addRow("Output CCTF encoding", simulation_section.output_cctf_encoding)
+        form.addRow("Saving color space", simulation_section.saving_color_space)
+        form.addRow("Saving CCTF encoding", simulation_section.saving_cctf_encoding)
+        form.addRow("Use display transform", simulation_section.use_display_transform)
 
         self.setLayout(_build_collapsible_form_section("Output", form, expanded=False))
 

@@ -28,6 +28,7 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
         "print_paper": PrintPapers,
         "print_illuminant": Illuminants,
         "output_color_space": RGBColorSpaces,
+        "saving_color_space": RGBColorSpaces,
     },
 }
 
@@ -70,9 +71,13 @@ GUI_WIDGET_SPECS = {
             step=0.05,
         ),
         "scan_unsharp_mask": WidgetSpec(tooltip="Apply unsharp mask to the scan, [sigma in pixel, amount]"),
-        "output_color_space": WidgetSpec(tooltip="Color space of the output image"),
-        "output_cctf_encoding": WidgetSpec(
-            tooltip="Apply the cctf transfer function of the color space. If false, data is linear.",
+        "output_color_space": WidgetSpec(tooltip="Output color space of the simulation"),
+        "saving_color_space": WidgetSpec(tooltip="Color space of the saved image file"),
+        "saving_cctf_encoding": WidgetSpec(
+            tooltip="Add or not the CCTF to the saved image file",
+        ),
+        "use_display_transform": WidgetSpec(
+            tooltip="Use Pillow.ImageCms to retrive the display transform and apply it to the napari viewer output, if disabled the output color space is used",
         ),
         "scan_film": WidgetSpec(tooltip="Show a scan of the negative instead of the print"),
         "compute_full_image": WidgetSpec(

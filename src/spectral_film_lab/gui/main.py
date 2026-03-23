@@ -115,6 +115,7 @@ def _connect_controller_signals(controller: GuiController, widgets: GuiWidgets) 
     widgets.simulation.preview_requested.connect(controller.run_preview)
     widgets.simulation.scan_requested.connect(controller.run_scan)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
+    widgets.simulation.use_display_transform.toggled.connect(controller.report_display_transform_status)
 
 
 def create_app() -> GuiApp:
