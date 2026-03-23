@@ -1,5 +1,5 @@
 import numpy as np
-from spectral_film_lab.runtime.process import photo_process, photo_params
+from spektrafilm.runtime.process import photo_process, photo_params
 
 
 class TestPipelineSmoke:

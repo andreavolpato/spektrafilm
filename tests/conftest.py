@@ -1,6 +1,14 @@
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
-from spectral_film_lab.profiles.io import load_profile
+
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from spektrafilm.profiles.io import load_profile
 
 
 @pytest.fixture
@@ -15,7 +23,7 @@ def small_rgb_image():
 @pytest.fixture
 def default_params():
     """Default photo_params with expensive effects disabled for fast tests."""
-    from spectral_film_lab.runtime.process import photo_params
+    from spektrafilm.runtime.process import photo_params
     params = photo_params()
     # Disable stochastic/spatial effects for determinism and speed
     params.debug.deactivate_spatial_effects = True

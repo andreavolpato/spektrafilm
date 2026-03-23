@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from spectral_film_lab.utils.fast_interp_lut import (
+from spektrafilm.utils.fast_interp_lut import (
     apply_lut_cubic_3d,
     apply_lut_pchip_3d,
 )
-from spectral_film_lab.utils.lut import compute_with_lut
+from spektrafilm.utils.lut import compute_with_lut
 
 
 def affine_transform(data):

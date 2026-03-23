@@ -12,15 +12,15 @@ matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 
-from profiles_creator.balance import balance_metameric_neutral, balance_sensitivity
-from profiles_creator.factory import (
+from spektrafilm_profile_creator.balance import balance_metameric_neutral, balance_sensitivity
+from spektrafilm_profile_creator.factory import (
     adjust_log_exposure,
     create_profile,
     remove_density_min,
     replace_fitted_density_curves,
     unmix_density,
 )
-from profiles_creator.reconstruct import reconstruct_dye_density
+from spektrafilm_profile_creator.reconstruct import reconstruct_dye_density
 
 BASELINES_DIR = Path(__file__).resolve().parent / 'baselines'
 

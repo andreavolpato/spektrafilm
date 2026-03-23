@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from spectral_film_lab.gui.persistence import (
+from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     gui_state_from_dict,
     gui_state_to_dict,
@@ -14,7 +14,7 @@ from spectral_film_lab.gui.persistence import (
     save_default_gui_state,
     save_gui_state_to_path,
 )
-from spectral_film_lab.gui.state import PROJECT_DEFAULT_GUI_STATE
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 
 
 def test_gui_state_round_trip_preserves_tuple_fields() -> None:
@@ -43,7 +43,7 @@ def test_save_and_load_gui_state_file(tmp_path: Path) -> None:
 
 def test_load_default_gui_state_uses_factory_when_missing(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "spectral_film_lab.gui.persistence.default_gui_state_path",
+        "spektrafilm_gui.persistence.default_gui_state_path",
         lambda: tmp_path / "missing.json",
     )
 
@@ -56,7 +56,7 @@ def test_load_default_gui_state_uses_factory_when_missing(monkeypatch, tmp_path:
 def test_save_default_and_clear_saved_default(monkeypatch, tmp_path: Path) -> None:
     default_path = tmp_path / "gui_default_state.json"
     monkeypatch.setattr(
-        "spectral_film_lab.gui.persistence.default_gui_state_path",
+        "spektrafilm_gui.persistence.default_gui_state_path",
         lambda: default_path,
     )
     state = deepcopy(PROJECT_DEFAULT_GUI_STATE)

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from spectral_film_lab.gui.params_mapper import build_params_from_state
-from spectral_film_lab.gui.state import (
+from spektrafilm_gui.params_mapper import build_params_from_state
+from spektrafilm_gui.state import (
     DEFAULT_FILM_STOCK,
     DEFAULT_PRINT_PAPER,
     PROJECT_DEFAULT_GUI_STATE,
@@ -18,8 +18,8 @@ from spectral_film_lab.gui.state import (
     SimulationState,
     SpecialState,
 )
-from spectral_film_lab.model.illuminants import Illuminants
-from spectral_film_lab.model.stocks import FilmStocks, PrintPapers
+from spektrafilm.model.illuminants import Illuminants
+from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
 
 def make_state() -> GuiState:

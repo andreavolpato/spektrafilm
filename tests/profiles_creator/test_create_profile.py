@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spectral_film_lab.runtime.process import photo_params, photo_process
+from spektrafilm.runtime.process import photo_params, photo_process
 
 from tests.profiles_creator.create_profile_regression_baselines import (
     assert_matches_baseline,

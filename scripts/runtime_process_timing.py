@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-from spectral_film_lab.utils.io import load_image_oiio
-from spectral_film_lab.utils.numba_warmup import warmup
-from spectral_film_lab.runtime import photo_params, photo_process
-from spectral_film_lab.utils.timings import plot_timings
+from spektrafilm.utils.io import load_image_oiio
+from spektrafilm.utils.numba_warmup import warmup
+from spektrafilm.runtime import photo_params, photo_process
+from spektrafilm.utils.timings import plot_timings
 
 warmup()
 

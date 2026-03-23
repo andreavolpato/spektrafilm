@@ -1,4 +1,4 @@
-# `agx-emulsion`: simulation of color film photography from scratch
+# `spektrafilm`: spectral simulation of analog film photography
 
 > [!IMPORTANT]
 > At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a playground for exploring the simulation model.
@@ -39,31 +39,34 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Package layout
 
-The codebase is organized as two packages under [src/spectral_film_lab](src/spectral_film_lab) and [src/profiles_creator](src/profiles_creator):
+The codebase is organized as three packages under [src/spektrafilm](src/spektrafilm), [src/spektrafilm_gui](src/spektrafilm_gui), and [src/spektrafilm_profile_creator](src/spektrafilm_profile_creator):
 
-1. [src/spectral_film_lab](src/spectral_film_lab): runtime simulation pipeline and processed profile consumption.
-2. [src/profiles_creator](src/profiles_creator): raw-curve processing and profile generation/fitting workflows.
+1. [src/spektrafilm](src/spektrafilm): runtime simulation pipeline and processed profile consumption.
+2. [src/spektrafilm_gui](src/spektrafilm_gui): desktop GUI built on top of the runtime package.
+3. [src/spektrafilm_profile_creator](src/spektrafilm_profile_creator): raw-curve processing and profile generation/fitting workflows.
 
 Canonical import surfaces:
 
-1. Runtime pipeline: [src/spectral_film_lab/runtime/process.py](src/spectral_film_lab/runtime/process.py).
-2. Processed profile I/O: [src/spectral_film_lab/profiles/io.py](src/spectral_film_lab/profiles/io.py).
-3. Profile factory entry points: [src/profiles_creator/factory.py](src/profiles_creator/factory.py).
+1. Runtime pipeline: [src/spektrafilm/runtime/process.py](src/spektrafilm/runtime/process.py).
+2. GUI entry point: [src/spektrafilm_gui/main.py](src/spektrafilm_gui/main.py).
+3. Processed profile I/O: [src/spektrafilm/profiles/io.py](src/spektrafilm/profiles/io.py).
+4. Profile factory entry points: [src/spektrafilm_profile_creator/factory.py](src/spektrafilm_profile_creator/factory.py).
 
 Dependency direction:
 
-1. profiles_creator depends on spectral_film_lab runtime and engine modules.
-2. spectral_film_lab does not depend on profiles_creator.
+1. `spektrafilm_gui` depends on `spektrafilm`.
+2. `spektrafilm_profile_creator` depends on `spektrafilm`.
+3. `spektrafilm` does not depend on either higher-level package.
 
 ## Installation
 
 ### Using `uv`
 
-You can easily run the latest version of agx-emulsion directly from the git repository
+You can easily run the latest version of spektrafilm directly from the git repository
 using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx --from git+https://github.com/andreavolpato/agx-emulsion.git agx-emulsion
+uvx --from git+https://github.com/andreavolpato/spektrafilm.git spektrafilm
 ```
 
 Or from a local working copy:
@@ -86,12 +89,12 @@ Intructions for macOS and Linus are [here](https://docs.astral.sh/uv/getting-sta
 You can also use pip normally:
 ```bash
 # install:
-git clone https://github.com/andreavolpato/agx-emulsion.git
-cd agx-emulsion
+git clone https://github.com/andreavolpato/spektrafilm.git
+cd spektrafilm
 pip install -e .
 
 # run
-agx-emulsion
+spektrafilm
 ```
 but I recomend to create a clean virtual environment to install the dependencies, for example using `conda`.
 
@@ -99,11 +102,11 @@ but I recomend to create a clean virtual environment to install the dependencies
 From a terminal:
 
 ```bash
-conda create -n agx-emulsion python=3.11
-conda activate agx-emulsion
+conda create -n spektrafilm python=3.13
+conda activate spektrafilm
 ```
 
-Install the package `agx-emulsion` by going to the repository folder and running:
+Install the package `spektrafilm` by going to the repository folder and running:
 
 ```bash
 pip install -e .
@@ -111,11 +114,11 @@ pip install -e .
 Launch the GUI:
 
 ```bash
-agx-emulsion
+spektrafilm
 ```
 To remove the environment:
 ```bash
-conda env remove -n agx-emulsion
+conda env remove -n spektrafilm
 ```
 
 ## Testing

@@ -1,5 +1,5 @@
 import numpy as np
-from spectral_film_lab.model.parametric import parametric_density_curves_model
+from spektrafilm.model.parametric import parametric_density_curves_model
 
 
 class TestParametricDensityCurvesModel:

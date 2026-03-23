@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agx-emulsion"
+name = "spektrafilm"
 version = "0.3.0"
-description = "Simulation of analog film photography"
+description = "Spectral simulation of analog film photography"
 readme = "README.md"
 requires-python = "~=3.13"
 license = { text = "GPLv3" }
@@ -30,20 +30,27 @@ dependencies = [
 ]
 
 [project.scripts]
-agx-emulsion = "spectral_film_lab.gui.main:main"
+spektrafilm = "spektrafilm_gui.main:main"
 
 [tool.setuptools]
 zip-safe = false
 
 [tool.setuptools.packages.find]
 where = [".", "src"]
-include = ["spectral_film_lab*", "profiles_creator*"]
+include = [
+    "spektrafilm",
+    "spektrafilm.*",
+    "spektrafilm_gui",
+    "spektrafilm_gui.*",
+    "spektrafilm_profile_creator",
+    "spektrafilm_profile_creator.*",
+]
 
 [tool.setuptools.package-data]
-spectral_film_lab = [
+spektrafilm = [
     "data/**/*",
 ]
-profiles_creator = [
+spektrafilm_profile_creator = [
     "data/**/*",
 ]
 
