@@ -112,6 +112,10 @@ GUI_WIDGET_SPECS = {
             label="Use display transform",
             tooltip="Use Pillow.ImageCms to retrive the display transform (only in Windows) and apply it to the napari viewer output, if disabled the output color space is used",
         ),
+        "gray_18_canvas": WidgetSpec(
+            label="Gray 18% canvas",
+            tooltip="Use neutral 18% gray as backgroung to judge the exposure and neutral colors",
+        ),
         "white_padding": WidgetSpec(
             label="White padding",
             tooltip="Pad the simulated output on every side with a white border expressed as a fraction of the image long edge.",

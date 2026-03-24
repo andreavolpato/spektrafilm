@@ -109,6 +109,7 @@ def make_state() -> GuiState:
         ),
         display=DisplayState(
             use_display_transform=True,
+            gray_18_canvas=False,
             white_padding=0.0,
         ),
     )
@@ -170,6 +171,7 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.saving_color_space == "sRGB"
     assert state.simulation.saving_cctf_encoding is True
     assert state.display.use_display_transform is True
+    assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == "center_weighted"
     assert state.display.white_padding == 0.03
 
