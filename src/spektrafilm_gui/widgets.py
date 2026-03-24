@@ -24,6 +24,8 @@ QToolButton = QtWidgets.QToolButton
 QVBoxLayout = QtWidgets.QVBoxLayout
 QWidget = QtWidgets.QWidget
 QColor = QtGui.QColor
+QPalette = QtGui.QPalette
+QFontDatabase = QtGui.QFontDatabase
 QPainter = QtGui.QPainter
 QPen = QtGui.QPen
 Qt = QtCore.Qt
@@ -41,7 +43,15 @@ from spektrafilm_gui.state import (
     SpecialState,
 )
 from spektrafilm_gui.theme_palette import (
-    DIVIDER_SUBTLE,
+    BOOL_EDITOR_BORDER_CHECKED,
+    BOOL_EDITOR_BORDER_UNCHECKED,
+    BOOL_EDITOR_CHECKED_DISABLED,
+    BOOL_EDITOR_CHECKED_ENABLED,
+    BOOL_EDITOR_CHECKMARK,
+    BOOL_EDITOR_FILL_DISABLED,
+    BOOL_EDITOR_FILL_ENABLED,
+    BOOL_EDITOR_HOVER_BG,
+    HEADER_DIVIDER_LINE,
     SIZE_FOOTER_ITEM_SPACING,
     SIZE_FORM_SPACING,
     SIZE_SECTION_FRAME_INDENT,
@@ -62,6 +72,31 @@ def _enum_values(enum_cls):
 
 def _normalize_ui_text(text: str) -> str:
     return text.lower()
+
+
+def _theme_qcolor(color_spec: str) -> QColor:
+    if not color_spec.startswith('palette(') or not color_spec.endswith(')'):
+        return QColor(color_spec)
+
+    role_name = color_spec[len('palette('):-1].strip().lower()
+    role_lookup = {
+        'window': QPalette.Window,
+        'base': QPalette.Base,
+        'alternate-base': QPalette.AlternateBase,
+        'mid': QPalette.Mid,
+        'window-text': QPalette.WindowText,
+        'text': QPalette.Text,
+        'bright-text': QPalette.BrightText,
+        'placeholder-text': getattr(QPalette, 'PlaceholderText', QPalette.Text),
+    }
+    role = role_lookup.get(role_name)
+    if role is None:
+        return QColor(color_spec)
+
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        return QColor(color_spec)
+    return app.palette().color(role)
 
 
 def _build_collapsible_form_section(
@@ -113,12 +148,19 @@ def _build_button(
     *,
     tooltip: str | None = None,
     preserve_case: bool = False,
+    role: str | None = None,
 ) -> QPushButton:
     button = QPushButton(text if preserve_case else _normalize_ui_text(text))
+    if role is not None:
+        button.setProperty('role', role)
     if tooltip:
         button.setToolTip(tooltip)
     button.clicked.connect(callback)
     return button
+
+
+def platform_default_font() -> QtGui.QFont:
+    return QFontDatabase.systemFont(QFontDatabase.GeneralFont)
 
 
 def _build_widget_label(section_name: str, field_name: str) -> QLabel:
@@ -183,6 +225,7 @@ class CollapsibleSection(QWidget):
         self._content = content
 
         self._toggle = QToolButton()
+        self._toggle.setProperty('role', 'sectionToggle')
         self._toggle.setText(_normalize_ui_text(title))
         self._toggle.setCheckable(True)
         self._toggle.setChecked(expanded)
@@ -247,7 +290,7 @@ class HeaderDivider(QWidget):
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.Antialiasing, False)
-            pen = QPen(QColor(DIVIDER_SUBTLE))
+            pen = QPen(_theme_qcolor(HEADER_DIVIDER_LINE))
             pen.setCosmetic(True)
             painter.setPen(pen)
             y = (self.height() / 2) + 1
@@ -295,6 +338,7 @@ class BoolEditor(QCheckBox):
     def __init__(self):
         super().__init__()
         self.setText('')
+        self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setFixedHeight(24)
 
@@ -320,9 +364,14 @@ class BoolEditor(QCheckBox):
 
             indicator_rect = self._indicator_rect()
             is_enabled = self.isEnabled()
-            fill_color = QColor('#8a8a8a' if is_enabled else '#858585')
-            checked_color = QColor('#969696' if is_enabled else '#8c8c8c')
-            border_color = QColor('#a7a7a7' if self.isChecked() else '#8f8f8f')
+            is_hovered = is_enabled and self.underMouse()
+            fill_color = _theme_qcolor(
+                BOOL_EDITOR_HOVER_BG if is_hovered else BOOL_EDITOR_FILL_ENABLED if is_enabled else BOOL_EDITOR_FILL_DISABLED,
+            )
+            checked_color = _theme_qcolor(
+                BOOL_EDITOR_HOVER_BG if is_hovered else BOOL_EDITOR_CHECKED_ENABLED if is_enabled else BOOL_EDITOR_CHECKED_DISABLED,
+            )
+            border_color = _theme_qcolor(BOOL_EDITOR_BORDER_CHECKED if self.isChecked() else BOOL_EDITOR_BORDER_UNCHECKED)
 
             painter.setPen(QPen(border_color, 1))
             painter.setBrush(checked_color if self.isChecked() else fill_color)
@@ -333,12 +382,20 @@ class BoolEditor(QCheckBox):
         finally:
             painter.end()
 
+    def enterEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().enterEvent(event)
+        self.update()
+
+    def leaveEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().leaveEvent(event)
+        self.update()
+
     def _indicator_rect(self) -> QRect:
         return QRect(1, max(1, (self.height() - 14) // 2), 14, 14)
 
     @staticmethod
     def _draw_check_mark(painter: QPainter, indicator_rect: QRect) -> None:
-        painter.setPen(QPen(QColor('#f7f7f7'), 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setPen(QPen(_theme_qcolor(BOOL_EDITOR_CHECKMARK), 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         painter.drawLine(
             QPointF(indicator_rect.left() + 3.0, indicator_rect.center().y() + 0.5),
             QPointF(indicator_rect.left() + 6.0, indicator_rect.bottom() - 3.5),
@@ -777,6 +834,7 @@ class SimulationSection(DataclassSection):
             self.preview_requested.emit,
             tooltip=preview_button_spec.tooltip,
             preserve_case=preview_button_spec.preserve_case,
+            role='accentAction',
         )
         scan_button_spec = get_button_spec("scan")
         self.scan_button = _build_button(
@@ -784,6 +842,7 @@ class SimulationSection(DataclassSection):
             self.scan_requested.emit,
             tooltip=scan_button_spec.tooltip,
             preserve_case=scan_button_spec.preserve_case,
+            role='accentAction',
         )
         save_button_spec = get_button_spec("save")
         self.save_button = _build_button(
@@ -791,6 +850,7 @@ class SimulationSection(DataclassSection):
             self.save_requested.emit,
             tooltip=save_button_spec.tooltip,
             preserve_case=save_button_spec.preserve_case,
+            role='accentAction',
         )
 
         scan_film_row = _new_form_layout()

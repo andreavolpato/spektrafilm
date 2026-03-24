@@ -63,6 +63,7 @@ def make_controller_gui_state() -> GuiState:
     state.simulation.saving_color_space = 'Display P3'
     state.simulation.saving_cctf_encoding = False
     state.display.use_display_transform = False
+    state.display.gray_18_canvas = False
     state.display.white_padding = 0.0
     return state
 

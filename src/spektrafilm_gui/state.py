@@ -112,6 +112,7 @@ class SimulationState:
 @dataclass(slots=True)
 class DisplayState:
     use_display_transform: bool
+    gray_18_canvas: bool
     white_padding: float
 
 
@@ -239,6 +240,7 @@ def gui_state_from_params(
         ),
         display=DisplayState(
             use_display_transform=True,
+            gray_18_canvas=True,
             white_padding=0.03,
         ),
     )

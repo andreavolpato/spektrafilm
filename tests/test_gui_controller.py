@@ -308,6 +308,7 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
         return object()
 
     monkeypatch.setattr(controller_module.ImageCms, "get_display_profile", fake_get_display_profile)
+    monkeypatch.setattr(controller_module.ImageCms, "getProfileName", lambda profile: "Studio Display ICC\x00")
     monkeypatch.setattr(controller_module.colour, "RGB_to_RGB", lambda *args, **kwargs: np.full((1, 1, 3), 0.5, dtype=np.float32))
     monkeypatch.setattr(controller_module.ImageCms, "createProfile", lambda name: f"profile:{name}")
     monkeypatch.setattr(
@@ -334,7 +335,7 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
     )
 
     np.testing.assert_array_equal(preview, np.full((1, 1, 3), 64, dtype=np.uint8))
-    assert status == "Display transform: active"
+    assert status == "Display transform: active (Studio Display ICC)"
     assert captured["profile_to_profile"]["source_profile"] == "profile:sRGB"
     assert captured["profile_to_profile"]["output_mode"] == "RGB"
     np.testing.assert_array_equal(captured["profile_to_profile"]["image_data"], np.full((1, 1, 3), 127, dtype=np.uint8))
@@ -345,12 +346,13 @@ def test_run_simulation_uses_display_transform_preview_when_enabled(monkeypatch)
     controller = GuiController(viewer=object(), widgets=object())
     gui_state = make_controller_gui_state()
     gui_state.display.use_display_transform = True
+    gui_state.display.white_padding = 0.5
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller, "_selected_input_layer", lambda: input_layer)
     monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, "build_params_from_state", lambda state: object())
-    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
+    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((4, 4, 3), 0.5, dtype=np.float32))
 
     def fake_prepare_output_display_image(image_data, *, output_color_space, use_display_transform, padding_pixels=0.0):
         captured["display_args"] = {
@@ -359,7 +361,7 @@ def test_run_simulation_uses_display_transform_preview_when_enabled(monkeypatch)
             "use_display_transform": use_display_transform,
             "padding_pixels": padding_pixels,
         }
-        return np.full((2, 2, 3), 99, dtype=np.uint8), "Display transform: active"
+        return np.full((6, 6, 3), 99, dtype=np.uint8), "Display transform: active"
 
     def fake_set_or_add_output_layer(image, **kwargs):
         captured["output_layer"] = {"image": image.copy(), **kwargs}
@@ -369,12 +371,12 @@ def test_run_simulation_uses_display_transform_preview_when_enabled(monkeypatch)
 
     controller._run_simulation(compute_full_image=False)
 
-    np.testing.assert_allclose(captured["display_args"]["image_data"], np.full((2, 2, 3), 0.5, dtype=np.float32))
+    np.testing.assert_allclose(captured["display_args"]["image_data"], np.full((4, 4, 3), 0.5, dtype=np.float32))
     assert captured["display_args"]["output_color_space"] == gui_state.simulation.output_color_space
     assert captured["display_args"]["use_display_transform"] is True
-    assert captured["display_args"]["padding_pixels"] == 0.0
-    np.testing.assert_array_equal(captured["output_layer"]["image"], np.full((2, 2, 3), 99, dtype=np.uint8))
-    np.testing.assert_allclose(captured["output_layer"]["float_image"], np.full((2, 2, 3), 0.5, dtype=np.float32))
+    assert captured["display_args"]["padding_pixels"] == 2.0
+    np.testing.assert_array_equal(captured["output_layer"]["image"], np.full((6, 6, 3), 99, dtype=np.uint8))
+    np.testing.assert_allclose(captured["output_layer"]["float_image"], np.full((4, 4, 3), 0.5, dtype=np.float32))
 
 
 def test_run_preview_starts_async_preview(monkeypatch) -> None:
@@ -465,12 +467,12 @@ def test_run_simulation_applies_white_padding_only_to_preview(monkeypatch) -> No
     monkeypatch.setattr(controller, "_selected_input_layer", lambda: input_layer)
     monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, "build_params_from_state", lambda state: object())
-    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
+    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((4, 4, 3), 0.5, dtype=np.float32))
 
     def fake_prepare_output_display_image(image_data, *, output_color_space, use_display_transform, padding_pixels=0.0):
         captured["display_input"] = image_data.copy()
         captured["display_padding_pixels"] = padding_pixels
-        return np.full((4, 4, 3), 77, dtype=np.uint8), "Display transform: disabled"
+        return np.full((8, 8, 3), 77, dtype=np.uint8), "Display transform: disabled"
 
     def fake_set_or_add_output_layer(image, **kwargs):
         captured["output_layer"] = {"image": image.copy(), **kwargs}
@@ -481,11 +483,11 @@ def test_run_simulation_applies_white_padding_only_to_preview(monkeypatch) -> No
     controller._run_simulation(compute_full_image=False)
 
     display_input = captured["display_input"]
-    assert display_input.shape == (2, 2, 3)
-    np.testing.assert_allclose(display_input, np.full((2, 2, 3), 0.5, dtype=np.float32))
-    assert captured["display_padding_pixels"] == 1.0
-    np.testing.assert_array_equal(captured["output_layer"]["image"], np.full((4, 4, 3), 77, dtype=np.uint8))
-    np.testing.assert_allclose(captured["output_layer"]["float_image"], np.full((2, 2, 3), 0.5, dtype=np.float32))
+    assert display_input.shape == (4, 4, 3)
+    np.testing.assert_allclose(display_input, np.full((4, 4, 3), 0.5, dtype=np.float32))
+    assert captured["display_padding_pixels"] == 2.0
+    np.testing.assert_array_equal(captured["output_layer"]["image"], np.full((8, 8, 3), 77, dtype=np.uint8))
+    np.testing.assert_allclose(captured["output_layer"]["float_image"], np.full((4, 4, 3), 0.5, dtype=np.float32))
 
 
 def test_padding_pixels_uses_fraction_of_long_edge() -> None:
@@ -507,16 +509,64 @@ def test_report_display_transform_status_disabled(monkeypatch) -> None:
     assert captured["status"] == "Display transform: disabled"
 
 
+def test_set_gray_18_canvas_enabled_updates_napari_background(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        controller_module,
+        "set_canvas_background",
+        lambda viewer, *, gray_18_canvas: captured.setdefault("canvas", (viewer, gray_18_canvas)),
+    )
+
+    controller.set_gray_18_canvas_enabled(True)
+
+    assert captured["canvas"] == (controller._viewer, True)
+
+
+def test_load_state_from_file_syncs_canvas_background(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module.QFileDialog, "getOpenFileName", staticmethod(lambda *args, **kwargs: ("state.json", "JSON (*.json)")))
+    monkeypatch.setattr(controller_module, "load_gui_state_from_path", lambda path: PROJECT_DEFAULT_GUI_STATE)
+    monkeypatch.setattr(controller_module, "apply_gui_state", lambda state, *, widgets: captured.setdefault("applied", (state, widgets)))
+    monkeypatch.setattr(controller, "_sync_canvas_background", lambda: captured.setdefault("canvas_synced", True))
+    monkeypatch.setattr(controller_module, "dialog_parent", lambda viewer: None)
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.load_state_from_file()
+
+    assert captured["canvas_synced"] is True
+    assert captured["status"] == "Loaded GUI state from state.json"
+
+
+def test_restore_factory_default_syncs_canvas_background(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, "clear_saved_default_gui_state", lambda: None)
+    monkeypatch.setattr(controller_module, "apply_gui_state", lambda state, *, widgets: captured.setdefault("applied", (state, widgets)))
+    monkeypatch.setattr(controller, "_sync_canvas_background", lambda: captured.setdefault("canvas_synced", True))
+    monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
+
+    controller.restore_factory_default()
+
+    assert captured["canvas_synced"] is True
+    assert captured["status"] == "Restored factory default GUI state"
+
+
 def test_report_display_transform_status_found(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=object())
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller_module.ImageCms, "get_display_profile", lambda: object())
+    monkeypatch.setattr(controller_module.ImageCms, "getProfileName", lambda profile: "Adobe RGB Monitor\x00")
     monkeypatch.setattr(controller_module, "set_status", lambda viewer, message: captured.setdefault("status", message))
 
     controller.report_display_transform_status(True)
 
-    assert captured["status"] == "Display transform: display profile found"
+    assert captured["status"] == "Display transform: display profile found (Adobe RGB Monitor)"
 
 
 def test_report_display_transform_status_missing_profile(monkeypatch) -> None:
