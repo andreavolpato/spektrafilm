@@ -21,6 +21,7 @@ def test_gui_state_round_trip_preserves_tuple_fields() -> None:
     state = make_gui_state()
     state.input_image.crop_size = (0.25, 0.4)
     state.grain.particle_scale = (1.1, 1.2, 1.3)
+    state.display.gray_18_canvas = True
     state.display.white_padding = 0.18
 
     restored = gui_state_from_dict(gui_state_to_dict(state))
@@ -34,6 +35,7 @@ def test_save_and_load_gui_state_file(tmp_path: Path) -> None:
     state = make_gui_state()
     state.simulation.print_exposure = 1.4
     state.special.print_gamma_factor = 1.2
+    state.display.gray_18_canvas = True
     state.display.white_padding = 0.12
     destination = tmp_path / "gui_state.json"
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from importlib import import_module
+import sys
 from typing import TYPE_CHECKING, Callable
 from typing import Any, cast
 
@@ -22,10 +23,14 @@ QWidget = QtWidgets.QWidget
 from spektrafilm_gui.theme import APP_STYLE_SHEET
 from spektrafilm_gui.theme_palette import (
     GRAY_0,
+    GRAY_18,
     SIZE_APP_MARGIN,
     SIZE_FOOTER_BOTTOM_INSET,
+    SIZE_FOOTER_MIN_HEIGHT,
     SIZE_FOOTER_ITEM_SPACING,
+    SIZE_FOOTER_TOP_SPACING,
     SIZE_PANEL_MARGIN,
+    SIZE_SPLITTER_HANDLE_MARGIN_LEFT,
     SIZE_TAB_CONTENT_TOP_MARGIN,
 )
 from spektrafilm_gui.widgets import (
@@ -49,11 +54,20 @@ from spektrafilm_gui.widgets import (
     TuneSection,
     PreviewCropSection,
     CameraSection,
+    platform_default_font,
 )
 
 
 DEFAULT_CONTROLS_PANEL_WIDTH = 420
 DEFAULT_VIEWER_SPLITTER_WIDTH = 1040
+_DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+_DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
+_PALETTE_COLOR_FALLBACKS = {
+    'window': '#323232',
+    'base': '#424242',
+    'alternate-base': '#585858',
+    'mid': '#707070',
+}
 
 
 class AppMainWindow(QMainWindow):
@@ -100,7 +114,87 @@ def _get_current_stylesheet() -> str:
         return ''
 
 
-def configure_napari_chrome(viewer: napari.Viewer) -> None:
+def _request_dark_title_bar(window: QWidget) -> bool:
+    if sys.platform != 'win32':
+        return False
+
+    try:
+        hwnd = int(window.winId())
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+    if hwnd == 0:
+        return False
+
+    try:
+        ctypes = import_module('ctypes')
+        dwmapi = ctypes.windll.dwmapi
+        set_window_attribute = dwmapi.DwmSetWindowAttribute
+    except (ImportError, AttributeError):
+        return False
+
+    value = ctypes.c_int(1)
+    value_size = ctypes.sizeof(value)
+    for attribute in (_DWMWA_USE_IMMERSIVE_DARK_MODE, _DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1):
+        try:
+            result = set_window_attribute(hwnd, attribute, ctypes.byref(value), value_size)
+        except (OSError, AttributeError, TypeError, ValueError):
+            continue
+        if result == 0:
+            return True
+    return False
+
+
+def _resolved_theme_color(color_spec: str) -> str:
+    if not color_spec.startswith('palette(') or not color_spec.endswith(')'):
+        return color_spec
+
+    role_name = color_spec[len('palette('):-1].strip().lower()
+    role_lookup = {
+        'window': QtGui.QPalette.Window,
+        'base': QtGui.QPalette.Base,
+        'alternate-base': QtGui.QPalette.AlternateBase,
+        'mid': QtGui.QPalette.Mid,
+    }
+    role = role_lookup.get(role_name)
+    if role is None:
+        return _PALETTE_COLOR_FALLBACKS.get(role_name, color_spec)
+
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        return _PALETTE_COLOR_FALLBACKS.get(role_name, color_spec)
+
+    return app.palette().color(role).name()
+
+
+def _canvas_background_color(*, gray_18_canvas: bool) -> str:
+    return GRAY_18 if gray_18_canvas else _resolved_theme_color(GRAY_0)
+
+
+def set_canvas_background(viewer: napari.Viewer, *, gray_18_canvas: bool) -> None:
+    background = _canvas_background_color(gray_18_canvas=gray_18_canvas)
+
+    viewer_window = getattr(viewer, 'window', None)
+    if viewer_window is None:
+        return
+
+    qt_viewer = getattr(viewer_window, '_qt_viewer', None)
+    if qt_viewer is None:
+        return
+
+    if hasattr(qt_viewer, 'setStyleSheet'):
+        qt_viewer.setStyleSheet(f'background: {background};')
+
+    canvas = getattr(qt_viewer, 'canvas', None)
+    if canvas is not None:
+        if hasattr(canvas, 'bgcolor'):
+            setattr(canvas, 'bgcolor', background)
+        native = getattr(canvas, 'native', None)
+        if native is not None and hasattr(native, 'setStyleSheet'):
+            native.setStyleSheet(f'background: {background};')
+
+
+def configure_napari_chrome(viewer: napari.Viewer, *, gray_18_canvas: bool = True) -> None:
     qt_window = getattr(viewer.window, '_qt_window', None)
     if qt_window is not None:
         menu_bar = qt_window.menuBar()
@@ -111,16 +205,7 @@ def configure_napari_chrome(viewer: napari.Viewer) -> None:
     if qt_viewer is None:
         return
 
-    if hasattr(qt_viewer, 'setStyleSheet'):
-        qt_viewer.setStyleSheet(f'background: {GRAY_0};')
-
-    canvas = getattr(qt_viewer, 'canvas', None)
-    if canvas is not None:
-        if hasattr(canvas, 'bgcolor'):
-            setattr(canvas, 'bgcolor', GRAY_0)
-        native = getattr(canvas, 'native', None)
-        if native is not None and hasattr(native, 'setStyleSheet'):
-            native.setStyleSheet(f'background: {GRAY_0};')
+    set_canvas_background(viewer, gray_18_canvas=gray_18_canvas)
 
     set_welcome_visible = getattr(qt_viewer, 'set_welcome_visible', None)
     if callable(set_welcome_visible):
@@ -253,14 +338,46 @@ def reset_viewer_camera(viewer: napari.Viewer) -> None:
                     layer.visible = was_visible
 
 
+def set_viewer_zoom_percent(viewer: napari.Viewer, percent: float) -> None:
+    viewer_window = getattr(viewer, 'window', None)
+    camera = getattr(viewer, 'camera', None)
+    if camera is None:
+        camera = getattr(viewer_window, 'camera', None)
+    if camera is None or not hasattr(camera, 'zoom'):
+        return
+
+    qt_viewer = getattr(viewer_window, '_qt_viewer', None)
+    pixel_ratio = 1.0
+
+    if qt_viewer is not None:
+        device_pixel_ratio = getattr(qt_viewer, 'devicePixelRatioF', None)
+        if callable(device_pixel_ratio):
+            try:
+                pixel_ratio = float(device_pixel_ratio())
+            except (TypeError, ValueError):
+                pixel_ratio = 1.0
+        elif hasattr(qt_viewer, 'devicePixelRatio'):
+            try:
+                pixel_ratio = float(qt_viewer.devicePixelRatio())
+            except (TypeError, ValueError):
+                pixel_ratio = 1.0
+
+    zoom_scale = max(0.0, float(percent)) / 100.0
+    camera.zoom = max(pixel_ratio * zoom_scale, pixel_ratio * 0.01)
+
+
 def _build_viewer_panel(
     viewer_widget: QWidget,
     status_bar: QStatusBar,
     *,
+    on_zoom_100: Callable[[], None] | None = None,
+    on_zoom_200: Callable[[], None] | None = None,
+    on_zoom_400: Callable[[], None] | None = None,
     on_home_view: Callable[[], None] | None = None,
 ) -> QFrame:
     panel = QtWidgets.QFrame()
     panel.setObjectName('viewerPanel')
+    divider_gap = int(SIZE_SPLITTER_HANDLE_MARGIN_LEFT.removesuffix('px'))
 
     status_container = QtWidgets.QWidget()
     status_layout = QtWidgets.QHBoxLayout(status_container)
@@ -270,19 +387,45 @@ def _build_viewer_panel(
     status_bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
     status_layout.addWidget(status_bar, 1)
 
+    zoom_100_button = QPushButton('100%')
+    zoom_100_button.setObjectName('zoom100Button')
+    zoom_100_button.setToolTip('Pixel of the screen mapped 1 to 1 to the image pixel')
+    if on_zoom_100 is not None:
+        zoom_100_button.clicked.connect(on_zoom_100)
+
+    zoom_200_button = QPushButton('200%')
+    zoom_200_button.setObjectName('zoom200Button')
+    zoom_200_button.setToolTip('2 screen pixels mapped to 1 image pixel')
+    if on_zoom_200 is not None:
+        zoom_200_button.clicked.connect(on_zoom_200)
+
+    zoom_400_button = QPushButton('400%')
+    zoom_400_button.setObjectName('zoom400Button')
+    zoom_400_button.setToolTip('4 screen pixels mapped to 1 image pixel')
+    if on_zoom_400 is not None:
+        zoom_400_button.clicked.connect(on_zoom_400)
+
     home_button = QPushButton('reset view')
     home_button.setObjectName('homeViewButton')
     if on_home_view is not None:
         home_button.clicked.connect(on_home_view)
-    row_height = home_button.sizeHint().height()
+    row_height = int(SIZE_FOOTER_MIN_HEIGHT.removesuffix('px'))
+    zoom_100_button.setFixedHeight(row_height)
+    zoom_200_button.setFixedHeight(row_height)
+    zoom_400_button.setFixedHeight(row_height)
+    home_button.setFixedHeight(row_height)
     status_bar.setFixedHeight(row_height)
     status_container.setFixedHeight(row_height)
+    status_layout.addWidget(zoom_100_button)
+    status_layout.addWidget(zoom_200_button)
+    status_layout.addWidget(zoom_400_button)
     status_layout.addWidget(home_button)
 
     layout = QtWidgets.QVBoxLayout(panel)
-    layout.setContentsMargins(SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_FOOTER_BOTTOM_INSET)
+    layout.setContentsMargins(SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, divider_gap, SIZE_FOOTER_BOTTOM_INSET)
     layout.setSpacing(0)
     layout.addWidget(viewer_widget, 1)
+    layout.addSpacing(SIZE_FOOTER_TOP_SPACING)
     layout.addWidget(status_container)
     return panel
 
@@ -291,6 +434,8 @@ def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -
     panel = QtWidgets.QTabWidget()
     panel.setObjectName('controlsTabWidget')
     panel.setDocumentMode(True)
+    panel.setUsesScrollButtons(False)
+    panel.tabBar().setDrawBase(False)
     panel.addTab(
         _wrap_scrollable(
             _build_controls_tab(
@@ -353,13 +498,23 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
     main_window.setWindowTitle('spektrafilm')
     main_window.setWindowIcon(QIcon())
     main_window.resize(DEFAULT_CONTROLS_PANEL_WIDTH + DEFAULT_VIEWER_SPLITTER_WIDTH, 980)
+    main_window.setFont(platform_default_font())
     main_window.setStyleSheet(APP_STYLE_SHEET)
     main_window.set_viewer_status_bar(status_bar)
     set_host_window(viewer, main_window)
 
     splitter = QtWidgets.QSplitter(Qt.Horizontal)
     splitter.setChildrenCollapsible(False)
-    splitter.addWidget(_build_viewer_panel(viewer_widget, status_bar, on_home_view=lambda: reset_viewer_camera(viewer)))
+    splitter.addWidget(
+        _build_viewer_panel(
+            viewer_widget,
+            status_bar,
+            on_zoom_100=lambda: set_viewer_zoom_percent(viewer, 100.0),
+            on_zoom_200=lambda: set_viewer_zoom_percent(viewer, 200.0),
+            on_zoom_400=lambda: set_viewer_zoom_percent(viewer, 400.0),
+            on_home_view=lambda: reset_viewer_camera(viewer),
+        )
+    )
     splitter.addWidget(_build_sidebar(controls_panel))
     splitter.setStretchFactor(0, 1)
     splitter.setStretchFactor(1, 0)
@@ -372,6 +527,7 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
     central_layout.addWidget(splitter, 1)
 
     main_window.setCentralWidget(central)
+    _request_dark_title_bar(main_window)
     main_window.statusBar().showMessage('ready', 3000)
     return main_window
 

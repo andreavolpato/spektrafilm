@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from spektrafilm_gui.theme_palette import (
     BASE_BG,
+    BUTTON_ACCENT_BG,
+    BUTTON_ACCENT_BG_HOVER,
+    BUTTON_ACCENT_BG_PRESSED,
     CHECKED_BG,
     CONTROL_BG,
     CONTROL_BG_HOVER,
@@ -9,8 +12,6 @@ from spektrafilm_gui.theme_palette import (
     CONTROL_MENU_BG,
     CONTROL_SELECTION_BG,
     DISABLED_BG,
-    FONT_SIZE_BASE,
-    FONT_SIZE_TAB,
     FONT_WEIGHT_BOLD,
     FONT_WEIGHT_SEMIBOLD,
     HEADER_BG,
@@ -28,6 +29,7 @@ from spektrafilm_gui.theme_palette import (
     SIZE_FORM_SPACING,
     SIZE_HEADER_PADDING,
     SIZE_SCROLLBAR_HANDLE_MIN,
+    SIZE_SPLITTER_HANDLE_MARGIN_LEFT,
     SIZE_SPLITTER_HANDLE_WIDTH,
     SIZE_SPIN_BUTTON_WIDTH,
     SIZE_TAB_MARGIN_RIGHT,
@@ -38,6 +40,8 @@ from spektrafilm_gui.theme_palette import (
     SPLITTER_BG,
     STATUS_BG,
     TAB_SELECTED_BG,
+    TAB_TEXT_ACCENT,
+    TEXT_ACCENT,
     TEXT_BRIGHT,
     TEXT_CONTROL,
     TEXT_HEADER,
@@ -65,7 +69,6 @@ QWidget#appCentral {{
 QWidget {{
     background: {BASE_BG};
     color: {TEXT_PRIMARY};
-    font-size: {FONT_SIZE_BASE};
 }}
 
 QFrame#sidebarPanel,
@@ -81,7 +84,6 @@ QFrame {{
 
 QLabel#sidebarEyebrow {{
     color: {TEXT_HEADER};
-    font-size: {FONT_SIZE_BASE};
     font-weight: {FONT_WEIGHT_SEMIBOLD};
     letter-spacing: 0.08em;
     text-transform: lowercase;
@@ -125,7 +127,6 @@ QTabBar::tab {{
     border: none;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
-    font-size: {FONT_SIZE_TAB};
     font-weight: {FONT_WEIGHT_BOLD};
     padding: {SIZE_TAB_PADDING};
     margin-right: {SIZE_TAB_MARGIN_RIGHT};
@@ -134,12 +135,33 @@ QTabBar::tab {{
 
 QTabBar::tab:selected {{
     background: {TAB_SELECTED_BG};
-    color: {TEXT_BRIGHT};
+    color: {TAB_TEXT_ACCENT};
     font-weight: {FONT_WEIGHT_BOLD};
 }}
 
 QTabBar::tab:hover {{
     background: {PANEL_BG_ACTIVE};
+}}
+
+QToolButton[role="sectionToggle"] {{
+    color: {TEXT_ACCENT};
+}}
+
+QPushButton[role="accentAction"] {{
+    background: {BUTTON_ACCENT_BG};
+    color: {TEXT_BRIGHT};
+    font-weight: {FONT_WEIGHT_BOLD};
+}}
+
+QPushButton[role="accentAction"]:hover {{
+    background: {BUTTON_ACCENT_BG_HOVER};
+    font-weight: {FONT_WEIGHT_BOLD};
+}}
+
+QPushButton[role="accentAction"]:pressed {{
+    background: {BUTTON_ACCENT_BG_PRESSED};
+    font-weight: {FONT_WEIGHT_BOLD};
+
 }}
 """
 
@@ -229,9 +251,20 @@ QComboBox QAbstractItemView {{
     background: {CONTROL_MENU_BG};
     color: {TEXT_PRIMARY};
     border: none;
-    selection-background-color: {CONTROL_SELECTION_BG};
-    selection-color: {TEXT_BRIGHT};
+    selection-background-color: {CONTROL_BG};
+    selection-color: {TEXT_PRIMARY};
     outline: none;
+}}
+
+QComboBox QAbstractItemView::item:selected {{
+    background: {CONTROL_BG};
+    border-left: 2px solid {TEXT_ACCENT};
+}}
+
+QMenu::item:selected {{
+    background: {CONTROL_BG};
+    color: {TEXT_PRIMARY};
+    border-left: 2px solid {TEXT_ACCENT};
 }}
 
 QAbstractItemView {{
@@ -240,6 +273,11 @@ QAbstractItemView {{
     selection-color: {TEXT_BRIGHT};
     border: none;
     outline: none;
+}}
+
+QAbstractItemView::item:selected {{
+    background: {CONTROL_BG};
+    border-left: 2px solid {TEXT_ACCENT};
 }}
 
 QHeaderView::section {{
@@ -296,7 +334,7 @@ QSplitter::handle {{
 }}
 
 QSplitter::handle:horizontal {{
-    margin: 0;
+    margin: 0 0 0 {SIZE_SPLITTER_HANDLE_MARGIN_LEFT};
 }}
 
 QScrollBar:vertical,

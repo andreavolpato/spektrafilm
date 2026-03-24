@@ -44,6 +44,7 @@ def _make_state() -> GuiState:
     state.simulation.saving_cctf_encoding = False
     state.simulation.scan_film = True
     state.display.use_display_transform = False
+    state.display.gray_18_canvas = True
     state.display.white_padding = 0.24
     return state
 

@@ -20,7 +20,7 @@ from spektrafilm_gui.persistence import (
 )
 from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 from spektrafilm_gui.state_bridge import GuiWidgets, apply_gui_state, collect_gui_state
-from spektrafilm_gui.napari_layout import dialog_parent, set_status
+from spektrafilm_gui.napari_layout import dialog_parent, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm.runtime.api import simulate
 from spektrafilm.utils.io import load_image_oiio, save_image_oiio
@@ -51,7 +51,7 @@ class SimulationRequest:
     params: object
     output_color_space: str
     use_display_transform: bool
-    padding_pixels: int
+    white_padding_fraction: float
 
 
 @dataclass(slots=True)
@@ -150,6 +150,9 @@ class GuiController:
         if enabled and not self.sync_display_transform_availability(report_status=True):
             return
         set_status(self._viewer, self._display_transform_status_message(enabled))
+
+    def set_gray_18_canvas_enabled(self, enabled: bool) -> None:
+        set_canvas_background(self._viewer, gray_18_canvas=enabled)
 
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if self._display_profile_available():
@@ -258,6 +261,7 @@ class GuiController:
             return
 
         apply_gui_state(gui_state, widgets=self._widgets)
+        self._sync_canvas_background()
         set_status(self._viewer, f'Loaded GUI state from {filepath}')
 
     def restore_factory_default(self) -> None:
@@ -268,6 +272,7 @@ class GuiController:
             return
 
         apply_gui_state(PROJECT_DEFAULT_GUI_STATE, widgets=self._widgets)
+        self._sync_canvas_background()
         set_status(self._viewer, 'Restored factory default GUI state')
 
     def _available_input_layers(self) -> list[NapariImageLayer]:
@@ -447,10 +452,10 @@ class GuiController:
     def _display_transform_status_message(enabled: bool) -> str:
         if not enabled:
             return 'Display transform: disabled'
-        display_profile = ImageCms.get_display_profile()
+        display_profile, profile_name = GuiController._display_profile_details()
         if display_profile is None:
             return 'Display transform: no display profile, using raw preview'
-        return 'Display transform: display profile found'
+        return f'Display transform: display profile found ({profile_name})'
 
     @staticmethod
     def _display_profile_available() -> bool:
@@ -458,6 +463,34 @@ class GuiController:
             return ImageCms.get_display_profile() is not None
         except (OSError, ValueError, TypeError, ImageCms.PyCMSError):
             return False
+
+    @staticmethod
+    def _display_profile_details() -> tuple[object | None, str | None]:
+        try:
+            display_profile = ImageCms.get_display_profile()
+        except (OSError, ValueError, TypeError, ImageCms.PyCMSError):
+            return None, None
+        if display_profile is None:
+            return None, None
+        return display_profile, GuiController._display_profile_name(display_profile)
+
+    @staticmethod
+    def _display_profile_name(display_profile: object) -> str:
+        try:
+            profile_name = ImageCms.getProfileName(display_profile)
+        except (AttributeError, OSError, ValueError, TypeError, ImageCms.PyCMSError):
+            profile_name = None
+
+        if isinstance(profile_name, str):
+            cleaned_name = profile_name.replace('\x00', ' ').strip()
+            if cleaned_name:
+                return ' '.join(cleaned_name.split())
+
+        profile_filename = getattr(display_profile, 'filename', None)
+        if isinstance(profile_filename, str) and profile_filename.strip():
+            return Path(profile_filename).stem
+
+        return type(display_profile).__name__
 
     def _set_display_transform_checked(self, enabled: bool) -> None:
         display_section = getattr(self._widgets, 'display', None)
@@ -479,9 +512,15 @@ class GuiController:
             if callable(block_signals):
                 block_signals(bool(previous_block_state))
 
+    def _sync_canvas_background(self) -> None:
+        display_section = getattr(self._widgets, 'display', None)
+        toggle = getattr(display_section, 'gray_18_canvas', None)
+        is_checked = getattr(toggle, 'isChecked', None)
+        self.set_gray_18_canvas_enabled(bool(is_checked()) if callable(is_checked) else False)
+
     @staticmethod
     def _apply_display_transform(image_data: np.ndarray, *, output_color_space: str) -> tuple[np.ndarray, str]:
-        display_profile = ImageCms.get_display_profile()
+        display_profile, profile_name = GuiController._display_profile_details()
         if display_profile is None:
             return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
 
@@ -496,16 +535,17 @@ class GuiController:
         source_profile = ImageCms.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
         source_image = PILImage.fromarray(srgb_preview_uint8, mode='RGB')
         transformed_image = ImageCms.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
-        return np.asarray(transformed_image, dtype=np.uint8), 'Display transform: active'
+        return np.asarray(transformed_image, dtype=np.uint8), f'Display transform: active ({profile_name})'
 
     @staticmethod
     def _execute_simulation_request(request: SimulationRequest) -> SimulationResult:
         scan = simulate(request.image, request.params)
+        padding_pixels = GuiController._padding_pixels_for_image(scan, request.white_padding_fraction)
         scan_display, display_status = GuiController._prepare_output_display_image(
             scan,
             output_color_space=request.output_color_space,
             use_display_transform=request.use_display_transform,
-            padding_pixels=request.padding_pixels,
+            padding_pixels=padding_pixels,
         )
         return SimulationResult(
             mode_label=request.mode_label,
@@ -537,7 +577,7 @@ class GuiController:
             params=params,
             output_color_space=state.simulation.output_color_space,
             use_display_transform=state.display.use_display_transform,
-            padding_pixels=self._padding_pixels_for_image(image, state.display.white_padding),
+            white_padding_fraction=float(state.display.white_padding),
         )
 
         worker = _SimulationWorker(request)
@@ -591,8 +631,8 @@ class GuiController:
         params = build_params_from_state(state)
 
         image = np.double(self._processing_input_image(input_layer))
-        padding_pixels = self._padding_pixels_for_image(image, state.display.white_padding)
         scan = simulate(image, params)
+        padding_pixels = self._padding_pixels_for_image(scan, state.display.white_padding)
         scan_display, display_status = self._prepare_output_display_image(
             scan,
             output_color_space=state.simulation.output_color_space,
