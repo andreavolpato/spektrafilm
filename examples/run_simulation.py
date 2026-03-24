@@ -6,14 +6,14 @@ pipeline, and displays the result using matplotlib.
 """
 
 import matplotlib.pyplot as plt
-from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm import create_params, simulate
 from spektrafilm.utils.io import load_image_oiio
 
 
 def run_simulation():
     image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
-    params = photo_params()
-    params.source_render.grain.sublayers_active = True
+    params = create_params()
+    params.film_render.grain.sublayers_active = True
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
     params.io.preview_resize_factor = 1.0
@@ -21,9 +21,9 @@ def run_simulation():
     params.enlarger.print_exposure = 1.0
     params.camera.film_format_mm = 35
     params.print_render.glare.active = True
-    print_scan = photo_process(image, params)
+    print_scan = simulate(image, params)
     params.io.scan_film = True
-    negative_scan = photo_process(image, params)
+    negative_scan = simulate(image, params)
 
     _, axs = plt.subplots(1, 2)
     axs[0].imshow(negative_scan)
