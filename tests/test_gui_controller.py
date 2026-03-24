@@ -83,11 +83,11 @@ def test_run_simulation_uses_unpadded_raw_input_metadata(monkeypatch) -> None:
     monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, "build_params_from_state", lambda state: object())
 
-    def fake_photo_process(image, params):
+    def fake_simulate(image, params):
         captured["processing_input"] = image.copy()
         return np.full((2, 2, 3), 0.5, dtype=np.float32)
 
-    monkeypatch.setattr(controller_module, "photo_process", fake_photo_process)
+    monkeypatch.setattr(controller_module, "simulate", fake_simulate)
     monkeypatch.setattr(
         controller,
         "_prepare_output_display_image",
@@ -350,7 +350,7 @@ def test_run_simulation_uses_display_transform_preview_when_enabled(monkeypatch)
     monkeypatch.setattr(controller, "_selected_input_layer", lambda: input_layer)
     monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, "build_params_from_state", lambda state: object())
-    monkeypatch.setattr(controller_module, "photo_process", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
+    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
 
     def fake_prepare_output_display_image(image_data, *, output_color_space, use_display_transform, padding_pixels=0.0):
         captured["display_args"] = {
@@ -465,7 +465,7 @@ def test_run_simulation_applies_white_padding_only_to_preview(monkeypatch) -> No
     monkeypatch.setattr(controller, "_selected_input_layer", lambda: input_layer)
     monkeypatch.setattr(controller_module, "collect_gui_state", lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, "build_params_from_state", lambda state: object())
-    monkeypatch.setattr(controller_module, "photo_process", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
+    monkeypatch.setattr(controller_module, "simulate", lambda image, params: np.full((2, 2, 3), 0.5, dtype=np.float32))
 
     def fake_prepare_output_display_image(image_data, *, output_color_space, use_display_transform, padding_pixels=0.0):
         captured["display_input"] = image_data.copy()

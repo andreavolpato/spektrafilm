@@ -3,12 +3,12 @@ from __future__ import annotations
 import numpy as np
 
 from spektrafilm_gui.state import GuiState
+from spektrafilm.runtime.api import create_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
-from spektrafilm.runtime.process import photo_params
 
 
 def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
-    params = photo_params(
+    params = create_params(
         film_profile=state.simulation.film_stock,
         print_profile=state.simulation.print_paper,
     )

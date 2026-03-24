@@ -23,8 +23,9 @@ def small_rgb_image():
 @pytest.fixture
 def default_params():
     """Default photo_params with expensive effects disabled for fast tests."""
-    from spektrafilm.runtime.process import photo_params
-    params = photo_params()
+    from spektrafilm import create_params
+
+    params = create_params()
     # Disable stochastic/spatial effects for determinism and speed
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True

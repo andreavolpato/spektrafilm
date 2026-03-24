@@ -5,7 +5,7 @@ import scipy
 import scipy.stats
 import matplotlib.pyplot as plt
 
-from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm.runtime.api import create_params, simulate
 
 
 ################################################################################
@@ -253,7 +253,7 @@ def fit_print_filters_iter(profile):
         p.enlarger.y_filter_neutral = ymc_values[0]
         p.enlarger.m_filter_neutral = ymc_values[1]
         p.enlarger.print_exposure = print_exposure
-        rgb = photo_process(midgray_rgb, p)
+        rgb = simulate(midgray_rgb, p)
         return rgb
 
     def evaluate_residues(x):
@@ -334,7 +334,7 @@ def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
                     y0 = np.clip(y0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
                     m0 = np.clip(m0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
 
-                    p = photo_params(
+                    p = create_params(
                         film_profile=stock.value,
                         print_profile=paper.value,
                         ymc_filters_from_database=False,

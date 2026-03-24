@@ -4,8 +4,8 @@ from dataclasses import dataclass, is_dataclass, replace
 from typing import TypeVar
 
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm.runtime.api import create_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
-from spektrafilm.runtime.process import photo_params
 
 
 StateSection = TypeVar('StateSection')
@@ -245,7 +245,7 @@ def gui_state_from_params(
 
 
 def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
-    params = photo_params(film_profile=film_stock, print_profile=print_paper)
+    params = create_params(film_profile=film_stock, print_profile=print_paper)
     return gui_state_from_params(params, film_stock=film_stock, print_paper=print_paper)
 
 

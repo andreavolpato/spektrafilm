@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import scipy.interpolate
 import copy
-from spektrafilm.runtime.process import photo_process, photo_params
+from spektrafilm.runtime.api import create_params, simulate
 from spektrafilm_profile_creator.fitting import fit_print_filters
 from spektrafilm_profile_creator.data.loader import load_densitometer_data
 
@@ -49,7 +49,7 @@ def correct_negative_curves_with_gray_ramp(source_profile,
                                            ev_ramp=[-2,-1,0,1,2,3,4,5,6]
                                            ):
     # get the parameters
-    pl = photo_params(print_profile=target_paper, ymc_filters_from_database=False)
+    pl = create_params(print_profile=target_paper, ymc_filters_from_database=False)
     pl.film = copy.deepcopy(source_profile)
     pl.settings.rgb_to_raw_method = 'mallett2019'
     fit_print_filters(pl)
@@ -67,7 +67,7 @@ def correct_positive_curves_with_gray_ramp(positive_film_profile,
                                            ev_ramp=[-1,0,1,2],
                                            ):
     # get the parameters
-    pl = photo_params(ymc_filters_from_database=False)
+    pl = create_params(ymc_filters_from_database=False)
     pl.film = copy.deepcopy(positive_film_profile)
     pl.io.scan_film = True
     pl.settings.rgb_to_raw_method = 'hanatos2025'
@@ -124,7 +124,7 @@ def gray_ramp(p0, ev_ramp, density_scale=[1,1,1], shift_corr=[0,0,0], stretch_co
     gray = np.zeros((np.size(ev_ramp),3))
     for i in np.arange(np.size(ev_ramp)):
         pl.camera.exposure_compensation_ev = ev_ramp[i]
-        gray[i] = photo_process(midgray_rgb, pl).flatten()
+        gray[i] = simulate(midgray_rgb, pl).flatten()
     return gray, midgray_rgb
 
 def apply_scale_shift_stretch_density_curves(profile, density_scale=[1,1,1], log_exposure_shift=[0,0,0], log_exposure_strech=[1,1,1]):

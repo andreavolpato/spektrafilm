@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from spektrafilm.profiles.io import load_profile
-from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm.runtime.api import create_params, simulate
 
 
 def plot_profile(profile, unmixed=False, original=None):
@@ -105,7 +105,7 @@ def plot_grain_chart(profile=None, film_format_mm=35):
     pixel_size = np.sqrt((densitometer_aperture_diameter / 2) ** 2 * np.pi)
     film_format_mm = np.max(image.shape) * pixel_size / 1000
 
-    params = photo_params()
+    params = create_params()
     params.film = profile
     params.camera.film_format_mm = film_format_mm
     params.io.input_cctf_decoding = False
@@ -114,7 +114,7 @@ def plot_grain_chart(profile=None, film_format_mm=35):
     params.io.scan_film = True
     params.debug.deactivate_spatial_effects = True
     params.debug.return_film_density_cmy = True
-    density_cmy = photo_process(image, params)
+    density_cmy = simulate(image, params)
 
     rms = np.std(density_cmy, axis=0) * 1000
 

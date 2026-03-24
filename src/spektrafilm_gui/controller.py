@@ -22,7 +22,7 @@ from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 from spektrafilm_gui.state_bridge import GuiWidgets, apply_gui_state, collect_gui_state
 from spektrafilm_gui.napari_layout import dialog_parent, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
-from spektrafilm.runtime.process import photo_process
+from spektrafilm.runtime.api import simulate
 from spektrafilm.utils.io import load_image_oiio, save_image_oiio
 
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
@@ -500,7 +500,7 @@ class GuiController:
 
     @staticmethod
     def _execute_simulation_request(request: SimulationRequest) -> SimulationResult:
-        scan = photo_process(request.image, request.params)
+        scan = simulate(request.image, request.params)
         scan_display, display_status = GuiController._prepare_output_display_image(
             scan,
             output_color_space=request.output_color_space,
@@ -592,7 +592,7 @@ class GuiController:
 
         image = np.double(self._processing_input_image(input_layer))
         padding_pixels = self._padding_pixels_for_image(image, state.display.white_padding)
-        scan = photo_process(image, params)
+        scan = simulate(image, params)
         scan_display, display_status = self._prepare_output_display_image(
             scan,
             output_color_space=state.simulation.output_color_space,
