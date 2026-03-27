@@ -5,6 +5,7 @@ class FilmStocks(Enum):
     kodak_ektar_100 = 'kodak_ektar_100_auc'
     kodak_portra_160 = 'kodak_portra_160_auc'
     kodak_portra_400 = 'kodak_portra_400_auc'
+    kodak_portra_400_new = 'kodak_portra_400'
     kodak_portra_800 = 'kodak_portra_800_auc'
     kodak_portra_800_push1 = 'kodak_portra_800_push1_auc'
     kodak_portra_800_push2 = 'kodak_portra_800_push2_auc'
@@ -18,6 +19,7 @@ class FilmStocks(Enum):
     kodak_vision3_500t = 'kodak_vision3_500t_uc'
     # fuji pro
     fujifilm_pro_400h = 'fujifilm_pro_400h_auc'
+    fujifilm_pro_400h_new = 'fujifilm_pro_400h'
     # fuji consumer
     fujifilm_c200 = 'fujifilm_c200_auc'
     fujifilm_xtra_400 = 'fujifilm_xtra_400_auc'

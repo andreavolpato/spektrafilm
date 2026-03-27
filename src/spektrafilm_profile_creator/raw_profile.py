@@ -14,13 +14,10 @@ class RawProfileRecipe:
     dye_density_cmy_donor: str | None = None
     dye_density_min_mid_donor: str | None = None
     dye_density_reconstruct_model: str = 'dmid_dmin'
-    apply_gray_ramp: bool = False
     gray_ramp_kwargs: dict[str, Any] = field(default_factory=dict)
-    align_midscale_exposures: bool = False
     reference_channel: str | None = None
     target_paper: str | None = None
     data_trustability: float = 1.0
-    correction_reference_channel: str | None = None
     should_process: bool = True
 
 

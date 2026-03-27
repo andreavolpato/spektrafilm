@@ -128,13 +128,10 @@ def load_raw_profile(stock):
         dye_density_cmy_donor=donors_payload.get('dye_density_cmy'),
         dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
         dye_density_reconstruct_model=workflow_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
-        apply_gray_ramp=workflow_payload.get('apply_gray_ramp', False),
         gray_ramp_kwargs=dict(_mapping(workflow_payload.get('gray_ramp_kwargs'), 'workflow.gray_ramp_kwargs')),
-        align_midscale_exposures=workflow_payload.get('align_midscale_exposures', False),
-        reference_channel=workflow_payload.get('reference_channel'),
+        reference_channel=recipe_payload.get('correction_reference_channel', workflow_payload.get('reference_channel')),
         target_paper=recipe_payload.get('target_paper'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
-        correction_reference_channel=recipe_payload.get('correction_reference_channel'),
         should_process=recipe_payload.get('should_process', True),
     )
 
