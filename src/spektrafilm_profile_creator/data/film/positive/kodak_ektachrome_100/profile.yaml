@@ -1,0 +1,9 @@
+name: Kodak Ektachrome 100
+profile:
+  type: positive
+  support: film
+  channel_model: color
+  densitometer: status_A
+  log_sensitivity_density_over_min: 0.2
+  reference_illuminant: D55
+  viewing_illuminant: D50

@@ -1,7 +1,15 @@
 import numpy as np
 import pytest
 
+from spektrafilm.profiles.io import Profile
 from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm_profile_creator import (
+    RawProfile,
+    RawProfileRecipe,
+    load_raw_profile,
+    process_profile,
+    process_negative_film_profile,
+)
 
 from tests.profiles_creator.create_profile_regression_baselines import (
     assert_matches_baseline,
@@ -26,30 +34,78 @@ def make_runtime_params(print_profile: str):
     return params
 
 
-@pytest.fixture(scope='module')
-def portra_400_processed_profile():
+@pytest.fixture(scope='module', name='portra_400_processed_profile')
+def _portra_400_processed_profile_fixture():
     case = find_case('create_profile_kodak_portra_400')
     return case, compute_processed_profile(case)
 
 
-@pytest.fixture(scope='module')
-def portra_endura_paper_processed_profile():
+@pytest.fixture(scope='module', name='portra_endura_paper_processed_profile')
+def _portra_endura_paper_processed_profile_fixture():
     case = find_case('create_profile_kodak_portra_endura_paper')
     return case, compute_processed_profile(case)
 
 
 class TestCreateProfile:
+    def test_load_raw_profile_reads_yaml_info_and_recipe(self):
+        raw_profile = load_raw_profile('kodak_portra_400')
+        paper_raw_profile = load_raw_profile('kodak_portra_endura')
+
+        assert isinstance(raw_profile, RawProfile)
+        assert isinstance(raw_profile.recipe, RawProfileRecipe)
+        assert raw_profile.recipe.dye_density_reconstruct_model == 'dmid_dmin'
+        assert raw_profile.recipe.gray_ramp_kwargs == {}
+        assert raw_profile.recipe.align_midscale_exposures is False
+        assert paper_raw_profile.recipe.align_midscale_exposures is False
+
+    def test_negative_workflow_returns_profile(self):
+        case = find_case('create_profile_kodak_portra_400')
+        raw_profile = load_raw_profile(case.stock)
+
+        result = process_negative_film_profile(raw_profile)
+
+        assert isinstance(result, Profile)
+        assert result.info.stock == case.stock
+
+    def test_load_raw_profile_accepts_stock_string(self):
+        case = find_case('create_profile_kodak_portra_400')
+
+        raw_profile = load_raw_profile(case.stock)
+
+        assert raw_profile.info.stock == case.stock
+        assert raw_profile.info.support == 'film'
+        assert raw_profile.info.type == 'negative'
+        assert raw_profile.info.channel_model == 'color'
+
+    def test_process_profile_dispatches_from_raw_profile(self):
+        case = find_case('create_profile_kodak_portra_400')
+        raw_profile = load_raw_profile(case.stock)
+
+        result = process_profile(raw_profile)
+
+        assert isinstance(result, Profile)
+        assert result.info.stock == case.stock
+
+    def test_process_profile_dispatches_from_stock_string(self):
+        case = find_case('create_profile_kodak_portra_400')
+
+        result = process_profile(case.stock)
+
+        assert isinstance(result, Profile)
+        assert result.info.stock == case.stock
+
     def test_processed_profile_matches_regression_baseline(self, portra_400_processed_profile):
         case, profile = portra_400_processed_profile
         expected = load_baseline(case.case_id)
+        raw_profile = load_raw_profile(case.stock)
 
         assert profile.info.stock == case.stock
-        assert profile.info.type == case.type
-        assert profile.info.support == case.support
+        assert profile.info.type == raw_profile.info.type
+        assert profile.info.support == raw_profile.info.support
         assert profile.info.channel_model == 'color'
-        assert profile.info.densitometer == case.densitometer
-        assert profile.info.reference_illuminant == case.reference_illuminant
-        assert profile.info.viewing_illuminant == 'D50'
+        assert profile.info.densitometer == raw_profile.info.densitometer
+        assert profile.info.reference_illuminant == raw_profile.info.reference_illuminant
+        assert profile.info.viewing_illuminant == raw_profile.info.viewing_illuminant
 
         assert_matches_baseline(case.case_id, profile, expected)
 
@@ -69,14 +125,15 @@ class TestCreateProfile:
     def test_processed_paper_profile_matches_regression_baseline(self, portra_endura_paper_processed_profile):
         case, profile = portra_endura_paper_processed_profile
         expected = load_baseline(case.case_id)
+        raw_profile = load_raw_profile(case.stock)
 
         assert profile.info.stock == case.stock
-        assert profile.info.type == case.type
-        assert profile.info.support == case.support
+        assert profile.info.type == raw_profile.info.type
+        assert profile.info.support == raw_profile.info.support
         assert profile.info.channel_model == 'color'
-        assert profile.info.densitometer == case.densitometer
-        assert profile.info.reference_illuminant == case.reference_illuminant
-        assert profile.info.viewing_illuminant == case.viewing_illuminant
+        assert profile.info.densitometer == raw_profile.info.densitometer
+        assert profile.info.reference_illuminant == raw_profile.info.reference_illuminant
+        assert profile.info.viewing_illuminant == raw_profile.info.viewing_illuminant
 
         assert_matches_baseline(case.case_id, profile, expected)
 

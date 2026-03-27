@@ -5,7 +5,7 @@ import numpy as np
 from spektrafilm.runtime.process import photo_params
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.model.illuminants import Illuminants
-from spektrafilm_profile_creator.fitting import fit_print_filters
+from spektrafilm_profile_creator.printing_filters import fit_print_filters
 from spektrafilm.utils.io import save_ymc_filter_values
 
 
@@ -55,7 +55,7 @@ def fit_all_stocks(ymc_filters, residues, iterations=5, randomess_starting_point
                     p.enlarger.m_filter_neutral = m0
                     p.enlarger.c_filter_neutral = c0
 
-                    yf, mf, res = fit_print_filters(p, iterations=iterations)
+                    yf, mf, res = fit_print_filters(p, iterations=iterations, stock=stock.value)
                     ymc_filters_out[paper.value][light.value][stock.value] = [yf, mf, c0]
                     residues[paper.value][light.value][stock.value] = np.sum(np.abs(res))
 

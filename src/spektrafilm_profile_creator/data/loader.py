@@ -1,10 +1,18 @@
 import importlib.resources as pkg_resources
+from collections.abc import Mapping
+from functools import lru_cache
 
 import numpy as np
 import scipy.interpolate
+import yaml
 
 from spektrafilm.config import LOG_EXPOSURE, SPECTRAL_SHAPE
-from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES
+from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES, ProfileData, ProfileInfo
+from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
+
+
+RAW_PROFILE_FILENAME = 'profile.yaml'
+_DATA_ROOT_PACKAGE = 'spektrafilm_profile_creator.data'
 
 
 def interpolate_to_common_axis(data, new_x, extrapolate=False, method='akima'):
@@ -39,14 +47,134 @@ def load_csv(datapkg, filename):
     return raw_data
 
 
+def _mapping(payload, section_name):
+    if payload is None:
+        return {}
+    if not isinstance(payload, Mapping):
+        raise TypeError(f'Raw profile section {section_name!r} must be a mapping')
+    return dict(payload)
+
+
+def _load_manifest_payload(manifest, stock):
+    payload = yaml.safe_load(manifest.read_text(encoding='utf-8'))
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, Mapping):
+        raise TypeError(f'Raw profile manifest for {stock!r} must be a mapping')
+    return dict(payload)
+
+
+@lru_cache(maxsize=1)
+def load_stock_catalog() -> dict[str, str]:
+    catalog: dict[str, str] = {}
+    data_root = pkg_resources.files(_DATA_ROOT_PACKAGE)
+    for support_dir in data_root.iterdir():
+        if not support_dir.is_dir() or support_dir.name not in PROFILE_SUPPORTS:
+            continue
+        for kind_dir in support_dir.iterdir():
+            if not kind_dir.is_dir():
+                continue
+            data_package = f'{_DATA_ROOT_PACKAGE}.{support_dir.name}.{kind_dir.name}'
+            for stock_dir in kind_dir.iterdir():
+                if not stock_dir.is_dir():
+                    continue
+                manifest = stock_dir / RAW_PROFILE_FILENAME
+                if not manifest.is_file():
+                    continue
+                if stock_dir.name in catalog:
+                    raise ValueError(f'Duplicate stock found in raw profile catalog: {stock_dir.name!r}')
+                catalog[stock_dir.name] = data_package
+    return dict(sorted(catalog.items()))
+
+
+def _resolve_agx_emulsion_data_package(*, support, profile_type, channel_model) -> str:
+    if support not in PROFILE_SUPPORTS:
+        raise ValueError(f'Unsupported emulsion data selection: support={support}')
+    if profile_type not in PROFILE_TYPES:
+        raise ValueError(f'Unsupported emulsion data selection: type={profile_type}')
+    if channel_model not in PROFILE_CHANNEL_MODELS:
+        raise ValueError(f'Unsupported emulsion data selection: channel_model={channel_model}')
+    kind = 'bw' if channel_model == 'bw' else profile_type
+    return f'{_DATA_ROOT_PACKAGE}.{support}.{kind}'
+
+
+def load_raw_profile(stock):
+    data_package = load_stock_catalog().get(stock)
+    if data_package is None:
+        raise FileNotFoundError(f'No raw profile manifest found for stock {stock!r}')
+
+    manifest = pkg_resources.files(data_package) / stock / RAW_PROFILE_FILENAME
+    root_payload = _load_manifest_payload(manifest, stock)
+
+    profile_payload = _mapping(root_payload.get('profile'), 'profile')
+    donors_payload = _mapping(root_payload.get('donors'), 'donors')
+    workflow_payload = _mapping(root_payload.get('workflow'), 'workflow')
+    recipe_payload = _mapping(root_payload.get('recipe'), 'recipe')
+
+    info = ProfileInfo(
+        stock=stock,
+        name=root_payload.get('name', stock),
+        type=profile_payload.get('type', 'negative'),
+        support=profile_payload.get('support', 'film'),
+        channel_model=profile_payload.get('channel_model', 'color'),
+        densitometer=profile_payload.get('densitometer', 'status_M'),
+        log_sensitivity_density_over_min=profile_payload.get('log_sensitivity_density_over_min', 0.2),
+        reference_illuminant=profile_payload.get('reference_illuminant', 'D55'),
+        viewing_illuminant=profile_payload.get('viewing_illuminant', 'D50'),
+    )
+    recipe = RawProfileRecipe(
+        log_sensitivity_donor=donors_payload.get('log_sensitivity'),
+        density_curves_donor=donors_payload.get('density_curves'),
+        dye_density_cmy_donor=donors_payload.get('dye_density_cmy'),
+        dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
+        dye_density_reconstruct_model=workflow_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
+        apply_gray_ramp=workflow_payload.get('apply_gray_ramp', False),
+        gray_ramp_kwargs=dict(_mapping(workflow_payload.get('gray_ramp_kwargs'), 'workflow.gray_ramp_kwargs')),
+        align_midscale_exposures=workflow_payload.get('align_midscale_exposures', False),
+        reference_channel=workflow_payload.get('reference_channel'),
+        target_paper=recipe_payload.get('target_paper'),
+        data_trustability=recipe_payload.get('data_trustability', 1.0),
+        correction_reference_channel=recipe_payload.get('correction_reference_channel'),
+        should_process=recipe_payload.get('should_process', True),
+    )
+
+    log_sensitivity, dye_density, wavelengths, density_curves, log_exposure = load_agx_emulsion_data(
+        stock=stock,
+        data_package=data_package,
+        log_sensitivity_donor=recipe.log_sensitivity_donor,
+        density_curves_donor=recipe.density_curves_donor,
+        dye_density_cmy_donor=recipe.dye_density_cmy_donor,
+        dye_density_min_mid_donor=recipe.dye_density_min_mid_donor,
+        profile_type=info.type,
+        support=info.support,
+        channel_model=info.channel_model,
+    )
+
+    return RawProfile(
+        info=info,
+        data=ProfileData(
+            log_sensitivity=log_sensitivity,
+            wavelengths=wavelengths,
+            density_curves=density_curves,
+            log_exposure=log_exposure,
+            channel_density=np.asarray(dye_density[:, :3]),
+            base_density=np.asarray(dye_density[:, 3]),
+            midscale_neutral_density=np.asarray(dye_density[:, 4]),
+            density_curves_layers=np.array((0, 3, 3)),
+        ),
+        recipe=recipe,
+    )
+
+
 def load_agx_emulsion_data(stock='kodak_portra_400',
                            log_sensitivity_donor=None,
-                           denisty_curves_donor=None,
+                           density_curves_donor=None,
                            dye_density_cmy_donor=None,
                            dye_density_min_mid_donor=None,
                            profile_type='negative',
                            support='film',
                            channel_model='color',
+                           data_package=None,
                            spectral_shape=SPECTRAL_SHAPE,
                            log_exposure=np.copy(LOG_EXPOSURE),
                            ):
@@ -62,14 +190,11 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
     if channel_model == 'bw':
         raise ValueError('Unsupported emulsion data selection: channel_model=bw. Only color datasets are available.')
 
-    if support == 'film' and profile_type == 'negative':
-        maindatapkg = 'spektrafilm_profile_creator.data.film.negative'
-    elif support == 'film' and profile_type == 'positive':
-        maindatapkg = 'spektrafilm_profile_creator.data.film.positive'
-    elif support == 'paper':
-        maindatapkg = 'spektrafilm_profile_creator.data.paper'
-    else:
-        raise ValueError(f'Unsupported emulsion data selection: channel_model={channel_model}, type={profile_type}, support={support}')
+    maindatapkg = data_package or _resolve_agx_emulsion_data_package(
+        support=support,
+        profile_type=profile_type,
+        channel_model=channel_model,
+    )
 
     if log_sensitivity_donor is not None:
         datapkg = maindatapkg + '.' + log_sensitivity_donor
@@ -83,8 +208,8 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
         log_sens = interpolate_to_common_axis(data, spectral_shape.wavelengths)
         log_sensitivity[:, i] = log_sens
 
-    if denisty_curves_donor is not None:
-        datapkg = maindatapkg + '.' + denisty_curves_donor
+    if density_curves_donor is not None:
+        datapkg = maindatapkg + '.' + density_curves_donor
     else:
         datapkg = maindatapkg + '.' + stock
     dh_curve_r = load_csv(datapkg, 'density_curve_r.csv')
@@ -135,3 +260,14 @@ def load_densitometer_data(densitometer_type='status_A', spectral_shape=SPECTRAL
     responsivities[responsivities < 0] = 0
     responsivities /= np.nansum(responsivities, axis=0)
     return responsivities
+
+
+__all__ = [
+    'RAW_PROFILE_FILENAME',
+    'interpolate_to_common_axis',
+    'load_agx_emulsion_data',
+    'load_csv',
+    'load_densitometer_data',
+    'load_raw_profile',
+    'load_stock_catalog',
+]
