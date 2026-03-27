@@ -55,7 +55,7 @@ def _mapping(payload, section_name):
     return dict(payload)
 
 
-def _load_manifest_payload(manifest, stock):
+def _load_profile_manifest(manifest, stock):
     payload = yaml.safe_load(manifest.read_text(encoding='utf-8'))
     if payload is None:
         payload = {}
@@ -87,7 +87,7 @@ def load_stock_catalog() -> dict[str, str]:
     return dict(sorted(catalog.items()))
 
 
-def _resolve_agx_emulsion_data_package(*, support, profile_type, channel_model) -> str:
+def _resolve_stock_data_package(*, support, profile_type, channel_model) -> str:
     if support not in PROFILE_SUPPORTS:
         raise ValueError(f'Unsupported emulsion data selection: support={support}')
     if profile_type not in PROFILE_TYPES:
@@ -104,7 +104,7 @@ def load_raw_profile(stock):
         raise FileNotFoundError(f'No raw profile manifest found for stock {stock!r}')
 
     manifest = pkg_resources.files(data_package) / stock / RAW_PROFILE_FILENAME
-    root_payload = _load_manifest_payload(manifest, stock)
+    root_payload = _load_profile_manifest(manifest, stock)
 
     profile_payload = _mapping(root_payload.get('profile'), 'profile')
     donors_payload = _mapping(root_payload.get('donors'), 'donors')
@@ -128,17 +128,13 @@ def load_raw_profile(stock):
         dye_density_cmy_donor=donors_payload.get('dye_density_cmy'),
         dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
         dye_density_reconstruct_model=workflow_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
-        apply_gray_ramp=workflow_payload.get('apply_gray_ramp', False),
         gray_ramp_kwargs=dict(_mapping(workflow_payload.get('gray_ramp_kwargs'), 'workflow.gray_ramp_kwargs')),
-        align_midscale_exposures=workflow_payload.get('align_midscale_exposures', False),
-        reference_channel=workflow_payload.get('reference_channel'),
+        reference_channel=recipe_payload.get('correction_reference_channel', workflow_payload.get('reference_channel')),
         target_paper=recipe_payload.get('target_paper'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
-        correction_reference_channel=recipe_payload.get('correction_reference_channel'),
         should_process=recipe_payload.get('should_process', True),
     )
-
-    log_sensitivity, dye_density, wavelengths, density_curves, log_exposure = load_agx_emulsion_data(
+    log_sensitivity, dye_density, wavelengths, density_curves, log_exposure = load_stock_data(
         stock=stock,
         data_package=data_package,
         log_sensitivity_donor=recipe.log_sensitivity_donor,
@@ -149,24 +145,25 @@ def load_raw_profile(stock):
         support=info.support,
         channel_model=info.channel_model,
     )
+    data = ProfileData(
+        log_sensitivity=log_sensitivity,
+        wavelengths=wavelengths,
+        density_curves=density_curves,
+        log_exposure=log_exposure,
+        channel_density=np.asarray(dye_density[:, :3]),
+        base_density=np.asarray(dye_density[:, 3]),
+        midscale_neutral_density=np.asarray(dye_density[:, 4]),
+        density_curves_layers=np.array((0, 3, 3))
+    )
 
     return RawProfile(
         info=info,
-        data=ProfileData(
-            log_sensitivity=log_sensitivity,
-            wavelengths=wavelengths,
-            density_curves=density_curves,
-            log_exposure=log_exposure,
-            channel_density=np.asarray(dye_density[:, :3]),
-            base_density=np.asarray(dye_density[:, 3]),
-            midscale_neutral_density=np.asarray(dye_density[:, 4]),
-            density_curves_layers=np.array((0, 3, 3)),
-        ),
+        data=data,
         recipe=recipe,
     )
 
 
-def load_agx_emulsion_data(stock='kodak_portra_400',
+def load_stock_data(stock='kodak_portra_400',
                            log_sensitivity_donor=None,
                            density_curves_donor=None,
                            dye_density_cmy_donor=None,
@@ -190,7 +187,7 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
     if channel_model == 'bw':
         raise ValueError('Unsupported emulsion data selection: channel_model=bw. Only color datasets are available.')
 
-    maindatapkg = data_package or _resolve_agx_emulsion_data_package(
+    maindatapkg = data_package or _resolve_stock_data_package(
         support=support,
         profile_type=profile_type,
         channel_model=channel_model,
@@ -265,7 +262,7 @@ def load_densitometer_data(densitometer_type='status_A', spectral_shape=SPECTRAL
 __all__ = [
     'RAW_PROFILE_FILENAME',
     'interpolate_to_common_axis',
-    'load_agx_emulsion_data',
+    'load_stock_data',
     'load_csv',
     'load_densitometer_data',
     'load_raw_profile',

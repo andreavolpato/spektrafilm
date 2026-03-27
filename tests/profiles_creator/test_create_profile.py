@@ -50,13 +50,17 @@ class TestCreateProfile:
     def test_load_raw_profile_reads_yaml_info_and_recipe(self):
         raw_profile = load_raw_profile('kodak_portra_400')
         paper_raw_profile = load_raw_profile('kodak_portra_endura')
+        fuji_c200_raw_profile = load_raw_profile('fujifilm_c200')
+        fuji_pro_400h_raw_profile = load_raw_profile('fujifilm_pro_400h')
 
         assert isinstance(raw_profile, RawProfile)
         assert isinstance(raw_profile.recipe, RawProfileRecipe)
         assert raw_profile.recipe.dye_density_reconstruct_model == 'dmid_dmin'
         assert raw_profile.recipe.gray_ramp_kwargs == {}
-        assert raw_profile.recipe.align_midscale_exposures is False
-        assert paper_raw_profile.recipe.align_midscale_exposures is False
+        assert raw_profile.recipe.reference_channel is None
+        assert paper_raw_profile.recipe.reference_channel is None
+        assert fuji_c200_raw_profile.recipe.reference_channel == 'green'
+        assert fuji_pro_400h_raw_profile.recipe.reference_channel == 'mid'
 
     def test_negative_workflow_returns_profile(self):
         case = find_case('create_profile_kodak_portra_400')
