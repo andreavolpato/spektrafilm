@@ -14,6 +14,8 @@ def fast_interp(image, x_axis, y_vals):
     value from the y_vals (which is Kx3) is returned.
     
     Uses precomputed reciprocal differences from the monotonic x_axis for efficiency.
+    Repeated x values are allowed and follow np.interp-style right-biased
+    exact-match semantics.
     
     Parameters:
       image: an array of shape (..., 3) containing new x values.
@@ -38,12 +40,20 @@ def fast_interp(image, x_axis, y_vals):
     if common_axis:
         inv_dx_common = np.empty(K - 1, dtype=x_axis.dtype)
         for i in range(K - 1):
-            inv_dx_common[i] = 1.0 / (x_axis[i+1] - x_axis[i])
+            dx = x_axis[i+1] - x_axis[i]
+            if dx != 0:
+                inv_dx_common[i] = 1.0 / dx
+            else:
+                inv_dx_common[i] = 0.0
     else:
         inv_dx = np.empty((K - 1, 3), dtype=x_axis.dtype)
         for c in range(3):
             for i in range(K - 1):
-                inv_dx[i, c] = 1.0 / (x_axis[i+1, c] - x_axis[i, c])
+                dx = x_axis[i+1, c] - x_axis[i, c]
+                if dx != 0:
+                    inv_dx[i, c] = 1.0 / dx
+                else:
+                    inv_dx[i, c] = 0.0
     
     # Process each "pixel" (each row of length 3).
     for i in numba.prange(n):
@@ -63,7 +73,7 @@ def fast_interp(image, x_axis, y_vals):
             elif x >= xa[K - 1]:
                 flat_result[i, c] = y_vals[K - 1, c]
             else:
-                idx = np.searchsorted(xa, x)
+                idx = np.searchsorted(xa, x, side='right')
                 low = idx - 1
                 x0 = xa[low]
                 # Use precomputed reciprocal to avoid division in inner loop.
