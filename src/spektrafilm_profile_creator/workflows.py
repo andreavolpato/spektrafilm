@@ -38,15 +38,14 @@ def process_negative_film_profile(
     profile = adjust_log_exposure(profile)
     profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
     profile = unmix_density(profile)
-    profile = replace_fitted_density_curves(profile)
+    # profile = replace_fitted_density_curves(profile)
     profile = balance_sensitivity(profile)
-    profile = replace_fitted_density_curves(profile)
-    if recipe.align_midscale_exposures:
+    # profile = replace_fitted_density_curves(profile)
+    if recipe.reference_channel is not None:
         profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
-    if recipe.apply_gray_ramp:
-        profile = correct_negative_curves_with_gray_ramp(profile, **gray_ramp_kwargs)
-        profile = replace_fitted_density_curves(profile)
-        profile = adjust_log_exposure(profile)
+    profile = correct_negative_curves_with_gray_ramp(profile, **gray_ramp_kwargs)
+    profile = replace_fitted_density_curves(profile)
+    profile = adjust_log_exposure(profile)
     return profile
 
 
@@ -59,7 +58,7 @@ def process_negative_paper_profile(
     profile = adjust_log_exposure(profile)
     profile = balance_metameric_neutral(profile)
     profile = unmix_density(profile)
-    if recipe.align_midscale_exposures:
+    if recipe.reference_channel is not None:
         profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
     profile = replace_fitted_density_curves(profile)
     return profile
@@ -69,35 +68,34 @@ def process_positive_film_profile(
     raw_profile: RawProfile,
 ) -> Profile:
     recipe = raw_profile.recipe
-    gray_ramp_kwargs = dict(recipe.gray_ramp_kwargs)
+    # gray_ramp_kwargs = dict(recipe.gray_ramp_kwargs)
     profile = raw_profile.as_profile()
     profile = remove_density_min(profile)
     profile = adjust_log_exposure(profile)
+    profile = balance_metameric_neutral(profile)
     profile = unmix_density(profile)
-    profile = replace_fitted_density_curves(profile)
-    if recipe.align_midscale_exposures:
+    if recipe.reference_channel is not None:
         profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
-    if recipe.apply_gray_ramp:
-        profile = correct_positive_curves_with_gray_ramp(profile, **gray_ramp_kwargs)
-        profile = replace_fitted_density_curves(profile)
-        profile = adjust_log_exposure(profile)
+    profile = replace_fitted_density_curves(profile)
     return profile
 
 
-def process_profile(request: RawProfile | str) -> Profile:
-    raw_profile = _resolve_raw_profile(request)
-
+def process_raw_profile(raw_profile: RawProfile) -> Profile:
     if raw_profile.info.support == 'film' and raw_profile.info.type == 'negative':
         return process_negative_film_profile(raw_profile)
     if raw_profile.info.support == 'film' and raw_profile.info.type == 'positive':
         return process_positive_film_profile(raw_profile)
     if raw_profile.info.support == 'paper' and raw_profile.info.type == 'negative':
-        return process_negative_paper_profile(raw_profile)
-
+        return process_negative_paper_profile(raw_profile)    
     raise ValueError(
         'Unsupported workflow selection: '
         f'support={raw_profile.info.support}, profile_type={raw_profile.info.type}'
-    )
+    )   
+
+
+def process_profile(request: RawProfile | str) -> Profile:
+    raw_profile = _resolve_raw_profile(request)
+    return process_raw_profile(raw_profile)
 
 
 __all__ = [
