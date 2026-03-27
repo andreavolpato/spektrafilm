@@ -12,15 +12,7 @@ matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 
-from spektrafilm_profile_creator.balance import balance_metameric_neutral, balance_sensitivity
-from spektrafilm_profile_creator.factory import (
-    adjust_log_exposure,
-    create_profile,
-    remove_density_min,
-    replace_fitted_density_curves,
-    unmix_density,
-)
-from spektrafilm_profile_creator.reconstruct import reconstruct_dye_density
+from spektrafilm_profile_creator import load_raw_profile, process_profile
 
 BASELINES_DIR = Path(__file__).resolve().parent / 'baselines'
 
@@ -29,13 +21,6 @@ BASELINES_DIR = Path(__file__).resolve().parent / 'baselines'
 class CreateProfileRegressionCase:
     case_id: str
     stock: str
-    type: str
-    support: str
-    dye_density_cmy_donor: str | None
-    densitometer: str
-    reference_illuminant: str
-    viewing_illuminant: str
-    log_sensitivity_density_over_min: float
     runtime_print_paper: str
 
 
@@ -43,25 +28,11 @@ CREATE_PROFILE_REGRESSION_CASES: tuple[CreateProfileRegressionCase, ...] = (
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_400',
         stock='kodak_portra_400',
-        type='negative',
-        support='film',
-        dye_density_cmy_donor='generic_a',
-        densitometer='status_M',
-        reference_illuminant='D55',
-        viewing_illuminant='D50',
-        log_sensitivity_density_over_min=0.2,
         runtime_print_paper='kodak_portra_endura_uc',
     ),
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_endura_paper',
         stock='kodak_portra_endura',
-        type='negative',
-        support='paper',
-        dye_density_cmy_donor=None,
-        densitometer='status_A',
-        reference_illuminant='TH-KG3-L',
-        viewing_illuminant='D50',
-        log_sensitivity_density_over_min=0.2,
         runtime_print_paper='kodak_portra_endura_uc',
     ),
 )
@@ -77,47 +48,10 @@ def find_case(case_id: str) -> CreateProfileRegressionCase:
             return case
     raise KeyError(f'Unknown create_profile regression case_id: {case_id}')
 
-
-def _process_negative_profile_for_test(profile):
-    profile = remove_density_min(profile)
-    profile = adjust_log_exposure(profile)
-    profile = reconstruct_dye_density(profile, control_plot=False)
-    profile = unmix_density(profile)
-    profile = replace_fitted_density_curves(profile)
-    profile = balance_sensitivity(profile)
-    profile = replace_fitted_density_curves(profile)
-    plt.close('all')
-    return profile
-
-
-def _process_paper_profile_for_test(profile):
-    profile = remove_density_min(profile)
-    profile = adjust_log_exposure(profile)
-    profile = balance_metameric_neutral(profile)
-    profile = unmix_density(profile)
-    profile = replace_fitted_density_curves(profile)
-    plt.close('all')
-    return profile
-
-
 def compute_processed_profile(case: CreateProfileRegressionCase):
+    raw_profile = load_raw_profile(case.stock)
     with contextlib.redirect_stdout(io.StringIO()):
-        profile = create_profile(
-            stock=case.stock,
-            profile_type=case.type,
-            support=case.support,
-            dye_density_cmy_donor=case.dye_density_cmy_donor,
-            densitometer=case.densitometer,
-            reference_illuminant=case.reference_illuminant,
-            viewing_illuminant=case.viewing_illuminant,
-            log_sensitivity_density_over_min=case.log_sensitivity_density_over_min,
-        )
-        if case.type == 'negative' and case.support == 'film':
-            profile = _process_negative_profile_for_test(profile)
-        elif case.type == 'negative' and case.support == 'paper':
-            profile = _process_paper_profile_for_test(profile)
-        else:
-            raise KeyError(f'Unsupported create_profile regression profile: support={case.support}, type={case.type}')
+        profile = process_profile(raw_profile)
     plt.close('all')
     return profile
 

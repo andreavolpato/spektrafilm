@@ -1,0 +1,18 @@
+name: Kodak Portra 800 (Push 2)
+profile:
+  type: negative
+  support: film
+  channel_model: color
+  densitometer: status_M
+  log_sensitivity_density_over_min: 0.2
+  reference_illuminant: D55
+  viewing_illuminant: D50
+donors:
+  log_sensitivity: kodak_portra_800
+  dye_density_cmy: generic_a
+  dye_density_min_mid: kodak_portra_800
+workflow:
+  dye_density_reconstruct_model: dmid_dmin
+recipe:
+  target_paper: kodak_portra_endura_uc
+  data_trustability: 1.0

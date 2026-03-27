@@ -1,7 +1,7 @@
 import copy
 import importlib.resources as pkg_resources
 import json
-from dataclasses import dataclass, field, is_dataclass
+from dataclasses import dataclass, field, is_dataclass, replace
 from typing import Any, Mapping
 
 import numpy as np
@@ -94,6 +94,24 @@ class Profile:
             raise TypeError('info must be a ProfileInfo instance')
         if not isinstance(self.data, ProfileData):
             raise TypeError('data must be a ProfileData instance')
+
+    def clone(self) -> 'Profile':
+        return copy.deepcopy(self)
+
+    def update_info(self, **changes) -> 'Profile':
+        self.info = replace(self.info, **changes)
+        return self
+
+    def update_data(self, **changes) -> 'Profile':
+        self.data = replace(self.data, **changes)
+        return self
+
+    def update(self, *, info=None, data=None) -> 'Profile':
+        if info:
+            self.update_info(**info)
+        if data:
+            self.update_data(**data)
+        return self
 
 
 def profile_from_dict(data: Any) -> Profile:

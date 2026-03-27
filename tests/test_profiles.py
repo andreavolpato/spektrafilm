@@ -65,6 +65,32 @@ class TestLoadProfile:
         with pytest.raises(TypeError, match='ProfileInfo'):
             Profile(info={}, data={})
 
+    def test_profile_clone_is_deep_copy(self, portra_400_profile):
+        clone = portra_400_profile.clone()
+
+        clone.data.log_exposure[0] += 1
+
+        assert clone is not portra_400_profile
+        assert clone.data is not portra_400_profile.data
+        assert clone.info is not portra_400_profile.info
+        assert clone.data.log_exposure[0] != portra_400_profile.data.log_exposure[0]
+
+    def test_profile_update_helpers_replace_nested_dataclasses(self, portra_400_profile):
+        original_data = portra_400_profile.data
+        original_info = portra_400_profile.info
+        updated_density = np.asarray(portra_400_profile.data.channel_density) * 0.5
+
+        returned = portra_400_profile.update(
+            info={'name': 'updated-name'},
+            data={'channel_density': updated_density},
+        )
+
+        assert returned is portra_400_profile
+        assert portra_400_profile.info is not original_info
+        assert portra_400_profile.data is not original_data
+        assert portra_400_profile.info.name == 'updated-name'
+        np.testing.assert_allclose(portra_400_profile.data.channel_density, updated_density)
+
 
 class TestDependencyBoundaries:
     def test_stocks_module_has_no_top_level_process_import(self):

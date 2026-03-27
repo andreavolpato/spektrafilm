@@ -80,9 +80,6 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
         return mid
     
     transmittance_0 = midgray_value
-    # density_0 = np.log10(1/transmittance_0)
-    # density_0 += np.nanmean(base_density)
-    # transmittance_0 = 10**(-density_0)
     rgb_0 = np.ones(3)*transmittance_0
 
     def residues(params):
@@ -96,12 +93,9 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     profile.info.fitted_cmy_midscale_neutral_density = d_cmy_metameric[1]
     d_cmy_scale = d_cmy_metameric / d_cmy_metameric[1]
     mid = midscale_neutral(d_cmy_metameric)
-    # rgb = rgb_mid(mid, viewing_illuminant=p.info.viewing_illuminant)
     print('--- Balance Metameric Neutral')
     print('Density CMY of metameric neutral: ', d_cmy_metameric)
     print('Apllied density scale factors: ', d_cmy_scale)
     profile.data.channel_density = channel_density * d_cmy_scale
     profile.data.midscale_neutral_density = mid
     return profile
-
-

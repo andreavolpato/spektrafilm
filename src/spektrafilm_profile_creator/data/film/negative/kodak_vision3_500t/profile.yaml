@@ -1,0 +1,14 @@
+name: Kodak Vision3 500T
+profile:
+  type: negative
+  support: film
+  channel_model: color
+  densitometer: status_M
+  log_sensitivity_density_over_min: 0.2
+  reference_illuminant: T
+  viewing_illuminant: D50
+workflow:
+  dye_density_reconstruct_model: dmid_dmin
+recipe:
+  target_paper: kodak_2383_uc
+  data_trustability: 0.3

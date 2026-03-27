@@ -8,10 +8,6 @@ import matplotlib.pyplot as plt
 from spektrafilm.runtime.api import create_params, simulate
 
 
-################################################################################
-# Density curve fitting and synthesis
-################################################################################
-
 def density_curve_model_norm_cdfs(log_exposure,
                                   parameters=(
                                       0, 1, 2,
@@ -232,10 +228,6 @@ def fit_density_curves(log_exposure, density, profile_type='negative', support='
     return fitted_parameters
 
 
-################################################################################
-# Print filter fitting
-################################################################################
-
 def fit_print_filters_iter(profile):
     p = copy.copy(profile)
     p.debug.deactivate_spatial_effects = True
@@ -293,60 +285,3 @@ def fit_print_filters(profile, iterations=10):
         profile.enlarger.y_filter_neutral = 0.5 * filter_y + np.random.uniform(0, 1) * 0.5
         profile.enlarger.m_filter_neutral = 0.5 * filter_m + np.random.uniform(0, 1) * 0.5
     return filter_y, filter_m, residues
-
-
-def fit_all_stocks(iterations=5, randomess_starting_points=0.5):
-    """Script helper retained for batch fitting from stock enums.
-
-    This utility keeps the historical behavior but lives in profiles layer,
-    where fitting logic now belongs.
-    """
-    from spektrafilm.model.stocks import FilmStocks, PrintPapers
-    from spektrafilm.model.illuminants import Illuminants
-
-    ymc_filters_0 = {}
-    residues = {}
-    for paper in PrintPapers:
-        ymc_filters_0[paper.value] = {}
-        residues[paper.value] = {}
-        for light in Illuminants:
-            ymc_filters_0[paper.value][light.value] = {}
-            residues[paper.value][light.value] = {}
-            for film in FilmStocks:
-                ymc_filters_0[paper.value][light.value][film.value] = [0.90, 0.70, 0.35]
-                residues[paper.value][light.value][film.value] = 0.184
-
-    ymc_filters_out = copy.deepcopy(ymc_filters_0)
-    r = randomess_starting_points
-
-    for paper in PrintPapers:
-        print(" " * 20)
-        print("#" * 20)
-        print(paper.value)
-        for light in Illuminants:
-            print("-" * 20)
-            print(light.value)
-            for stock in FilmStocks:
-                if residues[paper.value][light.value][stock.value] > 5e-4:
-                    y0 = ymc_filters_0[paper.value][light.value][stock.value][0]
-                    m0 = ymc_filters_0[paper.value][light.value][stock.value][1]
-                    c0 = ymc_filters_0[paper.value][light.value][stock.value][2]
-                    y0 = np.clip(y0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
-                    m0 = np.clip(m0, 0, 1) * (1 - r) + np.random.uniform(0, 1) * r
-
-                    p = create_params(
-                        film_profile=stock.value,
-                        print_profile=paper.value,
-                        ymc_filters_from_database=False,
-                    )
-                    p.enlarger.illuminant = light.value
-                    p.enlarger.y_filter_neutral = y0
-                    p.enlarger.m_filter_neutral = m0
-                    p.enlarger.c_filter_neutral = c0
-
-                    yf, mf, res = fit_print_filters(p, iterations=iterations)
-                    ymc_filters_out[paper.value][light.value][stock.value] = [yf, mf, c0]
-                    residues[paper.value][light.value][stock.value] = np.sum(np.abs(res))
-
-    return ymc_filters_out, residues
-

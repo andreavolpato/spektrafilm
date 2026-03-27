@@ -8,9 +8,6 @@ from spektrafilm_profile_creator.data.loader import load_densitometer_data
 from spektrafilm.utils.measure import measure_slopes_at_exposure
 from spektrafilm.profiles.io import load_profile
 
-########################################################################################
-# General functions
-
 def low_pass_filter(wl, wl_max, width, amp=1.0):
     filt = 1 - amp*(scipy.special.erf((wl-wl_max)/width)+1)/2
     return filt
@@ -34,7 +31,7 @@ def shift_stretch(wl, spectrum, amp=1.0, width=1.0, shift=0.0):
     spectrum_out[spectrum_out<0] = 0
     spectrum_out[~sel] = np.nan
     return amp*spectrum_out
-def shift_stretch_cmy(wl, cmy, da0, dw0, ds0, # amplitude, stretch, shift
+def shift_stretch_cmy(wl, cmy, da0, dw0, ds0,
                                da1, dw1, ds1,
                                da2, dw2, ds2):
     c = shift_stretch(wl, cmy[:,0], da0, dw0, ds0)
@@ -47,12 +44,8 @@ def gaussian_profiles(wl, p_couplers):
         density[:,i] += ps[0] * np.exp( -(wl-ps[2])**2/(2*ps[1]**2) )
     return density
 
-########################################################################################
-# models
-
 def make_reconstruct_dye_density_params(model='model_a'):
     params = lmfit.Parameters()
-    # dyes
     params.add('dye_amp0', value=1.0, min=0.5, max=1.5)
     params.add('dye_amp1', value=1.0, min=0.5, max=1.5)
     params.add('dye_amp2', value=1.0, min=0.5, max=1.5)
@@ -64,24 +57,23 @@ def make_reconstruct_dye_density_params(model='model_a'):
     params.add('dye_shift2', value=0.0, min=-30, max=30)
     
     if model[:6]=='filter':
-        params.add('lp_c_width', value=20, min=12, max=30) # test
+        params.add('lp_c_width', value=20, min=12, max=30)
         params.add('hp_m_width', value=20, min=12, max=30)
         params.add('lp_y_width', value=20, min=12, max=30)
         params.add('lp_m_width', value=20, min=12, max=30)
         params.add('hp_c_width', value=20, min=12, max=30)
-        params.add('lp_c_wl', value=420, min=400, max=440) # test
+        params.add('lp_c_wl', value=420, min=400, max=440)
         params.add('hp_m_wl', value=500, min=460, max=500)
         params.add('lp_y_wl', value=500, min=490, max=530)
         params.add('lp_m_wl', value=600, min=590, max=650)
         params.add('hp_c_wl', value=600, min=570, max=600)
     
     if model=='filters_neg':
-        # negative components to make density zero on densitometer
         params.add('high_y',  value=-0.02, min=-0.1, max=0.0)
         params.add('low_m',   value=-0.02, min=-0.1, max=0.0)
         params.add('high_m',  value=-0.02, min=-0.1, max=0.0)
         params.add('low_c',   value=-0.02, min=-0.1, max=0.0)
-        params.add('low_c_y', value=-0.02, min=-0.1, max=0.0) # test
+        params.add('low_c_y', value=-0.02, min=-0.1, max=0.0)
     
     if model[:10]=='filteramps':
         params.add('lp_c_amp', value=0.8, min=0.0, max=1.0)
@@ -91,7 +83,6 @@ def make_reconstruct_dye_density_params(model='model_a'):
         params.add('hp_c_amp', value=0.8, min=0.0, max=1.0)
 
     if model=='dmid_dmin':
-        # couplers
         params.add('cpl_amp0', value=0.1, min=0.05, max=0.5)
         params.add('cpl_amp1', value=0.1, min=0.05, max=0.5)
         params.add('cpl_amp2', value=0.1, min=0.05, max=0.5)
@@ -107,12 +98,9 @@ def make_reconstruct_dye_density_params(model='model_a'):
         params.add('cpl_max2', value=475, min=455, max=490)
         params.add('cpl_max3', value=700, min=650, max=720)
         params.add('cpl_max4', value=510, min=495, max=535)
-        # others
         params.add('dmax1', value=2.3, min=2.0, max=5)
         params.add('dmax0', value=2.3, min=2.0, max=5)
         params.add('dmax2', value=2.3, min=2.0, max=5)
-        # params.add('dmax3', value=2.3, min=0.5, max=5)
-        # params.add('dmax4', value=2.3, min=0.5, max=5)
         params.add('fog0', value=0.07, min=0.05, max=0.10, vary=True)
         params.add('fog1', value=0.07, min=0.05, max=0.10, vary=True)
         params.add('fog2', value=0.07, min=0.05, max=0.10, vary=True)
@@ -143,16 +131,14 @@ def density_mid_min_model(params, wl, cmy_model, model):
         cmy[:,1] += (1-lp_m)*params['low_m']
         cmy[:,1] += (1-hp_m)*params['high_m']
         cmy[:,0] += ((1-lp_y)*(1-hp_c))**6*params['low_c']
-        cmy[:,0] += ((1-hp_m)*(1-lp_c))**6*params['low_c_y'] # test
-    
-    ########## filters with amplitudes ##########
+        cmy[:,0] += ((1-hp_m)*(1-lp_c))**6*params['low_c_y']
     
     if model[:10]=='filteramps':
         hp_m = high_pass_filter(wl, params['hp_m_wl'], params['hp_m_width'], params['hp_m_amp'])
         lp_y = low_pass_filter(wl, params['lp_y_wl'], params['lp_y_width'], params['lp_y_amp'])
         lp_m = low_pass_filter(wl, params['lp_m_wl'], params['lp_m_width'], params['lp_m_amp'])
         hp_c = high_pass_filter(wl, params['hp_c_wl'], params['hp_c_width'], params['hp_c_amp'])
-        lp_c = low_pass_filter(wl, params['lp_c_wl'], params['lp_c_width'], params['lp_c_amp']) # test
+        lp_c = low_pass_filter(wl, params['lp_c_wl'], params['lp_c_width'], params['lp_c_amp'])
         filters = np.stack((1-(1-hp_c)*(1-lp_c),
                             hp_m*lp_m,
                             lp_y), axis=1)
@@ -170,11 +156,8 @@ def density_mid_min_model(params, wl, cmy_model, model):
         gauss = np.stack((hp_c_gauss+lp_c_gauss,
                         hp_m_gauss+lp_m_gauss,
                         lp_y_gauss), axis=1)
-        # filters[:,0] += lp_c # test
         cmy = dye*filters - gauss
         
-    ########## dmid dmin ##########
-    
     if model=='dmid_dmin':
         channels_couplers_gaussians = [0,0,1,1,2]
         p_couplers = [[params['cpl_amp0'], params['cpl_width0'], params['cpl_max0']],
@@ -196,10 +179,7 @@ def density_min_model(params, wl, cmy, cpl, channels_couplers_gaussians):
     dcmy = [params['dye_amp0'], params['dye_amp1'], params['dye_amp2']]
     dmax = np.array([params['dmax0'], 
                     params['dmax1'], 
-                    params['dmax2'],
-                    # params['dmax3'],
-                    # params['dmax4']
-                    ])
+                    params['dmax2']])
     fog = np.array([params['fog0'],
                     params['fog1'],
                     params['fog2'],])
@@ -207,12 +187,9 @@ def density_min_model(params, wl, cmy, cpl, channels_couplers_gaussians):
     scattering = -np.log10(1-params['scat400']*400**4/wl**4)
     cpl_cmy = np.zeros_like(cmy)
     for i in range(5):
-        # cpl_cmy[:,channels_couplers_gaussians[i]] += cpl[:,i]/dcmy[channels_couplers_gaussians[i]]*dmax[i]
         cpl_cmy[:,channels_couplers_gaussians[i]] += cpl[:,i]/dcmy[channels_couplers_gaussians[i]]*dmax[channels_couplers_gaussians[i]]
     dmin = np.sum(cpl_cmy + fog*cmy, axis=1) + scattering + base
     return dmin, cpl_cmy, scattering, fog, base, dmax
-
-########################################################################################
 
 def slopes_of_concentrations(log_exposure, density_curves, dstm_cm):
     c = np.zeros_like(density_curves)
@@ -224,35 +201,27 @@ def slopes_of_concentrations(log_exposure, density_curves, dstm_cm):
 
 def residual_simple(params, wl, cmy_model, data, dstm, paper_sens, log_exposure, density_curves, model='model_a', biases=(1,2,2)):
     cmy, _, _, min_sim = density_mid_min_model(params, wl, cmy_model, model)
-        
-    # bias for out of diagonal crosstalk
     paper_cm = compute_densitometer_crosstalk_matrix(paper_sens, cmy)
     out_of_diagonal_crosstalk = paper_cm.flatten()[[1,2,3,5,6,7]]
-    # bias for parallel gammas
     dstm_cm = compute_densitometer_crosstalk_matrix(dstm, cmy)
     gammas = slopes_of_concentrations(log_exposure, density_curves, dstm_cm)
     diff_gammas= gammas - np.mean(gammas)
-    
     mid_minus_min_sim = np.sum(cmy, axis=1)
     sim = np.concatenate((mid_minus_min_sim, biases[0]*min_sim))
     res = data - sim
-    res = np.concatenate((res, biases[1]*out_of_diagonal_crosstalk, biases[2]*diff_gammas)) # add crosstalk matrix to the loss function
-    # 20 is an empirical bias to balance the weight of the crosstalk matrix in the loss function
+    res = np.concatenate((res, biases[1]*out_of_diagonal_crosstalk, biases[2]*diff_gammas))
     return res
 
 def compute_densitometer_crosstalk_matrix(densitometer_intensity, dye_density):
     crosstalk_matrix = np.zeros((3,3))
     dye_transmittance = 10**(-dye_density[:,0:3])
-    for i in np.arange(3): # rgb of densitometer
-        for j in np.arange(3): # cmy of dyes
+    for i in np.arange(3):
+        for j in np.arange(3):
             crosstalk_matrix[i,j] = -np.log10(
                 np.nansum(densitometer_intensity[:,i]*dye_transmittance[:,j])
                 / np.nansum(densitometer_intensity[:,i])
                 )
     return crosstalk_matrix
-
-########################################################################################
-# Main function
 
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.model.color_filters import dichroic_filters
@@ -276,9 +245,6 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
         illuminant = standard_illuminant('BB3200')
         filtered_illuminat = dichroic_filters.apply(illuminant, values=ymc_filter_values)
         paper_sens = paper_sens * filtered_illuminat[:, None]
-        # paper_sens[:,1] = dstm[:,1]
-        # paper_sens[:,2] = dstm[:,2]
-        
         plt.figure()
         plt.plot(wl, paper_sens)
     else:
@@ -311,9 +277,7 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
         print(dstm_cm)
     
     if control_plot:
-        
         color = ['tab:cyan', 'tab:pink', 'gold']
-        
         fig, axs = plt.subplots(1,3)
         fig.set_tight_layout(tight='rect')
         fig.set_figheight(4)
@@ -331,15 +295,14 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
 
         for i in range(3):
             axs[1].plot(wl, cmy_nofilt[:,i], '--', color=color[i], label='_nolegend_')
-            # axs[1].plot(wl, -cpl[:,i], color='tab:purple', label='_nolegend_')
             axs[1].plot(wl, cmy[:,i], color=color[i], alpha=1.0, label='CMY'[i])
         axs[1].text(
-                0.5,            # x-position (in axes fraction)
-                0.02,           # y-position (in axes fraction) 
+                0.5,
+                0.02,
                 'Dashed lines are without masking couplers.', 
                 transform=axs[1].transAxes, 
-                ha='center',    # horizontal alignment
-                va='bottom',    # vertical alignment
+                ha='center',
+                va='bottom',
                 fontsize=9, 
                 color='k'
             )
@@ -366,8 +329,6 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
         axs[2].set_title('Minimum density')
         axs[2].set_ylim([0, np.nanmax(dmin)*1.05])
         axs[2].legend()
-            
-            
 
     profile.info.fitted_cmy_midscale_neutral_density = np.nanmax(cmy, axis=0).tolist()
     profile.data.channel_density = cmy/np.nanmax(cmy, axis=0)
@@ -375,13 +336,6 @@ def reconstruct_dye_density(profile, params=None, control_plot=False, print_para
 
 
 if __name__ == '__main__':
-    # params = make_reconstruct_dye_density_params()
-    # profile = load_profile('kodak_portra_400_v2')
-    # profile = load_profile('fuji_pro_400h_v2')
-    # profile = load_profile('kodak_vision3_50D')
-    # paper = load_profile('kodak_ektacolor_edge')
-    # paper = load_profile('kodak_portra_endura')
-    # paper = load_profile('fuji_crystal_archive_typeii_unmix_corrected')
     negatives = [
                  'kodak_portra_400',
                  'fujifilm_pro_400h',
@@ -392,9 +346,4 @@ if __name__ == '__main__':
         example_profile = reconstruct_dye_density(example_profile,
                                                   control_plot=True,
                                                   print_params=True)
-
-    # profile = process_profile(profile)
-    # plot_profile(profile)
     plt.show()
-
-
