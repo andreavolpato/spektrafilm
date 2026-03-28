@@ -5,7 +5,9 @@ from pathlib import Path
 
 import numpy as np
 
-from spektrafilm.runtime.process import photo_params, photo_process
+from spektrafilm.runtime.process import photo_process
+
+from .conftest import make_fast_test_params
 
 BASELINES_DIR = Path(__file__).resolve().parent / "baselines"
 
@@ -81,25 +83,10 @@ def build_case_image(image_recipe: str) -> np.ndarray:
     raise KeyError(f"Unknown image recipe: {image_recipe}")
 
 
-def make_deterministic_params(film_profile: str, print_profile: str):
-    params = photo_params(film_profile=film_profile, print_profile=print_profile)
-    params.debug.deactivate_spatial_effects = True
-    params.debug.deactivate_stochastic_effects = True
-    params.settings.use_enlarger_lut = False
-    params.settings.use_scanner_lut = False
-    params.io.preview_resize_factor = 1.0
-    params.io.upscale_factor = 1.0
-    params.io.crop = False
-    params.io.full_image = False
-    params.camera.auto_exposure = False
-    params.camera.exposure_compensation_ev = 0.0
-    return params
-
-
 def compute_case_output(case: RegressionCase) -> np.ndarray:
     np.random.seed(0)
     image = build_case_image(case.image_recipe)
-    params = make_deterministic_params(case.film_profile, case.print_profile)
+    params = make_fast_test_params(film_profile=case.film_profile, print_profile=case.print_profile)
 
     if case.output_mode == "negative_density":
         params.debug.return_film_density_cmy = True

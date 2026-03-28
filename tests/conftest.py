@@ -9,6 +9,22 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from spektrafilm.profiles.io import load_profile
+from spektrafilm.runtime.process import photo_params
+
+
+def make_fast_test_params(*, film_profile: str = "kodak_portra_400_auc", print_profile: str = "kodak_portra_endura_uc"):
+    params = photo_params(film_profile=film_profile, print_profile=print_profile)
+    params.debug.deactivate_spatial_effects = True
+    params.debug.deactivate_stochastic_effects = True
+    params.settings.use_enlarger_lut = False
+    params.settings.use_scanner_lut = False
+    params.io.preview_resize_factor = 1.0
+    params.io.upscale_factor = 1.0
+    params.io.crop = False
+    params.io.full_image = False
+    params.camera.auto_exposure = False
+    params.camera.exposure_compensation_ev = 0.0
+    return params
 
 
 @pytest.fixture
@@ -23,18 +39,7 @@ def small_rgb_image():
 @pytest.fixture
 def default_params():
     """Default photo_params with expensive effects disabled for fast tests."""
-    from spektrafilm import create_params
-
-    params = create_params()
-    # Disable stochastic/spatial effects for determinism and speed
-    params.debug.deactivate_spatial_effects = True
-    params.debug.deactivate_stochastic_effects = True
-    params.settings.use_enlarger_lut = False
-    params.settings.use_scanner_lut = False
-    params.io.preview_resize_factor = 1.0
-    params.camera.auto_exposure = False
-    params.camera.exposure_compensation_ev = 0.0
-    return params
+    return make_fast_test_params()
 
 
 @pytest.fixture

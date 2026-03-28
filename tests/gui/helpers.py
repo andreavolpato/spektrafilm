@@ -53,12 +53,29 @@ class FakeViewer:
         self.reset_view_calls += 1
 
 
-def make_gui_state() -> GuiState:
+class StubToggle:
+    def __init__(self, checked: bool = True) -> None:
+        self.checked = checked
+        self._signals_blocked = False
+
+    def isChecked(self) -> bool:  # noqa: N802 - Qt API name
+        return self.checked
+
+    def blockSignals(self, blocked: bool) -> bool:  # noqa: N802 - Qt API name
+        previous = self._signals_blocked
+        self._signals_blocked = blocked
+        return previous
+
+    def setChecked(self, checked: bool) -> None:  # noqa: N802 - Qt API name
+        self.checked = checked
+
+
+def make_test_gui_state() -> GuiState:
     return clone_gui_state(PROJECT_DEFAULT_GUI_STATE)
 
 
-def make_controller_gui_state() -> GuiState:
-    state = make_gui_state()
+def make_test_controller_gui_state() -> GuiState:
+    state = make_test_gui_state()
     state.simulation.output_color_space = 'ACES2065-1'
     state.simulation.saving_color_space = 'Display P3'
     state.simulation.saving_cctf_encoding = False
@@ -68,5 +85,5 @@ def make_controller_gui_state() -> GuiState:
     return state
 
 
-def make_viewer_namespace(**kwargs):
+def make_test_viewer_namespace(**kwargs):
     return SimpleNamespace(window=SimpleNamespace(**kwargs))

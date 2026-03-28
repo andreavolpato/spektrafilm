@@ -1,9 +1,13 @@
 import numpy as np
+import pytest
 from spektrafilm.model.couplers import (
     compute_dir_couplers_matrix,
     compute_density_curves_before_dir_couplers,
     compute_exposure_correction_dir_couplers,
 )
+
+
+pytestmark = pytest.mark.unit
 
 
 class TestDirCouplers:

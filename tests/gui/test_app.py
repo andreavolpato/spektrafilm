@@ -6,6 +6,8 @@ from qtpy import QtGui
 
 from spektrafilm_gui import app as app_module
 
+from .helpers import StubToggle
+
 
 def test_create_viewer_uses_system_dark_theme(monkeypatch) -> None:
     fake_viewer = object()
@@ -68,22 +70,15 @@ def test_apply_system_palette_falls_back_to_dark_palette_when_qt_palette_stays_l
 def test_create_app_syncs_display_transform_availability_before_connecting(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    class StubToggle:
-        def __init__(self, checked: bool) -> None:
-            self._checked = checked
-
-        def isChecked(self) -> bool:  # noqa: N802 - Qt API name
-            return self._checked
-
     class FakeController:
         def __init__(self, *, viewer, widgets) -> None:
-            captured["controller_init"] = (viewer, widgets)
+            captured['controller_init'] = (viewer, widgets)
 
         def sync_display_transform_availability(self, *, report_status: bool) -> None:
-            captured["sync"] = report_status
+            captured['sync'] = report_status
 
         def refresh_input_layers(self) -> None:
-            captured["refreshed"] = True
+            captured['refreshed'] = True
 
     fake_viewer = object()
     fake_widgets = SimpleNamespace(display=SimpleNamespace(use_display_transform=object(), gray_18_canvas=StubToggle(True)))
@@ -91,27 +86,27 @@ def test_create_app_syncs_display_transform_availability_before_connecting(monke
     fake_controls_panel = object()
     fake_main_window = object()
 
-    monkeypatch.setattr(app_module, "warmup", lambda: None)
-    monkeypatch.setattr(app_module, "_apply_system_palette", lambda: captured.setdefault("palette", True))
-    monkeypatch.setattr(app_module, "_create_viewer", lambda: fake_viewer)
-    monkeypatch.setattr(app_module, "_create_widgets", lambda: (fake_widgets, fake_panel_widgets))
-    monkeypatch.setattr(app_module, "load_default_gui_state", lambda: object())
-    monkeypatch.setattr(app_module, "apply_gui_state", lambda state, *, widgets: captured.setdefault("applied", (state, widgets)))
-    monkeypatch.setattr(app_module, "GuiController", FakeController)
-    monkeypatch.setattr(app_module, "_connect_controller_signals", lambda controller, widgets: captured.setdefault("connected", (controller, widgets)))
+    monkeypatch.setattr(app_module, 'warmup', lambda: None)
+    monkeypatch.setattr(app_module, '_apply_system_palette', lambda: captured.setdefault('palette', True))
+    monkeypatch.setattr(app_module, '_create_viewer', lambda: fake_viewer)
+    monkeypatch.setattr(app_module, '_create_widgets', lambda: (fake_widgets, fake_panel_widgets))
+    monkeypatch.setattr(app_module, 'load_default_gui_state', lambda: object())
+    monkeypatch.setattr(app_module, 'apply_gui_state', lambda state, *, widgets: captured.setdefault('applied', (state, widgets)))
+    monkeypatch.setattr(app_module, 'GuiController', FakeController)
+    monkeypatch.setattr(app_module, '_connect_controller_signals', lambda controller, widgets: captured.setdefault('connected', (controller, widgets)))
     monkeypatch.setattr(
         app_module,
-        "configure_napari_chrome",
-        lambda viewer, *, gray_18_canvas=False: captured.setdefault("chrome", (viewer, gray_18_canvas)),
+        'configure_napari_chrome',
+        lambda viewer, *, gray_18_canvas=False: captured.setdefault('chrome', (viewer, gray_18_canvas)),
     )
-    monkeypatch.setattr(app_module, "build_controls_panel", lambda viewer, panel_widgets: fake_controls_panel)
-    monkeypatch.setattr(app_module, "build_main_window", lambda viewer, controls_panel: fake_main_window)
+    monkeypatch.setattr(app_module, 'build_controls_panel', lambda viewer, panel_widgets: fake_controls_panel)
+    monkeypatch.setattr(app_module, 'build_main_window', lambda viewer, controls_panel: fake_main_window)
 
     app = app_module.create_app()
 
-    assert captured["palette"] is True
-    assert captured["sync"] is False
-    assert captured["connected"][1] is fake_widgets
-    assert captured["chrome"] == (fake_viewer, True)
+    assert captured['palette'] is True
+    assert captured['sync'] is False
+    assert captured['connected'][1] is fake_widgets
+    assert captured['chrome'] == (fake_viewer, True)
     assert app.viewer is fake_viewer
     assert app.main_window is fake_main_window

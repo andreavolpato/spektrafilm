@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 
-from spektrafilm_profile_creator import load_raw_profile, process_profile
+from spektrafilm_profile_creator import load_raw_profile, process_raw_profile
 
 BASELINES_DIR = Path(__file__).resolve().parent / 'baselines'
 
@@ -51,7 +51,7 @@ def find_case(case_id: str) -> CreateProfileRegressionCase:
 def compute_processed_profile(case: CreateProfileRegressionCase):
     raw_profile = load_raw_profile(case.stock)
     with contextlib.redirect_stdout(io.StringIO()):
-        profile = process_profile(raw_profile)
+        profile = process_raw_profile(raw_profile)
     plt.close('all')
     return profile
 

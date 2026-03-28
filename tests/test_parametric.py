@@ -1,5 +1,9 @@
 import numpy as np
+import pytest
 from spektrafilm.model.parametric import parametric_density_curves_model
+
+
+pytestmark = pytest.mark.unit
 
 
 class TestParametricDensityCurvesModel:

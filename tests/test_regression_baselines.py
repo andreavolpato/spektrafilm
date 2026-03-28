@@ -9,6 +9,9 @@ from tests.regression_baselines import (
 )
 
 
+pytestmark = pytest.mark.regression
+
+
 class TestRegressionBaselines:
     @pytest.mark.parametrize("case_id", case_ids())
     def test_pipeline_snapshot(self, case_id):

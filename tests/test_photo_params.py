@@ -1,7 +1,10 @@
 import numpy as np
-import pytest
+from pytest import mark
 
 from spektrafilm.runtime.process import AgXPhoto, photo_params
+
+
+pytestmark = mark.unit
 
 
 class TestPhotoParamsDefaults:

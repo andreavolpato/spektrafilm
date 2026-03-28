@@ -4,7 +4,8 @@ from dataclasses import fields
 
 from spektrafilm_gui.state import GuiState, clone_state_section
 from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, GuiWidgets, apply_gui_state, collect_gui_state
-from tests.gui_test_utils import make_gui_state
+
+from .helpers import make_test_gui_state
 
 
 class StubSection:
@@ -31,7 +32,7 @@ class StubSimulationSection(StubSection):
 
 
 def _make_state() -> GuiState:
-    state = make_gui_state()
+    state = make_test_gui_state()
     state.input_image.preview_resize_factor = 0.45
     state.input_image.upscale_factor = 1.5
     state.grain.active = False
@@ -71,7 +72,7 @@ def test_gui_state_section_names_match_gui_state_fields() -> None:
 
 def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
     source_state = _make_state()
-    widgets = _make_widgets(make_gui_state())
+    widgets = _make_widgets(make_test_gui_state())
 
     apply_gui_state(source_state, widgets=widgets)
 

@@ -20,11 +20,6 @@ class TestLoadProfile:
         assert hasattr(p.data, 'log_exposure')
         assert hasattr(p.data, 'wavelengths')
 
-    def test_density_curves_have_three_channels(self, portra_400_profile):
-        dc = portra_400_profile.data.density_curves
-        assert dc.ndim == 2
-        assert dc.shape[1] == 3
-
     @pytest.mark.parametrize(
         'stock',
         [

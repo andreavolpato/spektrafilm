@@ -8,6 +8,9 @@ from spektrafilm.utils.fast_interp_lut import (
 from spektrafilm.utils.lut import compute_with_lut
 
 
+pytestmark = pytest.mark.unit
+
+
 def affine_transform(data):
     output = np.empty_like(data)
     output[..., 0] = 1.5 * data[..., 0] + 0.25 * data[..., 1]
