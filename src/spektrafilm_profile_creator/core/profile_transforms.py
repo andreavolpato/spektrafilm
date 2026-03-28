@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import scipy
 
-from spektrafilm_profile_creator.messages import log_event
+from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm.utils.measure import measure_density_min
 
 
@@ -18,7 +18,6 @@ def remove_density_min(profile):
 
     density_curve_min = measure_density_min(log_exposure, density_curves, profile_type)
     density_curves = density_curves - density_curve_min
-    log_event('remove_density_min', density_curve_min=density_curve_min)
 
     if info.is_paper or info.is_positive:
         status_a_max_peak = [445, 530, 610]
@@ -28,10 +27,16 @@ def remove_density_min(profile):
         spectral_min = scipy.ndimage.gaussian_filter1d(spectral_min, sigma_points)
         base_density = spectral_min
 
-    return profile.update_data(
+    updated_profile = profile.update_data(
         base_density=np.asarray(base_density),
         density_curves=density_curves,
     )
+    log_event(
+        'remove_density_min',
+        updated_profile,
+        density_curve_min=density_curve_min,
+    )
+    return updated_profile
 
 
 def adjust_log_exposure(
@@ -66,10 +71,15 @@ def adjust_log_exposure(
             density_curves_green[selection],
             log_exposure[selection],
         )
-    log_event('adjust_log_exposure_result', log_exposure_reference=log_exposure_speed_point)
     log_exposure_offset = np.log10(2 ** stops_over_speed_point)
     log_exposure_midgray = log_exposure_speed_point + log_exposure_offset
-    return profile.update_data(log_exposure=log_exposure - log_exposure_midgray)
+    updated_profile = profile.update_data(log_exposure=log_exposure - log_exposure_midgray)
+    log_event(
+        'adjust_log_exposure_result',
+        updated_profile,
+        log_exposure_reference=log_exposure_speed_point,
+    )
+    return updated_profile
 
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):

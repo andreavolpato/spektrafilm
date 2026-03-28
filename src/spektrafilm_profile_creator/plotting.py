@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from spektrafilm.profiles.io import load_profile
 
 
-def plot_profile(profile, unmixed=False, original=None):
+def _normalize_plot_payload(profile):
     wavelengths = np.asarray(profile.data.wavelengths)
     log_exposure = np.asarray(profile.data.log_exposure)
     density_curves = np.asarray(profile.data.density_curves)
@@ -15,7 +15,6 @@ def plot_profile(profile, unmixed=False, original=None):
         np.asarray(profile.data.midscale_neutral_density),
     ))
 
-    # Some profile payloads are channel-first Python lists; normalize to NxC for plotting.
     if log_sensitivity.ndim == 2 and log_sensitivity.shape[0] == 3 and log_sensitivity.shape[1] != 3:
         log_sensitivity = log_sensitivity.T
     if density_curves.ndim == 2 and density_curves.shape[0] == 3 and density_curves.shape[1] != 3:
@@ -23,19 +22,63 @@ def plot_profile(profile, unmixed=False, original=None):
     if dye_density.ndim == 2 and dye_density.shape[0] in (3, 5) and dye_density.shape[1] not in (3, 5):
         dye_density = dye_density.T
 
-    fig, axs = plt.subplots(1, 3)
-    fig.set_tight_layout(tight='rect')
-    fig.set_figheight(4)
-    fig.set_figwidth(12)
+    return wavelengths, log_exposure, density_curves, log_sensitivity, dye_density
+
+
+def _normalize_original_payload(original):
+    if original is None:
+        return None, None
+
+    original_log_sensitivity = np.asarray(original.data.log_sensitivity)
+    if original_log_sensitivity.ndim == 2 and original_log_sensitivity.shape[0] == 3 and original_log_sensitivity.shape[1] != 3:
+        original_log_sensitivity = original_log_sensitivity.T
+
+    original_dye_density = np.column_stack((
+        np.asarray(original.data.channel_density),
+        np.asarray(original.data.base_density),
+        np.asarray(original.data.midscale_neutral_density),
+    ))
+    if original_dye_density.ndim == 2 and original_dye_density.shape[0] in (3, 5) and original_dye_density.shape[1] not in (3, 5):
+        original_dye_density = original_dye_density.T
+
+    return original_log_sensitivity, original_dye_density
+
+
+def _prepare_profile_plot_axes(figure=None, axes=None):
+    if axes is not None:
+        axs = np.asarray(axes, dtype=object).ravel()
+        if axs.size != 3:
+            raise ValueError('plot_profile requires exactly 3 axes.')
+        fig = figure if figure is not None else axs[0].figure
+        for axis in axs:
+            axis.clear()
+    elif figure is not None:
+        fig = figure
+        fig.clear()
+        axs = np.asarray(fig.subplots(1, 3), dtype=object).ravel()
+    else:
+        fig, axs = plt.subplots(1, 3)
+        axs = np.asarray(axs, dtype=object).ravel()
+
+    try:
+        fig.set_layout_engine('tight')
+    except AttributeError:
+        fig.set_tight_layout(tight='rect')
+    fig.set_size_inches(12, 4, forward=True)
+    return fig, axs
+
+
+def plot_profile(profile, unmixed=False, original=None, figure=None, axes=None):
+    wavelengths, log_exposure, density_curves, log_sensitivity, dye_density = _normalize_plot_payload(profile)
+    original_log_sensitivity, original_dye_density = _normalize_original_payload(original)
+
+    fig, axs = _prepare_profile_plot_axes(figure=figure, axes=axes)
     axs[0].plot(wavelengths, log_sensitivity[:, 0], color='tab:red')
     axs[0].plot(wavelengths, log_sensitivity[:, 1], color='tab:green')
     axs[0].plot(wavelengths, log_sensitivity[:, 2], color='tab:blue')
     axs[0].legend(('R', 'G', 'B'))
     axs[0].set_xlabel('Wavelength (nm)')
-    if original is not None:
-        original_log_sensitivity = np.asarray(original.data.log_sensitivity)
-        if original_log_sensitivity.ndim == 2 and original_log_sensitivity.shape[0] == 3 and original_log_sensitivity.shape[1] != 3:
-            original_log_sensitivity = original_log_sensitivity.T
+    if original_log_sensitivity is not None:
         axs[0].plot(wavelengths, original_log_sensitivity[:, 0], alpha=0.5, color='tab:red', linestyle='--')
         axs[0].plot(wavelengths, original_log_sensitivity[:, 1], alpha=0.5, color='tab:green', linestyle='--')
         axs[0].plot(wavelengths, original_log_sensitivity[:, 2], alpha=0.5, color='tab:blue', linestyle='--')
@@ -74,12 +117,7 @@ def plot_profile(profile, unmixed=False, original=None):
     axs[2].plot(wavelengths, dye_density[:, 3], color='gray', linewidth=1, linestyle='--')
     axs[2].plot(wavelengths, dye_density[:, 4], color='gray', linewidth=1)
     axs[2].legend(('C', 'M', 'Y', 'Min', 'Mid'))
-    if original is not None:
-        original_dye_density = np.column_stack((
-            np.asarray(original.data.channel_density),
-            np.asarray(original.data.base_density),
-            np.asarray(original.data.midscale_neutral_density),
-        ))
+    if original_dye_density is not None:
         axs[2].plot(wavelengths, original_dye_density[:, 0], alpha=0.5, color='tab:cyan', linestyle='--')
         axs[2].plot(wavelengths, original_dye_density[:, 1], alpha=0.5, color='tab:pink', linestyle='--')
         axs[2].plot(wavelengths, original_dye_density[:, 2], alpha=0.5, color='gold', linestyle='--')
@@ -88,6 +126,7 @@ def plot_profile(profile, unmixed=False, original=None):
     axs[2].set_xlim((350, 750))
 
     fig.suptitle(profile.info.name + ' - ' + profile.info.stock)
+    return fig, axs
 
 
 if __name__ == '__main__':
@@ -101,3 +140,8 @@ if __name__ == '__main__':
     plot_profile(paper_raw)
     plot_profile(paper_processed)
     plt.show()
+
+
+__all__ = [
+    'plot_profile',
+]

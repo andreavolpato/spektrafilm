@@ -3,7 +3,7 @@ import numpy as np
 import scipy
 import scipy.stats
 
-from spektrafilm_profile_creator.messages import log_event
+from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 def density_curve_model_norm_cdfs(
@@ -315,7 +315,6 @@ def replace_fitted_density_curves(profile, control_plot=False, model='norm_cdfs'
         support=support,
         model=model,
     )
-    log_event('replace_fitted_density_curves', fitting_parameters=fitting_parameters)
     density_curves_prefit = np.copy(density_curves)
     fitted_density_curves = compute_density_curves(
         log_exposure,
@@ -330,9 +329,14 @@ def replace_fitted_density_curves(profile, control_plot=False, model='norm_cdfs'
         profile_type=profile_type,
         support=support,
     )
-    profile.update_data(
+    updated_profile = profile.update_data(
         density_curves=fitted_density_curves,
         density_curves_layers=fitted_layer_tensor,
+    )
+    log_event(
+        'replace_fitted_density_curves',
+        updated_profile,
+        fitting_parameters=fitting_parameters,
     )
 
     if control_plot:
@@ -342,4 +346,4 @@ def replace_fitted_density_curves(profile, control_plot=False, model='norm_cdfs'
         plt.legend(('r', 'g', 'b'))
         plt.xlabel('Log Exposure')
         plt.ylabel('Density (over B+F)')
-    return profile
+    return updated_profile

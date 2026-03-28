@@ -7,7 +7,7 @@ from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.measure import measure_slopes_at_exposure
 from spektrafilm_profile_creator.core.densitometer import compute_densitometer_crosstalk_matrix
 from spektrafilm_profile_creator.data.loader import load_densitometer_data
-from spektrafilm_profile_creator.messages import log_event, log_parameters
+from spektrafilm_profile_creator.diagnostics.messages import log_event, log_parameters
 from spektrafilm_profile_creator.reconstruction.spectral_primitives import (
     gaussian_profiles,
     high_pass_filter,
@@ -289,10 +289,20 @@ def reconstruct_dye_density(
     densitometer_crosstalk = compute_densitometer_crosstalk_matrix(densitometer_responsivity, cmy)
     slopes = slopes_of_concentrations(log_exposure, density_curves, densitometer_crosstalk)
 
+    updated_profile = profile.update(
+        info={
+            'fitted_cmy_midscale_neutral_density': np.nanmax(cmy, axis=0).tolist(),
+        },
+        data={
+            'channel_density': cmy / np.nanmax(cmy, axis=0),
+        },
+    )
+
     if print_params:
         log_parameters('reconstruct_dye_density parameters', fit.params)
         log_event(
             'reconstruct_dye_density summary',
+            updated_profile,
             slopes_at_reference_exposure=slopes,
             densitometer_crosstalk_matrix=densitometer_crosstalk,
         )
@@ -358,14 +368,7 @@ def reconstruct_dye_density(
         axes[2].set_ylim([0, np.nanmax(base_density) * 1.05])
         axes[2].legend()
 
-    return profile.update(
-        info={
-            'fitted_cmy_midscale_neutral_density': np.nanmax(cmy, axis=0).tolist(),
-        },
-        data={
-            'channel_density': cmy / np.nanmax(cmy, axis=0),
-        },
-    )
+    return updated_profile
 
 
 __all__ = [

@@ -6,7 +6,7 @@ from colour.models import RGB_COLOURSPACE_sRGB
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
 from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.illuminants import standard_illuminant
-from spektrafilm_profile_creator.messages import log_event
+from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=False):
@@ -27,11 +27,6 @@ def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=Fal
     neutral_exposures = np.nansum(illuminant[:, None] * sensitivity, axis=0)
     correction = neutral_exposures[1] / neutral_exposures
     log_exposure_correction = np.log10(correction)
-    log_event(
-        'balance_sensitivity',
-        sensitivity_correction=correction,
-        log_exposure_correction=log_exposure_correction,
-    )
 
     sensitivity *= correction
     updated_log_sensitivity = np.log10(sensitivity)
@@ -44,12 +39,26 @@ def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=Fal
                 log_exposure + log_exposure_correction[index],
                 density_curves[:, index],
             )
-        return profile.update_data(
+        updated_profile = profile.update_data(
             log_sensitivity=updated_log_sensitivity,
             density_curves=density_curves_out,
         )
+        log_event(
+            'balance_sensitivity',
+            updated_profile,
+            sensitivity_correction=correction,
+            log_exposure_correction=log_exposure_correction,
+        )
+        return updated_profile
 
-    return profile.update_data(log_sensitivity=updated_log_sensitivity)
+    updated_profile = profile.update_data(log_sensitivity=updated_log_sensitivity)
+    log_event(
+        'balance_sensitivity',
+        updated_profile,
+        sensitivity_correction=correction,
+        log_exposure_correction=log_exposure_correction,
+    )
+    return updated_profile
 
 
 def balance_metameric_neutral(profile, midgray_value=0.184):
@@ -81,12 +90,7 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     fitted_density = fit.x
     density_scale = fitted_density / fitted_density[1]
     mid = midscale_neutral(fitted_density)
-    log_event(
-        'balance_metameric_neutral',
-        fitted_density_cmy=fitted_density,
-        density_scale=density_scale,
-    )
-    return profile.update(
+    updated_profile = profile.update(
         info={
             'fitted_cmy_midscale_neutral_density': fitted_density[1],
         },
@@ -95,6 +99,13 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
             'midscale_neutral_density': mid,
         },
     )
+    log_event(
+        'balance_metameric_neutral',
+        updated_profile,
+        fitted_density_cmy=fitted_density,
+        density_scale=density_scale,
+    )
+    return updated_profile
 
 
 __all__ = ['balance_sensitivity', 'balance_metameric_neutral']

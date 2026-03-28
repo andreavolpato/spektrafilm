@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field, replace
-from typing import Any
 
 from spektrafilm.profiles.io import Profile, ProfileData, ProfileInfo
 
@@ -14,10 +13,10 @@ class RawProfileRecipe:
     dye_density_cmy_donor: str | None = None
     dye_density_min_mid_donor: str | None = None
     dye_density_reconstruct_model: str = 'dmid_dmin'
-    gray_ramp_kwargs: dict[str, Any] = field(default_factory=dict)
     reference_channel: str | None = None
     target_paper: str | None = None
     data_trustability: float = 1.0
+    stretch_curves: bool = False
     should_process: bool = True
 
 
@@ -47,8 +46,6 @@ class RawProfile:
         return self
 
     def update_recipe(self, **changes) -> 'RawProfile':
-        if 'gray_ramp_kwargs' in changes and changes['gray_ramp_kwargs'] is not None:
-            changes['gray_ramp_kwargs'] = dict(changes['gray_ramp_kwargs'])
         self.recipe = replace(self.recipe, **changes)
         return self
 

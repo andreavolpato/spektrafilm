@@ -5,7 +5,7 @@ import scipy
 
 from spektrafilm.runtime.api import create_params, simulate
 from spektrafilm_profile_creator.core.profile_transforms import apply_scale_shift_stretch_density_curves
-from spektrafilm_profile_creator.messages import log_event
+from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm_profile_creator.printing_filters import fit_print_filters
 
 
@@ -30,18 +30,20 @@ def correct_negative_curves_with_gray_ramp(
         data_trustability,
         stretch_curves,
     )
-    log_event(
-        'correct_negative_curves_with_gray_ramp',
-        density_scale_correction=density_scale,
-        shift_correction=shift_correction,
-        stretch_correction=stretch_correction,
-    )
-    return apply_scale_shift_stretch_density_curves(
+    corrected_profile = apply_scale_shift_stretch_density_curves(
         params.film,
         density_scale,
         shift_correction,
         stretch_correction,
     )
+    log_event(
+        'correct_negative_curves_with_gray_ramp',
+        corrected_profile,
+        density_scale_correction=density_scale,
+        shift_correction=shift_correction,
+        stretch_correction=stretch_correction,
+    )
+    return corrected_profile
 
 
 def correct_positive_curves_with_gray_ramp(
@@ -63,18 +65,20 @@ def correct_positive_curves_with_gray_ramp(
         stretch_curves,
         positive_film=True,
     )
-    log_event(
-        'correct_positive_curves_with_gray_ramp',
-        density_scale_correction=density_scale,
-        shift_correction=shift_correction,
-        stretch_correction=stretch_correction,
-    )
-    return apply_scale_shift_stretch_density_curves(
+    corrected_profile = apply_scale_shift_stretch_density_curves(
         params.film,
         density_scale,
         shift_correction,
         stretch_correction,
     )
+    log_event(
+        'correct_positive_curves_with_gray_ramp',
+        corrected_profile,
+        density_scale_correction=density_scale,
+        shift_correction=shift_correction,
+        stretch_correction=stretch_correction,
+    )
+    return corrected_profile
 
 
 def fit_corrections_from_grey_ramp(

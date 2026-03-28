@@ -4,7 +4,7 @@ from spektrafilm.profiles.io import save_profile
 from spektrafilm_profile_creator import (
     load_raw_profile,
     load_stock_catalog,
-    process_profile,
+    process_raw_profile,
 )
 
 process_print_paper = True
@@ -31,7 +31,7 @@ print('Paper profiles')
 
 if process_print_paper:
     for raw_profile in paper_raw_profiles:
-        profile = process_profile(raw_profile)
+        profile = process_raw_profile(raw_profile)
         save_profile(profile)
         plot_profile(profile)
 
@@ -41,7 +41,7 @@ print('Negative profiles')
 
 if process_negative:
     for raw_profile in negative_film_raw_profiles:
-        profile = process_profile(raw_profile)
+        profile = process_raw_profile(raw_profile)
         save_profile(profile)
         plot_profile(profile)
 
@@ -51,7 +51,7 @@ print('Positive profiles')
 
 if process_positive:
     for raw_profile in positive_film_raw_profiles:
-        profile = process_profile(raw_profile)
+        profile = process_raw_profile(raw_profile)
         save_profile(profile)
         plot_profile(profile)
 

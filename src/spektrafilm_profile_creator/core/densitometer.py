@@ -1,7 +1,7 @@
 import numpy as np
 
 from spektrafilm_profile_creator.data.loader import load_densitometer_data
-from spektrafilm_profile_creator.messages import log_event
+from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 def compute_densitometer_crosstalk_matrix(densitometer_intensity, dye_density):
@@ -38,14 +38,18 @@ def unmix_density(profile, densitometer_intensity=None):
         densitometer_intensity,
         channel_density,
     )
-    log_event('unmix_density', densitometer_crosstalk_matrix=densitometer_crosstalk_matrix)
-
-    return profile.update_data(
+    updated_profile = profile.update_data(
         density_curves=unmix_density_curves(
             density_curves,
             densitometer_crosstalk_matrix,
         )
     )
+    log_event(
+        'unmix_density',
+        updated_profile,
+        densitometer_crosstalk_matrix=densitometer_crosstalk_matrix,
+    )
+    return updated_profile
 
 
 def densitometer_normalization(profile):
@@ -61,8 +65,13 @@ def densitometer_normalization(profile):
         channel_density,
     )
     normalization_coefficients = np.diag(crosstalk_matrix)
-    log_event('densitometer_normalization', normalization_coefficients=normalization_coefficients)
-    return profile.update_data(
+    updated_profile = profile.update_data(
         channel_density=channel_density / normalization_coefficients,
         density_curves=density_curves * normalization_coefficients,
     )
+    log_event(
+        'densitometer_normalization',
+        updated_profile,
+        normalization_coefficients=normalization_coefficients,
+    )
+    return updated_profile
