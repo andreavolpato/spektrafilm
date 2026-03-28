@@ -29,8 +29,8 @@ class TestPhotoParamsDefaults:
         assert hasattr(params.film, 'data')
         assert hasattr(params.print, 'info')
         assert hasattr(params.print, 'data')
-        assert params.film.info.stock == 'kodak_portra_400_auc'
-        assert params.print.info.stock == 'kodak_portra_endura_uc'
+        assert params.film.info.stock == 'kodak_portra_400'
+        assert params.print.info.stock == 'kodak_portra_endura'
 
         assert params.camera.exposure_compensation_ev == 0.0
         assert params.camera.auto_exposure is True

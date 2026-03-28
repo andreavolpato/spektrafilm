@@ -17,6 +17,7 @@ from spektrafilm_profile_creator.raw_profile import RawProfile
 from spektrafilm_profile_creator.reconstruction.dye_reconstruction import reconstruct_dye_density
 from spektrafilm_profile_creator.refinement import (
     correct_negative_curves_with_gray_ramp,
+    correct_positive_curves_with_gray_ramp,
 )
 
 
@@ -56,6 +57,12 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = unmix_density(profile)
         if recipe.reference_channel is not None:
             profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
+        profile = balance_sensitivity(profile, correct_log_exposure=True)
+        profile = correct_positive_curves_with_gray_ramp(
+            profile,
+            data_trustability=recipe.data_trustability,
+            stretch_curves=recipe.stretch_curves,
+        )
         profile = replace_fitted_density_curves(profile)
         return profile
 

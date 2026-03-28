@@ -28,12 +28,12 @@ CREATE_PROFILE_REGRESSION_CASES: tuple[CreateProfileRegressionCase, ...] = (
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_400',
         stock='kodak_portra_400',
-        runtime_print_paper='kodak_portra_endura_uc',
+        runtime_print_paper='kodak_portra_endura',
     ),
     CreateProfileRegressionCase(
         case_id='create_profile_kodak_portra_endura_paper',
         stock='kodak_portra_endura',
-        runtime_print_paper='kodak_portra_endura_uc',
+        runtime_print_paper='kodak_portra_endura',
     ),
 )
 

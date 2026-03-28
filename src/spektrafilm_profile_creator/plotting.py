@@ -130,15 +130,11 @@ def plot_profile(profile, unmixed=False, original=None, figure=None, axes=None):
 
 
 if __name__ == '__main__':
-    negative_raw = load_profile('kodak_portra_400')
-    negative_processed = load_profile('kodak_portra_400_auc')
-    plot_profile(negative_raw)
-    plot_profile(negative_processed)
+    negative_profile = load_profile('kodak_portra_400')
+    plot_profile(negative_profile)
 
-    paper_raw = load_profile('kodak_portra_endura')
-    paper_processed = load_profile('kodak_portra_endura_uc')
-    plot_profile(paper_raw)
-    plot_profile(paper_processed)
+    paper_profile = load_profile('kodak_portra_endura')
+    plot_profile(paper_profile)
     plt.show()
 
 

@@ -6,8 +6,8 @@ from spektrafilm.runtime.pipeline import SimulationPipeline
 
 
 def create_params(
-    film_profile: str = "kodak_portra_400_auc",
-    print_profile: str = "kodak_portra_endura_uc",
+    film_profile: str = "kodak_portra_400",
+    print_profile: str = "kodak_portra_endura",
     ymc_filters_from_database: bool = True,
 ) -> RuntimePhotoParams:
     """Build a ready-to-use runtime parameter object."""
@@ -50,8 +50,8 @@ def simulate(image, params: RuntimePhotoParams):
 ################################################################################
 
 def photo_params(
-    film_profile: str = "kodak_portra_400_auc",
-    print_profile: str = "kodak_portra_endura_uc",
+    film_profile: str = "kodak_portra_400",
+    print_profile: str = "kodak_portra_endura",
     ymc_filters_from_database: bool = True,
 ) -> RuntimePhotoParams:
     """Legacy alias for create_params()."""

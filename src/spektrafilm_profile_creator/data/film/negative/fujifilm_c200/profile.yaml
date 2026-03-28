@@ -12,6 +12,6 @@ donors:
 workflow:
   dye_density_reconstruct_model: dmid_dmin
 recipe:
-  target_paper: kodak_portra_endura_uc
+  target_paper: kodak_portra_endura
   data_trustability: 0.3
   correction_reference_channel: green

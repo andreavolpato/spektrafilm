@@ -18,7 +18,7 @@ pytestmark = pytest.mark.integration
         'expected_stretch_curves',
     ),
     [
-        ('kodak_portra_400', 'film', None, 'kodak_portra_endura_uc', 1.0, False),
+        ('kodak_portra_400', 'film', None, 'kodak_portra_endura', 1.0, False),
         ('kodak_portra_endura', 'paper', None, None, None, None),
         ('fujifilm_c200', 'film', 'green', None, None, None),
         ('fujifilm_pro_400h', 'film', 'mid', None, None, None),

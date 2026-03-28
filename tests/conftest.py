@@ -12,7 +12,7 @@ from spektrafilm.profiles.io import load_profile
 from spektrafilm.runtime.process import photo_params
 
 
-def make_fast_test_params(*, film_profile: str = "kodak_portra_400_auc", print_profile: str = "kodak_portra_endura_uc"):
+def make_fast_test_params(*, film_profile: str = "kodak_portra_400", print_profile: str = "kodak_portra_endura"):
     params = photo_params(film_profile=film_profile, print_profile=print_profile)
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True
@@ -45,5 +45,5 @@ def default_params():
 @pytest.fixture
 def portra_400_profile():
     """Load the Kodak Portra 400 profile (with auto-unmixing and couplers)."""
-    return load_profile('kodak_portra_400_auc')
+    return load_profile('kodak_portra_400')
 

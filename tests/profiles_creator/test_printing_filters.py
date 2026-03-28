@@ -37,8 +37,8 @@ def _install_fake_filter_axes(monkeypatch) -> None:
 
 @pytest.mark.integration
 def test_fit_print_filters_returns_bounded_solution_and_reduces_midgray_error():
-    film_profile = 'kodak_portra_400_auc'
-    print_profile = 'kodak_portra_endura_uc'
+    film_profile = 'kodak_portra_400'
+    print_profile = 'kodak_portra_endura'
     params = create_params(
         film_profile=film_profile,
         print_profile=print_profile,
