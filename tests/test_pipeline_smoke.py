@@ -141,7 +141,7 @@ def test_pipeline_distinguishes_stocks_and_input_chroma(default_params) -> None:
     green_patch = _tile_rgb((0.05, 0.4, 0.05), 10)
     result_portra = photo_process(green_patch, default_params)
 
-    params_fuji = make_fast_test_params(film_profile='fujifilm_c200_auc')
+    params_fuji = make_fast_test_params(film_profile='fujifilm_c200')
     result_fuji = photo_process(green_patch, params_fuji)
 
     assert not np.allclose(result_portra, result_fuji, atol=1e-8)

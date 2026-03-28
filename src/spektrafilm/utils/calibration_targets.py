@@ -142,7 +142,7 @@ if __name__ == '__main__':
     from spektrafilm.utils.io import load_image_oiio
     
     image = load_image_oiio('img/targets/cc11.tiff')
-    p = create_params(film_profile='kodak_portra_400_auc')
+    p = create_params(film_profile='kodak_portra_400')
     p.io.input_cctf_decoding = True
       
     strip = CalibrationTarget(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), resize_factor=0.05, rotate=True)

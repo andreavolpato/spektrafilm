@@ -23,9 +23,9 @@ class TestLoadProfile:
     @pytest.mark.parametrize(
         'stock',
         [
-            'kodak_portra_400_auc',
-            'fujifilm_c200_auc',
-            'kodak_portra_endura_uc',
+            'kodak_portra_400',
+            'fujifilm_c200',
+            'kodak_portra_endura',
         ],
     )
     def test_profile_data_shapes_are_consistent(self, stock):

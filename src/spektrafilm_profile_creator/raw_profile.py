@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from spektrafilm.profiles.io import Profile, ProfileData, ProfileInfo
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=False, slots=True)
 class RawProfileRecipe:
     log_sensitivity_donor: str | None = None
     density_curves_donor: str | None = None

@@ -10,5 +10,5 @@ profile:
 workflow:
   dye_density_reconstruct_model: dmid_dmin
 recipe:
-  target_paper: kodak_2383_uc
+  target_paper: kodak_2383
   data_trustability: 0.3

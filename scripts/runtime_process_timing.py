@@ -12,7 +12,7 @@ warmup()
 image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
 # image = [[[0.184,0.184,0.184]]]
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
-params = photo_params(print_profile='kodak_portra_endura_uc')
+params = photo_params(print_profile='kodak_portra_endura')
 params.io.input_cctf_decoding = True
 params.print_render.glare.active = False
 params.debug.deactivate_stochastic_effects = False

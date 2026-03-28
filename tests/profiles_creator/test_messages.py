@@ -39,13 +39,13 @@ def test_log_event_stores_profile_snapshot_as_deep_copy() -> None:
 def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapshot(monkeypatch) -> None:
     source_profile = make_test_profile(stock='kodak_test_stock')
     params = SimpleNamespace(
-        film=None,
+        film=source_profile.clone(),
         io=SimpleNamespace(full_image=False),
         settings=SimpleNamespace(rgb_to_raw_method=''),
         enlarger=SimpleNamespace(y_filter_neutral=0.0, m_filter_neutral=0.0),
     )
 
-    monkeypatch.setattr(refinement_module, 'create_params', lambda **kwargs: params)
+    monkeypatch.setattr(refinement_module, '_build_runtime_params', lambda *args, **kwargs: params)
     monkeypatch.setattr(refinement_module, 'fit_print_filters', lambda current_params, stock=None: (0.3, 0.4, None))
     monkeypatch.setattr(
         refinement_module,

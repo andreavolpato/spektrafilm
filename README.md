@@ -58,8 +58,8 @@ Minimal runtime API:
 from spektrafilm import create_params, simulate
 
 params = create_params(
-	film_profile="kodak_portra_400_auc",
-	print_profile="kodak_portra_endura_uc",
+	film_profile="kodak_portra_400",
+	print_profile="kodak_portra_endura",
 )
 result = simulate(image, params)
 ```

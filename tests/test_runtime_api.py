@@ -19,5 +19,5 @@ class TestRuntimeApi:
         legacy_params = photo_params()
         legacy_simulator = AgXPhoto(legacy_params)
 
-        assert legacy_params.film.info.stock == 'kodak_portra_400_auc'
+        assert legacy_params.film.info.stock == 'kodak_portra_400'
         assert isinstance(legacy_simulator, Simulator)
