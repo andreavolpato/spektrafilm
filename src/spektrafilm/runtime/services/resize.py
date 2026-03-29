@@ -14,7 +14,7 @@ class ResizingService:
         self.film_format_mm = film_format_mm
         self.pixel_size_um = None
         self._preview_resize_factor = None
-        self._interpolation_order = 1 if self._io.full_image else 0
+        self._interpolation_order = 1
 
     def crop_and_rescale(self, image: np.ndarray) -> tuple[np.ndarray, float, float]:
         preview_resize_factor = self._io.preview_resize_factor

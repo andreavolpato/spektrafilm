@@ -18,6 +18,13 @@ class RGBtoRAWMethod(Enum):
     mallett2019 = "mallett2019"
 
 
+class RawWhiteBalance(Enum):
+    as_shot = "as_shot"
+    daylight = "daylight"
+    tungsten = "tungsten"
+    custom = "custom"
+
+
 class AutoExposureMethods(Enum):
     median = "median"
     center_weighted = "center_weighted"

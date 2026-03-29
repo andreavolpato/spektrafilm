@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from importlib import import_module
 import sys
 from typing import TYPE_CHECKING, Callable
@@ -33,43 +32,14 @@ from spektrafilm_gui.theme_palette import (
     SIZE_SPLITTER_HANDLE_MARGIN_LEFT,
     SIZE_TAB_CONTENT_TOP_MARGIN,
 )
-from spektrafilm_gui.widgets import (
-    CollapsibleSection,
-    CouplersSection,
-    DisplaySection,
-    EnlargerSection,
-    ExposureControlSection,
-    FilePickerSection,
-    GlareSection,
-    GrainSection,
-    GuiConfigSection,
-    HalationSection,
-    InputImageSection,
-    OutputSection,
-    PreflashingSection,
-    ScannerSection,
-    SimulationSection,
-    SpectralUpsamplingSection,
-    SpecialSection,
-    TuneSection,
-    PreviewCropSection,
-    CameraSection,
-    platform_default_font,
-)
+from spektrafilm_gui.widgets import WidgetBundle
+from spektrafilm_gui.widgets import CollapsibleSection, platform_default_font
 
 
 DEFAULT_CONTROLS_PANEL_WIDTH = 420
 DEFAULT_VIEWER_SPLITTER_WIDTH = 1040
 _DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 _DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
-_PALETTE_COLOR_FALLBACKS = {
-    'window': '#323232',
-    'base': '#424242',
-    'alternate-base': '#585858',
-    'mid': '#707070',
-}
-
-
 class AppMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -82,30 +52,6 @@ class AppMainWindow(QMainWindow):
         if self._viewer_status_bar is not None:
             return self._viewer_status_bar
         return super().statusBar()
-
-
-@dataclass(slots=True)
-class ControlsPanelWidgets:
-    enlarger: EnlargerSection
-    exposure_control: ExposureControlSection
-    input_image: InputImageSection
-    output: OutputSection
-    scanner: ScannerSection
-    grain: GrainSection
-    preflashing: PreflashingSection
-    halation: HalationSection
-    couplers: CouplersSection
-    glare: GlareSection
-    filepicker: FilePickerSection
-    special: SpecialSection
-    simulation: SimulationSection
-    gui_config: GuiConfigSection
-    display: DisplaySection
-    spectral_upsampling: SpectralUpsamplingSection
-    tune: TuneSection
-    preview_crop: PreviewCropSection
-    camera: CameraSection
-
 
 def _get_current_stylesheet() -> str:
     try:
@@ -143,32 +89,8 @@ def _request_dark_title_bar(window: QWidget) -> bool:
         if result == 0:
             return True
     return False
-
-
-def _resolved_theme_color(color_spec: str) -> str:
-    if not color_spec.startswith('palette(') or not color_spec.endswith(')'):
-        return color_spec
-
-    role_name = color_spec[len('palette('):-1].strip().lower()
-    role_lookup = {
-        'window': QtGui.QPalette.Window,
-        'base': QtGui.QPalette.Base,
-        'alternate-base': QtGui.QPalette.AlternateBase,
-        'mid': QtGui.QPalette.Mid,
-    }
-    role = role_lookup.get(role_name)
-    if role is None:
-        return _PALETTE_COLOR_FALLBACKS.get(role_name, color_spec)
-
-    app = QtWidgets.QApplication.instance()
-    if app is None:
-        return _PALETTE_COLOR_FALLBACKS.get(role_name, color_spec)
-
-    return app.palette().color(role).name()
-
-
 def _canvas_background_color(*, gray_18_canvas: bool) -> str:
-    return GRAY_18 if gray_18_canvas else _resolved_theme_color(GRAY_0)
+    return GRAY_18 if gray_18_canvas else GRAY_0
 
 
 def set_canvas_background(viewer: napari.Viewer, *, gray_18_canvas: bool) -> None:
@@ -430,7 +352,7 @@ def _build_viewer_panel(
     return panel
 
 
-def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -> QWidget:
+def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidget:
     panel = QtWidgets.QTabWidget()
     panel.setObjectName('controlsTabWidget')
     panel.setDocumentMode(True)
@@ -440,6 +362,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: ControlsPanelWidgets) -
         _wrap_scrollable(
             _build_controls_tab(
                 widgets.filepicker,
+                widgets.load_raw,
                 widgets.preview_crop,
                 widgets.input_image,
                 widgets.camera,

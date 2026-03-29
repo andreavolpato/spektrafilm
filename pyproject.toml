@@ -27,7 +27,9 @@ dependencies = [
     "numba~=0.64",
     "OpenImageIO~=3.1.11",
     "pyfftw~=0.15.0",
+    "rawpy~=0.26.1",
     "PyYAML~=6.0",
+    "pyconify~=0.2.1",
 ]
 
 [project.scripts]

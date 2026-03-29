@@ -14,8 +14,8 @@ from spektrafilm_gui.napari_layout import (
     set_viewer_zoom_percent,
     take_viewer_widget,
 )
-from spektrafilm_gui.theme_palette import CONTROL_BG, TEXT_ACCENT
-from spektrafilm_gui.theme_styles import CONTROL_STYLE
+from spektrafilm_gui.theme_palette import CONTROL_BG, TEXT_ACCENT, TEXT_BRIGHT, TEXT_SELECTION_BG
+from spektrafilm_gui.theme_styles import CHROME_STYLE, CONTROL_STYLE
 
 from .helpers import FakeLayer, FakeLayerList, make_test_viewer_namespace
 
@@ -115,6 +115,13 @@ def _assert_camera_reset(viewer, *, during: list[bool], after: list[bool]) -> No
 def _assert_selected_rule(selector: str, background_rule: str) -> None:
     assert f'{selector} {{' in CONTROL_STYLE
     assert background_rule in CONTROL_STYLE
+
+
+def test_splitter_handle_style_is_hairline() -> None:
+    assert 'QSplitter::handle {' in CHROME_STYLE
+    assert '    width: 1px;' in CHROME_STYLE
+    assert 'QSplitter::handle:horizontal {' in CHROME_STYLE
+    assert '    margin: 0 0 0 8px;' in CHROME_STYLE
 
 
 def test_dialog_parent_prefers_custom_host_window() -> None:
@@ -279,3 +286,12 @@ def test_selected_menu_items_use_accent_border() -> None:
     _assert_selected_rule('QMenu::item:selected', f'    background: {CONTROL_BG};')
     _assert_selected_rule('QAbstractItemView::item:selected', f'    background: {CONTROL_BG};')
     assert f'    border-left: 2px solid {TEXT_ACCENT};' in CONTROL_STYLE
+
+
+def test_text_fields_use_gray_selection_background() -> None:
+    assert 'QLineEdit,' in CONTROL_STYLE
+    assert 'QAbstractSpinBox,' in CONTROL_STYLE
+    assert 'QTextEdit,' in CONTROL_STYLE
+    assert 'QPlainTextEdit {' in CONTROL_STYLE
+    assert f'    selection-background-color: {TEXT_SELECTION_BG};' in CONTROL_STYLE
+    assert f'    selection-color: {TEXT_BRIGHT};' in CONTROL_STYLE

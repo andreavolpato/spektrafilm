@@ -93,6 +93,104 @@ def test_load_input_image_pads_display_but_preserves_raw_metadata(monkeypatch) -
     assert viewer.reset_view_calls == 0
 
 
+def test_load_raw_image_uses_pipeline_input_settings_and_preserves_metadata(monkeypatch) -> None:
+    viewer = FakeViewer([
+        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older'),
+    ])
+    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
+    controller = GuiController(viewer=viewer, widgets=widgets)
+    gui_state = make_test_controller_gui_state()
+    gui_state.display.white_padding = 0.5
+    gui_state.input_image.input_color_space = 'Display P3'
+    gui_state.input_image.apply_cctf_decoding = True
+    gui_state.load_raw.white_balance = 'custom'
+    gui_state.load_raw.temperature = 3200.0
+    gui_state.load_raw.tint = 0.85
+    raw_image = np.full((2, 2, 3), 0.4, dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    def fake_load_and_process_raw_file(path, **kwargs):
+        captured['path'] = path
+        captured['kwargs'] = kwargs
+        return raw_image
+
+    monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(
+        controller_module,
+        'set_status',
+        lambda viewer, message, timeout_ms=5000: captured.setdefault('status', (message, timeout_ms)),
+    )
+
+    controller.load_raw_image('C:/tmp/example.nef')
+
+    assert captured['status'] == ('Loading raw...', 0)
+    assert captured['path'] == 'C:/tmp/example.nef'
+    assert captured['kwargs'] == {
+        'white_balance': 'custom',
+        'temperature': 3200.0,
+        'tint': 0.85,
+        'output_colorspace': 'Display P3',
+        'output_cctf_encoding': True,
+    }
+    assert len(viewer.layers) == 2
+    layer = viewer.layers[-1]
+    assert layer.name == 'example'
+    assert layer.data.shape == (4, 4, 3)
+    np.testing.assert_allclose(layer.data[1:3, 1:3], raw_image)
+    np.testing.assert_allclose(layer.metadata[INPUT_RAW_DATA_KEY], raw_image)
+    assert layer.metadata[INPUT_PADDING_PIXELS_KEY] == 1.0
+    assert layer.visible is True
+    assert viewer.layers[0].visible is False
+
+
+def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_layers(monkeypatch) -> None:
+    viewer = FakeViewer([
+        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older'),
+    ])
+    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
+    controller = GuiController(viewer=viewer, widgets=widgets)
+    gui_state = make_test_controller_gui_state()
+    gui_state.load_raw.white_balance = 'custom'
+    gui_state.load_raw.temperature = 3200.0
+    gui_state.load_raw.tint = 0.85
+    statuses: list[tuple[str, int]] = []
+    captured_dialog: dict[str, object] = {}
+
+    def fake_load_and_process_raw_file(path, **kwargs):
+        raise ValueError('RAW file does not expose a usable camera XYZ matrix for custom white balance.')
+
+    def fake_critical(parent, title, message):
+        captured_dialog['parent'] = parent
+        captured_dialog['title'] = title
+        captured_dialog['message'] = message
+
+    monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, 'dialog_parent', lambda viewer: 'dialog-parent')
+    monkeypatch.setattr(controller_module.QMessageBox, 'critical', fake_critical)
+    monkeypatch.setattr(
+        controller_module,
+        'set_status',
+        lambda viewer, message, timeout_ms=5000: statuses.append((message, timeout_ms)),
+    )
+
+    controller.load_raw_image('C:/tmp/example.nef')
+
+    assert statuses == [('Loading raw...', 0), ('Load raw failed', 5000)]
+    assert captured_dialog == {
+        'parent': 'dialog-parent',
+        'title': 'Load raw',
+        'message': (
+            'Failed to load RAW image.\n\n'
+            'RAW file does not expose a usable camera XYZ matrix for custom white balance.'
+        ),
+    }
+    assert len(viewer.layers) == 1
+    assert viewer.layers[0].name == 'older'
+    assert viewer.layers[0].visible is True
+
+
 def test_select_input_layer_hides_other_layers_and_moves_target_to_top() -> None:
     selected_layer = FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='selected')
     viewer = FakeViewer([

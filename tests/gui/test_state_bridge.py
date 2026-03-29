@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import fields
 
 from spektrafilm_gui.state import GuiState, clone_state_section
-from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, GuiWidgets, apply_gui_state, collect_gui_state
+from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, apply_gui_state, collect_gui_state
+from spektrafilm_gui.widgets import WidgetBundle
 
 from .helpers import make_test_gui_state
 
@@ -35,6 +36,9 @@ def _make_state() -> GuiState:
     state = make_test_gui_state()
     state.input_image.preview_resize_factor = 0.45
     state.input_image.upscale_factor = 1.5
+    state.load_raw.white_balance = 'custom'
+    state.load_raw.temperature = 3200.0
+    state.load_raw.tint = 0.85
     state.grain.active = False
     state.preflashing.just_preflash = True
     state.halation.halation_strength = (7.0, 5.0, 3.0)
@@ -50,12 +54,13 @@ def _make_state() -> GuiState:
     return state
 
 
-def _make_widgets(state: GuiState) -> GuiWidgets:
-    return GuiWidgets(
+def _make_widgets(state: GuiState) -> WidgetBundle:
+    return WidgetBundle(
         filepicker=object(),
         gui_config=object(),
         display=StubSection(clone_state_section(state.display)),
         input_image=StubSection(clone_state_section(state.input_image)),
+        load_raw=StubSection(clone_state_section(state.load_raw)),
         grain=StubSection(clone_state_section(state.grain)),
         preflashing=StubSection(clone_state_section(state.preflashing)),
         halation=StubSection(clone_state_section(state.halation)),
@@ -63,6 +68,14 @@ def _make_widgets(state: GuiState) -> GuiWidgets:
         glare=StubSection(clone_state_section(state.glare)),
         special=StubSection(clone_state_section(state.special)),
         simulation=StubSimulationSection(clone_state_section(state.simulation), scan_film=state.simulation.scan_film),
+        preview_crop=object(),
+        camera=object(),
+        exposure_control=object(),
+        enlarger=object(),
+        scanner=object(),
+        spectral_upsampling=object(),
+        tune=object(),
+        output=object(),
     )
 
 

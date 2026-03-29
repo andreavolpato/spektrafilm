@@ -23,6 +23,7 @@ from spektrafilm_gui.theme_palette import (
     SIZE_CHECKBOX_INDICATOR,
     SIZE_CHECKBOX_SPACING,
     SIZE_COMBO_DROPDOWN_WIDTH,
+    SIZE_COMPACT_BUTTON_MIN_HEIGHT,
     SIZE_CONTROL_MIN_HEIGHT,
     SIZE_CONTROL_PADDING,
     SIZE_FOOTER_MIN_HEIGHT,
@@ -47,6 +48,7 @@ from spektrafilm_gui.theme_palette import (
     TEXT_HEADER,
     TEXT_HEADER_SECTION,
     TEXT_PRIMARY,
+    TEXT_SELECTION_BG,
     TEXT_SOFT,
     TEXT_STATUS,
 )
@@ -145,6 +147,14 @@ QTabBar::tab:hover {{
 
 QToolButton[role="sectionToggle"] {{
     color: {TEXT_ACCENT};
+    background: transparent;
+    padding: 0;
+    min-height: 0;
+}}
+
+QToolButton[role="sectionToggle"]:hover,
+QToolButton[role="sectionToggle"]:pressed {{
+    background: transparent;
 }}
 
 QPushButton[role="accentAction"] {{
@@ -199,6 +209,11 @@ QPushButton {{
     text-align: center;
 }}
 
+QPushButton[role="compactAction"] {{
+    min-height: {SIZE_COMPACT_BUTTON_MIN_HEIGHT};
+    padding: {SIZE_CONTROL_PADDING};
+}}
+
 QPushButton:hover,
 QToolButton:hover,
 QComboBox:hover,
@@ -223,6 +238,14 @@ QCheckBox:focus,
 QTabBar::tab:focus {{
     border: none;
     outline: none;
+}}
+
+QLineEdit,
+QAbstractSpinBox,
+QTextEdit,
+QPlainTextEdit {{
+    selection-background-color: {TEXT_SELECTION_BG};
+    selection-color: {TEXT_BRIGHT};
 }}
 
 QComboBox::drop-down {{

@@ -26,6 +26,13 @@ class InputImageState:
 
 
 @dataclass(slots=True)
+class LoadRawState:
+    white_balance: str
+    temperature: float
+    tint: float
+
+
+@dataclass(slots=True)
 class GrainState:
     active: bool
     sublayers_active: bool
@@ -119,6 +126,7 @@ class DisplayState:
 @dataclass(slots=True)
 class GuiState:
     input_image: InputImageState
+    load_raw: LoadRawState
     grain: GrainState
     preflashing: PreflashingState
     halation: HalationState
@@ -138,6 +146,7 @@ def clone_state_section(section: StateSection) -> StateSection:
 def clone_gui_state(state: GuiState) -> GuiState:
     return GuiState(
         input_image=clone_state_section(state.input_image),
+        load_raw=clone_state_section(state.load_raw),
         grain=clone_state_section(state.grain),
         preflashing=clone_state_section(state.preflashing),
         halation=clone_state_section(state.halation),
@@ -167,6 +176,11 @@ def gui_state_from_params(
             spectral_upsampling_method=params.settings.rgb_to_raw_method,
             filter_uv=tuple(params.camera.filter_uv),
             filter_ir=tuple(params.camera.filter_ir),
+        ),
+        load_raw=LoadRawState(
+            white_balance='as_shot',
+            temperature=5500.0,
+            tint=1.0,
         ),
         grain=GrainState(
             active=params.film_render.grain.active,

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from spektrafilm.config import ENLARGER_STEPS
-from spektrafilm_gui.options import AutoExposureMethods, RGBColorSpaces, RGBtoRAWMethod
+from spektrafilm_gui.options import AutoExposureMethods, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
@@ -29,6 +29,9 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
     "input_image": {
         "input_color_space": RGBColorSpaces,
         "spectral_upsampling_method": RGBtoRAWMethod,
+    },
+    "load_raw": {
+        "white_balance": RawWhiteBalance,
     },
     "simulation": {
         "film_stock": FilmStocks,
@@ -68,7 +71,7 @@ GUI_WIDGET_SPECS = {
         "print_exposure": WidgetSpec(
             label="Print exposure",
             tooltip="Changes the exposure time set in the virtual enlarger",
-            step=0.05,
+            step=0.02,
         ),
         "print_exposure_compensation": WidgetSpec(
             label="Print auto compensation",
@@ -231,15 +234,18 @@ GUI_WIDGET_SPECS = {
         "preview_resize_factor": WidgetSpec(
             label="Preview resize",
             tooltip="Scale image size down (0-1) to speed up preview processing",
+            step=0.1,
         ),
         "crop": WidgetSpec(label="Crop", tooltip="Crop image to a fraction of the original size to preview details at full scale"),
         "crop_center": WidgetSpec(
             label="Crop center",
             tooltip="Center of the crop region in relative coordinates in x, y (0-1)",
+            step=0.02,
         ),
         "crop_size": WidgetSpec(
             label="Crop size",
             tooltip="Normalized size of the crop region in x, y (0,1), as fraction of the long side.",
+            step=0.01,
         ),
         "input_color_space": WidgetSpec(
             label="Input color space",
@@ -249,7 +255,7 @@ GUI_WIDGET_SPECS = {
             label="Apply CCTF decoding",
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
-        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution"),
+        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution", step=0.5),
         "spectral_upsampling_method": WidgetSpec(
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
@@ -261,6 +267,22 @@ GUI_WIDGET_SPECS = {
         "filter_ir": WidgetSpec(
             label="IR filter",
             tooltip="Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.",
+        ),
+    },
+    "load_raw": {
+        "white_balance": WidgetSpec(
+            label="White balance",
+            tooltip="Select white balance settings, if custom you can tune temperature and tint",
+        ),
+        "temperature": WidgetSpec(
+            label="Temperature",
+            tooltip="Temperature in Kelvin for the custom whitebalance, not used for the other white balance settings",
+            step=100,
+        ),
+        "tint": WidgetSpec(
+            label="Tint",
+            tooltip="Tint value for the custom white balance, not used for the other white balance settings",
+            step=0.01,
         ),
     },
 }
