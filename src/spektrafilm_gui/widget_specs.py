@@ -52,7 +52,7 @@ GUI_WIDGET_SPECS = {
             tooltip="Add a bias to the auto-exposure of the camera",
             min_value=-100,
             max_value=100,
-            step=0.5,
+            step=0.25,
         ),
         "auto_exposure": WidgetSpec(
             label="Camera auto exposure",
@@ -65,6 +65,8 @@ GUI_WIDGET_SPECS = {
         "camera_lens_blur_um": WidgetSpec(
             label="Camera lens blur um",
             tooltip="Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur.",
+            step=0.05,
+            min_value=0,
         ),
         "print_paper": WidgetSpec(label="Print profile", tooltip="Print paper to simulate"),
         "print_illuminant": WidgetSpec(label="Print illuminant", tooltip="Print illuminant to simulate"),
@@ -72,6 +74,7 @@ GUI_WIDGET_SPECS = {
             label="Print exposure",
             tooltip="Changes the exposure time set in the virtual enlarger",
             step=0.02,
+            min_value=0,
         ),
         "print_exposure_compensation": WidgetSpec(
             label="Print auto compensation",
@@ -93,10 +96,13 @@ GUI_WIDGET_SPECS = {
             label="Scan lens blur",
             tooltip="Sigma of gaussian filter in pixel for the scanner lens blur",
             step=0.05,
+            min_value=0,
         ),
         "scan_unsharp_mask": WidgetSpec(
             label="Scan unsharp mask",
             tooltip="Apply unsharp mask to the scan, [sigma in pixel, amount]",
+            step=0.05,
+            min_value=0,
         ),
         "output_color_space": WidgetSpec(label="Output color space", tooltip="Output color space of the simulation"),
         "saving_color_space": WidgetSpec(label="Saving color space", tooltip="Color space of the saved image file"),

@@ -8,81 +8,78 @@ import rawpy
 
 
 _TUNGSTEN_TEMPERATURE = 2850.0
+_DAYLIGHT_REFERENCE_TEMPERATURE = 6504.0
+_ACES_COLOURSPACE = colour.RGB_COLOURSPACES['ACES2065-1']
 
 
-def _normalise_user_wb(user_wb: np.ndarray) -> np.ndarray:
-    """Normalise white balance multipliers so the primary green channel is 1.0."""
+def _whitepoint_xyz_from_temperature(temperature: float) -> np.ndarray:
+    """Convert a colour temperature to an XYZ whitepoint.
 
-    green_index = 1
-    green_value = user_wb[green_index]
-    if green_value <= 0:
-        raise ValueError('Could not derive a valid white balance multiplier for the green channel.')
-    return user_wb / green_value
-
-
-def _camera_response_to_xyz_white(raw: rawpy.RawPy, xyz: np.ndarray) -> np.ndarray:
-    """Project an XYZ whitepoint into the camera response domain.
-
-    The mapping uses ``raw.rgb_xyz_matrix`` exposed by LibRaw. For Bayer sensors
-    the fourth channel is synthesised from the green response so the result can
-    be passed directly to ``rawpy`` as a four-element ``user_wb`` vector.
+    Daylight whitepoints above 4000 K are better approximated by the CIE
+    daylight locus than by a pure Planckian radiator. Warmer illuminants such as
+    tungsten are modelled with the Kang 2002 Planckian approximation.
     """
 
-    matrix = np.asarray(raw.rgb_xyz_matrix, dtype=np.float64)
-    if matrix.ndim != 2 or matrix.shape[1] != 3 or matrix.shape[0] < 3:
-        raise ValueError('RAW file does not expose a usable camera XYZ matrix for custom white balance.')
-
-    response = matrix @ xyz
-    if response.shape[0] < 4:
-        response = np.pad(response, (0, 4 - response.shape[0]), constant_values=response[1])
-    elif response[3] <= 0:
-        response[3] = response[1]
-
-    if np.any(response[:3] <= 0):
-        raise ValueError('Derived camera response is invalid for the requested white balance.')
-
-    return response[:4]
+    method = 'CIE Illuminant D Series' if temperature >= 4000.0 else 'Kang 2002'
+    xy = colour.CCT_to_xy(np.float64(temperature), method=method)
+    return np.asarray(colour.xy_to_XYZ(xy), dtype=np.float64)
 
 
-def _user_wb_from_temperature_and_tint(
-    raw: rawpy.RawPy,
-    temperature: float,
-    tint: float | None,
-) -> list[float]:
-    """Derive ``rawpy`` ``user_wb`` multipliers from temperature and tint.
+def _apply_white_balance_adaptation(
+    rgb: np.ndarray,
+    source_white_xyz: np.ndarray,
+    target_white_xyz: np.ndarray,
+) -> np.ndarray:
+    """Apply a colour-science chromatic adaptation in linear ACES RGB."""
 
-    ``rawpy`` 0.26 no longer exposes direct temperature or preset white-balance
-    controls, so this function approximates them by converting the requested
-    correlated colour temperature to an XYZ whitepoint and projecting that
-    whitepoint through the camera's XYZ matrix.
+    source_white_xyz = np.asarray(source_white_xyz, dtype=np.float64)
+    target_white_xyz = np.asarray(target_white_xyz, dtype=np.float64)
+    source_white_xyz = source_white_xyz / source_white_xyz[1]
+    target_white_xyz = target_white_xyz / target_white_xyz[1]
 
-    The ``tint`` control scales the two green channels together after the base
-    temperature-derived white balance has been computed.
-    """
+    xyz = colour.RGB_to_XYZ(
+        rgb,
+        colourspace=_ACES_COLOURSPACE,
+        chromatic_adaptation_transform=None,
+        apply_cctf_decoding=False,
+    )
+    xyz = colour.chromatic_adaptation(
+        xyz,
+        source_white_xyz,
+        target_white_xyz,
+        method='Von Kries',
+    )
+    return colour.XYZ_to_RGB(
+        xyz,
+        colourspace=_ACES_COLOURSPACE,
+        chromatic_adaptation_transform=None,
+        apply_cctf_encoding=False,
+    ).astype(np.float32)
 
-    xy = colour.CCT_to_xy(np.float64(temperature), method='Kang 2002')
-    xyz = np.asarray(colour.xy_to_XYZ(xy), dtype=np.float64)
-    response = _camera_response_to_xyz_white(raw, xyz)
-    user_wb = _normalise_user_wb(1.0 / response)
 
-    if tint is not None:
-        user_wb[1] *= tint
-        user_wb[3] *= tint
+def _apply_tint_adjustment(rgb: np.ndarray, tint: float | None) -> np.ndarray:
+    """Apply a simple green-magenta tint adjustment in linear ACES RGB."""
 
-    return user_wb.tolist()
+    if tint is None or np.isclose(tint, 1.0):
+        return rgb
+
+    tint_scale = np.array([1.0, float(tint), 1.0], dtype=np.float32)
+    return (rgb * tint_scale).astype(np.float32)
 
 
 def _postprocess_params(
-    raw: rawpy.RawPy,
     white_balance: str | tuple[float, float],
     temperature: float | None,
     tint: float | None,
-) -> dict[str, object]:
+) -> tuple[dict[str, object], tuple[np.ndarray, np.ndarray] | None, float | None]:
     """Build the ``rawpy.postprocess`` parameters for the requested settings.
 
-    The output is always configured as linear 16-bit ACES RGB so any later
-    colourspace conversion is performed on linear data by ``colour`` rather than
-    on display-referred output from LibRaw.
+    The output is always configured as linear 16-bit ACES RGB. White balance is
+    handled in one of two ways:
+
+    - ``'as_shot'`` uses LibRaw camera white balance directly during demosaic.
+    - Other modes use LibRaw's daylight-balanced default output as the base and
+      apply colour-science chromatic adaptation in linear ACES RGB.
     """
 
     params: dict[str, object] = {
@@ -91,22 +88,33 @@ def _postprocess_params(
         'no_auto_bright': True,
         'gamma': (1, 1),
     }
+    postprocess_adaptation: tuple[np.ndarray, np.ndarray] | None = None
+    tint_multiplier: float | None = None
+    reference_white_xyz = _whitepoint_xyz_from_temperature(_DAYLIGHT_REFERENCE_TEMPERATURE)
+
+    def set_colour_science_adjustment(target_temperature: float, target_tint: float | None) -> None:
+        nonlocal postprocess_adaptation, tint_multiplier
+
+        scene_white_xyz = _whitepoint_xyz_from_temperature(target_temperature)
+        if not np.allclose(reference_white_xyz, scene_white_xyz):
+            postprocess_adaptation = (scene_white_xyz, reference_white_xyz)
+        tint_multiplier = target_tint
 
     if white_balance == 'as_shot':
         params['use_camera_wb'] = True
     elif white_balance == 'daylight':
-        params['user_wb'] = list(raw.daylight_whitebalance)
+        pass
     elif white_balance == 'tungsten':
-        params['user_wb'] = _user_wb_from_temperature_and_tint(raw, _TUNGSTEN_TEMPERATURE, 1.0)
+        set_colour_science_adjustment(_TUNGSTEN_TEMPERATURE, 1.0)
     elif white_balance == 'custom':
         if temperature is None:
             raise ValueError('A custom raw white balance requires a temperature value.')
-        params['user_wb'] = _user_wb_from_temperature_and_tint(raw, temperature, tint)
+        set_colour_science_adjustment(temperature, tint)
     else:
         custom_temperature, custom_tint = white_balance
-        params['user_wb'] = _user_wb_from_temperature_and_tint(raw, custom_temperature, custom_tint)
+        set_colour_science_adjustment(custom_temperature, custom_tint)
 
-    return params
+    return params, postprocess_adaptation, tint_multiplier
 
 
 def load_and_process_raw_file(
@@ -115,14 +123,14 @@ def load_and_process_raw_file(
     temperature: float | None = None,
     tint: float | None = None,
     output_colorspace: str = 'ACES2065-1',
-    output_cctf_encoding: bool = True,
+    output_cctf_encoding: bool = False,
 ) -> np.ndarray:
     """Load a RAW file into linear RGB and optionally convert its colourspace.
 
     The RAW is demosaiced by ``rawpy`` into linear 16-bit ACES RGB with auto
-    brightening disabled. White balance can come from the camera metadata, the
-    LibRaw daylight multipliers, or a temperature/tint approximation derived
-    from the camera XYZ matrix.
+    brightening disabled. ``'as_shot'`` white balance comes from the camera
+    metadata; the other white-balance modes use LibRaw's daylight-balanced base
+    output and colour-science chromatic adaptation in linear ACES RGB.
 
     Parameters
     ----------
@@ -150,13 +158,18 @@ def load_and_process_raw_file(
     """
 
     with rawpy.imread(str(raw_path)) as raw:
-        params = _postprocess_params(raw, white_balance, temperature, tint)
+        params, postprocess_adaptation, tint_multiplier = _postprocess_params(white_balance, temperature, tint)
         rgb = raw.postprocess(**params).astype(np.float32) / np.float32(65535.0)
+
+    if postprocess_adaptation is not None:
+        rgb = _apply_white_balance_adaptation(rgb, *postprocess_adaptation)
+
+    rgb = _apply_tint_adjustment(rgb, tint_multiplier)
 
     if output_colorspace != 'ACES2065-1':
         rgb = colour.RGB_to_RGB(
             rgb,
-            input_colourspace=colour.RGB_COLOURSPACES['ACES2065-1'],
+            input_colourspace=_ACES_COLOURSPACE,
             output_colourspace=colour.RGB_COLOURSPACES[output_colorspace],
             apply_cctf_decoding=False,
             apply_cctf_encoding=output_cctf_encoding,
