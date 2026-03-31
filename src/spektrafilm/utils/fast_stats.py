@@ -233,11 +233,24 @@ def warmup_fast_stats():
         np.full((2, 2), 0.5, dtype=np.float64)
     )
 
+def lognorm_from_mean_std(M, S):
+    """
+    Returns a frozen lognormal distribution object (scipy.stats.rv_frozen)
+    whose mean is M and std dev is S in linear space.
+    """
+    # 1. Compute sigma^2 in log-space
+    sigma_sq = np.log(1.0 + (S**2) / (M**2))
+    sigma = np.sqrt(sigma_sq)
+    # 2. Compute mu in log-space
+    mu = np.log(M) - 0.5 * sigma_sq
+    # 3. In scipy.lognorm, 's' = sigma (the shape), and 'scale' = exp(mu)
+    return scipy.stats.lognorm(s=sigma, scale=np.exp(mu))
+
 if __name__=='__main__':
     import time
     import matplotlib.pyplot as plt
 
-    size = (6000, 4000)
+    size = (3000, 2000)
     pixel_area = (35000 / size[0])**2
     particle_area = 0.2
     n = pixel_area / particle_area

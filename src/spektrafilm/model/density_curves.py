@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 from spektrafilm.utils.fast_interp import fast_interp
 
 ################################################################################
@@ -29,6 +30,19 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
                               log_exposure[:,None]/gamma_factor[None,:],
                               density_curves)
     return density_cmy
+
+
+def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
+    density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], 3, 3)) # x,y,layer,rgb
+    if positive_film:
+        for ch in np.arange(3):
+            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+                                                       -density_curves[:,ch], density_curves_layers[:,:,ch])
+    else:
+        for ch in np.arange(3):
+            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+                                                       density_curves[:,ch], density_curves_layers[:,:,ch])
+    return density_cmy_layers
     
 # This method was used for multilayer grain, but it is not used anymore
 # def interpolate_layers(self, exposure_rgb):

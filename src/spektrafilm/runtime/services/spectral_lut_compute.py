@@ -15,9 +15,9 @@ class SpectralLUTService:
     def compute(
         self,
         data,
+        spectral_calculation: Callable,
         data_min,
         data_max,
-        spectral_calculation: Callable,
         *,
         use_lut: bool = False,
         save_enlarger_lut: bool = False,

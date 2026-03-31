@@ -35,9 +35,9 @@ class PrintingStage:
     def expose(self, film_density_channels: np.ndarray) -> np.ndarray:
         return self._lut_service.compute(
             film_density_channels,
+            spectral_calculation=self.film_cmy_to_print_log_raw,
             data_min=-np.array(self._film_render.grain.density_min),
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
-            spectral_calculation=self.film_density_to_print_log_raw,
             use_lut=self._settings.use_enlarger_lut,
             save_enlarger_lut=True,
         )
@@ -51,7 +51,7 @@ class PrintingStage:
             gamma_factor=self._print_render.density_curve_gamma,
         )
 
-    def film_density_to_print_log_raw(self, density_channels: np.ndarray) -> np.ndarray:
+    def film_cmy_to_print_log_raw(self, density_channels: np.ndarray) -> np.ndarray:
         sensitivity = 10 ** self._print.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
         enlarger_light_source = standard_illuminant(self._enlarger.illuminant)
@@ -59,8 +59,9 @@ class PrintingStage:
         raw = np.zeros_like(density_channels)
         if not self._enlarger.just_preflash:
             density_spectral = compute_density_spectral(
-                self._film,
+                self._film.data.channel_density,
                 density_channels,
+                base_density=self._film.data.base_density,
                 base_density_scale=self._film_render.base_density_scale,
             )
             print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
