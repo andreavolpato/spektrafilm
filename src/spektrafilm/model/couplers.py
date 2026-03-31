@@ -19,17 +19,19 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     Returns:
         _type_: _description_
     """
-    d_max = np.nanmax(density_curves, axis=0)
-    dc_norm = density_curves/d_max
-    dc_norm_shift = dc_norm + high_exposure_couplers_shift*dc_norm**2
-    couplers_amount_curves = contract('jk, km->jm', dc_norm_shift, dir_couplers_matrix)
+    density_max = np.nanmax(density_curves, axis=0)
+    
     if positive:
-        x0 = log_exposure[:,None] + couplers_amount_curves
+        density_curves_normalized = 1 - density_curves/density_max
     else:
-        x0 = log_exposure[:,None] - couplers_amount_curves
+        density_curves_normalized = density_curves/density_max
+    
+    dc_norm_shift = density_curves_normalized + high_exposure_couplers_shift*density_curves_normalized**2
+    couplers_amount_curves = contract('jk, km->jm', dc_norm_shift, dir_couplers_matrix)
+    log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
     for i in np.arange(3):
-        density_curves_corrected[:,i] = np.interp(log_exposure, x0[:,i], density_curves[:,i])
+        density_curves_corrected[:,i] = np.interp(log_exposure, log_exposure_0[:,i], density_curves[:,i])
     return density_curves_corrected
 
 
@@ -72,16 +74,16 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
     Returns:
     numpy.ndarray: The modified raw exposure data after applying the effect of inhibitors.
     """
-    norm_density = density_cmy/density_max
+    if positive:
+        norm_density = 1 - density_cmy/density_max
+    else:
+        norm_density = density_cmy/density_max
     norm_density += high_exposure_couplers_shift*norm_density**2
     log_raw_correction = contract('ijk, km->ijm', norm_density, dir_couplers_matrix)
     if diffusion_size_pixel>0:
         log_raw_correction = gaussian_filter(log_raw_correction, (diffusion_size_pixel, diffusion_size_pixel, 0))
         # log_raw_correction = fast_gaussian_filter(log_raw_correction, diffusion_size_pixel)
-    if positive:
-        log_raw_corrected = log_raw + log_raw_correction
-    else:
-        log_raw_corrected = log_raw - log_raw_correction
+    log_raw_corrected = log_raw - log_raw_correction
     return log_raw_corrected
 
 
