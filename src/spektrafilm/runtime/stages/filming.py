@@ -4,7 +4,7 @@ import numpy as np
 
 from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.diffusion import apply_gaussian_blur_um, apply_halation_um
-from spektrafilm.model.emulsion import Film, compute_density_spectral, develop_simple
+from spektrafilm.model.emulsion import compute_density_spectral, develop, develop_simple
 from spektrafilm.utils.autoexposure import measure_autoexposure_ev
 from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_mallett2019
 from spektrafilm.utils.timings import timeit
@@ -51,9 +51,18 @@ class FilmingStage:
         if not self._io.full_image: 
             self._film_render.grain.active = False # to be changed
             self._film_render.halation.active = False # to be changed
-        film = Film(self._film, self._film_render)
-        return film.develop(log_raw, self._resizing_service.pixel_size_um,
-                            use_fast_stats=self._settings.use_fast_stats)
+        return develop(
+            log_raw,
+            self._resizing_service.pixel_size_um,
+            self._film.data.log_exposure,
+            self._film.data.density_curves,
+            self._film.data.density_curves_layers,
+            self._film_render.dir_couplers,
+            self._film_render.grain,
+            self._film.info.type,
+            gamma_factor=self._film_render.density_curve_gamma,
+            use_fast_stats=self._settings.use_fast_stats,
+        )
 
     def rgb_to_film_raw(
         self,
@@ -106,8 +115,9 @@ class FilmingStage:
             gamma_factor=self._film_render.density_curve_gamma,
         )
         density_spectral_midgray = compute_density_spectral(
-            self._film,
+            self._film.data.channel_density,
             density_midgray,
+            base_density=self._film.data.base_density,
             base_density_scale=self._film_render.base_density_scale,
         )
         return density_spectral_midgray

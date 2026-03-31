@@ -1,6 +1,8 @@
 import numpy as np
 import scipy
 import scipy.ndimage
+from spektrafilm.model.density_curves import interp_density_cmy_layers
+from spektrafilm.runtime.params_schema import GrainParams
 from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson, fast_lognormal_from_mean_std
 # from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
 
@@ -157,6 +159,56 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
         density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (grain_blur, grain_blur, 0))
         # density_cmy_out = fast_gaussian_filter(density_cmy_out, grain_blur)
     return density_cmy_out
+
+
+def apply_grain(
+    density_cmy,
+    pixel_size_um,
+    grain: GrainParams,
+    density_curves,
+    density_curves_layers,
+    profile_type,
+    bypass_grain=False,
+    use_fast_stats=False,
+):
+    if not grain.active or bypass_grain:
+        return density_cmy
+
+    if not grain.sublayers_active:
+        density_max = np.nanmax(density_curves, axis=0)
+        return apply_grain_to_density(
+            density_cmy,
+            pixel_size_um=pixel_size_um,
+            agx_particle_area_um2=grain.agx_particle_area_um2,
+            agx_particle_scale=grain.agx_particle_scale,
+            density_min=grain.density_min,
+            density_max_curves=density_max,
+            grain_uniformity=grain.uniformity,
+            grain_blur=grain.blur,
+            n_sub_layers=grain.n_sub_layers,
+        )
+
+    density_cmy_layers = interp_density_cmy_layers(
+        density_cmy,
+        density_curves,
+        density_curves_layers,
+        positive_film=profile_type == 'positive',
+    )
+    density_max_layers = np.nanmax(density_curves_layers, axis=0)
+    return apply_grain_to_density_layers(
+        density_cmy_layers,
+        density_max_layers=density_max_layers,
+        pixel_size_um=pixel_size_um,
+        agx_particle_area_um2=grain.agx_particle_area_um2,
+        agx_particle_scale=grain.agx_particle_scale,
+        agx_particle_scale_layers=grain.agx_particle_scale_layers,
+        density_min=grain.density_min,
+        grain_uniformity=grain.uniformity,
+        grain_blur=grain.blur,
+        grain_blur_dye_clouds_um=grain.blur_dye_clouds_um,
+        grain_micro_structure=grain.micro_structure,
+        use_fast_stats=use_fast_stats,
+    )
 
 # TODO: make grain parameter with RMS granularity
 

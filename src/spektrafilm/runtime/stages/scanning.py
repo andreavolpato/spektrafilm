@@ -58,16 +58,21 @@ class ScanningStage:
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
         def spectral_calculation(density_cmy: np.ndarray) -> np.ndarray:
-            density_spectral = compute_density_spectral(profile, density_cmy, base_density_scale=base_density_scale)
+            density_spectral = compute_density_spectral(
+                profile.data.channel_density,
+                density_cmy,
+                base_density=profile.data.base_density,
+                base_density_scale=base_density_scale,
+            )
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
             return np.log10(np.fmax(xyz, 0.0) + 1e-10)
 
         log_xyz = self._lut_service.compute(
             density_channels,
+            spectral_calculation=spectral_calculation,
             data_min=density_min,
             data_max=density_max,
-            spectral_calculation=spectral_calculation,
             use_lut=use_lut,
             save_scanner_lut=True,
         )

@@ -2,6 +2,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 # from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
 from opt_einsum import contract
+from spektrafilm.model.density_curves import interpolate_exposure_to_density
 
 def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, high_exposure_couplers_shift=0.0, positive=False):
     """
@@ -82,6 +83,46 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
     else:
         log_raw_corrected = log_raw - log_raw_correction
     return log_raw_corrected
+
+
+def apply_density_correction_dir_couplers(
+    density_cmy,
+    log_raw,
+    pixel_size_um,
+    log_exposure,
+    density_curves,
+    dir_couplers,
+    profile_type,
+    gamma_factor=1.0,
+):
+    if not dir_couplers.active:
+        return density_cmy
+
+    positive = profile_type == 'positive'
+    dir_couplers_amount_rgb = dir_couplers.amount * np.array(dir_couplers.ratio_rgb)
+    couplers_matrix = compute_dir_couplers_matrix(
+        dir_couplers_amount_rgb,
+        dir_couplers.diffusion_interlayer,
+    )
+    density_curves_0 = compute_density_curves_before_dir_couplers(
+        density_curves,
+        log_exposure,
+        couplers_matrix,
+        dir_couplers.high_exposure_shift,
+        positive=positive,
+    )
+    density_max = np.nanmax(density_curves, axis=0)
+    diffusion_size_pixel = dir_couplers.diffusion_size_um / pixel_size_um
+    log_raw_0 = compute_exposure_correction_dir_couplers(
+        log_raw,
+        density_cmy,
+        density_max,
+        couplers_matrix,
+        diffusion_size_pixel,
+        high_exposure_couplers_shift=dir_couplers.high_exposure_shift,
+        positive=positive,
+    )
+    return interpolate_exposure_to_density(log_raw_0, density_curves_0, log_exposure, gamma_factor)
 
 # if __name__=='__main__':
     # # Test the raw correction coupler inhibitors

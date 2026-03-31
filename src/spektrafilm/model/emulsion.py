@@ -1,213 +1,88 @@
+from typing import Literal, TypeAlias
+
 import numpy as np
-import scipy.ndimage
+from numpy.typing import NDArray
 from opt_einsum import contract
+from spektrafilm.model.couplers import apply_density_correction_dir_couplers
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
-from spektrafilm.model.couplers import compute_exposure_correction_dir_couplers, compute_dir_couplers_matrix, compute_density_curves_before_dir_couplers
-from spektrafilm.model.grain import apply_grain_to_density, apply_grain_to_density_layers
-from spektrafilm.utils.fast_stats import fast_lognormal_from_mean_std
-from spektrafilm.utils.fast_interp import fast_interp
+from spektrafilm.model.grain import apply_grain
+from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
+
+
+FloatArray: TypeAlias = NDArray[np.float64]
+ProfileType: TypeAlias = Literal['negative', 'positive']
 
 ################################################################################
-# AgXEmusion main class
+# Emulsion helpers
 
-def lognorm_from_mean_std(M, S):
-    """
-    Returns a frozen lognormal distribution object (scipy.stats.rv_frozen)
-    whose mean is M and std dev is S in linear space.
-    """
-    # 1. Compute sigma^2 in log-space
-    sigma_sq = np.log(1.0 + (S**2) / (M**2))
-    sigma = np.sqrt(sigma_sq)
-    # 2. Compute mu in log-space
-    mu = np.log(M) - 0.5 * sigma_sq
-    # 3. In scipy.lognorm, 's' = sigma (the shape), and 'scale' = exp(mu)
-    return scipy.stats.lognorm(s=sigma, scale=np.exp(mu))
-
-def compute_density_spectral(profile, density_cmy, base_density_scale=1.0):
-    density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(profile.data.channel_density))
-    density_spectral += np.asarray(profile.data.base_density) * base_density_scale
+def compute_density_spectral(
+    channel_density,
+    density_cmy,
+    base_density=None,
+    base_density_scale=1.0,
+):
+    density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(channel_density))
+    if base_density is not None:
+        density_spectral += np.asarray(base_density) * base_density_scale
     return density_spectral
 
-def develop_simple(log_raw, log_exposure, density_curves, gamma_factor=1.0):
+def develop_simple(
+    log_raw,
+    log_exposure,
+    density_curves,
+    gamma_factor=1.0,
+):
     density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, gamma_factor)
     return density_cmy
 
-class AgXEmulsion():
-    def __init__(self, profile, density_curve_gamma=1.0, base_density_scale=1.0):
-        self.sensitivity = 10**np.array(profile.data.log_sensitivity)
-        self.channel_density = np.array(profile.data.channel_density)
-        self.base_density = np.array(profile.data.base_density)
-        self.midscale_neutral_density = np.array(profile.data.midscale_neutral_density)
-        self.density_curves = np.array(profile.data.density_curves)
-        self.density_curves_layers = np.array(profile.data.density_curves_layers)
-        self.log_exposure = np.array(profile.data.log_exposure)
-        self.wavelengths = np.array(profile.data.wavelengths)
-        
-        self.type = profile.info.type
-        self.support = profile.info.support
-        self.stock = profile.info.stock
-        self.reference_illuminant = profile.info.reference_illuminant
-        self.viewing_illuminant = profile.info.viewing_illuminant
-        self.gamma_factor = density_curve_gamma
-        self.base_density_scale = base_density_scale
-        
-        self.density_curves -= np.nanmin(self.density_curves, axis=0)
-        self.sensitivity = np.nan_to_num(self.sensitivity) # replace nans with zeros
-        self.midgray_value = 0.184 # in linear light value, no cctf applied
-        self.midgray_rgb = np.array([[[self.midgray_value]*3]])
-    
-    ################################################################################
-    # Generic methods
+def develop(
+    log_raw: FloatArray,
+    pixel_size_um: float,
+    log_exposure: FloatArray,
+    density_curves: FloatArray,
+    density_curves_layers: FloatArray,
+    dir_couplers: DirCouplersParams,
+    grain: GrainParams,
+    profile_type: ProfileType,
+    gamma_factor: float = 1.0,
+    bypass_grain: bool = False,
+    use_fast_stats: bool = False,
+) -> FloatArray:
+    density_curves = np.asarray(density_curves)
+    normalized_density_curves = density_curves - np.nanmin(density_curves, axis=0)
 
-    def _interpolate_density_with_curves(self, log_raw, density_curves=None):
-        if density_curves is None: 
-            density_curves = self.density_curves
-        density_cmy = interpolate_exposure_to_density(log_raw, density_curves, self.log_exposure, self.gamma_factor)
-        return density_cmy
-
-    def _compute_density_spectral(self, density_cmy):
-        density_spectral = contract('ijk, lk->ijl', density_cmy, self.channel_density)
-        density_spectral += self.base_density * self.base_density_scale
-        return density_spectral
-
-class Film(AgXEmulsion):
-    def __init__(self, profile, render_params):
-        super().__init__(
-            profile,
-            density_curve_gamma=render_params.density_curve_gamma,
-            base_density_scale=render_params.base_density_scale,
-        )
-        self.info = profile.info
-        self.grain = render_params.grain
-        self.halation = render_params.halation
-        self.dir_couplers = render_params.dir_couplers
-        self.fitted_cmy_midscale_neutral_density = getattr(profile.info, 'fitted_cmy_midscale_neutral_density', None)
-
-    def develop(self, log_raw, pixel_size_um,
-                bypass_grain=False,
-                use_fast_stats=False,
-                ):
-
-        # self.exposure_ev = exposure_ev
-        # self.replace_data_with_parametric_models() #DEL
-        # raw              = self._convert_rgb_to_raw_and_expose(rgb, color_space, apply_cctf_decoding, exposure_ev)
-        # raw              = self._gaussian_blur(raw, lens_blur_um/pixel_size_um)
-        # raw              = self._apply_halation(raw, pixel_size_um)
-        # log_raw          = np.log10(raw + 1e-10)
-        density_cmy      = self._interpolate_density_with_curves(log_raw)
-        density_cmy      = self._apply_density_correction_dir_couplers(density_cmy, log_raw, pixel_size_um)
-        density_cmy      = self._apply_grain(density_cmy, pixel_size_um, bypass_grain, use_fast_stats)
-        # density_spectral = self._compute_density_spectral(density_cmy) #DEL
-        return density_cmy
-        
-        # if return_density_cmy: return density_cmy # only used for grain tuning with a virtual densitometer
-        # else:                  return density_spectral #DEL
-
-    # def replace_data_with_parametric_models(self): #DEL
-    #     if self.parametric.density_curves.active:
-    #         gamma = self.parametric.density_curves.gamma
-    #         log_exposure_0 = self.parametric.density_curves.log_exposure_0
-    #         density_max = self.parametric.density_curves.density_max
-    #         toe_size = self.parametric.density_curves.toe_size
-    #         shoulder_size = self.parametric.density_curves.shoulder_size
-    #         self.density_curves = parametric_density_curves_model(self.log_exposure, gamma, log_exposure_0, density_max, toe_size, shoulder_size)
-
-    # def _convert_rgb_to_raw_and_expose(self, rgb, color_space, apply_cctf_decoding, exposure_ev): #DEL
-    #     reference_illuminant = standard_illuminant(self.reference_illuminant)
-    #     raw = rgb_to_raw_mallett2019(rgb, reference_illuminant, self.sensitivity,
-    #                                  color_space=color_space,
-    #                                  apply_cctf_decoding=apply_cctf_decoding)
-    #     raw_midgray = rgb_to_raw_mallett2019(self.midgray_rgb, reference_illuminant, self.sensitivity,
-    #                                          color_space='sRGB',
-    #                                          apply_cctf_decoding=False)
-    #     raw *= 2**exposure_ev / raw_midgray[:,:,1]
-    #     return raw
-
-    # def _apply_halation(self, raw, pixel_size_um): #DEL
-    #     if self.halation.active:
-    #         halation_size_pixels = np.array(self.halation.size_um)/pixel_size_um
-    #         scattering_size_pixels = np.array(self.halation.scattering_size_um)/pixel_size_um
-    #         raw = apply_halation(raw, 
-    #                             np.array(halation_size_pixels),
-    #                             np.array(self.halation.strength),
-    #                             np.array(scattering_size_pixels),
-    #                             np.array(self.halation.scattering_strength))
-    #     return raw
-
-    def _apply_density_correction_dir_couplers(self, density_cmy, log_raw, pixel_size_um):
-        if self.dir_couplers.active:
-            # compute inhibitors matrix with super a simplified diffusion model
-            dir_couplers_amount_rgb = self.dir_couplers.amount * np.array(self.dir_couplers.ratio_rgb)
-            M = compute_dir_couplers_matrix(dir_couplers_amount_rgb, self.dir_couplers.diffusion_interlayer)
-            # compute density curves before dir couplers
-            density_curves_0 = compute_density_curves_before_dir_couplers(self.density_curves, 
-                                                                          self.log_exposure, 
-                                                                          M, self.dir_couplers.high_exposure_shift,
-                                                                          positive=self.info.is_positive)
-            # compute exposure correction
-            density_max = np.nanmax(self.density_curves, axis=0)
-            diffusion_size_um = self.dir_couplers.diffusion_size_um
-            diffusion_size_pixel = diffusion_size_um/pixel_size_um
-            log_raw_0 = compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max, M, 
-                                                                 diffusion_size_pixel, 
-                                                                 high_exposure_couplers_shift=self.dir_couplers.high_exposure_shift,
-                                                                 positive=self.info.is_positive)
-            # interpolated with corrected curves
-            density_cmy = interpolate_exposure_to_density(log_raw_0, density_curves_0, self.log_exposure, self.gamma_factor)
-        return density_cmy
-
-    def _apply_grain(self, density_cmy, pixel_size_um, bypass_grain, use_fast_stats):
-        if self.grain.active and not bypass_grain:
-            if not self.grain.sublayers_active:
-                density_max = np.nanmax(self.density_curves, axis=0)
-                density_cmy = apply_grain_to_density(density_cmy,
-                                                    pixel_size_um=pixel_size_um,
-                                                    agx_particle_area_um2=self.grain.agx_particle_area_um2,
-                                                    agx_particle_scale=self.grain.agx_particle_scale,
-                                                    density_min=self.grain.density_min,
-                                                    density_max_curves=density_max,
-                                                    grain_uniformity=self.grain.uniformity,
-                                                    grain_blur=self.grain.blur,
-                                                    n_sub_layers=self.grain.n_sub_layers)
-            else:
-                density_cmy_layers = interp_density_cmy_layers(density_cmy, self.density_curves, self.density_curves_layers,
-                                                               positive_film=self.info.is_positive)
-                density_max_layers = np.nanmax(self.density_curves_layers, axis=0)
-                density_cmy = apply_grain_to_density_layers(density_cmy_layers,
-                                                            density_max_layers=density_max_layers,
-                                                            pixel_size_um=pixel_size_um,
-                                                            agx_particle_area_um2=self.grain.agx_particle_area_um2,
-                                                            agx_particle_scale=self.grain.agx_particle_scale,
-                                                            agx_particle_scale_layers=self.grain.agx_particle_scale_layers,
-                                                            density_min=self.grain.density_min,
-                                                            grain_uniformity=self.grain.uniformity,
-                                                            grain_blur=self.grain.blur,
-                                                            grain_blur_dye_clouds_um=self.grain.blur_dye_clouds_um,
-                                                            grain_micro_structure=self.grain.micro_structure,
-                                                            use_fast_stats=use_fast_stats)
-        return density_cmy
-
-def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
-    density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], 3, 3)) # x,y,layer,rgb
-    # for ch in np.arange(3):
-    #     for lr in np.arange(3):
-    #         density_cmy_layers[:,:,lr,ch] = np.interp(density_cmy[:,:,ch],
-    #                                                   density_curves[:,ch], density_curves_layers[:,lr,ch])
-    if positive_film:
-        for ch in np.arange(3):
-            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
-                                                       -density_curves[:,ch], density_curves_layers[:,:,ch])
-    else:
-        for ch in np.arange(3):
-            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
-                                                       density_curves[:,ch], density_curves_layers[:,:,ch])
-    return density_cmy_layers
+    density_cmy = develop_simple(
+        log_raw,
+        log_exposure,
+        normalized_density_curves,
+        gamma_factor=gamma_factor,
+    )
+    density_cmy = apply_density_correction_dir_couplers(
+        density_cmy,
+        log_raw,
+        pixel_size_um,
+        log_exposure,
+        normalized_density_curves,
+        dir_couplers,
+        profile_type,
+        gamma_factor=gamma_factor,
+    )
+    return apply_grain(
+        density_cmy,
+        pixel_size_um,
+        grain,
+        normalized_density_curves,
+        density_curves_layers,
+        profile_type,
+        bypass_grain=bypass_grain,
+        use_fast_stats=use_fast_stats,
+    )
 
 # Some future work notes:
 # Add print dye shift in nanometers for dye absorption peaks.
 # Investigate how density curves change with development conditions.
 # Add a gray card border to check white balance.
 
-if __name__=='__main__':
+if __name__ == '__main__':
     pass
 
