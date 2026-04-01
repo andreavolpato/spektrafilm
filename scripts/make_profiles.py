@@ -7,8 +7,8 @@ from spektrafilm_profile_creator import (
     process_raw_profile,
 )
 
-process_print_paper = True
-process_negative = True
+process_print_paper = False
+process_negative = False
 process_positive = True
 
 raw_profile_stocks = load_stock_catalog()

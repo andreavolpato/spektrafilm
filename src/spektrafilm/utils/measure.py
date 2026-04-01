@@ -24,7 +24,7 @@ def measure_slopes_at_exposure(log_exposure, density_curves,
         gamma[i] = (density_1-density_0)/(log_exposure_1-log_exposure_0)
     return gamma
 
-def measure_density_min(log_exposure, density_curves, info_type):
+def measure_density_min(log_exposure, density_curves, info_type, control_plot=True):
     
     dc = density_curves
     le = log_exposure
@@ -46,11 +46,15 @@ def measure_density_min(log_exposure, density_curves, info_type):
     else:
         k0 = (1, 0, 0.05, 2)
     
+    if control_plot:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(12, 4))
+    
     # fit all the toes and save density min
     for i in np.arange(3):
         data = np.copy(dc[:,i])
-        # mask data above the toe (1/5 of density range)
-        data[data>((np.nanmax(data)-np.nanmin(data))/5+np.nanmin(data))] = np.nan
+        # mask data above the toe (1/10 of density range)
+        data[data>((np.nanmax(data)-np.nanmin(data))/20+np.nanmin(data))] = np.nan
         def residues(k):
             res = data - curve_toe(le, k)
             res = np.nan_to_num(res)
@@ -58,4 +62,15 @@ def measure_density_min(log_exposure, density_curves, info_type):
         fit = least_squares(residues, k0)
         k = fit.x
         density_min[i] = k[2]
+        if control_plot:
+            plt.plot(le, dc[:,i], 'o', label='data')
+            le_fit = np.linspace(np.nanmin(le), np.nanmax(le), 100)
+            dc_fit = curve_toe(le_fit, k)
+            plt.plot(le_fit, dc_fit, '-', label='fit')
+            plt.axhline(density_min[i], color='r', linestyle='--', label='density min')
+            plt.xlabel('log exposure')
+            plt.ylabel('density')
+            plt.title(f'Channel {i}')
+            plt.legend()
+            plt.show()
     return density_min

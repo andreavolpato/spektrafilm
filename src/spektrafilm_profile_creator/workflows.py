@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from spektrafilm.profiles.io import Profile
-from spektrafilm_profile_creator.core.balancing import balance_metameric_neutral, balance_sensitivity
-from spektrafilm_profile_creator.core.densitometer import unmix_density
+from spektrafilm_profile_creator.core.balancing import balance_metameric_neutral, balance_sensitivity, balance_channel_density_with_densitometer
+from spektrafilm_profile_creator.core.densitometer import unmix_density, densitometer_normalization
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import (
     adjust_log_exposure,
@@ -33,6 +33,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = remove_density_min(profile)
         profile = adjust_log_exposure(profile)
         profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
+        profile = balance_channel_density_with_densitometer(profile)
         profile = unmix_density(profile)
         profile = balance_sensitivity(profile)
         if recipe.reference_channel is not None:
@@ -54,6 +55,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = remove_density_min(profile)
         profile = adjust_log_exposure(profile)
         profile = balance_metameric_neutral(profile)
+        profile = densitometer_normalization(profile)
         profile = unmix_density(profile)
         if recipe.reference_channel is not None:
             profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
