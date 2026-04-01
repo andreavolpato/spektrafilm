@@ -4,7 +4,7 @@ from spektrafilm_profile_creator.diagnostics.snapshot_viewer import launch_proce
 
 
 def main():
-    launch_process_snapshot_viewer('kodak_portra_400')
+    launch_process_snapshot_viewer('kodak_ektachrome_100')
 
 if __name__ == '__main__':
     main()

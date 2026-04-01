@@ -4,6 +4,27 @@ from scipy.ndimage import gaussian_filter
 from opt_einsum import contract
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
 
+
+def _interp_sorted_valid(x_new, x_known, y_known):
+    valid = (~np.isnan(x_known)) & (~np.isnan(y_known))
+    if not np.any(valid):
+        return np.full_like(x_new, np.nan, dtype=np.float64)
+
+    x_sorted = x_known[valid]
+    y_sorted = y_known[valid]
+    order = np.argsort(x_sorted, kind='mergesort')
+    x_sorted = x_sorted[order]
+    y_sorted = y_sorted[order]
+
+    if x_sorted.size == 1:
+        return np.full_like(x_new, y_sorted[0], dtype=np.float64)
+
+    keep = np.ones(x_sorted.size, dtype=bool)
+    keep[:-1] = x_sorted[1:] != x_sorted[:-1]
+    x_sorted = x_sorted[keep]
+    y_sorted = y_sorted[keep]
+    return np.interp(x_new, x_sorted, y_sorted)
+
 def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, high_exposure_couplers_shift=0.0, positive=False):
     """
     DIR couplers affect the same layer by increasing contrast.
@@ -19,19 +40,24 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     Returns:
         _type_: _description_
     """
-    density_max = np.nanmax(density_curves, axis=0)
     
     if positive:
-        density_curves_normalized = 1 - density_curves/density_max
+        # We are asusming that interimage effects in positve film are acting in the silver development stage
+        # We are also assuming that silver density is d_max - d
+        density_curves_silver = np.nanmax(density_curves, axis=0) - density_curves
     else:
-        density_curves_normalized = density_curves/density_max
+        density_curves_silver = np.copy(density_curves)
     
-    dc_norm_shift = density_curves_normalized + high_exposure_couplers_shift*density_curves_normalized**2
+    dc_norm_shift = density_curves_silver + high_exposure_couplers_shift*density_curves_silver**2
     couplers_amount_curves = contract('jk, km->jm', dc_norm_shift, dir_couplers_matrix)
     log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
     for i in np.arange(3):
-        density_curves_corrected[:,i] = np.interp(log_exposure, log_exposure_0[:,i], density_curves[:,i])
+        density_curves_corrected[:,i] = _interp_sorted_valid(
+            log_exposure,
+            log_exposure_0[:,i],
+            density_curves[:,i],
+        )
     return density_curves_corrected
 
 
@@ -75,11 +101,11 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
     numpy.ndarray: The modified raw exposure data after applying the effect of inhibitors.
     """
     if positive:
-        norm_density = 1 - density_cmy/density_max
+        density_silver = density_max - density_cmy
     else:
-        norm_density = density_cmy/density_max
-    norm_density += high_exposure_couplers_shift*norm_density**2
-    log_raw_correction = contract('ijk, km->ijm', norm_density, dir_couplers_matrix)
+        density_silver = np.copy(density_cmy)
+    density_silver += high_exposure_couplers_shift*density_silver**2
+    log_raw_correction = contract('ijk, km->ijm', density_silver, dir_couplers_matrix)
     if diffusion_size_pixel>0:
         log_raw_correction = gaussian_filter(log_raw_correction, (diffusion_size_pixel, diffusion_size_pixel, 0))
         # log_raw_correction = fast_gaussian_filter(log_raw_correction, diffusion_size_pixel)

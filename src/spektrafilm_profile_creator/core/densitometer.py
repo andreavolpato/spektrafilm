@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 from spektrafilm_profile_creator.data.loader import load_densitometer_data
 from spektrafilm_profile_creator.diagnostics.messages import log_event
@@ -52,22 +53,39 @@ def unmix_density(profile, densitometer_intensity=None):
     return updated_profile
 
 
-def densitometer_normalization(profile):
+def densitometer_normalization(profile, iterations=5):
     data = profile.data
-    density_curves = data.density_curves
-    channel_density = np.asarray(data.channel_density)
+    channel_density = np.copy(data.channel_density)
     densitometer_intensity = load_densitometer_data(
         densitometer_type=profile.info.densitometer,
     )
-
-    crosstalk_matrix = compute_densitometer_crosstalk_matrix(
-        densitometer_intensity,
-        channel_density,
-    )
-    normalization_coefficients = np.diag(crosstalk_matrix)
+    
+    def densitometer_measurement(normalization_constant, channel):
+        channel_transmittance = 10 ** (-channel_density*normalization_constant)
+        densitometer_density = -np.log10(
+        np.nansum(
+            densitometer_intensity[:, channel]
+            * channel_transmittance[:, channel]
+        )
+        / np.nansum(densitometer_intensity[:, channel])
+        )
+        return densitometer_density
+    def residual(normalization_constant, channel):
+        return densitometer_measurement(normalization_constant, channel) - 1.0
+    
+    normalization_coefficients = np.ones(3)
+    for i in range(3):
+        normalization_coefficients[i] = scipy.optimize.least_squares(residual, x0=1.0, args=(i,), bounds=(0.5, 2.0)).x[0]
+    
+        # for _ in range(iterations):
+    #     crosstalk_matrix = compute_densitometer_crosstalk_matrix(
+    #         densitometer_intensity,
+    #         channel_density,
+    #     )
+    #     normalization_coefficients = np.diag(crosstalk_matrix)
+    #     channel_density = channel_density / normalization_coefficients
     updated_profile = profile.update_data(
-        channel_density=channel_density / normalization_coefficients,
-        density_curves=density_curves * normalization_coefficients,
+        channel_density=channel_density * normalization_coefficients,
     )
     log_event(
         'densitometer_normalization',

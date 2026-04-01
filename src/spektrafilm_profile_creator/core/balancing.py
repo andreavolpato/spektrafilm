@@ -7,6 +7,7 @@ from spektrafilm.config import STANDARD_OBSERVER_CMFS
 from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm_profile_creator.diagnostics.messages import log_event
+from spektrafilm_profile_creator.data.loader import load_densitometer_data
 
 
 def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=False):
@@ -16,7 +17,7 @@ def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=Fal
     log_exposure = data.log_exposure
     density_curves = data.density_curves
     illuminant = standard_illuminant(type=info.reference_illuminant)
-    sensitivity = 10 ** np.double(log_sensitivity)
+    sensitivity = 10 ** log_sensitivity
 
     if band_pass_filter:
         filter_uv = (1, 410, 8)
@@ -57,6 +58,20 @@ def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=Fal
         updated_profile,
         sensitivity_correction=correction,
         log_exposure_correction=log_exposure_correction,
+    )
+    return updated_profile
+
+def balance_channel_density_with_densitometer(profile):
+    data = profile.data
+    info = profile.info
+    channel_density = data.channel_density
+    densitometer_type = info.densitometer
+    densitometer_data = load_densitometer_data(densitometer_type)
+    normalization = np.nansum(densitometer_data*channel_density, axis=0)/np.nansum(densitometer_data, axis=0)
+    updated_profile = profile.update_data(channel_density=channel_density/normalization)
+    log_event('balance_channel_density_with_densitometer',
+        updated_profile,
+        normalization=normalization,
     )
     return updated_profile
 
