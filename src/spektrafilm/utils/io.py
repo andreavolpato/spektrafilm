@@ -70,9 +70,9 @@ def save_image_oiio(filename, image_data, bit_depth=32):
     # Create an ImageSpec with the proper data type
     if ext == "png":
         # Assume image_data is in [0, 1]: scale to 16-bit unsigned integers.
-        img_uint16 = np.clip(image_data, 0, 1) * 65535.0
-        img_uint16 = img_uint16.astype(np.uint16)
-        spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint16"))
+        img_uint16 = np.clip(image_data, 0, 1) * 255.0
+        img_uint16 = img_uint16.astype(np.uint8)
+        spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint8"))
         data_to_write = img_uint16
     elif ext in {"jpg", "jpeg"}:
         img_uint8 = np.clip(image_data, 0, 1) * 255.0

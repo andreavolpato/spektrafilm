@@ -8,15 +8,20 @@ from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm_profile_creator.data.loader import load_densitometer_data
+from spektrafilm.utils.spectral_upsampling import rgb_to_smooth_spectrum
 
 
-def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=False):
+def balance_sensitivity(profile, correct_log_exposure=False, band_pass_filter=False):
     data = profile.data
     info = profile.info
     log_sensitivity = data.log_sensitivity
     log_exposure = data.log_exposure
     density_curves = data.density_curves
-    illuminant = standard_illuminant(type=info.reference_illuminant)
+    midgray = np.array([[[0.184, 0.184, 0.184]]])
+    illuminant = rgb_to_smooth_spectrum(midgray, color_space='ProPhoto RGB',
+                                        apply_cctf_decoding=False,
+                                        reference_illuminant=info.reference_illuminant)
+    # illuminant = standard_illuminant(type=info.reference_illuminant)
     sensitivity = 10 ** log_sensitivity
 
     if band_pass_filter:
@@ -42,7 +47,7 @@ def balance_sensitivity(profile, correct_log_exposure=True, band_pass_filter=Fal
             )
         updated_profile = profile.update_data(
             log_sensitivity=updated_log_sensitivity,
-            density_curves=density_curves_out,
+            #density_curves=density_curves_out,
         )
         log_event(
             'balance_sensitivity',
@@ -76,7 +81,7 @@ def balance_channel_density_with_densitometer(profile):
     return updated_profile
 
 
-def balance_metameric_neutral(profile, midgray_value=0.184):
+def reconstruct_metameric_neutral(profile, midgray_value=0.184):
     info = profile.info
     data = profile.data
     illuminant = standard_illuminant(info.viewing_illuminant)
@@ -107,15 +112,16 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     mid = midscale_neutral(fitted_density)
     updated_profile = profile.update(
         info={
-            'fitted_cmy_midscale_neutral_density': fitted_density[1],
+            'fitted_cmy_midscale_neutral_density': fitted_density,
         },
         data={
-            'channel_density': channel_density * density_scale,
+            # 'channel_density': channel_density * density_scale,
             'midscale_neutral_density': mid,
+            # 'density_curves': data.density_curves / density_scale,
         },
     )
     log_event(
-        'balance_metameric_neutral',
+        'reconstruct_metameric_neutral',
         updated_profile,
         fitted_density_cmy=fitted_density,
         density_scale=density_scale,
@@ -123,4 +129,4 @@ def balance_metameric_neutral(profile, midgray_value=0.184):
     return updated_profile
 
 
-__all__ = ['balance_sensitivity', 'balance_metameric_neutral']
+__all__ = ['balance_sensitivity', 'reconstruct_metameric_neutral']

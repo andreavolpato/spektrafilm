@@ -1,5 +1,5 @@
 from spektrafilm_profile_creator.core.balancing import (
-    balance_metameric_neutral,
+    reconstruct_metameric_neutral,
     balance_sensitivity,
 )
 from spektrafilm_profile_creator.core.densitometer import (
@@ -28,7 +28,7 @@ __all__ = [
     'adjust_log_exposure',
     'align_midscale_neutral_exposures',
     'apply_scale_shift_stretch_density_curves',
-    'balance_metameric_neutral',
+    'reconstruct_metameric_neutral',
     'balance_sensitivity',
     'compute_density_curves',
     'compute_density_curves_layers',

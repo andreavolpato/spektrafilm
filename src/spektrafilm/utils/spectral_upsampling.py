@@ -186,7 +186,7 @@ def _normalize_raw_to_midgray(raw, midgray_spectrum, sensitivity):
 def rgb_to_raw_hanatos2025(rgb, sensitivity,
                            color_space, apply_cctf_decoding, reference_illuminant):
     if rgb.shape[1] == 1: # if a single pixel is provided, compute the spectrum directly
-        spectrum = _rgb_to_spectrum(
+        spectrum = rgb_to_smooth_spectrum(
             rgb,
             color_space=color_space,
             apply_cctf_decoding=apply_cctf_decoding,
@@ -206,7 +206,7 @@ def rgb_to_raw_hanatos2025(rgb, sensitivity,
         raw *= b[...,None] # scale the raw back with the scale factor
 
     midgray_rgb = np.array([[[0.184]*3]])
-    midgray_spectrum = _rgb_to_spectrum(
+    midgray_spectrum = rgb_to_smooth_spectrum(
         midgray_rgb,
         color_space=color_space,
         apply_cctf_decoding=False,
@@ -214,7 +214,7 @@ def rgb_to_raw_hanatos2025(rgb, sensitivity,
     )
     return _normalize_raw_to_midgray(raw, midgray_spectrum, sensitivity)
 
-def _rgb_to_spectrum(rgb, color_space, apply_cctf_decoding, reference_illuminant):
+def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illuminant):
     # direct interpolation of the spectra lut, to be used only for smooth spectra close to white
     tc_w, b_w = _rgb_to_tc_b(
         rgb,

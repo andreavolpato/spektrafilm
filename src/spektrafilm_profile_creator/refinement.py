@@ -6,6 +6,7 @@ import scipy
 from spektrafilm.profiles.io import load_profile
 from spektrafilm.runtime.api import simulate
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
+from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import apply_scale_shift_stretch_density_curves
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm_profile_creator.printing_filters import fit_print_filters
@@ -23,11 +24,14 @@ def correct_negative_curves_with_gray_ramp(
     target_paper='kodak_portra_endura',
     data_trustability=0.5,
     stretch_curves=False,
-    ev_ramp=(-2, -1, 0, 1, 2, 3, 4, 5, 6),
+    ev_ramp=(-2, -1, 0, 1, 2, 3, 4, 5),
 ):
+    
     params = _build_runtime_params(source_profile, target_paper)
+    params.film = replace_fitted_density_curves(params.film) # temporary replace with fitted to make couplers work in the extapolated range
     params.io.full_image = True
-    params.settings.rgb_to_raw_method = 'mallett2019'
+    params.camera.auto_exposure = False
+    params.settings.rgb_to_raw_method = 'hanatos2025'
     fitted_y, fitted_m, _ = fit_print_filters(params, stock=source_profile.info.stock)
     params.enlarger.y_filter_neutral = fitted_y
     params.enlarger.m_filter_neutral = fitted_m
@@ -39,7 +43,7 @@ def correct_negative_curves_with_gray_ramp(
         stretch_curves,
     )
     corrected_profile = apply_scale_shift_stretch_density_curves(
-        params.film,
+        source_profile,
         density_scale,
         shift_correction,
         stretch_correction,
@@ -61,6 +65,7 @@ def correct_positive_curves_with_gray_ramp(
     ev_ramp=(-2, -1, 0, 1),
 ):
     params = _build_runtime_params(positive_film_profile, 'kodak_portra_endura')
+    params.film = replace_fitted_density_curves(params.film) # temporary replace with fitted to make couplers work in the extapolated range
     params.io.scan_film = True
     params.io.full_image = True
     params.settings.rgb_to_raw_method = 'hanatos2025'
@@ -73,7 +78,7 @@ def correct_positive_curves_with_gray_ramp(
         positive_film=True,
     )
     corrected_profile = apply_scale_shift_stretch_density_curves(
-        params.film,
+        positive_film_profile,
         density_scale,
         shift_correction,
         stretch_correction,
@@ -101,15 +106,15 @@ def fit_corrections_from_grey_ramp(
                 params,
                 ev_ramp,
                 density_scale=values[0:3],
-                shift_correction=[values[3], 0, values[4]],
-                stretch_correction=values[5:8],
+                shift_correction=values[3:6],
+                stretch_correction=values[6:9],
             )
         else:
             gray, reference = gray_ramp(
                 params,
                 ev_ramp,
                 density_scale=values[0:3],
-                shift_correction=[values[3], 0, values[4]],
+                shift_correction=values[3:6],
             )
         if positive_film:
             gray_mean = np.mean(gray, axis=1).flatten()
@@ -126,18 +131,18 @@ def fit_corrections_from_grey_ramp(
 
         bias_scale = 2.0 * (np.array(values[0:3]) - 1)
         if stretch_curves:
-            bias_stretch = 100.0 * (np.array(values[5:8]) - 1)
+            bias_stretch = 100.0 * (np.array(values[6:9]) - 1)
             bias = np.concatenate((bias_scale, bias_stretch))
         else:
             bias = bias_scale
 
         return np.concatenate((residual, bias * data_trustability))
 
-    x0 = [1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0] if stretch_curves else [1.0, 1.0, 1.0, 0.0, 0.0]
+    x0 = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0] if stretch_curves else [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
     fit = scipy.optimize.least_squares(residues, x0)
     density_scale = fit.x[0:3]
-    shift_correction = [fit.x[3], 0, fit.x[4]]
-    stretch_correction = fit.x[5:8] if stretch_curves else [1, 1, 1]
+    shift_correction = fit.x[3:6]
+    stretch_correction = fit.x[6:9] if stretch_curves else [1, 1, 1]
     return density_scale, shift_correction, stretch_correction
 
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from spektrafilm.profiles.io import Profile
-from spektrafilm_profile_creator.core.balancing import balance_metameric_neutral, balance_sensitivity, balance_channel_density_with_densitometer
+from spektrafilm_profile_creator.core.balancing import reconstruct_metameric_neutral, balance_sensitivity
 from spektrafilm_profile_creator.core.densitometer import unmix_density, densitometer_normalization
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import (
     adjust_log_exposure,
-    align_midscale_neutral_exposures,
+    adjust_log_exposure_midgray_to_metameric_neutral,
     remove_density_min,
 )
 from spektrafilm_profile_creator.data.loader import (
@@ -30,36 +30,41 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     # negative film workflow
     #########################################################################################################
     if raw_profile.info.support == 'film' and raw_profile.info.type == 'negative':
-        profile = remove_density_min(profile)
-        profile = adjust_log_exposure(profile)
+        # channel density
         profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
-        profile = balance_channel_density_with_densitometer(profile)
-        profile = unmix_density(profile)
+        profile = densitometer_normalization(profile)
+        # sensitivity
         profile = balance_sensitivity(profile)
-        if recipe.reference_channel is not None:
-            profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
+        # density curves
+        profile = remove_density_min(profile)
+        profile = unmix_density(profile)
+        #if recipe.reference_channel is not None:
+            #profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
+        # TODO decide on master negative and filters reference values
         profile = correct_negative_curves_with_gray_ramp(
             profile,
             target_paper=recipe.target_paper,
             data_trustability=recipe.data_trustability,
             stretch_curves=recipe.stretch_curves,
         )
+        profile = adjust_log_exposure(profile) # TODO fix with density curves interpolation
         profile = replace_fitted_density_curves(profile)
-        profile = adjust_log_exposure(profile)
+        #profile = adjust_log_exposure(profile)
         return profile
 
     ##########################################################################################################
     # positive film workflow
     ##########################################################################################################
     if raw_profile.info.support == 'film' and raw_profile.info.type == 'positive':
-        profile = remove_density_min(profile)
-        profile = adjust_log_exposure(profile)
-        profile = balance_metameric_neutral(profile)
+        # channel density
         profile = densitometer_normalization(profile)
+        profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
+        profile = reconstruct_metameric_neutral(profile)
+        # sensitivity
+        profile = balance_sensitivity(profile)
+        # density curves
         profile = unmix_density(profile)
-        if recipe.reference_channel is not None:
-            profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
-        profile = balance_sensitivity(profile, correct_log_exposure=True)
+        profile = adjust_log_exposure_midgray_to_metameric_neutral(profile)
         profile = correct_positive_curves_with_gray_ramp(
             profile,
             data_trustability=recipe.data_trustability,
@@ -72,12 +77,15 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     # negative paper workflow
     ##########################################################################################################
     if raw_profile.info.support == 'paper' and raw_profile.info.type == 'negative':
-        profile = remove_density_min(profile)
-        profile = adjust_log_exposure(profile)
-        profile = balance_metameric_neutral(profile)
+        # channel density
+        profile = densitometer_normalization(profile)
+        profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
+        profile = reconstruct_metameric_neutral(profile)
+        # sensitivity
+        # TODO use master film to balance sensitivity to the correct kodak cc values
+        # density curves
         profile = unmix_density(profile)
-        if recipe.reference_channel is not None:
-            profile = align_midscale_neutral_exposures(profile, reference_channel=recipe.reference_channel)
+        profile = adjust_log_exposure_midgray_to_metameric_neutral(profile)
         profile = replace_fitted_density_curves(profile)
         return profile
 

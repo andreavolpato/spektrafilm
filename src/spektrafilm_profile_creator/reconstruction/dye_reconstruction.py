@@ -298,14 +298,13 @@ def reconstruct_dye_density(
         },
     )
 
-    if print_params:
-        log_parameters('reconstruct_dye_density parameters', fit.params)
-        log_event(
-            'reconstruct_dye_density summary',
-            updated_profile,
-            slopes_at_reference_exposure=slopes,
-            densitometer_crosstalk_matrix=densitometer_crosstalk,
-        )
+    log_event(
+        'reconstruct_dye_density summary',
+        updated_profile,
+        slopes_at_reference_exposure=slopes,
+        densitometer_crosstalk_matrix=densitometer_crosstalk,
+        reconstruct_dye_density_parameters=fit.params,
+    )
 
     if control_plot:
         color = ['tab:cyan', 'tab:pink', 'gold']

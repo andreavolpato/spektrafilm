@@ -7,7 +7,7 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm.utils.measure import measure_density_min
 
 
-def remove_density_min(profile):
+def remove_density_min(profile, reconstruct_base_density=False):
     data = profile.data
     info = profile.info
     log_exposure = data.log_exposure
@@ -19,7 +19,8 @@ def remove_density_min(profile):
     density_curve_min = measure_density_min(log_exposure, density_curves, profile_type)
     density_curves = density_curves - density_curve_min
 
-    if info.is_paper or info.is_positive:
+    if reconstruct_base_density:
+        # TODO make this more clear, maybe split in a function remove_density_and_reconstruct_base_density
         status_a_max_peak = [445, 530, 610]
         spectral_min = np.interp(wavelengths, status_a_max_peak, np.flip(density_curve_min))
         sigma_nm = 20
@@ -81,6 +82,45 @@ def adjust_log_exposure(
     )
     return updated_profile
 
+def adjust_log_exposure_midgray_to_metameric_neutral(profile):
+    info = profile.info
+    data = profile.data
+    density_curves = data.density_curves
+    log_exposure = data.log_exposure
+    fitted_cmy_midscale_neutral_density = info.fitted_cmy_midscale_neutral_density
+    
+    log_exposure_shifts = np.zeros(3)
+    for index in np.arange(3):
+        density_curve = density_curves[:, index]
+        not_nan = ~np.isnan(density_curve)
+        if info.type == 'positive':
+            log_exposure_shift = np.interp(
+                -fitted_cmy_midscale_neutral_density[index],
+                -density_curve[not_nan],
+                log_exposure[not_nan],
+            )
+        else:
+            log_exposure_shift = np.interp(
+                fitted_cmy_midscale_neutral_density[index],
+                density_curve[not_nan],
+                log_exposure[not_nan],
+            )
+        log_exposure_shifts[index] = log_exposure_shift
+        density_curve = np.interp(
+            log_exposure + log_exposure_shift,
+            log_exposure,
+            density_curve
+        )
+        density_curves[:, index] = density_curve
+    updated_profile = profile.update_data(density_curves=density_curves)
+    log_event(
+        'adjust_log_exposure_to_metameric_neutral',
+        updated_profile,
+        log_exposure_shifts=log_exposure_shifts,
+        
+    )
+    return updated_profile
+    
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     data = profile.data
