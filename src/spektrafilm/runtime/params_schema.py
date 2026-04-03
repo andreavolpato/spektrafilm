@@ -23,9 +23,9 @@ class EnlargerParams:
     print_exposure_compensation: bool = True
     y_filter_shift: float = 0.0
     m_filter_shift: float = 0.0
-    y_filter_neutral: float = 0.9
-    m_filter_neutral: float = 0.5
-    c_filter_neutral: float = 0.35
+    y_filter_neutral: float = 55 # kodak cc values
+    m_filter_neutral: float = 65 # kodak cc values
+    c_filter_neutral: float = 0 # kodak cc values
     lens_blur: float = 0.0
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
@@ -67,7 +67,7 @@ class HalationParams:
 class DirCouplersParams:
     active: bool = True
     amount: float = 0.45
-    ratio_rgb: tuple[float, float, float] = (1.0, 0.5, 0.3)
+    ratio_rgb: tuple[float, float, float] = (1.0, 0.7, 0.4)
     diffusion_interlayer: float = 2.0
     diffusion_size_um: float = 10.0
     high_exposure_shift: float = 0.0

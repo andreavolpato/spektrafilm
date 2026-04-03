@@ -3,7 +3,7 @@ import scipy
 import colour
 import scipy.interpolate
 import matplotlib.pyplot as plt
-from spektrafilm.config import SPECTRAL_SHAPE, ENLARGER_STEPS
+from spektrafilm.config import SPECTRAL_SHAPE
 from spektrafilm.utils.io import load_dichroic_filters, load_filter
 
 ################################################################################
@@ -59,11 +59,16 @@ class DichroicFilters():
         ax.set_xlim(np.min(self.wavelengths), np.max(self.wavelengths))
         ax.legend(('Y','M','C'))
     
-    def apply(self, illuminant, values=[0,0,0]):
-        dimmed_filters = 1 - (1-self.filters)*np.array(values) # following durst 605 wheels values, with 170 max
+    def apply(self, illuminant, filter_transmittance_values=[1,1,1]):
+        dimmed_filters = 1 - (1-self.filters)*(1-np.array(filter_transmittance_values)) # following durst 605 wheels values, with 170 max
         total_filter = np.prod(dimmed_filters, axis=1)
         filtered_illuminant = illuminant*total_filter
         return filtered_illuminant
+    
+    def apply_cc(self, illuminant, filter_cc_values=[0,0,0]):
+        # Filter values are in Kodak CC units proportional to density, 100 units means 1.0 density, or 90% reduction in transmittance
+        filter_transmittance_values = 10 ** -(np.array(filter_cc_values)/100.0)
+        return self.apply(illuminant, filter_transmittance_values=filter_transmittance_values)
 
 class GenericFilter():
     def __init__(self,
@@ -90,6 +95,7 @@ class GenericFilter():
 
 def sigmoid_erf(x, center, width=1):
     return scipy.special.erf((x-center)/width)*0.5+0.5
+
 def compute_band_pass_filter(filter_uv=[1, 410, 8], filter_ir=[1, 675, 15]):
     amp_uv = filter_uv[0]
     wl_uv = filter_uv[1]
@@ -123,11 +129,11 @@ generic_lens_transmission = GenericFilter(name='canon_24_f28_is', type='lens_tra
 
 ################################################################################
 
-def color_enlarger(light_source, y_filter_value, m_filter_value, c_filter_value=0,
-                   enlarger_steps=ENLARGER_STEPS,
+def color_enlarger(light_source, yellow_cc_value, magenta_cc_value, cyan_cc_value=0,
                    filters=durst_digital_light_dicrhoic_filters):
-    ymc_filter_values = np.array([y_filter_value, m_filter_value, c_filter_value]) / enlarger_steps
-    filtered_illuminant = filters.apply(light_source, values=ymc_filter_values)
+    # Filter values are in Kodak CC units proportional to density, 100 units means 1.0 density, or 90% reduction in transmittance
+    filter_cc_values = np.array([yellow_cc_value, magenta_cc_value, cyan_cc_value])
+    filtered_illuminant = filters.apply_cc(light_source, filter_cc_values=filter_cc_values)
     return filtered_illuminant
 
 if __name__=="__main__":

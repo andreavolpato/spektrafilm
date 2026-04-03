@@ -14,7 +14,7 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 MIDGRAY_RGB = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
-DEFAULT_NEUTRAL_FILTERS = (0.90, 0.70, 0.35)
+DEFAULT_NEUTRAL_FILTERS = (55, 65, 0) # kodak cc values
 DEFAULT_RESIDUE_THRESHOLD = 5e-4
 
 FilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
@@ -79,7 +79,7 @@ def fit_print_filters_iter(profile, start_filters):
     fit = scipy.optimize.least_squares(
         evaluate_residues,
         x0,
-        bounds=([0, 0, 0], [1, 1, 10]),
+        bounds=([0, 0, 0], [230, 230, 10]),
         ftol=1e-6,
         xtol=1e-6,
         gtol=1e-6,
@@ -114,8 +114,8 @@ def fit_print_filters(profile, iterations=10, stock=None, rng=None):
             )
             break
 
-        current_y = 0.5 * filter_y + rng.uniform(0.0, 1.0) * 0.5
-        current_m = 0.5 * filter_m + rng.uniform(0.0, 1.0) * 0.5
+        current_y = 0.5 * filter_y + rng.uniform(0.0, 1.0) * 50
+        current_m = 0.5 * filter_m + rng.uniform(0.0, 1.0) * 50
     return filter_y, filter_m, residues
 
 
@@ -147,8 +147,8 @@ def _build_residue_database(initial_value=float('inf')) -> ResidueDatabase:
 
 def _randomize_start_filters(filters, randomness, rng):
     y_filter, m_filter, c_filter = filters
-    randomized_y = np.clip(y_filter, 0.0, 1.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness
-    randomized_m = np.clip(m_filter, 0.0, 1.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness
+    randomized_y = np.clip(y_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
+    randomized_m = np.clip(m_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
     return [float(randomized_y), float(randomized_m), float(c_filter)]
 
 

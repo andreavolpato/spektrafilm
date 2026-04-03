@@ -2,7 +2,6 @@ import numpy as np
 import colour
 
 # Constants
-ENLARGER_STEPS = 170
 LOG_EXPOSURE = np.linspace(-3,4,256)
 SPECTRAL_SHAPE = colour.SpectralShape(380, 780, 5)
 

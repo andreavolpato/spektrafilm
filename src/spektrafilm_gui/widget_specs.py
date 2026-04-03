@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from spektrafilm.config import ENLARGER_STEPS
 from spektrafilm_gui.options import AutoExposureMethods, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
@@ -82,15 +81,13 @@ GUI_WIDGET_SPECS = {
         ),
         "print_y_filter_shift": WidgetSpec(
             label="Print Y filter shift",
-            tooltip="Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
-            min_value=-ENLARGER_STEPS,
-            max_value=ENLARGER_STEPS,
+            tooltip="Y filter shift of the color enlarger from a neutral position, in Kodak CC units",
+            step=2,
         ),
         "print_m_filter_shift": WidgetSpec(
             label="Print M filter shift",
-            tooltip="M filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
-            min_value=-ENLARGER_STEPS,
-            max_value=ENLARGER_STEPS,
+            tooltip="M filter shift of the color enlarger from a neutral position, in Kodak CC units",
+            step=2,
         ),
         "scan_lens_blur": WidgetSpec(
             label="Scan lens blur",
@@ -228,12 +225,12 @@ GUI_WIDGET_SPECS = {
         ),
         "just_preflash": WidgetSpec(tooltip="Only apply preflash to the print, to visualize the preflash effect"),
         "y_filter_shift": WidgetSpec(
-            tooltip="Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps",
-            min_value=-ENLARGER_STEPS,
+            tooltip="Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
+            step=2,
         ),
         "m_filter_shift": WidgetSpec(
-            tooltip="Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps",
-            min_value=-ENLARGER_STEPS,
+            tooltip="Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
+            step=2,
         ),
     },
     "input_image": {
