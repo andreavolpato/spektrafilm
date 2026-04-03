@@ -66,7 +66,7 @@ class HalationParams:
 @dataclass
 class DirCouplersParams:
     active: bool = True
-    amount: float = 0.4
+    amount: float = 0.45
     ratio_rgb: tuple[float, float, float] = (1.0, 0.5, 0.3)
     diffusion_interlayer: float = 2.0
     diffusion_size_um: float = 10.0

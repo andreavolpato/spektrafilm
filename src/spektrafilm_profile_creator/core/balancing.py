@@ -66,6 +66,38 @@ def balance_sensitivity(profile, correct_log_exposure=False, band_pass_filter=Fa
     )
     return updated_profile
 
+# def balance_print_sensitivity(profile):
+#     data = profile.data
+#     info = profile.info
+#     log_sensitivity = data.log_sensitivity
+#     log_exposure = data.log_exposure
+    
+#     sensitivity = 10 ** log_sensitivity
+    
+#     # illuminant = standard_illuminant(type=info.reference_illuminant)
+#     # enlarger filters
+    
+#     neutral_medium_scale_density = 
+    
+#     filtered_illuminant 
+    
+#     neutral_exposures = np.nansum(filtered_illuminant[:, None] * sensitivity, axis=0)
+#     correction = neutral_exposures[1] / neutral_exposures
+#     log_exposure_correction = np.log10(correction)
+
+#     sensitivity *= correction
+#     updated_log_sensitivity = np.log10(sensitivity)
+
+#     updated_profile = profile.update_data(log_sensitivity=updated_log_sensitivity)
+#     log_event(
+#         'balance_sensitivity',
+#         updated_profile,
+#         sensitivity_correction=correction,
+#         log_exposure_correction=log_exposure_correction,
+#     )
+#     return updated_profile
+
+
 def balance_channel_density_with_densitometer(profile):
     data = profile.data
     info = profile.info
