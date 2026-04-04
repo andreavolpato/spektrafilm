@@ -31,7 +31,7 @@ def refine_negative_curves_with_gray_ramp(
     target_print,
     data_trustability=0.5,
     stretch_curves=False,
-    ev_ramp=(-2, -1, 0, 1, 2, 3, 4, 5),
+    ev_ramp=(-1, 0, 1, 2, 3, 4),
 ):
     
     params = _build_runtime_params(source_profile, target_print)

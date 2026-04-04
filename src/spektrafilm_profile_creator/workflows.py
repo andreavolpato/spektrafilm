@@ -67,7 +67,8 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # sensitivity
         profile = balance_film_sensitivity(profile)
         # density curves
-        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile)
+        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile,
+                        correct_log_exposure_per_channel=True)
         profile = unmix_density(profile)
         profile = refine_positive_curves_with_gray_ramp(
             profile,
@@ -87,7 +88,8 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # sensitivity
         profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
         # density curves
-        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile)
+        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, 
+                        correct_log_exposure_per_channel=recipe.neutral_log_exposure_correction)
         profile = unmix_density(profile)
         profile = refine_negative_print_profile_with_neutral_ramp(profile,
                                                                   target_film=recipe.target_film,

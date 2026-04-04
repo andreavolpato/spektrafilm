@@ -163,6 +163,7 @@ def load_raw_profile(stock):
         target_film=recipe_payload.get('target_film'),
         target_print=recipe_payload.get('target_print'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
+        neutral_log_exposure_correction=recipe_payload.get('neutral_log_exposure_correction', False),
         stretch_curves=recipe_payload.get('stretch_curves', workflow_payload.get('stretch_curves', False)),
         should_process=recipe_payload.get('should_process', True),
     )

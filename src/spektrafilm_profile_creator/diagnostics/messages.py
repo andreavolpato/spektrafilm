@@ -8,7 +8,8 @@ import json
 import numpy as np
 
 
-PREFIX = '[profile_creator]'
+_PREFIX_LABEL = 'profile_creator'
+PREFIX = f'[{_PREFIX_LABEL}]'
 _diagnostic_profile_snapshots: dict[str, list[dict[str, object]]] = {}
 _diagnostic_snapshot_state = {'sequence': 0}
 
@@ -17,6 +18,32 @@ def _profile_stock(profile) -> str | None:
     info = getattr(profile, 'info', None)
     stock = getattr(info, 'stock', None)
     return str(stock) if stock else None
+
+
+def _message_prefix(stock: str | None = None) -> str:
+    if stock:
+        return f'[{_PREFIX_LABEL} / {stock}]'
+    return PREFIX
+
+
+def _resolve_message_stock(source=None, fields=None) -> str | None:
+    if fields:
+        stock = fields.get('stock')
+        if stock:
+            return str(stock)
+
+    stock = _profile_stock(source)
+    if stock:
+        return stock
+
+    if source is None:
+        return None
+
+    for attr in ('film', 'profile'):
+        stock = _profile_stock(getattr(source, attr, None))
+        if stock:
+            return stock
+    return None
 
 
 def _format_value(value) -> str:
@@ -34,13 +61,17 @@ def _format_value(value) -> str:
     return str(value)
 
 
-def _render_message_lines(title: str, fields) -> list[str]:
-    lines = [f'{PREFIX} {title}']
-    if not fields:
+def _render_message_lines(title: str, fields, *, stock: str | None = None) -> list[str]:
+    lines = [f'{_message_prefix(stock)} {title}']
+    rendered_fields = fields
+    if stock and fields.get('stock') == stock:
+        rendered_fields = {label: value for label, value in fields.items() if label != 'stock'}
+
+    if not rendered_fields:
         return lines
 
-    label_width = max(len(str(label)) for label in fields)
-    for label, value in fields.items():
+    label_width = max(len(str(label)) for label in rendered_fields)
+    for label, value in rendered_fields.items():
         formatted = _format_value(value)
         field_prefix = f'  {label:<{label_width}} : '
         if '\n' not in formatted:
@@ -75,7 +106,8 @@ def clear_diagnostic_profile_snapshots() -> None:
 
 
 def log_event(title: str, snapshot=None, /, **fields) -> None:
-    lines = _render_message_lines(title, fields)
+    stock = _resolve_message_stock(snapshot, fields)
+    lines = _render_message_lines(title, fields, stock=stock)
     output = '\n'.join(lines)
     if snapshot is not None:
         _store_profile_snapshot(title, snapshot, output)
@@ -86,7 +118,7 @@ def log_parameters(title: str, params) -> None:
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         params.pretty_print()
-    lines = [f'{PREFIX} {title}']
+    lines = [f'{_message_prefix(_resolve_message_stock(params))} {title}']
     for line in buffer.getvalue().splitlines():
         if line.strip():
             lines.append(f'  {line}')

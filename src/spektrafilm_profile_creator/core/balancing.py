@@ -128,7 +128,13 @@ def reconstruct_metameric_neutral(profile, midgray_value=0.184):
     return updated_profile
 
 
-def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile):
+def _valid_density_curve(log_exposure, source_density_curves, index):
+    valid = np.isfinite(source_density_curves[:, index])
+    valid_curve = source_density_curves[valid, index]
+    valid_log_exposure = log_exposure[valid]
+    return valid_log_exposure, valid_curve
+
+def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, correct_log_exposure_per_channel=False):
     data = profile.data
     info = profile.info
     source_density_curves = np.asarray(data.density_curves)
@@ -145,23 +151,25 @@ def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile):
     log_exposure_correction = np.zeros(3)
     interp_sign = -1 if info.is_positive else 1
     for index in range(3):
-        valid = np.isfinite(source_density_curves[:, index])
-        if not np.any(valid):
-            log_exposure_correction[index] = np.nan
-            density_curves[:, index] = np.nan
-            continue
-
-        curve = source_density_curves[valid, index]
-        exposure = log_exposure[valid]
+        valid_log_exposure, valid_curve = _valid_density_curve(log_exposure, source_density_curves, index)
         log_exposure_correction[index] = np.interp(
             interp_sign * status_density_midscale_neutral[index],
-            interp_sign * curve,
-            exposure,
+            interp_sign * valid_curve,
+            valid_log_exposure,
         )
+    
+    if correct_log_exposure_per_channel:
+        pass
+    else: # correct log_exposure globally
+        log_exposure_correction = np.nanmean(log_exposure_correction)
+        log_exposure_correction = np.full(3, log_exposure_correction)
+    
+    for index in range(3):
+        valid_log_exposure, valid_curve = _valid_density_curve(log_exposure, source_density_curves, index)
         density_curves[:, index] = np.interp(
             log_exposure + log_exposure_correction[index],
-            exposure,
-            curve,
+            valid_log_exposure,
+            valid_curve,
             left=np.nan,
             right=np.nan,
         )

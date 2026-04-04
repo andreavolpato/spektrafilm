@@ -24,7 +24,7 @@ def test_log_event_stores_profile_snapshot_as_deep_copy() -> None:
     entry = snapshots['diagnostic_event'][0]
     assert entry['sequence'] == 1
     assert entry['stock'] == profile.info.stock
-    assert 'diagnostic_event' in entry['output']
+    assert entry['output'].startswith('[profile_creator / diagnostic_test_stock] diagnostic_event')
     assert 'residual' in entry['output']
     np.testing.assert_allclose(entry['profile'].data.density_curves, profile.data.density_curves)
 
@@ -50,11 +50,11 @@ def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapsho
     monkeypatch.setattr(refinement_module, 'fit_neutral_print_filters', lambda current_params, stock=None: (30.0, 40.0, None))
     monkeypatch.setattr(
         refinement_module,
-        'fit_corrections_from_grey_ramp',
+        'fit_corrections_from_grey_ramp_negative',
         lambda *args, **kwargs: (np.array([1.1, 0.9, 1.05]), [0.1, 0.0, -0.1], [1.0, 1.0, 1.0]),
     )
 
-    result = refine_negative_curves_with_gray_ramp(source_profile)
+    result = refine_negative_curves_with_gray_ramp(source_profile, target_print='kodak_portra_endura')
 
     snapshots = get_diagnostic_profile_snapshots()
     entry = snapshots['correct_negative_curves_with_gray_ramp'][0]
@@ -62,3 +62,11 @@ def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapsho
     assert entry['stock'] == 'kodak_test_stock'
     assert entry['profile'] is not result
     np.testing.assert_allclose(entry['profile'].data.density_curves, result.data.density_curves)
+
+
+def test_log_event_promotes_explicit_stock_to_prefix(capsys) -> None:
+    log_event('fit_neutral_print_filters', stock='kodak_gold_200')
+
+    captured = capsys.readouterr()
+
+    assert captured.out == '[profile_creator / kodak_gold_200] fit_neutral_print_filters\n'

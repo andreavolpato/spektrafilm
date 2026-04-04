@@ -17,6 +17,7 @@ class RawProfileRecipe:
     target_film: str | None = None
     target_print: str | None = None
     data_trustability: float = 1.0
+    neutral_log_exposure_correction: bool = False
     stretch_curves: bool = False
     should_process: bool = True
 
