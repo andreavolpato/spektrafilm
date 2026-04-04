@@ -228,7 +228,7 @@ def fit_density_curves(log_exposure, density, profile_type='negative', support='
     return fitted_parameters
 
 
-def fit_print_filters_iter(profile):
+def fit_neutral_print_filters_iter(profile):
     p = copy.copy(profile)
     p.debug.deactivate_spatial_effects = True
     p.debug.deactivate_stochastic_effects = True
@@ -241,9 +241,9 @@ def fit_print_filters_iter(profile):
     midgray_rgb = np.array([[[0.184, 0.184, 0.184]]])
     c_filter = p.enlarger.c_filter_neutral
 
-    def midgray_print(ymc_values, print_exposure):
-        p.enlarger.y_filter_neutral = ymc_values[0]
-        p.enlarger.m_filter_neutral = ymc_values[1]
+    def midgray_print(filter_values, print_exposure):
+        p.enlarger.y_filter_neutral = filter_values[0]
+        p.enlarger.m_filter_neutral = filter_values[1]
         p.enlarger.print_exposure = print_exposure
         rgb = simulate(midgray_rgb, p)
         return rgb
@@ -273,10 +273,10 @@ def fit_print_filters_iter(profile):
     return x.x[0], x.x[1], evaluate_residues(x.x)
 
 
-def fit_print_filters(profile, iterations=10):
+def fit_neutral_print_filters(profile, iterations=10):
     print(profile.source.info.stock)
     for i in range(iterations):
-        filter_y, filter_m, residues = fit_print_filters_iter(profile)
+        filter_y, filter_m, residues = fit_neutral_print_filters_iter(profile)
         if np.sum(np.abs(residues)) < 1e-4 or i == iterations - 1:
             c_filter = profile.enlarger.c_filter_neutral
             print("Fitted Filters :" + f"[ {filter_y:.2f}, {filter_m:.2f}, {c_filter:.2f} ]")

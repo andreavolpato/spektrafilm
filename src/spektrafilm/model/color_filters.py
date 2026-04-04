@@ -49,7 +49,7 @@ class DichroicFilters():
         self.filters = load_dichroic_filters(self.wavelengths, brand)
             
     def plot(self):
-        colors = ['gold', 'tab:pink', 'tab:cyan']
+        colors = ['tab:cyan', 'tab:pink', 'gold']
         _, ax = plt.subplots()
         for i in range(3):
             ax.plot(self.wavelengths, self.filters[:,i], color=colors[i])
@@ -57,7 +57,7 @@ class DichroicFilters():
         ax.set_xlabel('Wavelegnth (nm)')
         ax.set_ylim(0,1)
         ax.set_xlim(np.min(self.wavelengths), np.max(self.wavelengths))
-        ax.legend(('Y','M','C'))
+        ax.legend(('C','M','Y'))
     
     def apply(self, illuminant, filter_transmittance_values=[1,1,1]):
         dimmed_filters = 1 - (1-self.filters)*(1-np.array(filter_transmittance_values)) # following durst 605 wheels values, with 170 max
@@ -129,10 +129,11 @@ generic_lens_transmission = GenericFilter(name='canon_24_f28_is', type='lens_tra
 
 ################################################################################
 
-def color_enlarger(light_source, yellow_cc_value, magenta_cc_value, cyan_cc_value=0,
+def color_enlarger(light_source, filter_cc_values=(0,65,55),
                    filters=durst_digital_light_dicrhoic_filters):
     # Filter values are in Kodak CC units proportional to density, 100 units means 1.0 density, or 90% reduction in transmittance
-    filter_cc_values = np.array([yellow_cc_value, magenta_cc_value, cyan_cc_value])
+    # cc_filter_values are in CMY order
+    filter_cc_values = np.array(filter_cc_values)
     filtered_illuminant = filters.apply_cc(light_source, filter_cc_values=filter_cc_values)
     return filtered_illuminant
 

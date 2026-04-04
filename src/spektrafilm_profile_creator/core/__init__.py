@@ -1,6 +1,6 @@
 from spektrafilm_profile_creator.core.balancing import (
     reconstruct_metameric_neutral,
-    balance_sensitivity,
+    balance_film_sensitivity,
 )
 from spektrafilm_profile_creator.core.densitometer import (
     compute_densitometer_crosstalk_matrix,
@@ -29,7 +29,7 @@ __all__ = [
     'align_midscale_neutral_exposures',
     'apply_scale_shift_stretch_density_curves',
     'reconstruct_metameric_neutral',
-    'balance_sensitivity',
+    'balance_film_sensitivity',
     'compute_density_curves',
     'compute_density_curves_layers',
     'compute_densitometer_crosstalk_matrix',

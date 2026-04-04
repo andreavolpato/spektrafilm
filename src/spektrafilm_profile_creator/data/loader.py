@@ -7,12 +7,20 @@ import scipy.interpolate
 import yaml
 
 from spektrafilm.config import LOG_EXPOSURE, SPECTRAL_SHAPE
-from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES, ProfileData, ProfileInfo
+from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES, PROFILE_USES, ProfileData, ProfileInfo
 from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
 
 
 RAW_PROFILE_FILENAME = 'profile.yaml'
 _DATA_ROOT_PACKAGE = 'spektrafilm_profile_creator.data'
+
+
+def _package_dir_to_support(package_dir: str) -> str:
+    return 'paper' if package_dir == 'print' else package_dir
+
+
+def _support_to_package_dir(support: str) -> str:
+    return 'print' if support == 'paper' else support
 
 
 def interpolate_to_common_axis(data, new_x, extrapolate=False, method='akima'):
@@ -64,12 +72,22 @@ def _load_profile_manifest(manifest, stock):
     return dict(payload)
 
 
+def load_raw_profile_manifest(stock: str) -> dict[str, object]:
+    data_package = load_stock_catalog().get(stock)
+    if data_package is None:
+        raise FileNotFoundError(f'No raw profile manifest found for stock {stock!r}')
+
+    manifest = pkg_resources.files(data_package) / stock / RAW_PROFILE_FILENAME
+    return _load_profile_manifest(manifest, stock)
+
+
 @lru_cache(maxsize=1)
 def load_stock_catalog() -> dict[str, str]:
     catalog: dict[str, str] = {}
     data_root = pkg_resources.files(_DATA_ROOT_PACKAGE)
     for support_dir in data_root.iterdir():
-        if not support_dir.is_dir() or support_dir.name not in PROFILE_SUPPORTS:
+        support = _package_dir_to_support(support_dir.name)
+        if not support_dir.is_dir() or support not in PROFILE_SUPPORTS:
             continue
         for kind_dir in support_dir.iterdir():
             if not kind_dir.is_dir():
@@ -95,7 +113,19 @@ def _resolve_stock_data_package(*, support, profile_type, channel_model) -> str:
     if channel_model not in PROFILE_CHANNEL_MODELS:
         raise ValueError(f'Unsupported emulsion data selection: channel_model={channel_model}')
     kind = 'bw' if channel_model == 'bw' else profile_type
-    return f'{_DATA_ROOT_PACKAGE}.{support}.{kind}'
+    package_support_dir = _support_to_package_dir(support)
+    return f'{_DATA_ROOT_PACKAGE}.{package_support_dir}.{kind}'
+
+
+def _validate_profile_info(info: ProfileInfo, stock: str) -> None:
+    if info.type not in PROFILE_TYPES:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported type={info.type!r}')
+    if info.support not in PROFILE_SUPPORTS:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported support={info.support!r}')
+    if info.use not in PROFILE_USES:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported use={info.use!r}')
+    if info.channel_model not in PROFILE_CHANNEL_MODELS:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported channel_model={info.channel_model!r}')
 
 
 def load_raw_profile(stock):
@@ -103,8 +133,7 @@ def load_raw_profile(stock):
     if data_package is None:
         raise FileNotFoundError(f'No raw profile manifest found for stock {stock!r}')
 
-    manifest = pkg_resources.files(data_package) / stock / RAW_PROFILE_FILENAME
-    root_payload = _load_profile_manifest(manifest, stock)
+    root_payload = load_raw_profile_manifest(stock)
 
     profile_payload = _mapping(root_payload.get('profile'), 'profile')
     donors_payload = _mapping(root_payload.get('donors'), 'donors')
@@ -116,20 +145,23 @@ def load_raw_profile(stock):
         name=root_payload.get('name', stock),
         type=profile_payload.get('type', 'negative'),
         support=profile_payload.get('support', 'film'),
+        use=profile_payload['use'],
         channel_model=profile_payload.get('channel_model', 'color'),
         densitometer=profile_payload.get('densitometer', 'status_M'),
         log_sensitivity_density_over_min=profile_payload.get('log_sensitivity_density_over_min', 0.2),
         reference_illuminant=profile_payload.get('reference_illuminant', 'D55'),
         viewing_illuminant=profile_payload.get('viewing_illuminant', 'D50'),
     )
+    _validate_profile_info(info, stock)
     recipe = RawProfileRecipe(
         log_sensitivity_donor=donors_payload.get('log_sensitivity'),
         density_curves_donor=donors_payload.get('density_curves'),
         dye_density_cmy_donor=donors_payload.get('dye_density_cmy'),
         dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
-        dye_density_reconstruct_model=workflow_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
+        dye_density_reconstruct_model=recipe_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
         reference_channel=recipe_payload.get('correction_reference_channel', workflow_payload.get('reference_channel')),
-        target_paper=recipe_payload.get('target_paper'),
+        target_film=recipe_payload.get('target_film'),
+        target_print=recipe_payload.get('target_print'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
         stretch_curves=recipe_payload.get('stretch_curves', workflow_payload.get('stretch_curves', False)),
         should_process=recipe_payload.get('should_process', True),
@@ -143,6 +175,7 @@ def load_raw_profile(stock):
         dye_density_min_mid_donor=recipe.dye_density_min_mid_donor,
         profile_type=info.type,
         support=info.support,
+        use=info.use,
         channel_model=info.channel_model,
     )
     data = ProfileData(
@@ -170,6 +203,7 @@ def load_stock_data(stock='kodak_portra_400',
                            dye_density_min_mid_donor=None,
                            profile_type='negative',
                            support='film',
+                           use='filming',
                            channel_model='color',
                            data_package=None,
                            spectral_shape=SPECTRAL_SHAPE,
@@ -232,7 +266,7 @@ def load_stock_data(stock='kodak_portra_400',
         datapkg = maindatapkg + '.' + dye_density_min_mid_donor
     else:
         datapkg = maindatapkg + '.' + stock
-    if support == 'film' and profile_type == 'negative':
+    if support == 'film' and profile_type == 'negative' and use == 'filming':
         channels = ['min', 'mid']
         for i, channel in enumerate(channels):
             data = load_csv(datapkg, rootname + channel + '.csv')
