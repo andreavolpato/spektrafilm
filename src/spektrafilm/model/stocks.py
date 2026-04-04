@@ -28,7 +28,7 @@ class FilmStocks(Enum):
     fujifilm_provia_100f = 'fujifilm_provia_100f'
 
 class PrintPapers(Enum):
-    # kodak_ultra_endura = 'kodak_ultra_endura' # problematic
+    kodak_ultra_endura = 'kodak_ultra_endura' # problematic
     kodak_endura_premier = 'kodak_endura_premier'
     kodak_ektacolor_edge = 'kodak_ektacolor_edge'
     kodak_supra_endura = 'kodak_supra_endura'

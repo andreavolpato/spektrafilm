@@ -12,3 +12,4 @@ donors:
   density_curves: kodak_supra_endura
 recipe:
   target_film: fujifilm_pro_400h
+  data_trustability: 0.1

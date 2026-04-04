@@ -13,3 +13,4 @@ donors:
   dye_density_cmy: kodak_portra_endura
 recipe:
   target_film: kodak_portra_400
+  data_trustability: 1.0

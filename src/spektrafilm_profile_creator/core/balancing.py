@@ -30,7 +30,7 @@ def balance_film_sensitivity(profile, band_pass_filter=False):
         illuminant *= band_pass
 
     neutral_exposures = np.nansum(illuminant[:, None] * sensitivity, axis=0)
-    correction = neutral_exposures[1] / neutral_exposures
+    correction = 1 / neutral_exposures
     log_exposure_correction = np.log10(correction)
 
     sensitivity *= correction
@@ -46,8 +46,8 @@ def balance_film_sensitivity(profile, band_pass_filter=False):
     return updated_profile
 
 def balance_print_sensitivity(profile,
+                              target_film,
                               reference_cc_filter_values = DEFAULT_NEUTRAL_PRINT_FILTERS, # cmy in cc units
-                              reference_film='kodak_portra_400',
                               ):
     data = profile.data
     info = profile.info
@@ -55,7 +55,7 @@ def balance_print_sensitivity(profile,
     
     sensitivity = 10 ** log_sensitivity
     
-    film_raw_profile = load_raw_profile(reference_film)
+    film_raw_profile = load_raw_profile(target_film)
     film_midscale_neutral_density = film_raw_profile.data.midscale_neutral_density
     transmittance_midscale_neutral = 10 ** (-film_midscale_neutral_density)
     
@@ -64,7 +64,9 @@ def balance_print_sensitivity(profile,
     filtered_illuminant *= transmittance_midscale_neutral
     
     neutral_exposures = np.nansum(filtered_illuminant[:, None] * sensitivity, axis=0)
-    correction = neutral_exposures[1] / neutral_exposures
+    
+    # under the filtered illuminant the log exposure will be [0,0,0] by design
+    correction = 1 / neutral_exposures
     log_exposure_correction = np.log10(correction)
 
     sensitivity *= correction
@@ -76,21 +78,6 @@ def balance_print_sensitivity(profile,
         updated_profile,
         sensitivity_correction=correction,
         log_exposure_correction=log_exposure_correction,
-    )
-    return updated_profile
-
-
-def balance_channel_density_with_densitometer(profile):
-    data = profile.data
-    info = profile.info
-    channel_density = data.channel_density
-    densitometer_type = info.densitometer
-    densitometer_data = load_densitometer_data(densitometer_type)
-    normalization = np.nansum(densitometer_data*channel_density, axis=0)/np.nansum(densitometer_data, axis=0)
-    updated_profile = profile.update_data(channel_density=channel_density/normalization)
-    log_event('balance_channel_density_with_densitometer',
-        updated_profile,
-        normalization=normalization,
     )
     return updated_profile
 
@@ -141,4 +128,52 @@ def reconstruct_metameric_neutral(profile, midgray_value=0.184):
     return updated_profile
 
 
-__all__ = ['balance_film_sensitivity', 'reconstruct_metameric_neutral']
+def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile):
+    data = profile.data
+    info = profile.info
+    source_density_curves = np.asarray(data.density_curves)
+    density_curves = np.array(source_density_curves, copy=True)
+    log_exposure = data.log_exposure
+    midscale_neutral_density_minus_base = np.asarray(data.midscale_neutral_density) - np.asarray(data.base_density)
+    midscale_neutral_transmittance = 10 ** (-midscale_neutral_density_minus_base)
+    densitometer_sensitivity = load_densitometer_data(info.densitometer)
+
+    status_density_midscale_neutral = -np.log10(
+        np.nansum(densitometer_sensitivity * midscale_neutral_transmittance[:, None], axis=0)
+        / np.nansum(densitometer_sensitivity, axis=0)
+    )
+    log_exposure_correction = np.zeros(3)
+    interp_sign = -1 if info.is_positive else 1
+    for index in range(3):
+        valid = np.isfinite(source_density_curves[:, index])
+        if not np.any(valid):
+            log_exposure_correction[index] = np.nan
+            density_curves[:, index] = np.nan
+            continue
+
+        curve = source_density_curves[valid, index]
+        exposure = log_exposure[valid]
+        log_exposure_correction[index] = np.interp(
+            interp_sign * status_density_midscale_neutral[index],
+            interp_sign * curve,
+            exposure,
+        )
+        density_curves[:, index] = np.interp(
+            log_exposure + log_exposure_correction[index],
+            exposure,
+            curve,
+            left=np.nan,
+            right=np.nan,
+        )
+
+    updated_profile = profile.update_data(density_curves=density_curves)
+    log_event(
+        'preliminary_match_density_curves_to_midscale_neutral',
+        updated_profile,
+        status_density_midscale_neutral=status_density_midscale_neutral,
+        log_exposure_correction=log_exposure_correction,
+    )
+    
+    return updated_profile
+
+__all__ = ['balance_film_sensitivity', 'reconstruct_metameric_neutral', 'preliminary_match_density_curves_to_midscale_neutral_minus_base']

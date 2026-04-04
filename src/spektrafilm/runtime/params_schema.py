@@ -97,7 +97,7 @@ class FilmRenderingParams:
 @dataclass
 class PrintRenderingParams:
     density_curve_gamma: float = 1.0
-    base_density_scale: float = 0.4
+    base_density_scale: float = 1.0
     glare: GlareParams = field(default_factory=GlareParams)
 
 

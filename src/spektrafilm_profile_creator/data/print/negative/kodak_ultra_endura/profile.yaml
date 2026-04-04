@@ -10,3 +10,4 @@ profile:
   viewing_illuminant: D50
 recipe:
   target_film: kodak_portra_400
+  data_trustability: 0.3

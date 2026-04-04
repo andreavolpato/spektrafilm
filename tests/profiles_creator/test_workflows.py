@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numpy as np
+
 import spektrafilm_profile_creator.workflows as workflows_module
 from spektrafilm.profiles.io import Profile
 from spektrafilm_profile_creator import load_raw_profile, process_profile, process_raw_profile
@@ -45,6 +47,14 @@ def test_process_profile_dispatches_from_stock_string(monkeypatch) -> None:
 
     assert calls == [('load', 'kodak_portra_400'), ('process', raw_profile)]
     assert result is expected_profile
+
+
+def test_process_profile_handles_partial_print_density_curves() -> None:
+    result = process_profile('kodak_2383')
+
+    assert isinstance(result, Profile)
+    assert result.info.stock == 'kodak_2383'
+    assert np.isfinite(result.data.density_curves).all()
 
 
 def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:

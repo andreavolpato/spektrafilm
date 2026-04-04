@@ -8,3 +8,5 @@ profile:
   log_sensitivity_density_over_min: 0.2
   reference_illuminant: D55
   viewing_illuminant: D50
+recipe:
+  data_trustability: 0.3

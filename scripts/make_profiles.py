@@ -51,9 +51,9 @@ def _process_profiles(raw_profiles):
 
 
 process_print_paper = True
-process_print_film = False
-process_negative = False
-process_positive = False
+process_print_film = True
+process_negative = True
+process_positive = True
 
 grouped_raw_profiles = _collect_raw_profiles()
 
