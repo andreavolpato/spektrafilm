@@ -4,11 +4,11 @@ Raw curve ingestion and processed profile generation.
 """
 
 from spektrafilm_profile_creator.data.loader import load_raw_profile, load_stock_catalog
-from spektrafilm_profile_creator.printing_filters import (
-	PrintFilterRegenerationConfig,
-	PrintFilterRegenerationResult,
-	fit_print_filter_database,
-	regenerate_printing_filters,
+from spektrafilm_profile_creator.neutral_print_filters import (
+	NeutralPrintFilterRegenerationConfig,
+	NeutralPrintFilterRegenerationResult,
+	fit_neutral_print_filter_database,
+	regenerate_neutral_print_filters,
 )
 from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
 from spektrafilm_profile_creator.workflows import (
@@ -19,13 +19,13 @@ from spektrafilm_profile_creator.workflows import (
 __all__ = [
 	'RawProfile',
 	'RawProfileRecipe',
-	'PrintFilterRegenerationConfig',
-	'PrintFilterRegenerationResult',
-	'fit_print_filter_database',
+	'NeutralPrintFilterRegenerationConfig',
+	'NeutralPrintFilterRegenerationResult',
+	'fit_neutral_print_filter_database',
 	'load_raw_profile',
 	'load_stock_catalog',
 	'process_profile',
 	'process_raw_profile',
-	'regenerate_printing_filters',
+	'regenerate_neutral_print_filters',
 ]
 

@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import copy
 from spektrafilm.runtime.api import create_params, simulate
-from spektrafilm_profile_creator.fitting import fit_print_filters
+from spektrafilm_profile_creator.neutral_print_filters import fit_neutral_print_filters
 
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
@@ -34,16 +34,16 @@ def align_midscale_neutral_exposures(profile, reference_channel=None):
 # fit gray strip
 
 def correct_negative_curves_with_gray_ramp(source_profile,
-                                           target_paper='kodak_portra_endura_uc',
+                                           target_print='kodak_portra_endura_uc',
                                            data_trustability=0.5,
                                            stretch_curves=False,
                                            ev_ramp=(-2, -1, 0, 1, 2, 3, 4, 5, 6)
                                            ):
-    pl = create_params(print_profile=target_paper, ymc_filters_from_database=False)
+    pl = create_params(print_profile=target_print, neutral_print_filters_from_database=False)
     pl.film = copy.deepcopy(source_profile)
     pl.io.full_image = True
     pl.settings.rgb_to_raw_method = 'mallett2019'
-    fit_print_filters(pl)
+    fit_neutral_print_filters(pl)
     
     density_scale, shift_corr, stretch_corr = fit_corrections_from_grey_ramp(pl, ev_ramp, data_trustability, stretch_curves)
     print('Density scale corr:', density_scale)
@@ -57,7 +57,7 @@ def correct_positive_curves_with_gray_ramp(positive_film_profile,
                                            stretch_curves=False,
                                            ev_ramp=(-2, -1, 0, 1),
                                            ):
-    pl = create_params(ymc_filters_from_database=False)
+    pl = create_params(neutral_print_filters_from_database=False)
     pl.film = copy.deepcopy(positive_film_profile)
     pl.io.scan_film = True
     pl.io.full_image = True

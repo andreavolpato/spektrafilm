@@ -107,32 +107,31 @@ def save_image_oiio(filename, image_data, bit_depth=32):
         out.close()
 
 ################################################################################
-# YMC filter values
+# Neutral filter values
 ################################################################################
 
-def save_ymc_filter_values(ymc_filters):
-    # to be launched only in the package not accessible by the user
-    package = pkg_resources.files('spektrafilm.data.profiles')
-    filename = 'enlarger_neutral_ymc_filters.json'
-    resource = package / filename
-    with resource.open("w") as file:
-        json.dump(ymc_filters, file, indent=4)
+NEUTRAL_PRINT_FILTERS_FILENAME = 'neutral_print_filters.json'
 
-def read_neutral_ymc_filter_values():
-    filename = 'enlarger_neutral_ymc_filters.json'
-    package_name = 'spektrafilm.data.profiles'
-    package = pkg_resources.files(package_name)
-    resource = package / filename
+
+def save_neutral_print_filters(neutral_print_filters):
+    package = pkg_resources.files('spektrafilm.data.filters')
+    resource = package / NEUTRAL_PRINT_FILTERS_FILENAME
+    with resource.open("w") as file:
+        json.dump(neutral_print_filters, file, indent=4)
+
+
+def read_neutral_print_filters():
+    package = pkg_resources.files('spektrafilm.data.filters')
+    resource = package / NEUTRAL_PRINT_FILTERS_FILENAME
     with resource.open("r") as file:
-        ymc_filters = json.load(file)
-    return ymc_filters
+        return json.load(file)
 
 ################################################################################
 # Profiles
 ################################################################################
 
 def load_dichroic_filters(wavelengths, brand='thorlabs'):
-    channels = ['y','m','c']
+    channels = ['c','m','y']
     filters = np.zeros((np.size(wavelengths), 3))
     for i, channel in enumerate(channels):
         package = pkg_resources.files('spektrafilm.data.filters.dichroics')

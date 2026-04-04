@@ -7,7 +7,7 @@ from spektrafilm_profile_creator.diagnostics.messages import (
     get_diagnostic_profile_snapshots,
     log_event,
 )
-from spektrafilm_profile_creator.refinement import correct_negative_curves_with_gray_ramp
+from spektrafilm_profile_creator.refinement import refine_negative_curves_with_gray_ramp
 import spektrafilm_profile_creator.refinement as refinement_module
 
 from tests.profiles_creator.helpers import make_test_profile
@@ -41,19 +41,20 @@ def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapsho
     params = SimpleNamespace(
         film=source_profile.clone(),
         io=SimpleNamespace(full_image=False),
+        camera=SimpleNamespace(auto_exposure=True),
         settings=SimpleNamespace(rgb_to_raw_method=''),
         enlarger=SimpleNamespace(y_filter_neutral=0.0, m_filter_neutral=0.0),
     )
 
     monkeypatch.setattr(refinement_module, '_build_runtime_params', lambda *args, **kwargs: params)
-    monkeypatch.setattr(refinement_module, 'fit_print_filters', lambda current_params, stock=None: (0.3, 0.4, None))
+    monkeypatch.setattr(refinement_module, 'fit_neutral_print_filters', lambda current_params, stock=None: (30.0, 40.0, None))
     monkeypatch.setattr(
         refinement_module,
         'fit_corrections_from_grey_ramp',
         lambda *args, **kwargs: (np.array([1.1, 0.9, 1.05]), [0.1, 0.0, -0.1], [1.0, 1.0, 1.0]),
     )
 
-    result = correct_negative_curves_with_gray_ramp(source_profile)
+    result = refine_negative_curves_with_gray_ramp(source_profile)
 
     snapshots = get_diagnostic_profile_snapshots()
     entry = snapshots['correct_negative_curves_with_gray_ramp'][0]

@@ -8,13 +8,13 @@ from spektrafilm.runtime.pipeline import SimulationPipeline
 def create_params(
     film_profile: str = "kodak_portra_400",
     print_profile: str = "kodak_portra_endura",
-    ymc_filters_from_database: bool = True,
+    neutral_print_filters_from_database: bool = True,
 ) -> RuntimePhotoParams:
     """Build a ready-to-use runtime parameter object."""
     return build_runtime_params(
         film_profile=film_profile,
         print_profile=print_profile,
-        ymc_filters_from_database=ymc_filters_from_database,
+        neutral_print_filters_from_database=neutral_print_filters_from_database,
     )
 
 
@@ -52,13 +52,13 @@ def simulate(image, params: RuntimePhotoParams):
 def photo_params(
     film_profile: str = "kodak_portra_400",
     print_profile: str = "kodak_portra_endura",
-    ymc_filters_from_database: bool = True,
+    neutral_print_filters_from_database: bool = True,
 ) -> RuntimePhotoParams:
     """Legacy alias for create_params()."""
     return create_params(
         film_profile=film_profile,
         print_profile=print_profile,
-        ymc_filters_from_database=ymc_filters_from_database,
+        neutral_print_filters_from_database=neutral_print_filters_from_database,
     )
 
 class AgXPhoto(Simulator):

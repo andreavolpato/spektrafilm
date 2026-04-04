@@ -12,7 +12,7 @@ class Illuminants(Enum):
     # led_rgb = 'LED-RGB1'
 
 def black_body_spectrum(temperature):
-    values = colour.colorimetry.blackbody.planck_law(SPECTRAL_SHAPE.wavelengths*1e-9, temperature) # to emulate an halogen lamp
+    values = colour.colorimetry.blackbody_spectral_radiance(SPECTRAL_SHAPE.wavelengths*1e-9, temperature) # to emulate an halogen lamp
     spectral_intensity = colour.SpectralDistribution(values, domain=SPECTRAL_SHAPE)
     return spectral_intensity
 
@@ -25,10 +25,10 @@ def standard_illuminant(type='D65', return_class=False):
     elif type=='K75P':
         spectral_intensity = colour.SDS_LIGHT_SOURCES['Kinoton 75P'].copy().align(SPECTRAL_SHAPE)
     elif type=='TH-KG3':
-        spectral_intensity = black_body_spectrum(3200)
+        spectral_intensity = black_body_spectrum(3400)
         spectral_intensity.values = schott_kg3_heat_filter.apply(spectral_intensity.values)
     elif type=='TH-KG3-L': # enlarger source with heat filter and lens transmittance
-        spectral_intensity = black_body_spectrum(3200)
+        spectral_intensity = black_body_spectrum(3400)
         spectral_intensity.values = schott_kg3_heat_filter.apply(spectral_intensity.values)
         spectral_intensity.values = generic_lens_transmission.apply(spectral_intensity.values)
     else:
@@ -46,9 +46,11 @@ def standard_illuminant(type='D65', return_class=False):
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
-    ill = standard_illuminant('D55-KG3', return_class=True)
+    ill = standard_illuminant('TH-KG3-L', return_class=True)
+    ill_bb = standard_illuminant('BB3400', return_class=True)
     print(ill[:])
     plt.plot(ill.wavelengths, ill.values)
+    plt.plot(ill_bb.wavelengths, ill_bb.values)
     plt.show()
 
 

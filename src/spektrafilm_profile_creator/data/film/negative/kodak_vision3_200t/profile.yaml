@@ -2,13 +2,13 @@ name: Kodak Vision3 200T
 profile:
   type: negative
   support: film
+  use: filming
   channel_model: color
   densitometer: status_M
   log_sensitivity_density_over_min: 0.2
   reference_illuminant: T
   viewing_illuminant: D50
-workflow:
-  dye_density_reconstruct_model: dmid_dmin
 recipe:
-  target_paper: kodak_2383
+  dye_density_reconstruct_model: dmid_dmin
+  target_print: kodak_2383
   data_trustability: 0.3

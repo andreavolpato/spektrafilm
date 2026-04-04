@@ -9,7 +9,7 @@ from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import apply_scale_shift_stretch_density_curves
 from spektrafilm_profile_creator.diagnostics.messages import log_event
-from spektrafilm_profile_creator.printing_filters import fit_print_filters
+from spektrafilm_profile_creator.neutral_print_filters import fit_neutral_print_filters
 
 
 def _build_runtime_params(film_profile, print_profile):
@@ -19,20 +19,20 @@ def _build_runtime_params(film_profile, print_profile):
     )
 
 
-def correct_negative_curves_with_gray_ramp(
+def refine_negative_curves_with_gray_ramp(
     source_profile,
-    target_paper='kodak_portra_endura',
+    target_print='kodak_portra_endura',
     data_trustability=0.5,
     stretch_curves=False,
     ev_ramp=(-2, -1, 0, 1, 2, 3, 4, 5),
 ):
     
-    params = _build_runtime_params(source_profile, target_paper)
+    params = _build_runtime_params(source_profile, target_print)
     params.film = replace_fitted_density_curves(params.film) # temporary replace with fitted to make couplers work in the extapolated range
     params.io.full_image = True
     params.camera.auto_exposure = False
     params.settings.rgb_to_raw_method = 'hanatos2025'
-    fitted_y, fitted_m, _ = fit_print_filters(params, stock=source_profile.info.stock)
+    fitted_y, fitted_m, _ = fit_neutral_print_filters(params, stock=source_profile.info.stock)
     params.enlarger.y_filter_neutral = fitted_y
     params.enlarger.m_filter_neutral = fitted_m
 
@@ -58,7 +58,7 @@ def correct_negative_curves_with_gray_ramp(
     return corrected_profile
 
 
-def correct_positive_curves_with_gray_ramp(
+def refine_positive_curves_with_gray_ramp(
     positive_film_profile,
     data_trustability=0.5,
     stretch_curves=False,
@@ -176,9 +176,15 @@ def gray_ramp(
     return gray, midgray_rgb
 
 
+######################################################################################
+# Printing media
+
+def refine_negative_print_profile_with_neutral_ramp():
+    pass
+
 __all__ = [
-    'fit_print_filters',
-    'correct_negative_curves_with_gray_ramp',
-    'correct_positive_curves_with_gray_ramp',
+    'fit_neutral_print_filters',
+    'refine_negative_curves_with_gray_ramp',
+    'refine_positive_curves_with_gray_ramp',
     'fit_corrections_from_grey_ramp',
 ]

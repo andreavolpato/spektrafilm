@@ -53,12 +53,13 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
     _record_workflow_steps(
         monkeypatch,
         [
-            'remove_density_min',
-            'adjust_log_exposure',
             'reconstruct_dye_density',
-            'unmix_density',
+            'densitometer_normalization',
             'balance_sensitivity',
+            'remove_density_min',
+            'unmix_density',
             'correct_negative_curves_with_gray_ramp',
+            'adjust_log_exposure',
             'replace_fitted_density_curves',
         ],
         captured_steps,
@@ -69,12 +70,12 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
     assert isinstance(result, Profile)
     assert result.info.stock == raw_profile.info.stock
     assert captured_steps == [
-        'remove_density_min',
-        'adjust_log_exposure',
         'reconstruct_dye_density',
-        'unmix_density',
+        'densitometer_normalization',
         'balance_sensitivity',
+        'remove_density_min',
+        'unmix_density',
         'correct_negative_curves_with_gray_ramp',
-        'replace_fitted_density_curves',
         'adjust_log_exposure',
+        'replace_fitted_density_curves',
     ]

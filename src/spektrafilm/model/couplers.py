@@ -4,27 +4,6 @@ from scipy.ndimage import gaussian_filter
 from opt_einsum import contract
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
 
-
-def _interp_sorted_valid(x_new, x_known, y_known):
-    valid = (~np.isnan(x_known)) & (~np.isnan(y_known))
-    if not np.any(valid):
-        return np.full_like(x_new, np.nan, dtype=np.float64)
-
-    x_sorted = x_known[valid]
-    y_sorted = y_known[valid]
-    order = np.argsort(x_sorted, kind='mergesort')
-    x_sorted = x_sorted[order]
-    y_sorted = y_sorted[order]
-
-    if x_sorted.size == 1:
-        return np.full_like(x_new, y_sorted[0], dtype=np.float64)
-
-    keep = np.ones(x_sorted.size, dtype=bool)
-    keep[:-1] = x_sorted[1:] != x_sorted[:-1]
-    x_sorted = x_sorted[keep]
-    y_sorted = y_sorted[keep]
-    return np.interp(x_new, x_sorted, y_sorted)
-
 def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, high_exposure_couplers_shift=0.0, positive=False):
     """
     DIR couplers affect the same layer by increasing contrast.
@@ -53,11 +32,10 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
     for i in np.arange(3):
-        density_curves_corrected[:,i] = _interp_sorted_valid(
-            log_exposure,
-            log_exposure_0[:,i],
-            density_curves[:,i],
-        )
+        if positive:
+            density_curves_corrected[:,i] = -np.interp(log_exposure, log_exposure_0[:,i], -density_curves[:,i])
+        else:
+            density_curves_corrected[:,i] = np.interp(log_exposure, log_exposure_0[:,i], density_curves[:,i])
     return density_curves_corrected
 
 

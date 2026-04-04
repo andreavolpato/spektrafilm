@@ -82,12 +82,12 @@ GUI_WIDGET_SPECS = {
         "print_y_filter_shift": WidgetSpec(
             label="Print Y filter shift",
             tooltip="Y filter shift of the color enlarger from a neutral position, in Kodak CC units",
-            step=2,
+            step=1,
         ),
         "print_m_filter_shift": WidgetSpec(
             label="Print M filter shift",
             tooltip="M filter shift of the color enlarger from a neutral position, in Kodak CC units",
-            step=2,
+            step=1,
         ),
         "scan_lens_blur": WidgetSpec(
             label="Scan lens blur",
@@ -226,11 +226,11 @@ GUI_WIDGET_SPECS = {
         "just_preflash": WidgetSpec(tooltip="Only apply preflash to the print, to visualize the preflash effect"),
         "y_filter_shift": WidgetSpec(
             tooltip="Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
-            step=2,
+            step=1,
         ),
         "m_filter_shift": WidgetSpec(
             tooltip="Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
-            step=2,
+            step=1,
         ),
     },
     "input_image": {

@@ -1,9 +1,15 @@
-name: Kodak Ektacolor Edge
+name: Kodak Professional Supra Endura
 profile:
   type: negative
   support: paper
+  use: printing
   channel_model: color
   densitometer: status_A
   log_sensitivity_density_over_min: 1.0
   reference_illuminant: TH-KG3-L
   viewing_illuminant: D50
+donors:
+  log_sensitivity: kodak_portra_endura
+  dye_density_cmy: kodak_portra_endura
+recipe:
+  target_film: kodak_portra_400
