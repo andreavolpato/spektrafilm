@@ -20,10 +20,12 @@ from spektrafilm_profile_creator.data.loader import load_raw_profile
 
 
 def _build_runtime_params(film_profile, print_profile):
-    return RuntimePhotoParams(
+    params = RuntimePhotoParams(
         film=film_profile.clone(),
         print=load_profile(print_profile),
     )
+    params.enlarger.normalize_print_exposure = False
+    return params
 
 
 def refine_negative_curves_with_gray_ramp(

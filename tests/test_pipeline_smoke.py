@@ -137,6 +137,21 @@ def test_transfer_curve_controls_behave_consistently(default_params) -> None:
     assert delta_comp < 0.05
 
 
+def test_normalize_print_exposure_false_bypasses_compensation(default_params) -> None:
+    gray = _tile_rgb((0.18, 0.18, 0.18), 4)
+
+    default_params.enlarger.normalize_print_exposure = False
+    default_params.enlarger.print_exposure_compensation = True
+    default_params.camera.auto_exposure = False
+    default_params.camera.exposure_compensation_ev = +1.0
+    result_with_comp = photo_process(gray, default_params)
+
+    default_params.enlarger.print_exposure_compensation = False
+    result_without_comp = photo_process(gray, default_params)
+
+    np.testing.assert_allclose(result_with_comp, result_without_comp, atol=1e-6)
+
+
 def test_pipeline_distinguishes_stocks_and_input_chroma(default_params) -> None:
     green_patch = _tile_rgb((0.05, 0.4, 0.05), 10)
     result_portra = photo_process(green_patch, default_params)

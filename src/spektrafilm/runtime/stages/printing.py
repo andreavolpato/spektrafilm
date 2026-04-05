@@ -84,10 +84,19 @@ class PrintingStage:
         return np.zeros((3,))
 
     def compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
+        if not self._enlarger.normalize_print_exposure:
+            return 1.0
+
         density_spectral_midgray = self._enlarger_service.density_spectral_midgray
+        if density_spectral_midgray is None:
+            return 1.0
+
         light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
         raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
-        return 1 / raw_midgray[:, :, 1]
+        raw_midgray = np.fmax(raw_midgray, 1e-10)
+        # use the geometric mean to normalize the exposure
+        raw_midgray_geomean = np.exp(np.mean(np.log(raw_midgray), axis=2, keepdims=True))
+        return 1 / raw_midgray_geomean
 
     def _print_corrected_density_curves(self):
         if self._print_render.glare.compensation_removal_factor > 0:
