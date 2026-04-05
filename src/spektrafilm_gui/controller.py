@@ -140,6 +140,12 @@ class GuiController:
             set_status(self._viewer, 'Load raw failed')
             return
 
+        self._set_or_add_input_layer(
+            image,
+            layer_name=Path(path).stem,
+            white_padding=gui_state.display.white_padding,
+        )
+
         if lens_info:
             set_status(
                 self._viewer,
