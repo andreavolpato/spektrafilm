@@ -57,6 +57,14 @@ def test_process_profile_handles_partial_print_density_curves() -> None:
     assert np.isfinite(result.data.density_curves).all()
 
 
+def test_process_profile_handles_positive_film_density_curves() -> None:
+    result = process_profile('kodak_ektachrome_100')
+
+    assert isinstance(result, Profile)
+    assert result.info.stock == 'kodak_ektachrome_100'
+    assert np.isfinite(result.data.density_curves).all()
+
+
 def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
     raw_profile = load_raw_profile('kodak_portra_400')
     captured_steps: list[str] = []
@@ -65,11 +73,11 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
         [
             'reconstruct_dye_density',
             'densitometer_normalization',
-            'balance_sensitivity',
+            'balance_film_sensitivity',
             'remove_density_min',
+            'prelminary_neutral_shift',
             'unmix_density',
-            'correct_negative_curves_with_gray_ramp',
-            'adjust_log_exposure',
+            'refine_negative_film',
             'replace_fitted_density_curves',
         ],
         captured_steps,
@@ -82,10 +90,10 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
     assert captured_steps == [
         'reconstruct_dye_density',
         'densitometer_normalization',
-        'balance_sensitivity',
+        'balance_film_sensitivity',
         'remove_density_min',
+        'prelminary_neutral_shift',
         'unmix_density',
-        'correct_negative_curves_with_gray_ramp',
-        'adjust_log_exposure',
+        'refine_negative_film',
         'replace_fitted_density_curves',
     ]

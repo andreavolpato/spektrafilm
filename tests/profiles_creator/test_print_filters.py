@@ -16,6 +16,8 @@ from spektrafilm_profile_creator.neutral_print_filters import (
 
 def _make_fake_filter_params(y_filter: float = 0.0, m_filter: float = 0.0, c_filter: float = 0.0):
     return SimpleNamespace(
+        film=SimpleNamespace(info=SimpleNamespace(is_positive=False)),
+        print=SimpleNamespace(info=SimpleNamespace(is_negative=True)),
         enlarger=SimpleNamespace(
             illuminant=None,
             y_filter_neutral=y_filter,
@@ -67,6 +69,25 @@ def test_fit_neutral_print_filters_returns_bounded_solution_and_reduces_midgray_
     # fit_neutral_print_filters currently returns values without mutating the input params.
     assert float(params.enlarger.y_filter_neutral) == start_y
     assert float(params.enlarger.m_filter_neutral) == start_m
+
+
+@pytest.mark.unit
+def test_fit_neutral_print_filters_skips_positive_film_on_negative_print(monkeypatch):
+    params = _make_fake_filter_params(y_filter=11.0, m_filter=22.0, c_filter=33.0)
+    params.film.info.is_positive = True
+    params.print.info.is_negative = True
+
+    monkeypatch.setattr(
+        print_filters_module,
+        'fit_neutral_print_filters_iter',
+        lambda *args, **kwargs: pytest.fail('positive film on negative print should be skipped'),
+    )
+
+    fitted_y, fitted_m, residuals = fit_neutral_print_filters(params, iterations=3, stock='film_b')
+
+    assert fitted_y == pytest.approx(11.0)
+    assert fitted_m == pytest.approx(22.0)
+    np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
 
 
 @pytest.mark.unit
@@ -167,3 +188,43 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
     assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
     assert filters == original_filters
     assert residues == original_residues
+
+
+@pytest.mark.unit
+def test_fit_neutral_print_filter_database_skips_positive_film_on_negative_print(monkeypatch):
+    _install_fake_filter_axes(monkeypatch)
+
+    fit_calls = []
+
+    def fake_create_params(*, film_profile, print_profile, neutral_print_filters_from_database):
+        del print_profile, neutral_print_filters_from_database
+        params = _make_fake_filter_params()
+        params.film.info.is_positive = film_profile == 'film_b'
+        params.print.info.is_negative = True
+        return params
+
+    def fake_fit(params, iterations=10, stock=None, rng=None):
+        del params, rng
+        fit_calls.append((stock, iterations))
+        return (45.0, 60.0, np.array([0.0, 1e-4, -1e-4], dtype=np.float64))
+
+    monkeypatch.setattr(print_filters_module, 'create_params', fake_create_params)
+    monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters', fake_fit)
+
+    result = fit_neutral_print_filter_database(
+        config=NeutralPrintFilterRegenerationConfig(
+            iterations=7,
+            restart_randomness=0.0,
+            residue_threshold=5e-4,
+            rng_seed=123,
+        ),
+        neutral_print_filters={
+            'paper_a': {'light_a': {'film_a': [30.0, 20.0, 10.0], 'film_b': [60.0, 50.0, 40.0]}},
+        },
+        residues={
+            'paper_a': {'light_a': {'film_a': 1.0, 'film_b': 1.0}},
+        },
+    )
+
+    assert fit_calls == [('film_a', 7)]
+    assert result.filters['paper_a']['light_a']['film_b'] == [60.0, 50.0, 40.0]

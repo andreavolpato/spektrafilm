@@ -134,7 +134,7 @@ def _valid_density_curve(log_exposure, source_density_curves, index):
     valid_log_exposure = log_exposure[valid]
     return valid_log_exposure, valid_curve
 
-def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, correct_log_exposure_per_channel=False):
+def prelminary_neutral_shift(profile, per_channel_shift=False):
     data = profile.data
     info = profile.info
     source_density_curves = np.asarray(data.density_curves)
@@ -158,7 +158,7 @@ def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, cor
             valid_log_exposure,
         )
     
-    if correct_log_exposure_per_channel:
+    if per_channel_shift:
         pass
     else: # correct log_exposure globally
         log_exposure_correction = np.nanmean(log_exposure_correction)
@@ -184,4 +184,4 @@ def preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, cor
     
     return updated_profile
 
-__all__ = ['balance_film_sensitivity', 'reconstruct_metameric_neutral', 'preliminary_match_density_curves_to_midscale_neutral_minus_base']
+__all__ = ['balance_film_sensitivity', 'reconstruct_metameric_neutral', 'prelminary_neutral_shift']

@@ -159,12 +159,12 @@ def load_raw_profile(stock):
         dye_density_cmy_donor=donors_payload.get('dye_density_cmy'),
         dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
         dye_density_reconstruct_model=recipe_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
-        reference_channel=recipe_payload.get('correction_reference_channel', workflow_payload.get('reference_channel')),
         target_film=recipe_payload.get('target_film'),
         target_print=recipe_payload.get('target_print'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
         neutral_log_exposure_correction=recipe_payload.get('neutral_log_exposure_correction', False),
         stretch_curves=recipe_payload.get('stretch_curves', workflow_payload.get('stretch_curves', False)),
+        neutral_ramp_refinement=recipe_payload.get('neutral_ramp_refinement', False),
         should_process=recipe_payload.get('should_process', True),
     )
     log_sensitivity, dye_density, wavelengths, density_curves, log_exposure = load_stock_data(

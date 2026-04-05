@@ -4,13 +4,11 @@ from spektrafilm.profiles.io import Profile
 from spektrafilm_profile_creator.core.balancing import (
     reconstruct_metameric_neutral, balance_film_sensitivity,
     balance_print_sensitivity,
-    preliminary_match_density_curves_to_midscale_neutral_minus_base
+    prelminary_neutral_shift
 )
 from spektrafilm_profile_creator.core.densitometer import unmix_density, densitometer_normalization
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import (
-    adjust_log_exposure,
-    adjust_log_exposure_midgray_to_metameric_neutral,
     remove_density_min,
 )
 from spektrafilm_profile_creator.data.loader import (
@@ -20,9 +18,9 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm_profile_creator.raw_profile import RawProfile
 from spektrafilm_profile_creator.reconstruction.dye_reconstruction import reconstruct_dye_density
 from spektrafilm_profile_creator.refinement import (
-    refine_negative_curves_with_gray_ramp,
-    refine_positive_curves_with_gray_ramp,
-    refine_negative_print_profile_with_neutral_ramp,
+    refine_negative_film,
+    refine_negative_print,
+    refine_positive_film,
 )
 
 
@@ -42,18 +40,16 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = balance_film_sensitivity(profile)
         # density curves
         profile = remove_density_min(profile)
-        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile)
+        profile = prelminary_neutral_shift(profile)
         profile = unmix_density(profile)
-        # TODO decide on master negative and filters reference values
-        profile = refine_negative_curves_with_gray_ramp(
+        profile = refine_negative_film(
             profile,
             target_print=recipe.target_print,
             data_trustability=recipe.data_trustability,
             stretch_curves=recipe.stretch_curves,
+            neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
-        # profile = adjust_log_exposure(profile) # TODO fix with density curves interpolation
         profile = replace_fitted_density_curves(profile)
-        #profile = adjust_log_exposure(profile) # TODO make sure log_exposure is correct abd uniform across stocks
         return profile
 
     ##########################################################################################################
@@ -67,12 +63,12 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # sensitivity
         profile = balance_film_sensitivity(profile)
         # density curves
-        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile,
-                        correct_log_exposure_per_channel=True)
+        profile = prelminary_neutral_shift(profile, per_channel_shift=True)
         profile = unmix_density(profile)
-        profile = refine_positive_curves_with_gray_ramp(
+        profile = refine_positive_film(
             profile,
             data_trustability=recipe.data_trustability,
+            neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
         return profile
@@ -88,13 +84,14 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # sensitivity
         profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
         # density curves
-        profile = preliminary_match_density_curves_to_midscale_neutral_minus_base(profile, 
-                        correct_log_exposure_per_channel=recipe.neutral_log_exposure_correction)
+        profile = prelminary_neutral_shift(profile, per_channel_shift=recipe.neutral_log_exposure_correction)
         profile = unmix_density(profile)
-        profile = refine_negative_print_profile_with_neutral_ramp(profile,
-                                                                  target_film=recipe.target_film,
-                                                                  data_trustability=recipe.data_trustability,
-                                                                  )
+        profile = refine_negative_print(
+            profile,
+            target_film=recipe.target_film,
+            data_trustability=recipe.data_trustability,
+            neutral_ramp_refinement=recipe.neutral_ramp_refinement,
+        )
         profile = replace_fitted_density_curves(profile)
         return profile
     

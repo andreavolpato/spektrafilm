@@ -5,6 +5,7 @@ from spektrafilm_profile_creator.diagnostics.snapshot_viewer import launch_proce
 
 def main():
     # launch_process_snapshot_viewer('kodak_gold_200')
+    launch_process_snapshot_viewer('kodak_portra_400')
     # launch_process_snapshot_viewer('kodak_ektachrome_100')
     # launch_process_snapshot_viewer('fujifilm_velvia_100')
     # launch_process_snapshot_viewer('kodak_kodachrome_64')
@@ -12,7 +13,7 @@ def main():
     # launch_process_snapshot_viewer('kodak_ultra_endura')
     # launch_process_snapshot_viewer('fujifilm_crystal_archive_typeii')
     # launch_process_snapshot_viewer('kodak_2383')
-    launch_process_snapshot_viewer('fujifilm_c200')
+    # launch_process_snapshot_viewer('fujifilm_c200')
 
 
 

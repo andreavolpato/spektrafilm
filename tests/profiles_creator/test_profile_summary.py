@@ -195,7 +195,6 @@ def test_main_prints_table_and_writes_csv(tmp_path: Path, capsys: pytest.Capture
             'dye_density_cmy_donor': None,
             'dye_density_min_mid_donor': None,
             'donor_count': 1,
-            'reference_channel': None,
             'target_film': 'kodak_portra_400',
             'target_print': 'kodak_portra_endura',
             'data_trustability': 1.0,

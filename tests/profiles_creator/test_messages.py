@@ -7,7 +7,7 @@ from spektrafilm_profile_creator.diagnostics.messages import (
     get_diagnostic_profile_snapshots,
     log_event,
 )
-from spektrafilm_profile_creator.refinement import refine_negative_curves_with_gray_ramp
+from spektrafilm_profile_creator.refinement import DensityCurvesCorrection, refine_negative_film
 import spektrafilm_profile_creator.refinement as refinement_module
 
 from tests.profiles_creator.helpers import make_test_profile
@@ -36,7 +36,7 @@ def test_log_event_stores_profile_snapshot_as_deep_copy() -> None:
     assert refreshed['diagnostic_event'][0]['profile'].data.density_curves[0, 0] == pytest.approx(0.1)
 
 
-def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapshot(monkeypatch) -> None:
+def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> None:
     source_profile = make_test_profile(stock='kodak_test_stock')
     params = SimpleNamespace(
         film=source_profile.clone(),
@@ -50,14 +50,23 @@ def test_correct_negative_curves_with_gray_ramp_stores_corrected_profile_snapsho
     monkeypatch.setattr(refinement_module, 'fit_neutral_print_filters', lambda current_params, stock=None: (30.0, 40.0, None))
     monkeypatch.setattr(
         refinement_module,
-        'fit_corrections_from_grey_ramp_negative',
-        lambda *args, **kwargs: (np.array([1.1, 0.9, 1.05]), [0.1, 0.0, -0.1], [1.0, 1.0, 1.0]),
+        'fit_gray_anchor',
+        lambda *args, **kwargs: DensityCurvesCorrection(),
+    )
+    monkeypatch.setattr(
+        refinement_module,
+        'fit_neutral_ramp',
+        lambda *args, **kwargs: DensityCurvesCorrection(
+            scale=(1.1, 0.9, 1.05),
+            shift=(0.1, 0.0, -0.1),
+            stretch=(1.0, 1.0, 1.0),
+        ),
     )
 
-    result = refine_negative_curves_with_gray_ramp(source_profile, target_print='kodak_portra_endura')
+    result = refine_negative_film(source_profile, target_print='kodak_portra_endura')
 
     snapshots = get_diagnostic_profile_snapshots()
-    entry = snapshots['correct_negative_curves_with_gray_ramp'][0]
+    entry = snapshots['refine_negative_film'][0]
 
     assert entry['stock'] == 'kodak_test_stock'
     assert entry['profile'] is not result

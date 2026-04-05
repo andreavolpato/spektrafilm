@@ -122,15 +122,13 @@ def adjust_log_exposure_midgray_to_metameric_neutral(profile):
     return updated_profile
     
 
-def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
+def measure_log_exposure_midscale_neutral(profile):
     data = profile.data
     info = profile.info
     log_exposure_midscale_neutral = np.zeros((3,))
     fitted_midscale_density = info.fitted_cmy_midscale_neutral_density
     if np.size(fitted_midscale_density) == 1:
         fitted_midscale_density = np.ones(3) * fitted_midscale_density
-    if reference_channel == 'green':
-        fitted_midscale_density = np.ones(3) * fitted_midscale_density[1]
     for index in range(3):
         if info.is_positive:
             log_exposure_midscale_neutral[index] = np.interp(
@@ -148,11 +146,8 @@ def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
     return log_exposure_midscale_neutral
 
 
-def align_midscale_neutral_exposures(profile, reference_channel=None):
-    log_exposure_midscale_neutral = measure_log_exposure_midscale_neutral(
-        profile,
-        reference_channel,
-    )
+def align_midscale_neutral_exposures(profile):
+    log_exposure_midscale_neutral = measure_log_exposure_midscale_neutral(profile)
     density_curves = np.array(profile.data.density_curves, copy=True)
     log_exposure = profile.data.log_exposure
     for index in np.arange(3):

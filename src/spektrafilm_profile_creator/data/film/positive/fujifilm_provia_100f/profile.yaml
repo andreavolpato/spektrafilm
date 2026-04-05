@@ -10,3 +10,4 @@ profile:
   viewing_illuminant: D50
 recipe:
   data_trustability: 0.3
+  neutral_ramp_refinement: true

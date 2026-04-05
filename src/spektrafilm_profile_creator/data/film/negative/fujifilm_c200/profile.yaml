@@ -14,4 +14,4 @@ recipe:
   dye_density_reconstruct_model: dmid_dmin
   target_print: fujifilm_crystal_archive_typeii
   data_trustability: 0.3
-  correction_reference_channel: green
+  neutral_ramp_refinement: true

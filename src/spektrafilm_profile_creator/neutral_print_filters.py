@@ -14,11 +14,22 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 MIDGRAY_RGB = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
-DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 50, 50)  # kodak cc values in CMY order
+DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 70, 50)  # kodak cc values in CMY order
 DEFAULT_RESIDUE_THRESHOLD = 5e-4
 
 NeutralPrintFilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
 NeutralPrintFilterResidueDatabase = dict[str, dict[str, dict[str, float]]]
+
+
+def _should_skip_filter_fit(profile) -> bool:
+    film = getattr(profile, 'film', None)
+    print_profile = getattr(profile, 'print', None)
+    film_info = getattr(film, 'info', None)
+    print_info = getattr(print_profile, 'info', None)
+    return bool(
+        getattr(film_info, 'is_positive', False)
+        and getattr(print_info, 'is_negative', False)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +111,12 @@ def fit_neutral_print_filters(profile, iterations=10, stock=None, rng=None):
         log_event('fit_neutral_print_filters')
     else:
         log_event('fit_neutral_print_filters', stock=stock)
+    if _should_skip_filter_fit(profile):
+        return (
+            float(profile.enlarger.y_filter_neutral),
+            float(profile.enlarger.m_filter_neutral),
+            np.zeros(3, dtype=np.float64),
+        )
     if rng is None:
         rng = np.random.default_rng()
 
@@ -209,6 +226,9 @@ def fit_neutral_print_filter_database(
                     rng,
                 )
                 params = _build_regeneration_params(stock.value, paper.value, light.value, start_filters)
+                if _should_skip_filter_fit(params):
+                    skip_count += 1
+                    continue
                 fitted_y, fitted_m, fit_residues = fit_neutral_print_filters(
                     params,
                     iterations=config.iterations,
