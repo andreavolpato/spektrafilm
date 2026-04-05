@@ -24,6 +24,7 @@ class ScanningStage:
         io_params,
         settings_params,
         lut_service,
+        color_reference_service,
     ):
         self._film = film
         self._film_render = film_render_params
@@ -33,6 +34,7 @@ class ScanningStage:
         self._io = io_params
         self._settings = settings_params
         self._lut_service = lut_service
+        self._color_reference_service = color_reference_service
 
     @timeit("_scan")
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
@@ -57,7 +59,7 @@ class ScanningStage:
         scan_illuminant = standard_illuminant(profile.info.viewing_illuminant)
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
-        def spectral_calculation(density_cmy: np.ndarray) -> np.ndarray:
+        def cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
             density_spectral = compute_density_spectral(
                 profile.data.channel_density,
                 density_cmy,
@@ -70,14 +72,32 @@ class ScanningStage:
 
         log_xyz = self._lut_service.compute(
             density_channels,
-            spectral_calculation=spectral_calculation,
+            spectral_calculation=cmy_to_log_xyz,
             data_min=density_min,
             data_max=density_max,
             use_lut=use_lut,
             save_scanner_lut=True,
         )
         xyz = 10 ** log_xyz
-
+        
+        # black and white correction
+        if self._io.scan_film and self._film.info.type == 'negative':
+            pass # do not correct for black and white the negative scan
+        else:
+            if self._io.scan_film and self._film.info.type == 'positive':
+                cmy_black = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
+                cmy_white = np.zeros((1,1,3))
+            elif not self._io.scan_film and self._print.info.type == 'negative':
+                cmy_black = self._color_reference_service.cmy_print_black
+                cmy_white = self._color_reference_service.cmy_print_white
+            log_xyz_black = cmy_to_log_xyz(cmy_black)
+            log_xyz_white = cmy_to_log_xyz(cmy_white)
+            y_black = (10 ** log_xyz_black)[:, :, 1]
+            y_white = (10 ** log_xyz_white)[:, :, 1]
+            xyz = black_and_white_correction(xyz, y_black=y_black, y_white=y_white,
+                                            black_correction=self._scanner.black_correction,
+                                            white_correction=self._scanner.white_correction)
+            
         illuminant_xyz = contract("k,kl->l", scan_illuminant, STANDARD_OBSERVER_CMFS[:]) / normalization
         xyz = add_glare(xyz, illuminant_xyz, glare)
         illuminant_xy = colour.XYZ_to_xy(illuminant_xyz)
@@ -105,3 +125,13 @@ class ScanningStage:
                 apply_cctf_encoding=True,
             )
         return np.clip(rgb, a_min=0, a_max=1)
+
+
+
+def black_and_white_correction(xyz, y_black, y_white, black_correction, white_correction):  
+    y = xyz[:, :, 1]
+    y_black_corrected = y_black * black_correction
+    y_white_corrected = y_white * white_correction + (1-white_correction)
+    y_corrected = np.clip((y - y_black_corrected) / (y_white_corrected - y_black_corrected), 0, 1)
+    scale = y_corrected / (y + 1e-10)
+    return xyz * scale[:, :, None]

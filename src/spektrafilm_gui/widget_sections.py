@@ -544,6 +544,8 @@ class SimulationSection(DataclassSection):
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
+    _glare_section: 'GlareSection | None'
+    _scan_for_print_restore_state: dict[str, object] | None
 
     def __init__(self):
         super().__init__(
@@ -563,6 +565,8 @@ class SimulationSection(DataclassSection):
                 'print_m_filter_shift',
                 'print_illuminant',
                 'scan_lens_blur',
+                'scan_white_correction',
+                'scan_black_correction',
                 'scan_unsharp_mask',
                 'scan_film',
                 'compute_full_image',
@@ -573,7 +577,14 @@ class SimulationSection(DataclassSection):
         )
 
     def _init_extra_widgets(self) -> None:
+        self._glare_section = None
+        self._scan_for_print_restore_state = None
         self.bottom_scan_film = BoolEditor()
+        self.bottom_scan_for_print = BoolEditor()
+        scan_for_print_spec = get_auxiliary_spec('scan_for_print')
+        if scan_for_print_spec.tooltip:
+            self.bottom_scan_for_print.setToolTip(scan_for_print_spec.tooltip)
+        self.bottom_scan_for_print.toggled.connect(self._apply_scan_for_print_mode)
         preview_button_spec = get_button_spec('preview')
         self.preview_button = _build_button(
             preview_button_spec.text,
@@ -599,8 +610,15 @@ class SimulationSection(DataclassSection):
             role='accentAction',
         )
 
-        scan_film_row = _new_form_layout()
-        scan_film_row.addRow(_build_widget_label('simulation', 'scan_film'), self.bottom_scan_film)
+        scan_film_row = QHBoxLayout()
+        scan_film_row.setContentsMargins(0, 0, 0, 0)
+        scan_film_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        scan_film_row.addWidget(_build_widget_label('simulation', 'scan_film'))
+        scan_film_row.addWidget(self.bottom_scan_film)
+        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
+        scan_film_row.addWidget(_build_auxiliary_label('scan_for_print'))
+        scan_film_row.addWidget(self.bottom_scan_for_print)
+        scan_film_row.addStretch(1)
 
         action_buttons = QWidget()
         action_buttons.setLayout(
@@ -628,6 +646,39 @@ class SimulationSection(DataclassSection):
 
     def scan_film_value(self) -> bool:
         return self.bottom_scan_film.isChecked()
+
+    def bind_scan_for_print_glare_section(self, glare_section: 'GlareSection') -> None:
+        self._glare_section = glare_section
+
+    def reset_scan_for_print_value(self) -> None:
+        was_blocked = self.bottom_scan_for_print.blockSignals(True)
+        self.bottom_scan_for_print.setChecked(False)
+        self.bottom_scan_for_print.blockSignals(was_blocked)
+        self._scan_for_print_restore_state = None
+
+    def _apply_scan_for_print_mode(self, active: bool) -> None:
+        if active:
+            if self._scan_for_print_restore_state is None:
+                self._scan_for_print_restore_state = {
+                    'scan_white_correction': self.scan_white_correction.value,
+                    'scan_black_correction': self.scan_black_correction.value,
+                    'glare_active': None if self._glare_section is None else self._glare_section.active.value,
+                }
+            self.scan_white_correction.value = 1.0
+            self.scan_black_correction.value = 1.0
+            if self._glare_section is not None:
+                self._glare_section.active.value = False
+            return
+
+        restore_state = self._scan_for_print_restore_state
+        if restore_state is None:
+            return
+        self.scan_white_correction.value = restore_state['scan_white_correction']
+        self.scan_black_correction.value = restore_state['scan_black_correction']
+        glare_active = restore_state['glare_active']
+        if self._glare_section is not None and glare_active is not None:
+            self._glare_section.active.value = glare_active
+        self._scan_for_print_restore_state = None
 
 
 class OutputSection(QWidget):
@@ -687,6 +738,8 @@ class ScannerSection(QWidget):
                 'Scanner',
                 [
                     _spec_row('simulation', 'scan_lens_blur', simulation_section.scan_lens_blur),
+                    _spec_row('simulation', 'scan_white_correction', simulation_section.scan_white_correction),
+                    _spec_row('simulation', 'scan_black_correction', simulation_section.scan_black_correction),
                     _spec_row('simulation', 'scan_unsharp_mask', simulation_section.scan_unsharp_mask),
                 ],
                 expanded=False,

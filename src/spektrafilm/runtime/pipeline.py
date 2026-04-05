@@ -8,6 +8,7 @@ from spektrafilm.runtime.services import (
     EnlargerService,
     ResizingService,
     SpectralLUTService,
+    ColorReferenceService,
 )
 from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
 
@@ -36,6 +37,7 @@ class SimulationPipeline:
         self._lut_service = SpectralLUTService(self.settings.lut_resolution)
         self._enlarger_service = EnlargerService(self.enlarger)
         self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
+        self._color_reference_service = ColorReferenceService(self.film.data, self.print.data, self.io.scan_film)
 
         self._filming_stage = FilmingStage(
             self.film,
@@ -55,6 +57,7 @@ class SimulationPipeline:
             self.settings,
             self._lut_service,
             self._enlarger_service,
+            self._color_reference_service,
         )
         self._scanning_stage = ScanningStage(
             self.film,
@@ -65,6 +68,7 @@ class SimulationPipeline:
             self.io,
             self.settings,
             self._lut_service,
+            self._color_reference_service,
         )
         self._filming_stage.timings = self.timings
         self._printing_stage.timings = self.timings

@@ -102,6 +102,26 @@ class FakeForm:
         self.rows.append(args)
 
 
+class FakeValueEditor:
+    def __init__(self, value) -> None:
+        self.value = value
+
+
+class FakeCheckbox:
+    def __init__(self, checked: bool = False) -> None:
+        self._checked = checked
+        self.enabled = True
+
+    def setChecked(self, value: bool) -> None:  # noqa: N802 - Qt API name
+        self._checked = value
+
+    def isChecked(self) -> bool:  # noqa: N802 - Qt API name
+        return self._checked
+
+    def setEnabled(self, value: bool) -> None:  # noqa: N802 - Qt API name
+        self.enabled = value
+
+
 def _make_load_raw_section(monkeypatch):
     init_extra_widgets = getattr(widgets_module.LoadRawSection, '_init_extra_widgets')
     reprocess_raw = getattr(widgets_module.LoadRawSection, '_reprocess_raw')
@@ -292,6 +312,53 @@ def test_load_raw_widget_specs_include_requested_tooltips() -> None:
     assert widget_specs_module.get_widget_spec('load_raw', 'tint').tooltip == (
         'Tint value for the custom white balance, not used for the other white balance settings'
     )
+
+
+def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
+    assert widget_specs_module.get_auxiliary_spec('scan_for_print').tooltip == (
+        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated'
+    )
+
+
+def test_scan_for_print_toggle_applies_and_restores_scanner_and_glare_state() -> None:
+    toggle_scan_for_print = getattr(widgets_module.SimulationSection, '_apply_scan_for_print_mode')
+    glare_section = SimpleNamespace(active=FakeValueEditor(True))
+
+    section = SimpleNamespace(
+        bottom_scan_film=FakeCheckbox(True),
+        scan_white_correction=FakeValueEditor(0.25),
+        scan_black_correction=FakeValueEditor(0.5),
+        _glare_section=glare_section,
+        _scan_for_print_restore_state=None,
+    )
+
+    toggle_scan_for_print(section, True)
+
+    assert section.bottom_scan_film.isChecked() is True
+    assert section.bottom_scan_film.enabled is True
+    assert section.scan_white_correction.value == 1.0
+    assert section.scan_black_correction.value == 1.0
+    assert glare_section.active.value is False
+
+    toggle_scan_for_print(section, False)
+
+    assert section.bottom_scan_film.isChecked() is True
+    assert section.scan_white_correction.value == 0.25
+    assert section.scan_black_correction.value == 0.5
+    assert glare_section.active.value is True
+    assert getattr(section, '_scan_for_print_restore_state') is None
+
+
+def test_scanner_correction_widget_specs_use_requested_float_bounds() -> None:
+    white_spec = widget_specs_module.get_widget_spec('simulation', 'scan_white_correction')
+    black_spec = widget_specs_module.get_widget_spec('simulation', 'scan_black_correction')
+
+    assert white_spec.min_value == 0
+    assert white_spec.max_value == 1
+    assert white_spec.step == 0.01
+    assert black_spec.min_value == 0
+    assert black_spec.max_value == 1
+    assert black_spec.step == 0.01
 
 
 def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) -> None:

@@ -29,6 +29,7 @@ def apply_gui_state(state: GuiState, *, widgets: WidgetBundle) -> None:
     for section_name in GUI_STATE_SECTION_NAMES:
         _get_stateful_widget(widgets, section_name).set_state(getattr(state, section_name))
     widgets.simulation.set_scan_film_value(state.simulation.scan_film)
+    widgets.simulation.reset_scan_for_print_value()
 
 
 def collect_gui_state(

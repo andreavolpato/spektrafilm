@@ -95,6 +95,20 @@ GUI_WIDGET_SPECS = {
             step=0.05,
             min_value=0,
         ),
+        "scan_white_correction": WidgetSpec(
+            label="Scan white correction",
+            tooltip="White point correction applied to the scanner output",
+            min_value=0,
+            max_value=1,
+            step=0.01,
+        ),
+        "scan_black_correction": WidgetSpec(
+            label="Scan black correction",
+            tooltip="Black point correction applied to the scanner output",
+            min_value=0,
+            max_value=1,
+            step=0.01,
+        ),
         "scan_unsharp_mask": WidgetSpec(
             label="Scan unsharp mask",
             tooltip="Apply unsharp mask to the scan, [sigma in pixel, amount]",
@@ -185,7 +199,7 @@ GUI_WIDGET_SPECS = {
     },
     "couplers": {
         "dir_couplers_amount": WidgetSpec(
-            tooltip="Amount of coupler inhibitors, control saturation, typical values (0.8-1.2).",
+            tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
             step=0.05,
         ),
         "dir_couplers_diffusion_um": WidgetSpec(
@@ -293,6 +307,10 @@ GUI_WIDGET_SPECS = {
 
 GUI_AUXILIARY_SPECS = {
     "input_layer": WidgetSpec(label="Input layer"),
+    "scan_for_print": WidgetSpec(
+        label="Scan for print",
+        tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune then yourself without this checkbox if you want to customize it.",
+    ),
 }
 
 

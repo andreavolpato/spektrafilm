@@ -24,12 +24,16 @@ class StubSimulationSection(StubSection):
     def __init__(self, state: object, *, scan_film: bool = False):
         super().__init__(state)
         self._scan_film = scan_film
+        self.reset_scan_for_print_calls = 0
 
     def set_scan_film_value(self, value: bool) -> None:
         self._scan_film = value
 
     def scan_film_value(self) -> bool:
         return self._scan_film
+
+    def reset_scan_for_print_value(self) -> None:
+        self.reset_scan_for_print_calls += 1
 
 
 def _make_state() -> GuiState:
@@ -92,6 +96,7 @@ def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
     for section_name in GUI_STATE_SECTION_NAMES:
         assert widgets.__getattribute__(section_name).get_state() == getattr(source_state, section_name)
     assert widgets.simulation.scan_film_value() is True
+    assert widgets.simulation.reset_scan_for_print_calls == 1
 
 
 def test_collect_gui_state_reads_all_sections_and_bottom_bar_scan_flag() -> None:

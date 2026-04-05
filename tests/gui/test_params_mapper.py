@@ -33,6 +33,17 @@ def test_build_params_maps_grain_fields() -> None:
     assert params.film_render.grain.agx_particle_scale_layers == (2.2, 1.2, 0.6)
 
 
+def test_build_params_maps_scanner_corrections() -> None:
+    state = make_state()
+    state.simulation.scan_white_correction = 0.72
+    state.simulation.scan_black_correction = 0.14
+
+    params = build_params_from_state(state)
+
+    assert params.scanner.white_correction == 0.72
+    assert params.scanner.black_correction == 0.14
+
+
 def test_build_params_converts_halation_percentages_to_fractions() -> None:
     state = make_state()
     state.halation.halation_strength = (12.0, 6.0, 3.0)
@@ -75,6 +86,8 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.output_color_space == 'sRGB'
     assert state.simulation.saving_color_space == 'sRGB'
     assert state.simulation.saving_cctf_encoding is True
+    assert state.simulation.scan_white_correction == 0.0
+    assert state.simulation.scan_black_correction == 0.0
     assert state.display.use_display_transform is True
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
