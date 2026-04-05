@@ -38,7 +38,7 @@ class TestPhotoParamsDefaults:
         assert params.camera.lens_blur_um == 0.0
         assert params.camera.film_format_mm == 35.0
 
-        assert params.enlarger.illuminant == 'TH-KG3-L'
+        assert params.enlarger.illuminant == 'TH-KG3'
         assert params.enlarger.print_exposure == 1.0
         assert params.enlarger.print_exposure_compensation is True
         assert params.enlarger.normalize_print_exposure is True
@@ -50,6 +50,8 @@ class TestPhotoParamsDefaults:
         assert np.isfinite(params.enlarger.c_filter_neutral)
 
         assert params.scanner.lens_blur == 0.0
+        assert params.scanner.white_correction == 0.0
+        assert params.scanner.black_correction == 0.0
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
         assert params.film_render.density_curve_gamma == 1.0

@@ -6,7 +6,7 @@ from spektrafilm.model.color_filters import schott_kg3_heat_filter, generic_lens
 
 
 class Illuminants(Enum):
-    lamp = 'TH-KG3-L'
+    lamp = 'TH-KG3' # tungsten halogen with heat filter
     # bulb = 'T'
     # cine = 'K75P'
     # led_rgb = 'LED-RGB1'
@@ -46,7 +46,7 @@ def standard_illuminant(type='D65', return_class=False):
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
-    ill = standard_illuminant('TH-KG3-L', return_class=True)
+    ill = standard_illuminant('TH-KG3', return_class=True)
     ill_bb = standard_illuminant('BB3400', return_class=True)
     print(ill[:])
     plt.plot(ill.wavelengths, ill.values)

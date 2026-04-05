@@ -56,8 +56,8 @@ class DichroicFilters():
         return self.apply(illuminant, filter_transmittance_values=filter_transmittance_values)
     
     def create_custom_filters(self,
-                               edges=[500,496,604,600],
-                               transitions=[8,8,8,8]):
+                               edges=[516,500,610,607],
+                               transitions=[12,8,8,8]):
         self.filters = create_combined_dichroic_filter(self.wavelengths,
                                                        transitions=transitions,
                                                        edges=edges)
@@ -134,32 +134,32 @@ if __name__=="__main__":
     from spektrafilm.model.illuminants import standard_illuminant
     from spektrafilm.profiles.io import load_profile
     
-    # filters = DichroicFilters(brand='durst_digital_light')
-    # filters.plot()
-    # plt.title('Durst Digital Light Dichroic Filters')
+    filters = DichroicFilters(brand='durst_digital_light')
+    filters.plot()
+    plt.title('Durst Digital Light Dichroic Filters')
     
-    # filters = DichroicFilters(brand='thorlabs')
-    # filters.plot()
-    # plt.title('Thorlabs Dichroic Filters')
+    filters = DichroicFilters(brand='thorlabs')
+    filters.plot()
+    plt.title('Thorlabs Dichroic Filters')
     
-    # filters = DichroicFilters(brand='edmund_optics')
-    # filters.plot()
-    # plt.title('Edmund Optics Dichroic Filters')
+    filters = DichroicFilters(brand='edmund_optics')
+    filters.plot()
+    plt.title('Edmund Optics Dichroic Filters')
     
-    # plt.figure()
-    # d65 = standard_illuminant('D55')
-    # # plt.plot(SPECTRAL_SHAPE.wavelengths, d65)
-    # # plt.plot(SPECTRAL_SHAPE.wavelengths, filters.apply(d65, [0.8,0.0,0])[:])
-    # plt.plot(SPECTRAL_SHAPE.wavelengths, schott_kg3_heat_filter.transmittance)
-    # plt.plot(SPECTRAL_SHAPE.wavelengths, generic_lens_transmission.transmittance)
-    # plt.plot(SPECTRAL_SHAPE.wavelengths, schott_kg3_heat_filter.transmittance*generic_lens_transmission.transmittance)
-    # plt.ylim((0,1))
-    # plt.xlabel('Wavelength (nm)')
-    # plt.ylabel('Intensity')
-    # plt.legend(('Schott KG3', 'Canon Lens Transmittance', 'Combined'))
+    plt.figure()
+    d65 = standard_illuminant('D55')
+    # plt.plot(SPECTRAL_SHAPE.wavelengths, d65)
+    # plt.plot(SPECTRAL_SHAPE.wavelengths, filters.apply(d65, [0.8,0.0,0])[:])
+    plt.plot(SPECTRAL_SHAPE.wavelengths, schott_kg3_heat_filter.transmittance)
+    plt.plot(SPECTRAL_SHAPE.wavelengths, generic_lens_transmission.transmittance)
+    plt.plot(SPECTRAL_SHAPE.wavelengths, schott_kg3_heat_filter.transmittance*generic_lens_transmission.transmittance)
+    plt.ylim((0,1))
+    plt.xlabel('Wavelength (nm)')
+    plt.ylabel('Intensity')
+    plt.legend(('Schott KG3', 'Canon Lens Transmittance', 'Combined'))
 
 
-    filter_cc_values_a = (0.0, 60.0, 60.0)
+    filter_cc_values_a = (50.0, 50.0, 50.0)
     filter_cc_values_b = (0.0, 30.0, 20.0)
     paper_profile_name = 'kodak_portra_endura'
 
@@ -175,10 +175,10 @@ if __name__=="__main__":
         sharex=True,
         gridspec_kw={'height_ratios': [1, 3]},
     )
-    th_kg3_l = standard_illuminant('TH-KG3-L')
+    th_kg3_l = standard_illuminant('TH-KG3')
     th_kg3_l_a = color_enlarger(th_kg3_l, filter_cc_values=filter_cc_values_a)
     th_kg3_l_b = color_enlarger(th_kg3_l, filter_cc_values=filter_cc_values_b)
-    pure_cmy_filters = custom_dichroic_filters.filters
+    dichroich_cmy_filters = custom_dichroic_filters.filters
     filter_none = np.ones_like(SPECTRAL_SHAPE.wavelengths, dtype=float)
     filter_a = color_enlarger(filter_none, filter_cc_values=filter_cc_values_a)
     filter_b = color_enlarger(filter_none, filter_cc_values=filter_cc_values_b)
@@ -190,29 +190,56 @@ if __name__=="__main__":
     paper_sensitivity = 10 ** paper_log_sensitivity
     paper_sensitivity /= np.nanmax(paper_sensitivity, axis=0, keepdims=True)
     ax_filters.plot(SPECTRAL_SHAPE.wavelengths, filter_none, color='0.7', linestyle=':', label='No filter')
-    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 0], color='tab:cyan', linestyle='--', label='Pure C filter')
-    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 1], color='tab:pink', linestyle='--', label='Pure M filter')
-    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 2], color='goldenrod', linestyle='--', label='Pure Y filter')
+    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 0], color='tab:cyan', linestyle='--', label='Pure C filter')
+    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 1], color='tab:pink', linestyle='--', label='Pure M filter')
+    ax_filters.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 2], color='goldenrod', linestyle='--', label='Pure Y filter')
     ax_filters.plot(SPECTRAL_SHAPE.wavelengths, filter_a, color='tab:orange', label=f'Filter {filter_label_a}')
     ax_filters.plot(SPECTRAL_SHAPE.wavelengths, filter_b, color='tab:purple', label=f'Filter {filter_label_b}')
     ax_filters.set_ylabel('Transmittance')
     ax_filters.set_ylim((0, 1.05))
     ax_filters.legend(loc='lower right')
 
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l, label='TH-KG3-L')
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l_a, label=f'TH-KG3-L + {filter_label_a}')
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l_b, label=f'TH-KG3-L + {filter_label_b}')
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 0], color='tab:cyan', linestyle=':', alpha=0.7, label='Pure C filter')
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 1], color='tab:pink', linestyle=':', alpha=0.7, label='Pure M filter')
-    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, pure_cmy_filters[:, 2], color='goldenrod', linestyle=':', alpha=0.7, label='Pure Y filter')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l, label='TH-KG3')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l_a, label=f'TH-KG3 + {filter_label_a}')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, th_kg3_l_b, label=f'TH-KG3 + {filter_label_b}')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 0], color='tab:cyan', linestyle=':', alpha=0.7, label='Pure C filter')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 1], color='tab:pink', linestyle=':', alpha=0.7, label='Pure M filter')
+    ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, dichroich_cmy_filters[:, 2], color='goldenrod', linestyle=':', alpha=0.7, label='Pure Y filter')
     ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, paper_sensitivity[:, 0], color='tab:red', linestyle='--', label=f'{paper_profile_label} R sensitivity')
     ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, paper_sensitivity[:, 1], color='tab:green', linestyle='--', label=f'{paper_profile_label} G sensitivity')
     ax_spectra.plot(SPECTRAL_SHAPE.wavelengths, paper_sensitivity[:, 2], color='tab:blue', linestyle='--', label=f'{paper_profile_label} B sensitivity')
     ax_spectra.set_xlabel('Wavelength (nm)')
     ax_spectra.set_ylabel('Normalized intensity / sensitivity')
-    ax_spectra.set_title(f'TH-KG3-L with Color Enlarger Filters and {paper_profile_label}')
+    ax_spectra.set_title(f'TH-KG3 with Color Enlarger Filters and {paper_profile_label}')
     ax_spectra.legend()
     fig.tight_layout()
+
+
+    durst_pure_cmy_filters = durst_digital_light_dicrhoic_filters.filters
+    custom_pure_cmy_filters = custom_dichroic_filters.filters
+    fig_compare, ax_compare = plt.subplots()
+    compare_colors = ['tab:cyan', 'tab:pink', 'goldenrod']
+    compare_labels = ['C', 'M', 'Y']
+    for index, (color, label) in enumerate(zip(compare_colors, compare_labels)):
+        ax_compare.plot(
+            SPECTRAL_SHAPE.wavelengths,
+            durst_pure_cmy_filters[:, index]/np.nanmax(durst_pure_cmy_filters[:, index]),
+            color=color,
+            label=f'Durst {label}',
+        )
+        ax_compare.plot(
+            SPECTRAL_SHAPE.wavelengths,
+            custom_pure_cmy_filters[:, index]/np.nanmax(custom_pure_cmy_filters[:, index]),
+            color=color,
+            linestyle='--',
+            label=f'Custom {label}',
+        )
+    ax_compare.set_xlabel('Wavelength (nm)')
+    ax_compare.set_ylabel('Normalized Transmittance')
+    ax_compare.set_ylim((0, 1.05))
+    ax_compare.set_title('Durst Digital Light vs Custom Dichroic Filters')
+    ax_compare.legend()
+    fig_compare.tight_layout()
     
     plt.show()
 

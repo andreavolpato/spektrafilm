@@ -18,7 +18,7 @@ class CameraParams:
 
 @dataclass
 class EnlargerParams:
-    illuminant: str = "TH-KG3-L"
+    illuminant: str = "TH-KG3"
     print_exposure: float = 1.0
     print_exposure_compensation: bool = True
     normalize_print_exposure: bool = True
@@ -37,6 +37,8 @@ class EnlargerParams:
 @dataclass
 class ScannerParams:
     lens_blur: float = 0.0
+    white_correction: float = 0.0
+    black_correction: float = 0.0
     unsharp_mask: tuple[float, float] = (0.7, 0.7)
 
 
@@ -77,8 +79,8 @@ class DirCouplersParams:
 @dataclass
 class GlareParams:
     active: bool = True
-    percent: float = 0.1
-    roughness: float = 0.4
+    percent: float = 0.03
+    roughness: float = 0.7
     blur: float = 0.5
     compensation_removal_factor: float = 0.0
     compensation_removal_density: float = 1.2
@@ -92,7 +94,7 @@ class FilmRenderingParams:
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
-    glare: None = None
+    glare: GlareParams = field(default_factory=GlareParams)
 
 
 @dataclass

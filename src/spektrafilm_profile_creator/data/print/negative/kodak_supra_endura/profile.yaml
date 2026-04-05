@@ -6,7 +6,7 @@ profile:
   channel_model: color
   densitometer: status_A
   log_sensitivity_density_over_min: 1.0
-  reference_illuminant: TH-KG3-L
+  reference_illuminant: TH-KG3
   viewing_illuminant: D50
 donors:
   log_sensitivity: kodak_portra_endura
@@ -14,3 +14,4 @@ donors:
 recipe:
   target_film: kodak_portra_400
   data_trustability: 1.0
+  neutral_ramp_refinement: true

@@ -66,7 +66,7 @@ def _prepare_fitting_profile(profile):
     working_profile.io.full_image = True
     working_profile.camera.auto_exposure = False
     working_profile.enlarger.print_exposure_compensation = False
-    working_profile.enlarger.normalize_print_exposure = False
+    working_profile.enlarger.normalize_print_exposure = True
     return working_profile
 
 
@@ -120,7 +120,7 @@ def fit_neutral_print_filters(profile, iterations=10, stock=None, rng=None):
     if rng is None:
         rng = np.random.default_rng()
 
-    c_filter = float(profile.enlarger.c_filter_neutral)
+    c_filter = float(DEFAULT_NEUTRAL_PRINT_FILTERS[0])
     current_m = float(profile.enlarger.m_filter_neutral)
     current_y = float(profile.enlarger.y_filter_neutral)
     for index in range(iterations):
@@ -167,11 +167,11 @@ def _build_neutral_print_filter_residue_database(initial_value=float('inf')) -> 
     }
 
 
-def _randomize_start_filters(filters, randomness, rng):
-    c_filter, m_filter, y_filter = filters
+def _randomize_start_filters(filters, randomness, rng, initial_filters=DEFAULT_NEUTRAL_PRINT_FILTERS):
+    _, m_filter, y_filter = filters
     randomized_m = np.clip(m_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
     randomized_y = np.clip(y_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
-    return [float(c_filter), float(randomized_m), float(randomized_y)]
+    return [float(initial_filters[0]), float(randomized_m), float(randomized_y)]
 
 
 def _build_regeneration_params(stock, paper, illuminant, filters):
@@ -206,6 +206,7 @@ def _fit_neutral_print_filter_entry(
         working_filters[paper][illuminant][stock],
         config.restart_randomness,
         rng,
+        initial_filters=config.initial_filters,
     )
     params = _build_regeneration_params(stock, paper, illuminant, start_filters)
     if _should_skip_filter_fit(params):

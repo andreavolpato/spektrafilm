@@ -8,6 +8,7 @@ from spektrafilm.runtime.api import create_params
 from spektrafilm.utils.io import read_neutral_print_filters
 import spektrafilm_profile_creator.neutral_print_filters as print_filters_module
 from spektrafilm_profile_creator.neutral_print_filters import (
+    DEFAULT_NEUTRAL_PRINT_FILTERS,
     NeutralPrintFilterRegenerationConfig,
     fit_neutral_print_filter_database,
     fit_neutral_print_filters,
@@ -85,6 +86,28 @@ def test_fit_neutral_print_filters_skips_positive_film_on_negative_print(monkeyp
 
     fitted_y, fitted_m, residuals = fit_neutral_print_filters(params, iterations=3, stock='film_b')
 
+    assert fitted_y == pytest.approx(11.0)
+    assert fitted_m == pytest.approx(22.0)
+    np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
+
+
+@pytest.mark.unit
+def test_fit_neutral_print_filters_uses_default_cyan_start(monkeypatch):
+    params = _make_fake_filter_params(y_filter=11.0, m_filter=22.0, c_filter=0.0)
+    captured_start_filters = []
+
+    def fake_fit_iter(profile, start_filters):
+        del profile
+        captured_start_filters.append(tuple(start_filters))
+        return float(start_filters[0]), float(start_filters[1]), float(start_filters[2]), np.zeros(3, dtype=np.float64)
+
+    monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters_iter', fake_fit_iter)
+
+    fitted_y, fitted_m, residuals = fit_neutral_print_filters(params, iterations=1, stock='film_a')
+
+    assert captured_start_filters == [
+        (float(DEFAULT_NEUTRAL_PRINT_FILTERS[0]), 22.0, 11.0)
+    ]
     assert fitted_y == pytest.approx(11.0)
     assert fitted_m == pytest.approx(22.0)
     np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
@@ -182,9 +205,9 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
 
     assert len(created_params) == 1
     assert created_params[0][0:3] == ('film_b', 'paper_a', False)
-    assert fit_calls == [('film_b', 7, 'light_a', 40.0, 50.0, 60.0)]
+    assert fit_calls == [('film_b', 7, 'light_a', 40.0, 50.0, 50.0)]
     assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
-    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([60.0, 60.0, 45.0])
+    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([50.0, 60.0, 45.0])
     assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
     assert filters == original_filters
     assert residues == original_residues
