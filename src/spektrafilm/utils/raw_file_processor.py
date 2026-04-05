@@ -12,6 +12,7 @@ from scipy.ndimage import map_coordinates
 
 _TUNGSTEN_TEMPERATURE = 2850.0
 _DAYLIGHT_REFERENCE_TEMPERATURE = 6504.0
+_ACES_COLOURSPACE = colour.RGB_COLOURSPACES["ACES2065-1"]
 
 
 @dataclass(frozen=True, slots=True)
