@@ -69,6 +69,9 @@ def create_widget_bundle() -> WidgetBundle:
     input_image = InputImageSection(filepicker)
     simulation = SimulationSection()
     special = SpecialSection(simulation)
+    glare = GlareSection()
+    scanner = ScannerSection(simulation)
+    simulation.bind_scan_for_print_glare_section(glare)
 
     return WidgetBundle(
         filepicker=filepicker,
@@ -80,14 +83,14 @@ def create_widget_bundle() -> WidgetBundle:
         preflashing=PreflashingSection(),
         halation=HalationSection(),
         couplers=CouplersSection(),
-        glare=GlareSection(),
+        glare=glare,
         special=special,
         simulation=simulation,
         preview_crop=PreviewCropSection(input_image),
         camera=CameraSection(simulation),
         exposure_control=ExposureControlSection(simulation),
         enlarger=EnlargerSection(simulation),
-        scanner=ScannerSection(simulation),
+        scanner=scanner,
         spectral_upsampling=SpectralUpsamplingSection(input_image),
         tune=TuneSection(special),
         output=OutputSection(simulation),

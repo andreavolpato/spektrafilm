@@ -21,6 +21,7 @@ class PrintingStage:
         settings_params,
         lut_service,
         enlarger_service,
+        color_reference_service,
     ):
         self._film = film
         self._film_render = film_render_params
@@ -30,20 +31,42 @@ class PrintingStage:
         self._settings = settings_params
         self._lut_service = lut_service
         self._enlarger_service = enlarger_service
+        self._color_reference_service = color_reference_service
 
     @timeit("_expose_print")
-    def expose(self, film_density_channels: np.ndarray) -> np.ndarray:
-        return self._lut_service.compute(
-            film_density_channels,
+    def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
+        
+        cmy_film_black = np.zeros((1,1,3)) - np.array(self._film_render.grain.density_min)
+        cmy_film_white = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
+        self._color_reference_service.log_raw_print_black = self.film_cmy_to_print_log_raw(cmy_film_black)
+        self._color_reference_service.log_raw_print_white = self.film_cmy_to_print_log_raw(cmy_film_white)
+        
+        log_raw_print = self._lut_service.compute(
+            cmy_film_density,
             spectral_calculation=self.film_cmy_to_print_log_raw,
             data_min=-np.array(self._film_render.grain.density_min),
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
             use_lut=self._settings.use_enlarger_lut,
             save_enlarger_lut=True,
         )
+        return log_raw_print
 
     @timeit("_develop_print")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
+        
+        self._color_reference_service.cmy_print_black = develop_simple(
+            self._color_reference_service.log_raw_print_black,
+            self._print.data.log_exposure,
+            self._print_corrected_density_curves(),
+            gamma_factor=self._print_render.density_curve_gamma,
+        )
+        self._color_reference_service.cmy_print_white = develop_simple(
+            self._color_reference_service.log_raw_print_white,
+            self._print.data.log_exposure,
+            self._print_corrected_density_curves(),
+            gamma_factor=self._print_render.density_curve_gamma,
+        )
+        
         return develop_simple(
             log_raw,
             self._print.data.log_exposure,
@@ -51,16 +74,16 @@ class PrintingStage:
             gamma_factor=self._print_render.density_curve_gamma,
         )
 
-    def film_cmy_to_print_log_raw(self, density_channels: np.ndarray) -> np.ndarray:
+    def film_cmy_to_print_log_raw(self, cmy_film_density: np.ndarray) -> np.ndarray:
         sensitivity = 10 ** self._print.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
         enlarger_light_source = standard_illuminant(self._enlarger.illuminant)
 
-        raw = np.zeros_like(density_channels)
+        raw = np.zeros_like(cmy_film_density)
         if not self._enlarger.just_preflash:
             density_spectral = compute_density_spectral(
                 self._film.data.channel_density,
-                density_channels,
+                cmy_film_density,
                 base_density=self._film.data.base_density,
                 base_density_scale=self._film_render.base_density_scale,
             )

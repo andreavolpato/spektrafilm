@@ -108,6 +108,8 @@ class SimulationState:
     print_y_filter_shift: float
     print_m_filter_shift: float
     scan_lens_blur: float
+    scan_white_correction: float
+    scan_black_correction: float
     scan_unsharp_mask: tuple[float, float]
     output_color_space: str
     saving_color_space: str
@@ -245,6 +247,8 @@ def gui_state_from_params(
             print_y_filter_shift=params.enlarger.y_filter_shift,
             print_m_filter_shift=params.enlarger.m_filter_shift,
             scan_lens_blur=params.scanner.lens_blur,
+            scan_white_correction=params.scanner.white_correction,
+            scan_black_correction=params.scanner.black_correction,
             scan_unsharp_mask=tuple(params.scanner.unsharp_mask),
             output_color_space="sRGB",
             saving_color_space="sRGB",

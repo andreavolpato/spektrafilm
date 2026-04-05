@@ -11,7 +11,8 @@ from spektrafilm.utils.timings import timeit
 
 
 class FilmingStage:
-    def __init__(self, film, film_render_params, camera_params, io_params, settings_params, resizing_service, enlarger_service):
+    def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
+                 resizing_service, enlarger_service):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
