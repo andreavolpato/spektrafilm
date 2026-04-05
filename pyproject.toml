@@ -28,6 +28,8 @@ dependencies = [
     "OpenImageIO~=3.1.11",
     "pyfftw~=0.15.0",
     "rawpy~=0.26.1",
+    "exifread~=3.5.1",
+    "lensfunpy~=1.18.0",
     "PyYAML~=6.0",
     "pyconify~=0.2.1",
 ]

@@ -30,6 +30,7 @@ class LoadRawState:
     white_balance: str
     temperature: float
     tint: float
+    lens_correction: bool
 
 
 @dataclass(slots=True)
@@ -181,6 +182,7 @@ def gui_state_from_params(
             white_balance='as_shot',
             temperature=5500.0,
             tint=1.0,
+            lens_correction=False,
         ),
         grain=GrainState(
             active=params.film_render.grain.active,

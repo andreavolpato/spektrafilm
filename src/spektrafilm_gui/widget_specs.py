@@ -290,6 +290,7 @@ GUI_WIDGET_SPECS = {
             tooltip="Tint value for the custom white balance, not used for the other white balance settings",
             step=0.01,
         ),
+        "lens_correction": WidgetSpec(label="Lens correction", tooltip="Apply lens corrections"),
     },
 }
 
