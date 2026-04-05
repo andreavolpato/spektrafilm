@@ -41,6 +41,7 @@ class TestPhotoParamsDefaults:
         assert params.enlarger.illuminant == 'TH-KG3-L'
         assert params.enlarger.print_exposure == 1.0
         assert params.enlarger.print_exposure_compensation is True
+        assert params.enlarger.normalize_print_exposure is True
         assert params.enlarger.y_filter_shift == 0.0
         assert params.enlarger.m_filter_shift == 0.0
         assert params.enlarger.just_preflash is False

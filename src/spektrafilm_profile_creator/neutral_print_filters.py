@@ -55,6 +55,7 @@ def _prepare_fitting_profile(profile):
     working_profile.io.full_image = True
     working_profile.camera.auto_exposure = False
     working_profile.enlarger.print_exposure_compensation = False
+    working_profile.enlarger.normalize_print_exposure = False
     return working_profile
 
 
@@ -163,6 +164,7 @@ def _build_regeneration_params(stock, paper, illuminant, filters):
         neutral_print_filters_from_database=False,
     )
     params.enlarger.illuminant = illuminant
+    params.enlarger.normalize_print_exposure = False
     params.enlarger.c_filter_neutral = float(filters[0])
     params.enlarger.m_filter_neutral = float(filters[1])
     params.enlarger.y_filter_neutral = float(filters[2])

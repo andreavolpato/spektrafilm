@@ -21,6 +21,7 @@ class EnlargerParams:
     illuminant: str = "TH-KG3-L"
     print_exposure: float = 1.0
     print_exposure_compensation: bool = True
+    normalize_print_exposure: bool = True
     y_filter_shift: float = 0.0
     m_filter_shift: float = 0.0
     y_filter_neutral: float = 55 # kodak cc values
