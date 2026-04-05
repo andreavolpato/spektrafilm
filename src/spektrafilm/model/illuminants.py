@@ -2,7 +2,7 @@ import numpy as np
 import colour
 from enum import Enum
 from spektrafilm.config import SPECTRAL_SHAPE
-from spektrafilm.model.color_filters import schott_kg3_heat_filter, schott_kg1_heat_filter, generic_lens_transmission
+from spektrafilm.model.color_filters import schott_kg3_heat_filter, generic_lens_transmission
 
 
 class Illuminants(Enum):

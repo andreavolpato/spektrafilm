@@ -8,6 +8,7 @@ from spektrafilm_profile_creator.neutral_print_filters import (
 	NeutralPrintFilterRegenerationConfig,
 	NeutralPrintFilterRegenerationResult,
 	fit_neutral_print_filter_database,
+	fit_neutral_print_filter_entry,
 	regenerate_neutral_print_filters,
 )
 from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
@@ -22,6 +23,7 @@ __all__ = [
 	'NeutralPrintFilterRegenerationConfig',
 	'NeutralPrintFilterRegenerationResult',
 	'fit_neutral_print_filter_database',
+	'fit_neutral_print_filter_entry',
 	'load_raw_profile',
 	'load_stock_catalog',
 	'process_profile',

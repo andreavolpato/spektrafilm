@@ -10,6 +10,7 @@ import spektrafilm_profile_creator.neutral_print_filters as print_filters_module
 from spektrafilm_profile_creator.neutral_print_filters import (
     NeutralPrintFilterRegenerationConfig,
     fit_neutral_print_filter_database,
+    fit_neutral_print_filter_entry,
     fit_neutral_print_filters,
 )
 
@@ -228,4 +229,80 @@ def test_fit_neutral_print_filter_database_skips_positive_film_on_negative_print
 
     assert fit_calls == [('film_a', 7)]
     assert result.filters['paper_a']['light_a']['film_b'] == [60.0, 50.0, 40.0]
+    assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(0.0)
+
+
+@pytest.mark.unit
+def test_fit_neutral_print_filter_entry_updates_only_requested_combination(monkeypatch):
+    created_params = []
+    fit_calls = []
+
+    def fake_create_params(*, film_profile, print_profile, neutral_print_filters_from_database):
+        params = _make_fake_filter_params()
+        created_params.append((film_profile, print_profile, neutral_print_filters_from_database, params))
+        return params
+
+    def fake_fit(params, iterations=10, stock=None, rng=None):
+        del rng
+        fit_calls.append(
+            (
+                stock,
+                iterations,
+                params.enlarger.illuminant,
+                params.enlarger.y_filter_neutral,
+                params.enlarger.m_filter_neutral,
+                params.enlarger.c_filter_neutral,
+            )
+        )
+        return (
+            params.enlarger.y_filter_neutral + 2.0,
+            params.enlarger.m_filter_neutral + 4.0,
+            np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
+        )
+
+    monkeypatch.setattr(print_filters_module, 'create_params', fake_create_params)
+    monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters', fake_fit)
+
+    filters = {
+        'paper_a': {
+            'light_a': {
+                'film_a': [30.0, 20.0, 10.0],
+                'film_b': [40.0, 50.0, 60.0],
+            }
+        }
+    }
+    residues = {
+        'paper_a': {
+            'light_a': {
+                'film_a': 1.0,
+                'film_b': 1.0,
+            }
+        }
+    }
+    original_filters = copy.deepcopy(filters)
+    original_residues = copy.deepcopy(residues)
+
+    result = fit_neutral_print_filter_entry(
+        stock='film_b',
+        paper='paper_a',
+        illuminant='light_a',
+        config=NeutralPrintFilterRegenerationConfig(
+            iterations=7,
+            restart_randomness=0.0,
+            residue_threshold=5e-4,
+            rng_seed=123,
+        ),
+        neutral_print_filters=filters,
+        residues=residues,
+    )
+
+    assert len(created_params) == 1
+    assert created_params[0][0:3] == ('film_b', 'paper_a', False)
+    assert fit_calls == [('film_b', 7, 'light_a', 60.0, 50.0, 40.0)]
+    assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
+    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([40.0, 54.0, 62.0])
+    assert result.residues['paper_a']['light_a']['film_a'] == pytest.approx(1.0)
+    assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
+    assert filters == original_filters
+    assert residues == original_residues
 

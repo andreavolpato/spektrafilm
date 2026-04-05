@@ -9,12 +9,12 @@ import scipy
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime.api import create_params, simulate
-from spektrafilm.utils.io import save_neutral_print_filters
+from spektrafilm.utils.io import read_neutral_print_filters, save_neutral_print_filters
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 
 MIDGRAY_RGB = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
-DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 70, 50)  # kodak cc values in CMY order
+DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 50, 50)  # kodak cc values in CMY order
 DEFAULT_RESIDUE_THRESHOLD = 5e-4
 
 NeutralPrintFilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
@@ -188,6 +188,71 @@ def _build_regeneration_params(stock, paper, illuminant, filters):
     return params
 
 
+def _fit_neutral_print_filter_entry(
+    *,
+    stock: str,
+    paper: str,
+    illuminant: str,
+    config: NeutralPrintFilterRegenerationConfig,
+    working_filters: NeutralPrintFilterDatabase,
+    working_residues: NeutralPrintFilterResidueDatabase,
+    rng,
+) -> bool:
+    residue = float(working_residues[paper][illuminant][stock])
+    if residue <= config.residue_threshold:
+        return False
+
+    start_filters = _randomize_start_filters(
+        working_filters[paper][illuminant][stock],
+        config.restart_randomness,
+        rng,
+    )
+    params = _build_regeneration_params(stock, paper, illuminant, start_filters)
+    if _should_skip_filter_fit(params):
+        working_residues[paper][illuminant][stock] = 0.0
+        return False
+
+    fitted_y, fitted_m, fit_residues = fit_neutral_print_filters(
+        params,
+        iterations=config.iterations,
+        stock=stock,
+        rng=rng,
+    )
+    working_filters[paper][illuminant][stock] = [
+        float(params.enlarger.c_filter_neutral),
+        float(fitted_m),
+        float(fitted_y),
+    ]
+    working_residues[paper][illuminant][stock] = float(np.sum(np.abs(fit_residues)))
+    return True
+
+
+def fit_neutral_print_filter_entry(
+    *,
+    stock: str,
+    paper: str,
+    illuminant: str = Illuminants.lamp.value,
+    config: NeutralPrintFilterRegenerationConfig | None = None,
+    neutral_print_filters: NeutralPrintFilterDatabase | None = None,
+    residues: NeutralPrintFilterResidueDatabase | None = None,
+) -> NeutralPrintFilterRegenerationResult:
+    config = config or NeutralPrintFilterRegenerationConfig()
+    rng = np.random.default_rng(config.rng_seed)
+    working_filters = copy.deepcopy(neutral_print_filters) if neutral_print_filters is not None else read_neutral_print_filters()
+    working_residues = copy.deepcopy(residues) if residues is not None else _build_neutral_print_filter_residue_database()
+
+    _fit_neutral_print_filter_entry(
+        stock=stock,
+        paper=paper,
+        illuminant=illuminant,
+        config=config,
+        working_filters=working_filters,
+        working_residues=working_residues,
+        rng=rng,
+    )
+    return NeutralPrintFilterRegenerationResult(filters=working_filters, residues=working_residues)
+
+
 def fit_neutral_print_filter_database(
     config: NeutralPrintFilterRegenerationConfig | None = None,
     neutral_print_filters: NeutralPrintFilterDatabase | None = None,
@@ -215,33 +280,19 @@ def fit_neutral_print_filter_database(
                 illuminant=light.value,
             )
             for stock in FilmStocks:
-                residue = float(working_residues[paper.value][light.value][stock.value])
-                if residue <= config.residue_threshold:
-                    skip_count += 1
-                    continue
-
-                start_filters = _randomize_start_filters(
-                    working_filters[paper.value][light.value][stock.value],
-                    config.restart_randomness,
-                    rng,
-                )
-                params = _build_regeneration_params(stock.value, paper.value, light.value, start_filters)
-                if _should_skip_filter_fit(params):
-                    skip_count += 1
-                    continue
-                fitted_y, fitted_m, fit_residues = fit_neutral_print_filters(
-                    params,
-                    iterations=config.iterations,
+                did_fit = _fit_neutral_print_filter_entry(
                     stock=stock.value,
+                    paper=paper.value,
+                    illuminant=light.value,
+                    config=config,
+                    working_filters=working_filters,
+                    working_residues=working_residues,
                     rng=rng,
                 )
-                working_filters[paper.value][light.value][stock.value] = [
-                    float(params.enlarger.c_filter_neutral),
-                    float(fitted_m),
-                    float(fitted_y),
-                ]
-                working_residues[paper.value][light.value][stock.value] = float(np.sum(np.abs(fit_residues)))
-                fit_count += 1
+                if did_fit:
+                    fit_count += 1
+                else:
+                    skip_count += 1
 
     log_event(
         'fit_neutral_print_filter_database_complete',
@@ -267,6 +318,7 @@ __all__ = [
     'NeutralPrintFilterRegenerationConfig',
     'NeutralPrintFilterRegenerationResult',
     'fit_neutral_print_filter_database',
+    'fit_neutral_print_filter_entry',
     'fit_neutral_print_filters',
     'regenerate_neutral_print_filters',
 ]

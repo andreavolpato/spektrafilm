@@ -6,6 +6,8 @@ from spektrafilm_profile_creator import (
     load_stock_catalog,
     process_raw_profile,
 )
+from spektrafilm_profile_creator import regenerate_neutral_print_filters
+
 
 
 PRINT_DATA_PACKAGE_PREFIX = 'spektrafilm_profile_creator.data.print.'
@@ -79,5 +81,8 @@ print('----------------------------------------')
 print('Positive profiles')
 if process_positive:
     _process_profiles(grouped_raw_profiles['positive_film'])
+
+
+regenerate_neutral_print_filters()
 
 plt.show()
