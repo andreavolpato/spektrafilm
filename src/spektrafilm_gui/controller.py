@@ -15,6 +15,11 @@ from spektrafilm_gui.controller_layers import (
     set_input_layer_metadata,
     set_output_layer_metadata,
 )
+from spektrafilm_gui.film_profile_defaults import (
+    apply_gui_state_overrides,
+    default_overrides_for_film_stock,
+    override_section_names,
+)
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     load_gui_state_from_path,
@@ -24,7 +29,7 @@ from spektrafilm_gui.persistence import (
 from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 from spektrafilm_gui.napari_layout import dialog_parent, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
-from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
+from spektrafilm_gui.state_bridge import apply_gui_state, apply_gui_state_sections, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
 
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
@@ -146,6 +151,22 @@ class GuiController:
             return
         self._move_layer_to_top(layer)
         self._show_only_layer(layer)
+
+    def apply_film_profile_defaults(self, film_stock: str) -> None:
+        if not film_stock:
+            return
+
+        overrides = default_overrides_for_film_stock(film_stock)
+        if not overrides:
+            return
+
+        current_state = collect_gui_state(widgets=self._widgets)
+        next_state = apply_gui_state_overrides(current_state, overrides)
+        apply_gui_state_sections(
+            next_state,
+            widgets=self._widgets,
+            section_names=override_section_names(overrides),
+        )
 
     def run_preview(self) -> None:
         self._start_simulation(compute_full_image=False, mode_label='Preview')
