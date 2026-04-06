@@ -156,13 +156,6 @@ GUI_WIDGET_SPECS = {
             step=0.05,
         ),
         "print_channel_swap": WidgetSpec(label="Print channel swap"),
-        "print_density_min_factor": WidgetSpec(
-            label="Print density min factor",
-            tooltip="Minimum density factor of the print paper (0-1), make the white less white",
-            min_value=0,
-            max_value=1,
-            step=0.2,
-        ),
     },
     "glare": {
         "active": WidgetSpec(tooltip="Add glare to the print"),
@@ -309,7 +302,7 @@ GUI_AUXILIARY_SPECS = {
     "input_layer": WidgetSpec(label="Input layer"),
     "scan_for_print": WidgetSpec(
         label="Scan for print",
-        tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune then yourself without this checkbox if you want to customize it.",
+        tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.",
     ),
 }
 

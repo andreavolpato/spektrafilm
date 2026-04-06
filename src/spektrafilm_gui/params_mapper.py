@@ -37,7 +37,6 @@ def _apply_special(params: RuntimePhotoParams, state: GuiState) -> None:
 
     params.film_render.density_curve_gamma = state.special.film_gamma_factor
     params.print_render.density_curve_gamma = state.special.print_gamma_factor
-    params.print_render.base_density_scale = state.special.print_density_min_factor
 
 
 def _apply_glare(params: RuntimePhotoParams, state: GuiState) -> None:

@@ -417,7 +417,6 @@ class SpecialSection(DataclassSection):
             hidden_fields={
                 'film_gamma_factor',
                 'print_gamma_factor',
-                'print_density_min_factor',
             },
         )
 
@@ -450,7 +449,6 @@ class TuneSection(QWidget):
                 [
                     _spec_row('special', 'film_gamma_factor', special_section.film_gamma_factor),
                     _spec_row('special', 'print_gamma_factor', special_section.print_gamma_factor),
-                    _spec_row('special', 'print_density_min_factor', special_section.print_density_min_factor),
                 ],
                 expanded=True,
             ),

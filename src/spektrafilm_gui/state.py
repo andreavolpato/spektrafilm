@@ -90,7 +90,6 @@ class SpecialState:
     film_gamma_factor: float
     print_channel_swap: tuple[int, int, int]
     print_gamma_factor: float
-    print_density_min_factor: float
 
 
 @dataclass(slots=True)
@@ -231,7 +230,6 @@ def gui_state_from_params(
             film_gamma_factor=params.film_render.density_curve_gamma,
             print_channel_swap=(0, 1, 2),
             print_gamma_factor=params.print_render.density_curve_gamma,
-            print_density_min_factor=params.print_render.base_density_scale,
         ),
         simulation=SimulationState(
             film_stock=film_stock,
