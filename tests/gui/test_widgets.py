@@ -316,7 +316,7 @@ def test_load_raw_widget_specs_include_requested_tooltips() -> None:
 
 def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
     assert widget_specs_module.get_auxiliary_spec('scan_for_print').tooltip == (
-        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated'
+        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune then yourself without this checkbox if you want to customize it.'
     )
 
 

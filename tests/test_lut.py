@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import warnings
 
 from spektrafilm.utils.fast_interp_lut import (
     apply_lut_cubic_3d,
@@ -50,6 +51,30 @@ def make_monotone_3d_lut_and_image():
     image = np.stack((image_r, image_g, image_b), axis=-1)
     ground_truth = monotone_transform_3d(image)
     return lut, image, ground_truth
+
+
+def make_mixed_direction_monotone_lut():
+    lut_size = 17
+    lut_axis = np.linspace(0.0, 1.0, lut_size, dtype=np.float64)
+    grid_r, grid_g, grid_b = np.meshgrid(lut_axis, lut_axis, lut_axis, indexing='ij')
+    lut = np.empty((lut_size, lut_size, lut_size, 3), dtype=np.float64)
+    lut[..., 0] = 0.3 * grid_r + 0.2 * grid_g + 0.1 * grid_b
+    lut[..., 1] = (grid_g - 0.5) * grid_r + 0.4 * grid_g + 0.1 * grid_b
+    lut[..., 2] = 0.2 * grid_r + 0.1 * grid_g + 0.3 * grid_b
+    image = np.stack((grid_r[:, :, 0], grid_g[:, :, 0], np.full_like(grid_r[:, :, 0], 0.5)), axis=-1)
+    return lut, image
+
+
+def make_non_monotone_lut():
+    lut_size = 17
+    lut_axis = np.linspace(0.0, 1.0, lut_size, dtype=np.float64)
+    grid_r, grid_g, grid_b = np.meshgrid(lut_axis, lut_axis, lut_axis, indexing='ij')
+    lut = np.empty((lut_size, lut_size, lut_size, 3), dtype=np.float64)
+    lut[..., 0] = grid_r
+    lut[..., 1] = (grid_r - 0.5) ** 2 + 0.1 * grid_g + 0.05 * grid_b
+    lut[..., 2] = grid_b
+    image = np.stack((grid_r[:, :, 0], grid_g[:, :, 0], np.full_like(grid_r[:, :, 0], 0.5)), axis=-1)
+    return lut, image
 
 
 def test_compute_with_lut_basic_behavior():
@@ -154,6 +179,28 @@ def test_apply_monotone_3d_lut_mitchell_matches_ground_truth_with_small_error():
 
     assert rmse_mitchell < 2e-3
     assert max_error_mitchell < 1.2e-2
+
+
+def test_apply_lut_pchip_3d_does_not_warn_for_mixed_direction_monotone_lines():
+    lut, image = make_mixed_direction_monotone_lut()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        output = apply_lut_pchip_3d(lut, image)
+
+    assert output.shape == image.shape
+    assert not caught
+
+
+def test_apply_lut_pchip_3d_warns_for_non_monotone_line():
+    lut, image = make_non_monotone_lut()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        output = apply_lut_pchip_3d(lut, image)
+
+    assert output.shape == image.shape
+    assert any('3D LUT is not monotone' in str(w.message) for w in caught)
 
 def test_compute_with_lut_rejects_invalid_input_range():
     data = np.zeros((1, 1, 3), dtype=np.float64)

@@ -206,9 +206,9 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
 
     assert len(created_params) == 1
     assert created_params[0][0:3] == ('film_b', 'paper_a', False)
-    assert fit_calls == [('film_b', 7, 'light_a', 40.0, 50.0, 50.0)]
+    assert fit_calls == [('film_b', 7, 'light_a', 40.0, 50.0, 0.0)]
     assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
-    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([50.0, 60.0, 45.0])
+    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([0.0, 60.0, 45.0])
     assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
     assert filters == original_filters
     assert residues == original_residues
@@ -321,9 +321,9 @@ def test_fit_neutral_print_filter_entry_updates_only_requested_combination(monke
 
     assert len(created_params) == 1
     assert created_params[0][0:3] == ('film_b', 'paper_a', False)
-    assert fit_calls == [('film_b', 7, 'light_a', 60.0, 50.0, 50.0)]
+    assert fit_calls == [('film_b', 7, 'light_a', 60.0, 50.0, 0.0)]
     assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
-    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([50.0, 54.0, 62.0])
+    assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([0.0, 54.0, 62.0])
     assert result.residues['paper_a']['light_a']['film_a'] == pytest.approx(1.0)
     assert result.residues['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
     assert filters == original_filters

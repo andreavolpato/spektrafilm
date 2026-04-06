@@ -61,7 +61,7 @@ class TestPhotoParamsDefaults:
         assert params.film_render.dir_couplers.active is True
 
         assert params.print_render.density_curve_gamma == 1.0
-        assert params.print_render.base_density_scale == 0.4
+        assert params.print_render.base_density_scale == 1.0
         assert params.print_render.glare.active is True
 
         assert params.io.input_color_space == 'ProPhoto RGB'
