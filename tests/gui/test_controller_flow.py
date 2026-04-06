@@ -208,6 +208,44 @@ def test_select_input_layer_hides_other_layers_and_moves_target_to_top() -> None
     assert all(layer.visible is False for layer in viewer.layers[:-1])
 
 
+def test_apply_film_profile_defaults_updates_only_overridden_fields(monkeypatch) -> None:
+    controller = GuiController(
+        viewer=object(),
+        widgets=SimpleNamespace(
+            simulation=SimpleNamespace(
+                set_scan_film_value=lambda value: captured.setdefault('scan_film', []).append(value),
+                scan_for_print_active=True,
+            ),
+            couplers=SimpleNamespace(
+                dir_couplers_ratio=SimpleNamespace(value=(0.0, 0.0, 0.0)),
+            ),
+        ),
+    )
+    gui_state = make_test_controller_gui_state()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(
+        controller_module,
+        'default_overrides_for_film_stock',
+        lambda film_stock: (
+            SimpleNamespace(section_name='couplers', changes={'dir_couplers_ratio': (1.0, 1.0, 1.0)}),
+            SimpleNamespace(section_name='simulation', changes={'scan_film': False}),
+        ),
+    )
+    monkeypatch.setattr(
+        controller_module,
+        'apply_gui_state',
+        lambda *args, **kwargs: pytest.fail('film defaults should not reload the whole GUI state'),
+    )
+
+    controller.apply_film_profile_defaults('some-film')
+
+    assert controller._widgets.couplers.dir_couplers_ratio.value == (1.0, 1.0, 1.0)
+    assert captured['scan_film'] == [False]
+    assert controller._widgets.simulation.scan_for_print_active is True
+
+
 def test_run_simulation_uses_unpadded_raw_input_metadata(monkeypatch) -> None:
     raw_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
     padded_image = np.pad(raw_image, ((1, 1), (1, 1), (0, 0)), mode='constant', constant_values=1.0)
