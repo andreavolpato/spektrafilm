@@ -25,8 +25,8 @@ pytestmark = pytest.mark.integration
     ),
     [
         ('kodak_portra_400', 'negative', 'film', 'filming', None, 'kodak_portra_endura', 1.0, False, False, True),
-        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'kodak_portra_400', None, None, False, None, False),
-        ('kodak_2383', 'negative', 'film', 'printing', 'kodak_vision3_250d', None, None, True, None, False),
+        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'kodak_portra_400', None, None, False, None, True),
+        ('kodak_2383', 'negative', 'film', 'printing', 'kodak_vision3_250d', None, None, False, None, True),
         ('fujifilm_c200', 'negative', 'film', 'filming', None, None, None, False, None, True),
         ('fujifilm_pro_400h', 'negative', 'film', 'filming', None, None, None, False, None, True),
         ('kodak_ektachrome_100', 'positive', 'film', 'filming', None, None, None, False, None, True),

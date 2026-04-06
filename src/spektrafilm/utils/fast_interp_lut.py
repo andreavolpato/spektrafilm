@@ -318,24 +318,52 @@ def _warn_if_lut_not_monotonic_3d(
     axis_labels = ('r', 'g', 'b')
     channel_labels = ('out_r', 'out_g', 'out_b')
 
+    def iter_channel_lines(axis_index, channel_index):
+        if axis_index == 0:
+            for j in range(lut.shape[1]):
+                for k in range(lut.shape[2]):
+                    yield (j, k), lut[:, j, k, channel_index]
+        elif axis_index == 1:
+            for i in range(lut.shape[0]):
+                for k in range(lut.shape[2]):
+                    yield (i, k), lut[i, :, k, channel_index]
+        else:
+            for i in range(lut.shape[0]):
+                for j in range(lut.shape[1]):
+                    yield (i, j), lut[i, j, :, channel_index]
+
     for axis_index, axis_label in enumerate(axis_labels):
-        gradients = np.diff(lut, axis=axis_index)
         for channel_index, channel_label in enumerate(channel_labels):
-            channel_gradients = gradients[..., channel_index]
-            max_gradient = float(np.max(channel_gradients))
-            min_gradient = float(np.min(channel_gradients))
+            worst_violation = 0.0
+            worst_min_gradient = 0.0
+            worst_max_gradient = 0.0
+            worst_line_index = None
 
-            if max_gradient <= atol or min_gradient >= -atol:
-                continue
+            for line_index, line in iter_channel_lines(axis_index, channel_index):
+                line_gradients = np.diff(line)
+                max_gradient = float(np.max(line_gradients))
+                min_gradient = float(np.min(line_gradients))
 
-            violation = min(max_gradient, -min_gradient)
-            if violation <= max_violation_tol:
+                if max_gradient <= atol or min_gradient >= -atol:
+                    continue
+
+                violation = min(max_gradient, -min_gradient)
+                if violation <= worst_violation:
+                    continue
+
+                worst_violation = violation
+                worst_min_gradient = min_gradient
+                worst_max_gradient = max_gradient
+                worst_line_index = line_index
+
+            if worst_violation <= max_violation_tol:
                 continue
 
             warnings.warn(
                 f'3D LUT is not monotone for {channel_label} along {axis_label} axis '
-                f'(min gradient={min_gradient:.3e}, '
-                f'max gradient={max_gradient:.3e}, '
+                f'at line {worst_line_index} '
+                f'(min gradient={worst_min_gradient:.3e}, '
+                f'max gradient={worst_max_gradient:.3e}, '
                 f'max_violation_tol={max_violation_tol:.3e}, atol={atol}); '
                 'continuing with PCHIP interpolation.',
                 RuntimeWarning,
