@@ -63,7 +63,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # sensitivity
         profile = balance_film_sensitivity(profile)
         # density curves
-        profile = prelminary_neutral_shift(profile, per_channel_shift=True)
+        profile = prelminary_neutral_shift(profile, per_channel_shift=False)
         profile = unmix_density(profile)
         profile = refine_positive_film(
             profile,
