@@ -146,11 +146,14 @@ class GuiController:
             white_padding=gui_state.display.white_padding,
         )
 
-        if lens_info:
+        lens_summary = lens_info.get('summary')
+        if lens_summary:
             set_status(
                 self._viewer,
-                f"Loaded raw and applied lens correction: {lens_info['summary']}",
+                f"Loaded raw and applied lens correction: {lens_summary}",
             )
+        elif gui_state.load_raw.lens_correction:
+            set_status(self._viewer, "Loaded raw, lens correction not applied")
         else:
             set_status(self._viewer, "Loaded raw")
 

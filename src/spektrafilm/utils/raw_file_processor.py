@@ -174,6 +174,112 @@ def _read_exif_metadata(raw_path: str | PathLike[str]) -> ExifData:
     )
 
 
+def _normalize_lens_text(value: object) -> str:
+    """Normalize lens metadata strings for case-insensitive comparisons."""
+
+    return ' '.join(str(value).strip().lower().split())
+
+
+def _compact_lens_text(value: object) -> str:
+    """Collapse lens metadata to alphanumeric characters for loose matching."""
+
+    return ''.join(character.lower() for character in str(value) if character.isalnum())
+
+
+def _lens_model_score(lens_model: object, exif_lens_model: str) -> tuple[int, int, int]:
+    """Score how closely a database lens model matches the EXIF lens model."""
+
+    normalized_model = _normalize_lens_text(exif_lens_model)
+    compact_model = _compact_lens_text(exif_lens_model)
+    normalized_lens_model = _normalize_lens_text(lens_model)
+    compact_lens_model = _compact_lens_text(lens_model)
+    return (
+        int(normalized_lens_model == normalized_model),
+        int(bool(compact_model) and compact_model in compact_lens_model),
+        len(set(normalized_model.split()) & set(normalized_lens_model.split())),
+    )
+
+
+def _lens_matches_focal(lens: object, focal_length: float) -> bool:
+    """Return whether the focal length falls within the lens calibration range."""
+
+    min_focal = getattr(lens, "min_focal", None)
+    max_focal = getattr(lens, "max_focal", None)
+    if min_focal is None or max_focal is None or focal_length <= 0:
+        return False
+    return float(min_focal) <= focal_length <= float(max_focal)
+
+
+def _lens_matches_aperture(lens: object, f_number: float) -> bool:
+    """Return whether the aperture falls within the lens calibration range."""
+
+    min_aperture = getattr(lens, "min_aperture", None)
+    max_aperture = getattr(lens, "max_aperture", None)
+    if min_aperture is None or f_number <= 0:
+        return False
+    upper_bound = float(max_aperture) if max_aperture is not None else float('inf')
+    return float(min_aperture) <= f_number <= upper_bound
+
+
+def _find_lens_candidates(db: object, camera: object, exif_metadata: ExifData) -> list[object]:
+    """Find lensfun candidates with direct queries before a broad fallback search."""
+
+    queries = [
+        (exif_metadata.lens_make or None, exif_metadata.lens_model, False),
+        (exif_metadata.lens_make or None, exif_metadata.lens_model, True),
+        (None, exif_metadata.lens_model, True),
+    ]
+
+    def dedupe(lenses: list[object]) -> list[object]:
+        candidates: list[object] = []
+        seen: set[tuple[object, ...]] = set()
+        for lens in lenses:
+            identity = (
+                _normalize_lens_text(getattr(lens, 'maker', '')),
+                _normalize_lens_text(getattr(lens, 'model', '')),
+                getattr(lens, 'min_focal', None),
+                getattr(lens, 'max_focal', None),
+                getattr(lens, 'min_aperture', None),
+                getattr(lens, 'max_aperture', None),
+            )
+            if identity in seen:
+                continue
+            seen.add(identity)
+            candidates.append(lens)
+        return candidates
+
+    for lens_make, lens_model, loose_search in queries:
+        direct_candidates = dedupe(db.find_lenses(camera, lens_make, lens_model, loose_search=loose_search))
+        if direct_candidates:
+            return direct_candidates
+
+    broader_candidates = dedupe(db.find_lenses(camera, None, None, loose_search=True))
+    return [
+        lens for lens in broader_candidates
+        if _lens_model_score(getattr(lens, 'model', ''), exif_metadata.lens_model) > (0, 0, 0)
+    ]
+
+
+def _select_lens_candidate(lenses: list[object], exif_metadata: ExifData) -> object:
+    """Pick the best lens candidate using model, maker, focal and aperture cues."""
+
+    focal_matches = [lens for lens in lenses if _lens_matches_focal(lens, exif_metadata.focal_length)]
+    candidates = focal_matches if focal_matches else lenses
+    normalized_maker = _normalize_lens_text(exif_metadata.lens_make)
+
+    def lens_score(lens: object) -> tuple[tuple[int, int, int], int, int, int, float]:
+        return (
+            _lens_model_score(getattr(lens, 'model', ''), exif_metadata.lens_model),
+            int(bool(normalized_maker) and _normalize_lens_text(getattr(lens, 'maker', '')) == normalized_maker),
+            int(_lens_matches_focal(lens, exif_metadata.focal_length)),
+            int(_lens_matches_aperture(lens, exif_metadata.f_number)),
+            float(getattr(lens, 'score', 0.0) or 0.0),
+        )
+
+    candidates.sort(key=lens_score, reverse=True)
+    return candidates[0]
+
+
 def _apply_lens_correction(
     rgb: np.ndarray,
     exif_metadata: ExifData,
@@ -205,6 +311,9 @@ def _apply_lens_correction(
         the ``lensfun`` database.
 
     """
+    if not exif_metadata.lens_model.strip():
+        return rgb, ""
+
     db = lensfunpy.Database()
     cameras = db.find_cameras(exif_metadata.make, exif_metadata.model, loose_search=True)
 
@@ -213,28 +322,14 @@ def _apply_lens_correction(
 
     camera = cameras[0]
 
-    lenses = db.find_lenses(camera, None, exif_metadata.lens_model or None, loose_search=True)
+    lenses = _find_lens_candidates(db, camera, exif_metadata)
 
     if not lenses:
         return rgb, ""
 
-    # lensfun scoring can rank a wrong lens higher than the correct one. Use a heuristic to
-    # select a lens with a focal range that contains the image's focal length.
-    def _focal_match(lens: object) -> bool:
-        min_focal = getattr(lens, "min_focal", None)
-        max_focal = getattr(lens, "max_focal", None)
-
-        if min_focal is not None and max_focal is not None and exif_metadata.focal_length > 0:
-            return float(min_focal) <= exif_metadata.focal_length <= float(max_focal)
-
-        calibration_distortion = getattr(lens, "calibration_distortion", None)
-
-        return calibration_distortion is not None
-
-    focal_matches = [lens for lens in lenses if _focal_match(lens)]
-    lens = focal_matches[0] if focal_matches else lenses[0]
-
-    lens_info = f"{exif_metadata.make} {exif_metadata.model}, {lens} @ {exif_metadata.focal_length}mm f/{exif_metadata.f_number}"
+    lens = _select_lens_candidate(lenses, exif_metadata)
+    lens_label = getattr(lens, 'model', None) or exif_metadata.lens_model or str(lens)
+    lens_info = f"{lens_label} @ {exif_metadata.focal_length}mm f/{exif_metadata.f_number}"
 
     height, width = rgb.shape[:2]
 
@@ -319,7 +414,7 @@ def load_and_process_raw_file(
         exif_metadata = _read_exif_metadata(raw_path)
         rgb, lens_info = _apply_lens_correction(rgb, exif_metadata)
 
-        if lens_info_out is not None:
+        if lens_info_out is not None and lens_info:
             lens_info_out["summary"] = lens_info
 
     if postprocess_adaptation is not None:
