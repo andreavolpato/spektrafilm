@@ -1,12 +1,14 @@
 ![spektrafilm banner](img/readme/banner.png)
 
-# A playground for spectral film simulations of analog photography
+# Spectral film simulations of analog photography
 
 > [!IMPORTANT]
-> At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a testbed for exploring the simulation model.
+> At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a playground for exploring the simulation model.
 
 
 An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
+
+An high-level writeup and discussion on this project is avalable on [discuss.pixls.us](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/48209).
 
 In practice, spektrafilm is both a research playground and a half usable experimentation tool (maybe fully usable in the near future when it will stabilize and be gpu accellerated :)). It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that stays connected to the structure and behaviour of real photographic materials.
 
@@ -190,9 +192,7 @@ This is one of the most appealing aspects for me, especially when I think of pri
 
 Direct RAW import in the GUI is the simplest workflow, but manual development is still useful when you want tighter control over the input rendering.
 
-The simulation expects linear scene-referred files as input, with or without a transfer function. I usually open RAW files from digital cameras with [darktable](https://www.darktable.org/), deactivate the non-linear mappings done by `filmic` or `sigmoid`, and adjust the exposure to preserve all the information while avoiding clipping. Then I export the file as a 32-bit float TIFF in linear ProPhoto RGB, for example with the following export settings:
-
-![Darktable export settings.](img/readme/darktable_export_settings.png)
+The simulation expects linear scene-referred files as input, with or without a transfer function. I usually open RAW files from digital cameras with [darktable](https://www.darktable.org/), deactivate the non-linear mappings done by `filmic` or `sigmoid`, and adjust the exposure to preserve all the information while avoiding clipping. Then I export the file as a 32-bit float TIFF in linear ProPhoto RGB.
 
 ## Example usage of the GUI
 
