@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from spektrafilm.runtime.process import photo_process
+from spektrafilm.runtime.process import simulate
 
 from tests.profiles_creator.create_profile_regression_baselines import assert_matches_baseline, load_baseline
 from tests.profiles_creator.helpers import make_test_runtime_params
@@ -53,6 +53,6 @@ def test_processed_profile_runs_in_runtime_pipeline(request, fixture_name: str, 
     setattr(params, target_attr, profile)
     image = np.ones((8, 8, 3), dtype=np.float64) * 0.184
 
-    output = np.asarray(photo_process(image, params), dtype=np.float64)
+    output = np.asarray(simulate(image, params), dtype=np.float64)
 
     _assert_runtime_output_is_valid(output)

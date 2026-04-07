@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from spektrafilm.runtime.api import create_params
+from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.utils.io import read_neutral_print_filters
 import spektrafilm_profile_creator.neutral_print_filters as print_filters_module
 from spektrafilm_profile_creator.neutral_print_filters import (
@@ -43,12 +43,10 @@ def _install_fake_filter_axes(monkeypatch) -> None:
 def test_fit_neutral_print_filters_returns_bounded_solution_and_reduces_midgray_error():
     film_profile = 'kodak_portra_400'
     print_profile = 'kodak_portra_endura'
-    params = create_params(
+    params = init_params(
         film_profile=film_profile,
         print_profile=print_profile,
-        neutral_print_filters_from_database=False,
     )
-    params.io.full_image = True
 
     start_y = float(params.enlarger.y_filter_neutral)
     start_m = float(params.enlarger.m_filter_neutral)
@@ -115,14 +113,15 @@ def test_fit_neutral_print_filters_uses_default_cyan_start(monkeypatch):
 
 
 @pytest.mark.unit
-def test_create_params_reads_neutral_print_filters_in_cmy_order():
+def test_digest_params_reads_neutral_print_filters_in_cmy_order():
     film_profile = 'kodak_portra_400'
     print_profile = 'kodak_portra_endura'
 
-    params = create_params(
-        film_profile=film_profile,
-        print_profile=print_profile,
-        neutral_print_filters_from_database=True,
+    params = digest_params(
+        init_params(
+            film_profile=film_profile,
+            print_profile=print_profile,
+        )
     )
     expected_filters = read_neutral_print_filters()[print_profile][params.enlarger.illuminant][film_profile]
 
@@ -148,9 +147,9 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
     created_params = []
     fit_calls = []
 
-    def fake_create_params(*, film_profile, print_profile, neutral_print_filters_from_database):
+    def fake_init_params(*, film_profile, print_profile):
         params = _make_fake_filter_params()
-        created_params.append((film_profile, print_profile, neutral_print_filters_from_database, params))
+        created_params.append((film_profile, print_profile, params))
         return params
 
     def fake_fit(params, iterations=10, stock=None, rng=None):
@@ -171,7 +170,7 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
             np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
         )
 
-    monkeypatch.setattr(print_filters_module, 'create_params', fake_create_params)
+    monkeypatch.setattr(print_filters_module, 'init_params', fake_init_params)
     monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters', fake_fit)
 
     filters = {
@@ -205,7 +204,7 @@ def test_fit_neutral_print_filter_database_skips_resolved_entries_and_does_not_m
     )
 
     assert len(created_params) == 1
-    assert created_params[0][0:3] == ('film_b', 'paper_a', False)
+    assert created_params[0][0:2] == ('film_b', 'paper_a')
     assert fit_calls == [('film_b', 7, 'light_a', 40.0, 50.0, 0.0)]
     assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
     assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([0.0, 60.0, 45.0])
@@ -220,8 +219,8 @@ def test_fit_neutral_print_filter_database_skips_positive_film_on_negative_print
 
     fit_calls = []
 
-    def fake_create_params(*, film_profile, print_profile, neutral_print_filters_from_database):
-        del print_profile, neutral_print_filters_from_database
+    def fake_init_params(*, film_profile, print_profile):
+        del print_profile
         params = _make_fake_filter_params()
         params.film.info.is_positive = film_profile == 'film_b'
         params.print.info.is_negative = True
@@ -232,7 +231,7 @@ def test_fit_neutral_print_filter_database_skips_positive_film_on_negative_print
         fit_calls.append((stock, iterations))
         return (45.0, 60.0, np.array([0.0, 1e-4, -1e-4], dtype=np.float64))
 
-    monkeypatch.setattr(print_filters_module, 'create_params', fake_create_params)
+    monkeypatch.setattr(print_filters_module, 'init_params', fake_init_params)
     monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters', fake_fit)
 
     result = fit_neutral_print_filter_database(
@@ -260,9 +259,9 @@ def test_fit_neutral_print_filter_entry_updates_only_requested_combination(monke
     created_params = []
     fit_calls = []
 
-    def fake_create_params(*, film_profile, print_profile, neutral_print_filters_from_database):
+    def fake_init_params(*, film_profile, print_profile):
         params = _make_fake_filter_params()
-        created_params.append((film_profile, print_profile, neutral_print_filters_from_database, params))
+        created_params.append((film_profile, print_profile, params))
         return params
 
     def fake_fit(params, iterations=10, stock=None, rng=None):
@@ -283,7 +282,7 @@ def test_fit_neutral_print_filter_entry_updates_only_requested_combination(monke
             np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
         )
 
-    monkeypatch.setattr(print_filters_module, 'create_params', fake_create_params)
+    monkeypatch.setattr(print_filters_module, 'init_params', fake_init_params)
     monkeypatch.setattr(print_filters_module, 'fit_neutral_print_filters', fake_fit)
 
     filters = {
@@ -320,7 +319,7 @@ def test_fit_neutral_print_filter_entry_updates_only_requested_combination(monke
     )
 
     assert len(created_params) == 1
-    assert created_params[0][0:3] == ('film_b', 'paper_a', False)
+    assert created_params[0][0:2] == ('film_b', 'paper_a')
     assert fit_calls == [('film_b', 7, 'light_a', 60.0, 50.0, 0.0)]
     assert result.filters['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
     assert result.filters['paper_a']['light_a']['film_b'] == pytest.approx([0.0, 54.0, 62.0])

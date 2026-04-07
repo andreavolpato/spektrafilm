@@ -227,12 +227,12 @@ def test_save_output_layer_respects_recorded_render_metadata(
         (
             np.array([[[0.25, 0.5, 0.75]]], dtype=np.float32),
             1.0,
-            (3, 3, 3),
+            (1, 1, 3),
             np.array([63, 127, 191], dtype=np.uint8),
-            np.array([255, 255, 255], dtype=np.uint8),
+            None,
         ),
     ],
-    ids=['simple-preview', 'preview-with-padding'],
+    ids=['simple-preview', 'padding-ignored'],
 )
 def test_prepare_output_display_image_without_transform(
     image_data: np.ndarray,

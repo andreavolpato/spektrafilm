@@ -40,7 +40,7 @@ def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> 
     source_profile = make_test_profile(stock='kodak_test_stock')
     params = SimpleNamespace(
         film=source_profile.clone(),
-        io=SimpleNamespace(full_image=False),
+        io=SimpleNamespace(),
         camera=SimpleNamespace(auto_exposure=True),
         settings=SimpleNamespace(rgb_to_raw_method=''),
         enlarger=SimpleNamespace(y_filter_neutral=0.0, m_filter_neutral=0.0),

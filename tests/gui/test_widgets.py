@@ -316,7 +316,7 @@ def test_load_raw_widget_specs_include_requested_tooltips() -> None:
 
 def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
     assert widget_specs_module.get_auxiliary_spec('scan_for_print').tooltip == (
-        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune then yourself without this checkbox if you want to customize it.'
+        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.'
     )
 
 
@@ -368,6 +368,10 @@ def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) ->
     icon = icons_module.section_header_icon('Import RGB')
 
     assert icon.isNull() is True
+
+
+def test_section_header_icon_name_maps_crop_and_upscale_title() -> None:
+    assert icons_module.section_header_icon_name('Crop and upscale') == 'tabler:crop'
 
 
 def test_collapsible_section_shows_icon_for_mapped_main_tab_title(monkeypatch) -> None:

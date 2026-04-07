@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from spektrafilm.runtime.process import photo_process
+from spektrafilm.runtime.process import simulate
 
 from .conftest import make_fast_test_params
 
@@ -95,7 +95,7 @@ def compute_case_output(case: RegressionCase) -> np.ndarray:
     elif case.output_mode != "print_rgb":
         raise KeyError(f"Unknown output mode: {case.output_mode}")
 
-    return np.asarray(photo_process(image, params), dtype=np.float64)
+    return np.asarray(simulate(image, params), dtype=np.float64)
 
 
 def baseline_path(case_id: str) -> Path:

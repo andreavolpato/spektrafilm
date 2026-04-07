@@ -38,7 +38,6 @@ class StubSimulationSection(StubSection):
 
 def _make_state() -> GuiState:
     state = make_test_gui_state()
-    state.input_image.preview_resize_factor = 0.45
     state.input_image.upscale_factor = 1.5
     state.load_raw.white_balance = 'custom'
     state.load_raw.temperature = 3200.0

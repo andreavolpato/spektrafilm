@@ -20,6 +20,8 @@ class FakeLayer:
         self.data = np.zeros((1, 1, 3), dtype=np.float32) if data is None else data
         self.metadata = metadata or {}
         self.visible = visible
+        self.scale = (1.0, 1.0)
+        self.translate = (0.0, 0.0)
         self._type_string = 'image'
 
 

@@ -217,20 +217,42 @@ def test_reset_viewer_camera_ignores_missing_reset_method() -> None:
 
 
 @pytest.mark.parametrize(
-    ('zoom_percent', 'device_pixel_ratio', 'expected_zoom'),
-    [(100.0, None, 1.0), (200.0, 1.5, 3.0)],
-    ids=['default-100-percent', 'scaled-by-device-ratio'],
+    ('zoom_percent', 'device_pixel_ratio', 'layer_scale', 'expected_zoom'),
+    [
+        (100.0, None, None, 1.0),
+        (200.0, 1.5, None, 3.0),
+        (100.0, 1.0, (0.25, 0.25), 4.0),
+        (400.0, 1.0, (0.125, 0.125), 32.0),
+    ],
+    ids=['default-100-percent', 'scaled-by-device-ratio', 'active-layer-scale-100-percent', 'active-layer-scale-400-percent'],
 )
-def test_set_viewer_zoom_percent_updates_camera(zoom_percent: float, device_pixel_ratio: float | None, expected_zoom: float) -> None:
+def test_set_viewer_zoom_percent_updates_camera(zoom_percent: float, device_pixel_ratio: float | None, layer_scale, expected_zoom: float) -> None:
     camera = SimpleNamespace(zoom=4.0)
     qt_viewer = None
     if device_pixel_ratio is not None:
         qt_viewer = SimpleNamespace(devicePixelRatioF=lambda: device_pixel_ratio)
     viewer = make_test_viewer_namespace(camera=camera, _qt_viewer=qt_viewer)
+    if layer_scale is not None:
+        layer = FakeLayer(name='active')
+        layer.scale = layer_scale
+        viewer.layers = FakeLayerList([layer], active=layer)
 
     set_viewer_zoom_percent(viewer, zoom_percent)
 
     assert camera.zoom == expected_zoom
+
+
+def test_set_viewer_zoom_percent_uses_top_visible_layer_when_no_active_layer() -> None:
+    camera = SimpleNamespace(zoom=1.0)
+    hidden_layer = FakeLayer(name='hidden', visible=False)
+    visible_layer = FakeLayer(name='visible', visible=True)
+    visible_layer.scale = (0.5, 0.5)
+    viewer = make_test_viewer_namespace(camera=camera, _qt_viewer=None)
+    viewer.layers = FakeLayerList([hidden_layer, visible_layer], active=None)
+
+    set_viewer_zoom_percent(viewer, 200.0)
+
+    assert camera.zoom == 4.0
 
 
 def test_request_dark_title_bar_returns_false_off_windows(monkeypatch) -> None:

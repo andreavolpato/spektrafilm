@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm_gui.params_mapper import build_params_from_state
+import spektrafilm_gui.state as state_module
 from spektrafilm_gui.state import (
     DEFAULT_FILM_STOCK,
     DEFAULT_PRINT_PAPER,
@@ -72,6 +75,15 @@ def test_build_params_maps_runtime_strings() -> None:
     assert params.io.output_cctf_encoding is True
 
 
+def test_build_params_uses_preview_tuned_lut_settings() -> None:
+    params = build_params_from_state(make_state())
+
+    assert params.settings.use_enlarger_lut is True
+    assert params.settings.use_scanner_lut is True
+    assert params.settings.lut_resolution == 17
+    assert params.settings.use_fast_stats is True
+
+
 def test_build_default_gui_state_uses_runtime_defaults() -> None:
     state = build_default_gui_state(
         film_stock=FilmStocks.kodak_gold_200.value,
@@ -81,7 +93,6 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.grain.blur == 0.65
     assert state.grain.micro_structure == (0.2, 30)
     assert state.halation.halation_strength == (3.0, 0.3, 0.1)
-    assert state.input_image.preview_resize_factor == 0.3
     assert state.input_image.crop_size == (0.1, 0.1)
     assert state.simulation.output_color_space == 'sRGB'
     assert state.simulation.saving_color_space == 'sRGB'
@@ -92,6 +103,55 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
     assert state.display.white_padding == 0.03
+
+
+def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None:
+    raw_params = object()
+    digested_params = object()
+    captured: dict[str, object] = {}
+
+    def fake_init_params(*, film_profile, print_profile):
+        captured['init_args'] = (film_profile, print_profile)
+        return raw_params
+
+    def fake_digest_after_selection(params):
+        captured['digest_input'] = params
+        return digested_params
+
+    def fake_gui_state_from_params(params, *, film_stock, print_paper):
+        captured['gui_args'] = (params, film_stock, print_paper)
+        return 'gui-state'
+
+    monkeypatch.setattr(state_module, 'init_params', fake_init_params)
+    monkeypatch.setattr(state_module, 'digest_after_selection', fake_digest_after_selection)
+    monkeypatch.setattr(state_module, 'gui_state_from_params', fake_gui_state_from_params)
+
+    state = state_module.build_default_gui_state(
+        film_stock='film-stock',
+        print_paper='print-paper',
+    )
+
+    assert state == 'gui-state'
+    assert captured['init_args'] == ('film-stock', 'print-paper')
+    assert captured['digest_input'] is raw_params
+    assert captured['gui_args'] == (digested_params, 'film-stock', 'print-paper')
+
+
+def test_digest_after_selection_sets_scan_film_from_film_type(monkeypatch) -> None:
+    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), io=SimpleNamespace(scan_film=False))
+    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), io=SimpleNamespace(scan_film=True))
+    digested_params = [positive_params, negative_params]
+
+    def fake_digest_params(_params):
+        return digested_params.pop(0)
+
+    monkeypatch.setattr(state_module, 'digest_params', fake_digest_params)
+
+    positive_result = state_module.digest_after_selection(object())
+    negative_result = state_module.digest_after_selection(object())
+
+    assert positive_result.io.scan_film is True
+    assert negative_result.io.scan_film is False
 
 
 def test_project_default_gui_state_matches_builder() -> None:
