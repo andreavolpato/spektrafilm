@@ -1,18 +1,18 @@
 ![spektrafilm banner](img/readme/banner.png)
 
-# Spectral simulations of analog film photography
+# A playground for spectral film simulations of analog photography
+
+> [!IMPORTANT]
+> At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a testbed for exploring the simulation model.
+
 
 An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
 
-In practice, spektrafilm is both a research playground and a half usable experimentation tool (maybe fully usable in the near future :)): it lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that stays connected to the structure and behaviour of real photographic materials.
-
-> [!IMPORTANT]
-> At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a playground for exploring the simulation model.
-
+In practice, spektrafilm is both a research playground and a half usable experimentation tool (maybe fully usable in the near future when it will stabilize and be gpu accellerated :)). It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that stays connected to the structure and behaviour of real photographic materials.
 
 ![Example of GUI interface with color test image.](img/readme/gui_screenshot.png)
 
-The desktop GUI makes that workflow accessible without writing code, letting you import RAW files or prepared linear images, explore different film and paper profiles, adjust the simulation interactively, and move quickly between fast previews and more detailed final scans.
+The desktop GUI makes that workflow accessible without writing code, letting you import RAW files or prepared linear images, explore different film and paper profiles, adjust the simulation interactively, and move quickly between fast(-ish) previews and more detailed final scans.
 
 ## Introduction
 
