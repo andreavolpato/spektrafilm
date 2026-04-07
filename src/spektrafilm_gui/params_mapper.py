@@ -3,12 +3,12 @@ from __future__ import annotations
 import numpy as np
 
 from spektrafilm_gui.state import GuiState
-from spektrafilm.runtime.api import create_params
+from spektrafilm.runtime.api import init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 
 
 def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
-    params = create_params(
+    params = init_params(
         film_profile=state.simulation.film_stock,
         print_profile=state.simulation.print_paper,
     )
@@ -60,7 +60,6 @@ def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
 
 
 def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
-    params.io.preview_resize_factor = state.input_image.preview_resize_factor
     params.io.upscale_factor = state.input_image.upscale_factor
     params.io.crop = state.input_image.crop
     params.io.crop_center = state.input_image.crop_center
@@ -69,7 +68,6 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
     params.io.input_cctf_decoding = state.input_image.apply_cctf_decoding
     params.io.output_color_space = state.simulation.output_color_space
     params.io.output_cctf_encoding = True
-    params.io.full_image = state.simulation.compute_full_image
     params.io.scan_film = state.simulation.scan_film
 
 
@@ -126,5 +124,5 @@ def _apply_settings(params: RuntimePhotoParams, state: GuiState) -> None:
     params.settings.rgb_to_raw_method = state.input_image.spectral_upsampling_method
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
-    params.settings.lut_resolution = 32
+    params.settings.lut_resolution = 17
     params.settings.use_fast_stats = True

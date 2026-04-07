@@ -291,7 +291,6 @@ class InputImageSection(SimpleDataclassSection):
     TITLE = 'Input'
     ENUM_FIELDS_KEY = 'input_image'
     HIDDEN_FIELDS = {
-        'preview_resize_factor',
         'upscale_factor',
         'crop',
         'crop_center',
@@ -363,9 +362,8 @@ class PreviewCropSection(QWidget):
         super().__init__()
         self.setLayout(
             _build_linked_form_section(
-                'Preview and crop',
+                'Crop and upscale',
                 [
-                    _spec_row('input_image', 'preview_resize_factor', input_image_section.preview_resize_factor),
                     _spec_row('input_image', 'upscale_factor', input_image_section.upscale_factor),
                     _spec_row('input_image', 'crop', input_image_section.crop),
                     _spec_row('input_image', 'crop_center', input_image_section.crop_center),
@@ -567,7 +565,6 @@ class SimulationSection(DataclassSection):
                 'scan_black_correction',
                 'scan_unsharp_mask',
                 'scan_film',
-                'compute_full_image',
                 'output_color_space',
                 'saving_color_space',
                 'saving_cctf_encoding',

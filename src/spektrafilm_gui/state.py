@@ -4,7 +4,7 @@ from dataclasses import dataclass, is_dataclass, replace
 from typing import TypeVar
 
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
-from spektrafilm.runtime.api import create_params
+from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 
 
@@ -13,7 +13,6 @@ StateSection = TypeVar('StateSection')
 
 @dataclass(slots=True)
 class InputImageState:
-    preview_resize_factor: float
     upscale_factor: float
     crop: bool
     crop_center: tuple[float, float]
@@ -115,7 +114,6 @@ class SimulationState:
     saving_color_space: str
     saving_cctf_encoding: bool
     scan_film: bool
-    compute_full_image: bool
 
 
 @dataclass(slots=True)
@@ -168,7 +166,6 @@ def gui_state_from_params(
 ) -> GuiState:
     return GuiState(
         input_image=InputImageState(
-            preview_resize_factor=params.io.preview_resize_factor,
             upscale_factor=params.io.upscale_factor,
             crop=params.io.crop,
             crop_center=tuple(params.io.crop_center),
@@ -254,7 +251,6 @@ def gui_state_from_params(
             saving_color_space="sRGB",
             saving_cctf_encoding=params.io.output_cctf_encoding,
             scan_film=params.io.scan_film,
-            compute_full_image=params.io.full_image,
         ),
         display=DisplayState(
             use_display_transform=True,
@@ -264,8 +260,14 @@ def gui_state_from_params(
     )
 
 
+def digest_after_selection(params: RuntimePhotoParams) -> RuntimePhotoParams:
+    params = digest_params(params)
+    params.io.scan_film = bool(params.film.is_positive)
+    return params
+
+
 def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
-    params = create_params(film_profile=film_stock, print_profile=print_paper)
+    params = digest_after_selection(init_params(film_profile=film_stock, print_profile=print_paper))
     return gui_state_from_params(params, film_stock=film_stock, print_paper=print_paper)
 
 

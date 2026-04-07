@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 from importlib import import_module
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from qtpy import QtCore, QtWidgets
 
 from spektrafilm_gui import controller_persistence as persistence_actions
+from spektrafilm_gui import controller_profile_sync as profile_sync
 from spektrafilm_gui import controller_runtime as runtime
 from spektrafilm_gui.controller_layers import (
+    INPUT_LAYER_NAME,
+    INPUT_PREVIEW_LAYER_NAME,
     ViewerLayerService,
     processing_input_image,
-    set_input_layer_metadata,
-    set_output_layer_metadata,
-)
-from spektrafilm_gui.film_profile_defaults import (
-    apply_gui_state_overrides,
-    default_overrides_for_film_stock,
 )
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
@@ -25,8 +21,8 @@ from spektrafilm_gui.persistence import (
     save_default_gui_state,
     save_gui_state_to_path,
 )
-from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
-from spektrafilm_gui.napari_layout import dialog_parent, set_canvas_background, set_status
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
+from spektrafilm_gui.napari_layout import dialog_parent, reset_viewer_camera, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
@@ -37,6 +33,7 @@ OUTPUT_CCTF_ENCODING_KEY = 'pipeline_output_cctf_encoding'
 OUTPUT_DISPLAY_TRANSFORM_KEY = 'pipeline_use_display_transform'
 INPUT_RAW_DATA_KEY = 'input_raw_data'
 INPUT_PADDING_PIXELS_KEY = 'input_display_padding_pixels'
+PROFILE_SYNC_FIELDS = profile_sync.PROFILE_SYNC_FIELDS
 if TYPE_CHECKING:
     import napari
     from napari.layers import Image as NapariImageLayer
@@ -75,8 +72,12 @@ def _import_imagecms_module():
     return import_module('PIL.ImageCms')
 
 
-def simulate(*args, **kwargs):
-    return import_module('spektrafilm.runtime.api').simulate(*args, **kwargs)
+def runtime_simulator(*args, **kwargs):
+    return import_module('spektrafilm.runtime.api').Simulator(*args, **kwargs)
+
+
+def digest_params(*args, **kwargs):
+    return import_module('spektrafilm.runtime.api').digest_params(*args, **kwargs)
 
 
 def load_image_oiio(*args, **kwargs):
@@ -89,6 +90,10 @@ def save_image_oiio(*args, **kwargs):
 
 def load_and_process_raw_file(*args, **kwargs):
     return import_module('spektrafilm.utils.raw_file_processor').load_and_process_raw_file(*args, **kwargs)
+
+
+def resize_for_preview(*args, **kwargs):
+    return import_module('spektrafilm.utils.preview').resize_for_preview(*args, **kwargs)
 
 
 colour = _LazyModuleProxy(_import_colour_module)
@@ -115,14 +120,13 @@ class GuiController:
 
     def refresh_input_layers(self, *, selected_name: str | None = None) -> None:
         self._widgets.filepicker.set_available_layers(
-            [layer.name for layer in self._available_input_layers()],
+            [layer.name for layer in self._layers.available_input_layers()],
             selected_name=selected_name,
         )
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
-        gui_state = collect_gui_state(widgets=self._widgets)
-        self._set_or_add_input_layer(image, layer_name=Path(path).stem, white_padding=gui_state.display.white_padding)
+        self._set_or_add_input_stack(image)
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
@@ -144,11 +148,7 @@ class GuiController:
             set_status(self._viewer, 'Load raw failed')
             return
 
-        self._set_or_add_input_layer(
-            image,
-            layer_name=Path(path).stem,
-            white_padding=gui_state.display.white_padding,
-        )
+        self._set_or_add_input_stack(image)
 
         lens_summary = lens_info.get('summary')
         if lens_summary:
@@ -164,51 +164,50 @@ class GuiController:
     def select_input_layer(self, layer_name: str) -> None:
         if not layer_name:
             return
-        layer = next((item for item in self._available_input_layers() if item.name == layer_name), None)
+        layer = self._layers.selected_input_layer(layer_name)
         if layer is None:
             return
-        self._move_layer_to_top(layer)
-        self._show_only_layer(layer)
+        self._set_active_layer(layer)
+
+    def apply_profile_defaults(self, _selected_value: str) -> None:
+        state = collect_gui_state(widgets=self._widgets)
+        if not state.simulation.film_stock or not state.simulation.print_paper:
+            return
+
+        params = build_params_from_state(state)
+        synced_state = gui_state_from_params(
+            digest_after_selection(params),
+            film_stock=state.simulation.film_stock,
+            print_paper=state.simulation.print_paper,
+        )
+        self._apply_profile_sync_state(synced_state)
 
     def apply_film_profile_defaults(self, film_stock: str) -> None:
-        if not film_stock:
-            return
+        self.apply_profile_defaults(film_stock)
 
-        overrides = default_overrides_for_film_stock(film_stock)
-        if not overrides:
-            return
-
-        current_state = collect_gui_state(widgets=self._widgets)
-        next_state = apply_gui_state_overrides(current_state, overrides)
-        self._apply_gui_state_override_fields(next_state, overrides)
-
-    def _apply_gui_state_override_fields(self, next_state, overrides) -> None:
-        for override in overrides:
-            section_widget = getattr(self._widgets, override.section_name)
-            section_state = getattr(next_state, override.section_name)
-            for field_name in override.changes:
-                field_value = getattr(section_state, field_name)
-                if override.section_name == 'simulation' and field_name == 'scan_film':
-                    section_widget.set_scan_film_value(field_value)
-                    continue
-                getattr(section_widget, field_name).value = field_value
+    def _apply_profile_sync_state(self, synced_state) -> None:
+        profile_sync.apply_profile_sync_state(
+            widgets=self._widgets,
+            synced_state=synced_state,
+            profile_sync_fields=PROFILE_SYNC_FIELDS,
+        )
 
     def run_preview(self) -> None:
-        self._start_simulation(compute_full_image=False, mode_label='Preview')
+        self._start_simulation(source_layer_name=INPUT_PREVIEW_LAYER_NAME, mode_label='Preview')
 
     def run_scan(self) -> None:
-        self._start_simulation(compute_full_image=True, mode_label='Scan')
+        self._start_simulation(source_layer_name=INPUT_LAYER_NAME, mode_label='Scan')
 
     def report_display_transform_status(self, enabled: bool) -> None:
         if enabled and not self.sync_display_transform_availability(report_status=True):
             return
-        set_status(self._viewer, self._display_transform_status_message(enabled))
+        set_status(self._viewer, runtime.display_transform_status_message(enabled, imagecms_module=ImageCms))
 
     def set_gray_18_canvas_enabled(self, enabled: bool) -> None:
         set_canvas_background(self._viewer, gray_18_canvas=enabled)
 
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
-        if self._display_profile_available():
+        if runtime.display_profile_available(imagecms_module=ImageCms):
             return True
 
         self._set_display_transform_checked(False)
@@ -234,7 +233,7 @@ class GuiController:
         gui_state = collect_gui_state(widgets=self._widgets)
         float_image_data = self._output_layer_float_data()
         if float_image_data is None:
-            image_data = self._normalized_image_data(np.asarray(output_layer.data)[..., :3])
+            image_data = runtime.normalized_image_data(np.asarray(output_layer.data)[..., :3])
         else:
             image_data = np.asarray(float_image_data)[..., :3]
 
@@ -317,32 +316,11 @@ class GuiController:
             message_box=QMessageBox,
         )
 
-    def _available_input_layers(self) -> list[NapariImageLayer]:
-        return self._layers.available_input_layers()
+    def _color_preview_layer(self) -> NapariImageLayer | None:
+        return self._layers.color_preview_layer()
 
-    def _selected_input_layer(self) -> NapariImageLayer | None:
-        layer_name = self._widgets.filepicker.selected_input_layer_name()
-        if not layer_name:
-            return None
-        for layer in self._available_input_layers():
-            if layer.name == layer_name:
-                return layer
-        return None
-
-    @staticmethod
-    def _set_input_layer_metadata(
-        layer: NapariImageLayer,
-        *,
-        raw_image: np.ndarray,
-        padding_pixels: float,
-    ) -> None:
-        set_input_layer_metadata(
-            layer,
-            raw_image=raw_image,
-            padding_pixels=padding_pixels,
-            input_raw_data_key=INPUT_RAW_DATA_KEY,
-            input_padding_pixels_key=INPUT_PADDING_PIXELS_KEY,
-        )
+    def _white_border_layer(self) -> NapariImageLayer | None:
+        return self._layers.white_border_layer()
 
     @staticmethod
     def _processing_input_image(layer: NapariImageLayer) -> np.ndarray:
@@ -365,51 +343,43 @@ class GuiController:
             use_display_transform=use_display_transform,
         )
 
-    def _set_or_add_input_layer(
+    def _set_or_add_input_stack(
         self,
         image: np.ndarray,
-        *,
-        layer_name: str,
-        white_padding: float,
     ) -> None:
-        self._layers.set_or_add_input_layer(
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        preview_image = self._resize_for_preview(image, max_size=params.settings.preview_max_size)
+        color_preview_image = self._prepare_input_color_preview_image(
+            preview_image,
+            input_color_space=state.input_image.input_color_space,
+            apply_cctf_decoding=state.input_image.apply_cctf_decoding,
+        )
+        self._layers.set_or_add_input_stack(
             image,
-            layer_name=layer_name,
-            white_padding=white_padding,
-            padding_pixels_for_image_fn=self._padding_pixels_for_image,
-            apply_white_padding_fn=self._apply_white_padding,
+            preview_image=preview_image,
+            color_preview_image=color_preview_image,
+            white_padding=state.display.white_padding,
             refresh_input_layers_fn=self.refresh_input_layers,
         )
+        self._home_input_stack()
 
-    @staticmethod
-    def _set_output_layer_metadata(
-        layer: NapariImageLayer,
-        *,
-        float_image: np.ndarray,
-        output_color_space: str,
-        output_cctf_encoding: bool,
-        use_display_transform: bool,
-    ) -> None:
-        set_output_layer_metadata(
-            layer,
-            float_image=float_image,
-            output_color_space=output_color_space,
-            output_cctf_encoding=output_cctf_encoding,
-            use_display_transform=use_display_transform,
-            output_float_data_key=OUTPUT_FLOAT_DATA_KEY,
-            output_color_space_key=OUTPUT_COLOR_SPACE_KEY,
-            output_cctf_encoding_key=OUTPUT_CCTF_ENCODING_KEY,
-            output_display_transform_key=OUTPUT_DISPLAY_TRANSFORM_KEY,
-        )
+    def _sync_white_border(self, *, white_padding: float) -> None:
+        self._layers.sync_white_border(white_padding=white_padding)
+
+    def _home_input_stack(self) -> None:
+        white_border_layer = self._white_border_layer()
+        if white_border_layer is None:
+            return
+        self._set_active_layer(white_border_layer)
+        reset_viewer_camera(self._viewer)
+        self._set_active_layer(self._color_preview_layer())
 
     def _output_layer(self) -> NapariImageLayer | None:
         return self._layers.output_layer()
 
-    def _move_layer_to_top(self, layer: NapariImageLayer) -> None:
-        self._layers.move_layer_to_top(layer)
-
-    def _show_only_layer(self, target_layer: NapariImageLayer) -> None:
-        self._layers.show_only_layer(target_layer)
+    def _set_active_layer(self, layer: NapariImageLayer | None) -> None:
+        self._layers.set_active_layer(layer)
 
     def _output_layer_float_data(self) -> np.ndarray | None:
         output_layer = self._output_layer()
@@ -434,16 +404,22 @@ class GuiController:
         return str(color_space), bool(cctf_encoding)
 
     @staticmethod
-    def _normalized_image_data(image: np.ndarray) -> np.ndarray:
-        return runtime.normalized_image_data(image)
+    def _resize_for_preview(image_data: np.ndarray, *, max_size: int) -> np.ndarray:
+        return resize_for_preview(image_data, max_size)
 
     @staticmethod
-    def _apply_white_padding(image_data: np.ndarray, padding_pixels: float) -> np.ndarray:
-        return runtime.apply_white_padding(image_data, padding_pixels)
-
-    @staticmethod
-    def _padding_pixels_for_image(image_data: np.ndarray, padding_fraction: float) -> int:
-        return runtime.padding_pixels_for_image(image_data, padding_fraction)
+    def _prepare_input_color_preview_image(
+        image_data: np.ndarray,
+        *,
+        input_color_space: str,
+        apply_cctf_decoding: bool,
+    ) -> np.ndarray:
+        return runtime.prepare_input_color_preview_image(
+            image_data,
+            input_color_space=input_color_space,
+            apply_cctf_decoding=apply_cctf_decoding,
+            colour_module=colour,
+        )
 
     @staticmethod
     def _prepare_output_display_image(
@@ -464,20 +440,9 @@ class GuiController:
         )
 
     @staticmethod
-    def _display_transform_status_message(enabled: bool) -> str:
-        return runtime.display_transform_status_message(enabled, imagecms_module=ImageCms)
-
-    @staticmethod
-    def _display_profile_available() -> bool:
-        return runtime.display_profile_available(imagecms_module=ImageCms)
-
-    @staticmethod
-    def _display_profile_details() -> tuple[object | None, str | None]:
-        return runtime.display_profile_details(imagecms_module=ImageCms)
-
-    @staticmethod
-    def _display_profile_name(display_profile: object) -> str:
-        return runtime.display_profile_name(display_profile, imagecms_module=ImageCms)
+    def _process_image_with_runtime(image_data: np.ndarray, params) -> np.ndarray:
+        simulator = runtime_simulator(digest_params(params))
+        return simulator.process(image_data)
 
     def _set_display_transform_checked(self, enabled: bool) -> None:
         display_section = getattr(self._widgets, 'display', None)
@@ -505,37 +470,43 @@ class GuiController:
         is_checked = getattr(toggle, 'isChecked', None)
         self.set_gray_18_canvas_enabled(bool(is_checked()) if callable(is_checked) else False)
 
-    @staticmethod
-    def _apply_display_transform(image_data: np.ndarray, *, output_color_space: str) -> tuple[np.ndarray, str]:
-        return runtime.apply_display_transform(
-            image_data,
-            output_color_space=output_color_space,
-            colour_module=colour,
-            imagecms_module=ImageCms,
-            pil_image_module=PILImage,
-        )
-
     def _execute_simulation_request(self, request: SimulationRequest) -> SimulationResult:
         return runtime.execute_simulation_request(
             request,
-            simulate_fn=simulate,
+            run_simulation_fn=self._process_image_with_runtime,
             prepare_output_display_image_fn=self._prepare_output_display_image,
-            padding_pixels_for_image_fn=self._padding_pixels_for_image,
         )
 
-    def _start_simulation(self, *, compute_full_image: bool, mode_label: str) -> None:
+    @staticmethod
+    def _configure_simulation_params(params, *, source_layer_name: str):
+        if source_layer_name != INPUT_PREVIEW_LAYER_NAME:
+            return params
+
+        film_render = getattr(params, 'film_render', None)
+        grain = getattr(film_render, 'grain', None)
+        halation = getattr(film_render, 'halation', None)
+        if grain is not None and hasattr(grain, 'active'):
+            grain.active = False
+        if halation is not None and hasattr(halation, 'active'):
+            halation.active = False
+        return params
+
+    def _start_simulation(self, *, source_layer_name: str, mode_label: str) -> None:
         if self._active_simulation_worker is not None:
             set_status(self._viewer, 'Simulation already running')
             return
 
-        input_layer = self._selected_input_layer()
+        input_layer = self._layers.selected_input_layer(source_layer_name)
         if input_layer is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Select an input image layer before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
             return
 
         state = collect_gui_state(widgets=self._widgets)
-        state.simulation.compute_full_image = compute_full_image
-        params = build_params_from_state(state)
+        self._sync_white_border(white_padding=state.display.white_padding)
+        params = self._configure_simulation_params(
+            build_params_from_state(state),
+            source_layer_name=source_layer_name,
+        )
 
         image = np.double(self._processing_input_image(input_layer))
         request = SimulationRequest(
@@ -544,7 +515,6 @@ class GuiController:
             params=params,
             output_color_space=state.simulation.output_color_space,
             use_display_transform=state.display.use_display_transform,
-            white_padding_fraction=float(state.display.white_padding),
         )
 
         worker = runtime.SimulationWorker(request, execute_request=self._execute_simulation_request)
@@ -587,24 +557,25 @@ class GuiController:
             if callable(set_enabled):
                 set_enabled(enabled)
 
-    def _run_simulation(self, *, compute_full_image: bool) -> None:
-        input_layer = self._selected_input_layer()
+    def _run_simulation(self, *, source_layer_name: str) -> None:
+        input_layer = self._layers.selected_input_layer(source_layer_name)
         if input_layer is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Select an input image layer before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
             return
 
         state = collect_gui_state(widgets=self._widgets)
-        state.simulation.compute_full_image = compute_full_image
-        params = build_params_from_state(state)
+        self._sync_white_border(white_padding=state.display.white_padding)
+        params = self._configure_simulation_params(
+            build_params_from_state(state),
+            source_layer_name=source_layer_name,
+        )
 
         image = np.double(self._processing_input_image(input_layer))
-        scan = simulate(image, params)
-        padding_pixels = self._padding_pixels_for_image(scan, state.display.white_padding)
+        scan = self._process_image_with_runtime(image, params)
         scan_display, display_status = self._prepare_output_display_image(
             scan,
             output_color_space=state.simulation.output_color_space,
             use_display_transform=state.display.use_display_transform,
-            padding_pixels=padding_pixels,
         )
         self._set_or_add_output_layer(
             scan_display,

@@ -122,10 +122,6 @@ GUI_WIDGET_SPECS = {
             tooltip="Add or not the CCTF to the saved image file",
         ),
         "scan_film": WidgetSpec(label="Scan film", tooltip="Show a scan of the negative instead of the print"),
-        "compute_full_image": WidgetSpec(
-            label="Compute full image",
-            tooltip="Do not apply preview resize, compute full resolution image. Keeps the crop if active.",
-        ),
     },
     "display": {
         "use_display_transform": WidgetSpec(
@@ -138,7 +134,7 @@ GUI_WIDGET_SPECS = {
         ),
         "white_padding": WidgetSpec(
             label="White padding",
-            tooltip="Pad the simulated output on every side with a white border expressed as a fraction of the image long edge.",
+            tooltip="Expand the white border layer around the normalized preview frame, expressed as a fraction of the image long edge.",
             min_value=0,
             max_value=1,
             step=0.01,
@@ -241,11 +237,6 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "input_image": {
-        "preview_resize_factor": WidgetSpec(
-            label="Preview resize",
-            tooltip="Scale image size down (0-1) to speed up preview processing",
-            step=0.1,
-        ),
         "crop": WidgetSpec(label="Crop", tooltip="Crop image to a fraction of the original size to preview details at full scale"),
         "crop_center": WidgetSpec(
             label="Crop center",
@@ -311,12 +302,12 @@ GUI_AUXILIARY_SPECS = {
 GUI_BUTTON_SPECS = {
     "preview": ButtonSpec(
         text="PREVIEW",
-        tooltip="Run the simulation in preview mode, grain and halation are deactivated for speed",
+        tooltip="Run the full simulation on the resized preview input",
         preserve_case=True,
     ),
     "scan": ButtonSpec(
         text="SCAN",
-        tooltip="Run the simulation at full resolution and with grain and halation",
+        tooltip="Run the full simulation on the full-resolution input",
         preserve_case=True,
     ),
     "save": ButtonSpec(
