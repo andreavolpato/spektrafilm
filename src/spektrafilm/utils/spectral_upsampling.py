@@ -227,6 +227,31 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
     spectrum_w *= b_w
     return spectrum_w.flatten()
 
+################################################################################
+# 
+
+def rgb_to_raw(rgb, sensitivity, 
+               color_space, apply_cctf_decoding, reference_illuminant, method='hanatos2025'):
+        if method == "hanatos2025":
+            return rgb_to_raw_hanatos2025(
+                rgb,
+                sensitivity,
+                color_space=color_space,
+                apply_cctf_decoding=apply_cctf_decoding,
+                reference_illuminant=reference_illuminant,
+            )
+        elif method == "mallett2019":
+            return rgb_to_raw_mallett2019(
+                rgb,
+                sensitivity,
+                color_space=color_space,
+                apply_cctf_decoding=apply_cctf_decoding,
+                reference_illuminant=reference_illuminant,
+            )
+        else:
+            raise ValueError(f"Unsupported rgb_to_raw method: {method}")
+
+
 if __name__=='__main__':
     lut_coeffs = _load_coeffs_lut()
     coeffs = _fetch_coeffs(np.array([[1,1]]) ,lut_coeffs)

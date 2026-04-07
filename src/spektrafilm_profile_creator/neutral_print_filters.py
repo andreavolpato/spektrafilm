@@ -8,7 +8,7 @@ import scipy
 
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
-from spektrafilm.runtime.api import create_params, simulate
+from spektrafilm.runtime.api import digest_params, init_params, simulate
 from spektrafilm.utils.io import read_neutral_print_filters, save_neutral_print_filters
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 
@@ -62,12 +62,11 @@ def _prepare_fitting_profile(profile):
     working_profile.print_render.glare.compensation_removal_factor = 0.0
     working_profile.io.input_cctf_decoding = False
     working_profile.io.input_color_space = 'sRGB'
-    working_profile.io.resize_factor = 1.0
-    working_profile.io.full_image = True
+    working_profile.io.upscale_factor = 1.0
     working_profile.camera.auto_exposure = False
     working_profile.enlarger.print_exposure_compensation = False
     working_profile.enlarger.normalize_print_exposure = True
-    return working_profile
+    return digest_params(working_profile)
 
 
 def fit_neutral_print_filters_iter(profile, start_filters):
@@ -175,10 +174,9 @@ def _randomize_start_filters(filters, randomness, rng, initial_filters=DEFAULT_N
 
 
 def _build_regeneration_params(stock, paper, illuminant, filters):
-    params = create_params(
+    params = init_params(
         film_profile=stock,
         print_profile=paper,
-        neutral_print_filters_from_database=False,
     )
     params.enlarger.illuminant = illuminant
     params.enlarger.normalize_print_exposure = False
