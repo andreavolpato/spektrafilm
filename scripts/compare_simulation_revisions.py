@@ -49,7 +49,6 @@ def _configure_params(params):
     params.io.input_cctf_decoding = False
     params.io.output_cctf_encoding = False
     params.io.full_image = True
-    params.io.preview_resize_factor = 1.0
     params.io.upscale_factor = 1.0
     params.io.crop = False
     params.camera.auto_exposure = False
@@ -71,10 +70,10 @@ def evaluate_current_worktree(
 ) -> dict[str, list[float]]:
     _ensure_src_on_path(repo_root)
 
-    from spektrafilm import create_params, simulate
+    from spektrafilm import init_params, simulate
 
     results: dict[str, list[float]] = {}
-    params = _configure_params(create_params(film_profile=film_profile, print_profile=print_profile))
+    params = _configure_params(init_params(film_profile=film_profile, print_profile=print_profile))
     results['neutral_filters'] = [
         float(params.enlarger.c_filter_neutral),
         float(params.enlarger.m_filter_neutral),
@@ -91,7 +90,7 @@ def evaluate_current_worktree(
     params.io.scan_film = True
     results['neg_scan_midgray'] = np.mean(simulate(_patch((0.184, 0.184, 0.184)), params), axis=(0, 1)).tolist()
 
-    params = _configure_params(create_params(film_profile=positive_film_profile, print_profile=print_profile))
+    params = _configure_params(init_params(film_profile=positive_film_profile, print_profile=print_profile))
     params.io.scan_film = True
     for name, rgb in {
         'pos_scan_midgray': (0.184, 0.184, 0.184),

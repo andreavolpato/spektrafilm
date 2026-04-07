@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 from spektrafilm.utils.io import load_image_oiio
 from spektrafilm.utils.numba_warmup import warmup
-from spektrafilm.runtime import photo_params, photo_process
-from spektrafilm.utils.timings import plot_timings
+from spektrafilm.runtime import init_params, simulate
 
 warmup()
 
@@ -12,21 +11,20 @@ warmup()
 image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
 # image = [[[0.184,0.184,0.184]]]
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
-params = photo_params(print_profile='kodak_portra_endura')
+params = init_params(print_profile='kodak_portra_endura')
 params.io.input_cctf_decoding = True
 params.print_render.glare.active = False
 params.debug.deactivate_stochastic_effects = False
 params.camera.exposure_compensation_ev = 0
 params.camera.auto_exposure = True
-params.io.preview_resize_factor = 0.3
 params.io.upscale_factor = 3.0
 params.io.full_image = False
 params.io.scan_film = False
-params.source_render.grain.agx_particle_area_um2 = 1
+params.film_render.grain.agx_particle_area_um2 = 1
 params.enlarger.preflash_exposure = 0.0
 params.enlarger.print_exposure_compensation = True
 params.enlarger.print_exposure = 1.0
-params.source_render.grain.active = False
+params.film_render.grain.active = False
 params.debug.return_film_density_cmy = False
 params.debug.return_print_density_cmy = False
 
@@ -35,7 +33,7 @@ params.settings.use_enlarger_lut = True
 params.settings.use_scanner_lut = True
 params.settings.lut_resolution = 32
 params.debug.print_timings = True
-image = photo_process(image, params)
+image = simulate(image, params)
 
 # plt.imshow(image[:,:,1])
 plt.imshow(image)

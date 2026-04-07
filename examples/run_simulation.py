@@ -6,17 +6,16 @@ pipeline, and displays the result using matplotlib.
 """
 
 import matplotlib.pyplot as plt
-from spektrafilm import create_params, simulate
+from spektrafilm import init_params, simulate
 from spektrafilm.utils.io import load_image_oiio
 
 
 def run_simulation():
     image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
-    params = create_params()
+    params = init_params()
     params.film_render.grain.sublayers_active = True
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
-    params.io.preview_resize_factor = 1.0
     params.camera.exposure_compensation_ev = 2
     params.enlarger.print_exposure = 1.0
     params.camera.film_format_mm = 35
