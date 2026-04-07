@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from spektrafilm.profiles.io import load_profile
-from spektrafilm.runtime.api import create_params, simulate
+from spektrafilm.runtime.api import init_params, simulate
 
 
 def plot_grain_chart(profile=None, film_format_mm=35):
@@ -19,7 +19,7 @@ def plot_grain_chart(profile=None, film_format_mm=35):
     pixel_size = np.sqrt((densitometer_aperture_diameter / 2) ** 2 * np.pi)
     film_format_mm = np.max(image.shape) * pixel_size / 1000
 
-    params = create_params()
+    params = init_params()
     params.film = profile
     params.camera.film_format_mm = film_format_mm
     params.io.input_cctf_decoding = False

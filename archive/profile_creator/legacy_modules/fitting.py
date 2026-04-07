@@ -5,7 +5,7 @@ import scipy
 import scipy.stats
 import matplotlib.pyplot as plt
 
-from spektrafilm.runtime.api import create_params, simulate
+from spektrafilm.runtime.api import init_params, simulate
 
 
 def density_curve_model_norm_cdfs(log_exposure,
@@ -235,7 +235,7 @@ def fit_neutral_print_filters_iter(profile):
     p.print_render.glare.compensation_removal_factor = 0.0
     p.io.input_cctf_decoding = False
     p.io.input_color_space = "sRGB"
-    p.io.resize_factor = 1.0
+    p.io.upscale_factor = 1.0
     p.camera.auto_exposure = False
     p.enlarger.print_exposure_compensation = False
     midgray_rgb = np.array([[[0.184, 0.184, 0.184]]])
