@@ -6,21 +6,21 @@ from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.diffusion import apply_gaussian_blur_um, apply_halation_um
 from spektrafilm.model.emulsion import compute_density_spectral, develop, develop_simple
 from spektrafilm.utils.autoexposure import measure_autoexposure_ev
-from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_mallett2019
+from spektrafilm.utils.spectral_upsampling import rgb_to_raw
 from spektrafilm.utils.timings import timeit
 
 
 class FilmingStage:
     def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
-                 resizing_service, enlarger_service):
+                 enlarger_service):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
         self._io = io_params
         self._settings = settings_params
-        self._resizing_service = resizing_service
         self._enlarger_service = enlarger_service
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
+        self._pixel_size_um = None
 
     @timeit("_auto_exposure")
     def auto_exposure(self, image: np.ndarray) -> float:
@@ -36,25 +36,23 @@ class FilmingStage:
 
     @timeit("_expose_film")
     def expose(self, image: np.ndarray) -> np.ndarray:
-        raw = self.rgb_to_film_raw(
+        raw = self._rgb_to_film_raw(
             image,
             color_space=self._io.input_color_space,
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
+        self._pixel_size_um = self._camera.film_format_mm * 1000 / np.max(image.shape[0:2])
         raw *= 2 ** self._camera.exposure_compensation_ev
-        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._resizing_service.pixel_size_um)
-        raw = apply_halation_um(raw, self._film_render.halation, self._resizing_service.pixel_size_um)
+        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._pixel_size_um)
+        raw = apply_halation_um(raw, self._film_render.halation, self._pixel_size_um)
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
 
     @timeit("_develop_film")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
-        if not self._io.full_image: 
-            self._film_render.grain.active = False # to be changed
-            self._film_render.halation.active = False # to be changed
         return develop(
             log_raw,
-            self._resizing_service.pixel_size_um,
+            self._pixel_size_um,
             self._film.data.log_exposure,
             self._film.data.density_curves,
             self._film.data.density_curves_layers,
@@ -65,7 +63,7 @@ class FilmingStage:
             use_fast_stats=self._settings.use_fast_stats,
         )
 
-    def rgb_to_film_raw(
+    def _rgb_to_film_raw(
         self,
         rgb: np.ndarray,
         *,
@@ -79,26 +77,11 @@ class FilmingStage:
             band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
             sensitivity *= band_pass_filter[:, None]
 
-        method = self._settings.rgb_to_raw_method
-        if method == "mallett2019":
-            raw = rgb_to_raw_mallett2019(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._film.info.reference_illuminant,
-            )
-        elif method == "hanatos2025":
-            raw = rgb_to_raw_hanatos2025(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._film.info.reference_illuminant,
-            )
-        else:
-            raise ValueError(f"Unsupported rgb_to_raw_method: {method}")
-
+        raw = rgb_to_raw(rgb, sensitivity,
+                         color_space=color_space, 
+                         apply_cctf_decoding=apply_cctf_decoding, 
+                         reference_illuminant=self._film.info.reference_illuminant,
+                         method=self._settings.rgb_to_raw_method)
         return raw
     
     def _compute_density_spectral_midgray_to_balance_print(self):
@@ -107,7 +90,7 @@ class FilmingStage:
         else:
             neg_exp_comp_ev = 0.0
         rgb_midgray = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
-        raw_midgray = self.rgb_to_film_raw(rgb_midgray)
+        raw_midgray = self._rgb_to_film_raw(rgb_midgray)
         log_raw_midgray = np.log10(raw_midgray + 1e-10)
         density_midgray = develop_simple(
             log_raw_midgray,

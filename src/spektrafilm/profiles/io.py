@@ -122,6 +122,38 @@ class Profile:
         if data:
             self.update_data(**data)
         return self
+    
+    @property
+    def is_positive(self) -> bool:
+        return self.info.type == 'positive'
+
+    @property
+    def is_negative(self) -> bool:
+        return self.info.type == 'negative'
+
+    @property
+    def is_paper(self) -> bool:
+        return self.info.support == 'paper'
+
+    @property
+    def is_film(self) -> bool:
+        return self.info.support == 'film'
+    
+    @property
+    def is_color(self) -> bool:
+        return self.info.channel_model == 'color'
+    
+    @property
+    def is_bw(self) -> bool:
+        return self.info.channel_model == 'bw'
+
+    @property
+    def is_filming(self) -> bool:
+        return self.info.use == 'filming'
+
+    @property
+    def is_printing(self) -> bool:
+        return self.info.use == 'printing'
 
 
 def profile_from_dict(data: Any) -> Profile:

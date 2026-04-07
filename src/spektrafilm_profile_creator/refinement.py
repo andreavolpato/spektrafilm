@@ -10,7 +10,7 @@ from spektrafilm.config import STANDARD_OBSERVER_CMFS
 from spektrafilm.model.color_filters import color_enlarger
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.profiles.io import load_profile
-from spektrafilm.runtime.api import simulate
+from spektrafilm.runtime.api import digest_params, simulate
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import apply_scale_shift_stretch_density_curves
@@ -167,13 +167,13 @@ def gray_ramp(
     working_params.debug.deactivate_stochastic_effects = True
     working_params.print_render.glare.active = False
     working_params.io.output_cctf_encoding = False
-    working_params.io.full_image = True
     working_params.film = apply_scale_shift_stretch_density_curves(
         working_params.film,
         density_scale,
         shift_correction,
         stretch_correction,
     )
+    working_params = digest_params(working_params)
     midgray_rgb = np.array([[[0.184, 0.184, 0.184]]])
     gray = np.zeros((np.size(ev_ramp), 3))
     for index in np.arange(np.size(ev_ramp)):
@@ -366,7 +366,6 @@ def refine_negative_film(
 ):
     params = _build_runtime_params(source_profile, target_print)
     params.film = replace_fitted_density_curves(params.film)
-    params.io.full_image = True
     params.camera.auto_exposure = False
     params.enlarger.print_exposure_compensation = True
     params.settings.rgb_to_raw_method = 'hanatos2025'
@@ -397,7 +396,6 @@ def refine_positive_film(
     params = _build_runtime_params(positive_film_profile, 'kodak_portra_endura')
     params.film = replace_fitted_density_curves(params.film)
     params.io.scan_film = True
-    params.io.full_image = True
     params.settings.rgb_to_raw_method = 'hanatos2025'
 
     return _refine_film(

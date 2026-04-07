@@ -2,15 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-from spektrafilm.runtime.api import create_params, simulate
+from spektrafilm.runtime.api import init_params, simulate
 
 class CalibrationTarget:
     def __init__(self,
                  image,
-                 base_params=create_params(),
+                 base_params=init_params(),
                  crop_center=(0.5, 0.5),
                  crop_size=(0.2, 1.0),
-                 resize_factor=0.1,
                  steps=7,
                  title='Test Strip',
                  stack='h',
@@ -29,7 +28,6 @@ class CalibrationTarget:
         
         self.crop_center = crop_center
         self.crop_size = crop_size
-        self.resize_factor = resize_factor
         self.clean_params()
     
     def clean_params(self, steps=7):
@@ -38,7 +36,6 @@ class CalibrationTarget:
         self.base_params.io.crop = True
         self.base_params.io.crop_center = self.crop_center
         self.base_params.io.crop_size = self.crop_size
-        self.base_params.io.preview_resize_factor = self.resize_factor
         for i in np.arange(self.steps):
             p = copy.copy(self.base_params)
             p.label=f'{i}'
@@ -142,10 +139,10 @@ if __name__ == '__main__':
     from spektrafilm.utils.io import load_image_oiio
     
     image = load_image_oiio('img/targets/cc11.tiff')
-    p = create_params(film_profile='kodak_portra_400')
+    p = init_params(film_profile='kodak_portra_400')
     p.io.input_cctf_decoding = True
       
-    strip = CalibrationTarget(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), resize_factor=0.05, rotate=True)
+    strip = CalibrationTarget(image, base_params=p, stack='h', crop_size=(1.0,1.0), crop_center=(0.5,0.85), rotate=True)
     strip.negative_exposure_ramp(values=[-3, -2, -1, 0, 1, 2, 3, 4, 5, 6])
     fig = strip.process()
     plt.show()

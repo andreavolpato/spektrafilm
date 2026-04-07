@@ -32,20 +32,18 @@ class SimulationPipeline:
 
         self.timings = {}
 
-        self._apply_debug_switches()
-
         self._lut_service = SpectralLUTService(self.settings.lut_resolution)
         self._enlarger_service = EnlargerService(self.enlarger)
-        self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
         self._color_reference_service = ColorReferenceService(self.film.data, self.print.data, self.io.scan_film)
 
+        self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
+        
         self._filming_stage = FilmingStage(
             self.film,
             self.film_render,
             self.camera,
             self.io,
             self.settings,
-            self._resizing_service, # pixel size for grain, halation, and lens blur calculations
             self._enlarger_service, # to compute and save density spectral midgray to balance print
         )
         self._printing_stage = PrintingStage(
@@ -70,6 +68,8 @@ class SimulationPipeline:
             self._lut_service,
             self._color_reference_service,
         )
+        
+        # timing communication
         self._filming_stage.timings = self.timings
         self._printing_stage.timings = self.timings
         self._scanning_stage.timings = self.timings
@@ -77,7 +77,6 @@ class SimulationPipeline:
     def process(self, image):
         image = self._preprocess(image)
         image = self._pipeline(image)
-        image = self._postprocess(image)
         return image
 
     def _preprocess(self, image):
@@ -103,24 +102,4 @@ class SimulationPipeline:
         if self.debug.return_film_density_cmy: return cmy_film
         if self.debug.return_print_density_cmy: return cmy_print
         return rgb_scan
-    
-    def _postprocess(self, image):
-        return self._resizing_service.rescale_to_original(image)
-
-    def _apply_debug_switches(self):
-        if self.debug.deactivate_spatial_effects:
-            self.film_render.halation.size_um = [0, 0, 0]
-            self.film_render.halation.scattering_size_um = [0, 0, 0]
-            self.film_render.dir_couplers.diffusion_size_um = 0
-            self.film_render.grain.blur = 0.0
-            self.film_render.grain.blur_dye_clouds_um = 0.0
-            self.print_render.glare.blur = 0
-            self.camera.lens_blur_um = 0.0
-            self.enlarger.lens_blur = 0.0
-            self.scanner.lens_blur = 0.0
-            self.scanner.unsharp_mask = (0.0, 0.0)
-
-        if self.debug.deactivate_stochastic_effects:
-            self.film_render.grain.active = False
-            self.print_render.glare.active = False
 

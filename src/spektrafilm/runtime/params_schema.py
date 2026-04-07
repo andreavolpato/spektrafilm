@@ -69,8 +69,8 @@ class HalationParams:
 @dataclass
 class DirCouplersParams:
     active: bool = True
-    amount: float = 0.35
-    ratio_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    amount: float = 1.0
+    ratio_rgb: tuple[float, float, float] = (0.35, 0.35, 0.35)
     diffusion_interlayer: float = 2.0
     diffusion_size_um: float = 10.0
     high_exposure_shift: float = 0.0
@@ -113,10 +113,17 @@ class IOParams:
     crop: bool = False
     crop_center: tuple[float, float] = (0.5, 0.5)
     crop_size: tuple[float, float] = (0.1, 0.1)
-    preview_resize_factor: float = 0.3
     upscale_factor: float = 1.0
-    full_image: bool = False
     scan_film: bool = False
+
+    # Temporary compatibility shim while the GUI still carries compute_full_image.
+    @property
+    def full_image(self) -> bool:
+        return True
+
+    @full_image.setter
+    def full_image(self, _value: bool) -> None:
+        return None
 
 
 @dataclass
@@ -135,8 +142,10 @@ class SettingsParams:
     rgb_to_raw_method: str = "hanatos2025"
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
-    lut_resolution: int = 32
+    lut_resolution: int = 17
     use_fast_stats: bool = False
+    preview_max_size: int = 512
+    neutral_print_filters_from_database: bool = True
 
 
 @dataclass
