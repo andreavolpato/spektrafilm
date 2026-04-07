@@ -18,7 +18,6 @@ from spektrafilm_gui.controller_layers import (
 from spektrafilm_gui.film_profile_defaults import (
     apply_gui_state_overrides,
     default_overrides_for_film_stock,
-    override_section_names,
 )
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
@@ -29,7 +28,7 @@ from spektrafilm_gui.persistence import (
 from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE
 from spektrafilm_gui.napari_layout import dialog_parent, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
-from spektrafilm_gui.state_bridge import apply_gui_state, apply_gui_state_sections, collect_gui_state
+from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
 
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
@@ -162,11 +161,18 @@ class GuiController:
 
         current_state = collect_gui_state(widgets=self._widgets)
         next_state = apply_gui_state_overrides(current_state, overrides)
-        apply_gui_state_sections(
-            next_state,
-            widgets=self._widgets,
-            section_names=override_section_names(overrides),
-        )
+        self._apply_gui_state_override_fields(next_state, overrides)
+
+    def _apply_gui_state_override_fields(self, next_state, overrides) -> None:
+        for override in overrides:
+            section_widget = getattr(self._widgets, override.section_name)
+            section_state = getattr(next_state, override.section_name)
+            for field_name in override.changes:
+                field_value = getattr(section_state, field_name)
+                if override.section_name == 'simulation' and field_name == 'scan_film':
+                    section_widget.set_scan_film_value(field_value)
+                    continue
+                getattr(section_widget, field_name).value = field_value
 
     def run_preview(self) -> None:
         self._start_simulation(compute_full_image=False, mode_label='Preview')
