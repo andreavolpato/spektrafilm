@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from spektrafilm import create_params, simulate
+from spektrafilm import init_params, simulate
 from spektrafilm.profiles.io import save_profile
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.utils.io import load_image_oiio, save_neutral_print_filters
@@ -27,11 +27,10 @@ def _process_target_profiles() -> None:
 
 def _plot_reference_simulation() -> None:
     image = load_image_oiio(REFERENCE_IMAGE)
-    params = create_params(film_profile=FILM_STOCK, print_profile=PRINT_PAPER)
+    params = init_params(film_profile=FILM_STOCK, print_profile=PRINT_PAPER)
     params.film_render.grain.sublayers_active = True
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
-    params.io.preview_resize_factor = 1.0
     params.camera.exposure_compensation_ev = 2
     params.enlarger.print_exposure = 1.0
     params.camera.film_format_mm = 35
