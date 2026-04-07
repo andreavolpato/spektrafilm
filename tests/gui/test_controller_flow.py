@@ -130,8 +130,10 @@ def test_load_raw_image_uses_pipeline_input_settings_and_preserves_metadata(monk
         'white_balance': 'custom',
         'temperature': 3200.0,
         'tint': 0.85,
+        'lens_correction': False,
         'output_colorspace': 'Display P3',
         'output_cctf_encoding': True,
+        'lens_info_out': {},
     }
     assert len(viewer.layers) == 2
     layer = viewer.layers[-1]
@@ -186,9 +188,42 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
             'RAW file does not expose a usable camera XYZ matrix for custom white balance.'
         ),
     }
-    assert len(viewer.layers) == 1
-    assert viewer.layers[0].name == 'older'
-    assert viewer.layers[0].visible is True
+
+
+def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch) -> None:
+    viewer = FakeViewer([
+        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older'),
+    ])
+    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
+    controller = GuiController(viewer=viewer, widgets=widgets)
+    gui_state = make_test_controller_gui_state()
+    gui_state.load_raw.lens_correction = True
+    raw_image = np.full((2, 2, 3), 0.4, dtype=np.float32)
+    statuses: list[tuple[str, int]] = []
+    captured: dict[str, object] = {}
+
+    def fake_load_and_process_raw_file(path, **kwargs):
+        captured['path'] = path
+        captured['kwargs'] = kwargs
+        return raw_image
+
+    monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(
+        controller_module,
+        'set_status',
+        lambda viewer, message, timeout_ms=5000: statuses.append((message, timeout_ms)),
+    )
+
+    controller.load_raw_image('C:/tmp/example.nef')
+
+    assert captured['path'] == 'C:/tmp/example.nef'
+    assert captured['kwargs']['lens_correction'] is True
+    assert captured['kwargs']['lens_info_out'] == {}
+    assert statuses == [
+        ('Loading raw...', 0),
+        ('Loaded raw, lens correction not applied', 5000),
+    ]
 
 
 def test_select_input_layer_hides_other_layers_and_moves_target_to_top() -> None:

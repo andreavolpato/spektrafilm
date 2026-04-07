@@ -126,21 +126,40 @@ class GuiController:
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
-        set_status(self._viewer, 'Loading raw...', timeout_ms=0)
+        set_status(self._viewer, "Loading raw...", timeout_ms=0)
+        lens_info: dict[str, str] = {}
         try:
             image = load_and_process_raw_file(
                 path,
                 white_balance=gui_state.load_raw.white_balance,
                 temperature=gui_state.load_raw.temperature,
                 tint=gui_state.load_raw.tint,
+                lens_correction=gui_state.load_raw.lens_correction,
                 output_colorspace=gui_state.input_image.input_color_space,
                 output_cctf_encoding=gui_state.input_image.apply_cctf_decoding,
+                lens_info_out=lens_info,
             )
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{exc}')
             set_status(self._viewer, 'Load raw failed')
             return
-        self._set_or_add_input_layer(image, layer_name=Path(path).stem, white_padding=gui_state.display.white_padding)
+
+        self._set_or_add_input_layer(
+            image,
+            layer_name=Path(path).stem,
+            white_padding=gui_state.display.white_padding,
+        )
+
+        lens_summary = lens_info.get('summary')
+        if lens_summary:
+            set_status(
+                self._viewer,
+                f"Loaded raw and applied lens correction: {lens_summary}",
+            )
+        elif gui_state.load_raw.lens_correction:
+            set_status(self._viewer, "Loaded raw, lens correction not applied")
+        else:
+            set_status(self._viewer, "Loaded raw")
 
     def select_input_layer(self, layer_name: str) -> None:
         if not layer_name:

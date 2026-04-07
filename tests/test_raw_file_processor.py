@@ -5,6 +5,41 @@ import numpy as np
 from spektrafilm.utils import raw_file_processor
 
 
+def _stub_raw_reader(monkeypatch, raw_image: np.ndarray) -> None:
+    class Reader:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def postprocess(self, **_kwargs):
+            return raw_image
+
+    monkeypatch.setattr(
+        raw_file_processor,
+        'rawpy',
+        SimpleNamespace(
+            imread=lambda path: Reader(),
+            ColorSpace=SimpleNamespace(ACES='ACES'),
+        ),
+    )
+
+
+def _stub_exif(monkeypatch, **overrides) -> None:
+    values = {
+        'make': 'Canon',
+        'model': 'Canon EOS 5D Mark IV',
+        'lens_make': 'Canon',
+        'lens_model': 'Canon EF 50mm f/1.8 STM',
+        'focal_length': 50.0,
+        'f_number': 2.8,
+    }
+    values.update(overrides)
+    exif_metadata = raw_file_processor.ExifData(**values)
+    monkeypatch.setattr(raw_file_processor, '_read_exif_metadata', lambda path: exif_metadata)
+
+
 def test_process_raw_file_daylight_uses_linear_output_and_colour_conversion(monkeypatch):
     raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
     captured = {}
@@ -261,3 +296,66 @@ def test_process_raw_file_custom_does_not_require_raw_white_balance_metadata(mon
         }
     ]
     np.testing.assert_allclose(result, expected_linear + 0.25)
+
+
+def test_process_raw_file_skips_lens_correction_when_lens_model_missing(monkeypatch):
+    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
+    lens_info_out: dict[str, str] = {}
+
+    def fail_database_creation():
+        raise AssertionError('lensfun database should not be queried without a lens model')
+
+    _stub_raw_reader(monkeypatch, raw_image)
+    _stub_exif(monkeypatch, lens_model='')
+    monkeypatch.setattr(raw_file_processor.lensfunpy, 'Database', fail_database_creation)
+
+    result = raw_file_processor.load_and_process_raw_file(
+        'example.nef',
+        lens_correction=True,
+        lens_info_out=lens_info_out,
+    )
+
+    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
+    assert lens_info_out == {}
+
+
+def test_process_raw_file_leaves_lens_info_empty_when_no_correction_applied(monkeypatch):
+    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
+    lens_info_out: dict[str, str] = {}
+    _stub_raw_reader(monkeypatch, raw_image)
+    _stub_exif(monkeypatch)
+    monkeypatch.setattr(
+        raw_file_processor,
+        '_apply_lens_correction',
+        lambda rgb, exif_metadata: (rgb, ''),
+    )
+
+    result = raw_file_processor.load_and_process_raw_file(
+        'example.nef',
+        lens_correction=True,
+        lens_info_out=lens_info_out,
+    )
+
+    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
+    assert lens_info_out == {}
+
+
+def test_process_raw_file_populates_lens_info_when_correction_applied(monkeypatch):
+    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
+    lens_info_out: dict[str, str] = {}
+    _stub_raw_reader(monkeypatch, raw_image)
+    _stub_exif(monkeypatch)
+    monkeypatch.setattr(
+        raw_file_processor,
+        '_apply_lens_correction',
+        lambda rgb, exif_metadata: (rgb, 'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8'),
+    )
+
+    result = raw_file_processor.load_and_process_raw_file(
+        'example.nef',
+        lens_correction=True,
+        lens_info_out=lens_info_out,
+    )
+
+    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
+    assert lens_info_out == {'summary': 'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8'}
