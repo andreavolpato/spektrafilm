@@ -21,7 +21,6 @@ class SimulationRequest:
     params: object
     output_color_space: str
     use_display_transform: bool
-    white_padding_fraction: float
 
 
 @dataclass(slots=True)
@@ -49,7 +48,7 @@ class SimulationWorker(QRunnable):
     def run(self) -> None:
         try:
             result = self._execute_request(self._request)
-        except Exception as exc:  # noqa: BLE001 - surface unexpected pipeline failures to the UI
+        except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
             self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
             return
         self.signals.finished.emit(result)
@@ -135,6 +134,27 @@ def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> 
     return f'Display transform: display profile found ({profile_name})'
 
 
+def prepare_input_color_preview_image(
+    image_data: np.ndarray,
+    *,
+    input_color_space: str,
+    apply_cctf_decoding: bool,
+    colour_module: Any,
+) -> np.ndarray:
+    normalized_image = normalized_image_data(np.asarray(image_data)[..., :3])
+    try:
+        srgb_preview = colour_module.RGB_to_RGB(
+            normalized_image,
+            input_color_space,
+            DISPLAY_PREVIEW_COLOR_SPACE,
+            apply_cctf_decoding=apply_cctf_decoding,
+            apply_cctf_encoding=True,
+        )
+    except (AttributeError, LookupError, RuntimeError, TypeError, ValueError):
+        return np.asarray(np.clip(normalized_image, 0.0, 1.0), dtype=np.float32)
+    return np.asarray(np.clip(srgb_preview, 0.0, 1.0), dtype=np.float32)
+
+
 def apply_display_transform(
     image_data: np.ndarray,
     *,
@@ -171,10 +191,11 @@ def prepare_output_display_image(
     colour_module: Any,
     pil_image_module: Any,
 ) -> tuple[np.ndarray, str]:
+    del padding_pixels
     normalized_image = normalized_image_data(np.asarray(image_data)[..., :3])
     preview_image = np.uint8(np.clip(normalized_image, 0.0, 1.0) * 255)
     if not use_display_transform:
-        return apply_white_padding(preview_image, padding_pixels), display_transform_status_message(False, imagecms_module=imagecms_module)
+        return preview_image, display_transform_status_message(False, imagecms_module=imagecms_module)
     try:
         transformed_image, status = apply_display_transform(
             normalized_image,
@@ -183,25 +204,22 @@ def prepare_output_display_image(
             imagecms_module=imagecms_module,
             pil_image_module=pil_image_module,
         )
-        return apply_white_padding(transformed_image, padding_pixels), status
+        return transformed_image, status
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return apply_white_padding(preview_image, padding_pixels), 'Display transform: transform failed, using raw preview'
+        return preview_image, 'Display transform: transform failed, using raw preview'
 
 
 def execute_simulation_request(
     request: SimulationRequest,
     *,
-    simulate_fn: Callable[[np.ndarray, object], np.ndarray],
+    run_simulation_fn: Callable[[np.ndarray, object], np.ndarray],
     prepare_output_display_image_fn: Callable[..., tuple[np.ndarray, str]],
-    padding_pixels_for_image_fn: Callable[[np.ndarray, float], int],
 ) -> SimulationResult:
-    scan = simulate_fn(request.image, request.params)
-    padding_pixels = padding_pixels_for_image_fn(scan, request.white_padding_fraction)
+    scan = run_simulation_fn(request.image, request.params)
     scan_display, display_status = prepare_output_display_image_fn(
         scan,
         output_color_space=request.output_color_space,
         use_display_transform=request.use_display_transform,
-        padding_pixels=padding_pixels,
     )
     return SimulationResult(
         mode_label=request.mode_label,

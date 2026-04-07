@@ -24,6 +24,7 @@ _SECTION_HEADER_ICONS = {
     'enlarger': 'tabler:building-lighthouse',
     'scanner': 'tabler:scan',
     'preview and crop': 'tabler:crop',
+    'crop and upscale': 'tabler:crop',
     'output': 'tabler:arrow-big-down-lines',
     'grain': 'tabler:grain',
     'halation': 'tabler:time-duration-0',

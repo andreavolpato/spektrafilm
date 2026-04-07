@@ -260,6 +260,61 @@ def reset_viewer_camera(viewer: napari.Viewer) -> None:
                     layer.visible = was_visible
 
 
+def _viewer_device_pixel_ratio(viewer: napari.Viewer) -> float:
+    viewer_window = getattr(viewer, 'window', None)
+    qt_viewer = getattr(viewer_window, '_qt_viewer', None)
+    if qt_viewer is None:
+        return 1.0
+
+    device_pixel_ratio = getattr(qt_viewer, 'devicePixelRatioF', None)
+    if callable(device_pixel_ratio):
+        try:
+            return max(float(device_pixel_ratio()), 0.01)
+        except (TypeError, ValueError):
+            return 1.0
+
+    if hasattr(qt_viewer, 'devicePixelRatio'):
+        try:
+            return max(float(qt_viewer.devicePixelRatio()), 0.01)
+        except (TypeError, ValueError):
+            return 1.0
+
+    return 1.0
+
+
+def _layer_pixel_world_size(layer: object | None) -> float:
+    if layer is None:
+        return 1.0
+
+    scale = getattr(layer, 'scale', None)
+    if scale is None:
+        return 1.0
+
+    if isinstance(scale, (int, float)):
+        try:
+            return max(abs(float(scale)), 1e-12)
+        except (TypeError, ValueError):
+            return 1.0
+
+    try:
+        scale_values = tuple(scale)
+    except TypeError:
+        return 1.0
+
+    axis_scales: list[float] = []
+    for value in scale_values[:2]:
+        try:
+            numeric_value = abs(float(value))
+        except (TypeError, ValueError):
+            continue
+        if numeric_value > 0.0:
+            axis_scales.append(numeric_value)
+
+    if not axis_scales:
+        return 1.0
+    return sum(axis_scales) / len(axis_scales)
+
+
 def set_viewer_zoom_percent(viewer: napari.Viewer, percent: float) -> None:
     viewer_window = getattr(viewer, 'window', None)
     camera = getattr(viewer, 'camera', None)
@@ -268,24 +323,11 @@ def set_viewer_zoom_percent(viewer: napari.Viewer, percent: float) -> None:
     if camera is None or not hasattr(camera, 'zoom'):
         return
 
-    qt_viewer = getattr(viewer_window, '_qt_viewer', None)
-    pixel_ratio = 1.0
-
-    if qt_viewer is not None:
-        device_pixel_ratio = getattr(qt_viewer, 'devicePixelRatioF', None)
-        if callable(device_pixel_ratio):
-            try:
-                pixel_ratio = float(device_pixel_ratio())
-            except (TypeError, ValueError):
-                pixel_ratio = 1.0
-        elif hasattr(qt_viewer, 'devicePixelRatio'):
-            try:
-                pixel_ratio = float(qt_viewer.devicePixelRatio())
-            except (TypeError, ValueError):
-                pixel_ratio = 1.0
-
+    pixel_ratio = _viewer_device_pixel_ratio(viewer)
+    target_layer = _home_view_target_layer(viewer)
+    layer_pixel_world_size = _layer_pixel_world_size(target_layer)
     zoom_scale = max(0.0, float(percent)) / 100.0
-    camera.zoom = max(pixel_ratio * zoom_scale, pixel_ratio * 0.01)
+    camera.zoom = max((pixel_ratio * zoom_scale) / layer_pixel_world_size, pixel_ratio * 0.01)
 
 
 def _build_viewer_panel(
