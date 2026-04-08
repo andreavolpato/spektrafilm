@@ -183,6 +183,8 @@ def connect_auto_preview_signals(controller: GuiController, widgets: WidgetBundl
             continue
 
         for field_info in fields(state_cls):
+            if section_name == 'display' and field_info.name == 'preview_max_size':
+                continue
             _connect_auto_preview_signal(getattr(section, field_info.name), controller.request_auto_preview)
 
     widgets.simulation.bottom_auto_preview.toggled.connect(controller.request_auto_preview)
@@ -204,7 +206,8 @@ def connect_controller_signals(controller: GuiController, widgets: WidgetBundle)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
     widgets.display.use_display_transform.toggled.connect(controller.report_display_transform_status)
     widgets.display.gray_18_canvas.toggled.connect(controller.set_gray_18_canvas_enabled)
-    widgets.display.preview_max_size.valueChanged.connect(controller.refresh_preview_cache)
+    widgets.display.update_preview_requested.connect(controller.refresh_preview_cache)
+    widgets.display.update_preview_requested.connect(controller.request_auto_preview)
     connect_auto_preview_signals(controller, widgets)
 
 

@@ -518,6 +518,30 @@ class DisplaySection(SimpleDataclassSection):
     SECTION_NAME = 'display'
     TITLE = 'Display'
     COLLAPSED_BY_DEFAULT = False
+    HIDDEN_FIELDS = {'preview_max_size'}
+
+    update_preview_requested = Signal()
+
+    def __init__(self):
+        super().__init__()
+
+    def _init_extra_widgets(self) -> None:
+        self.update_preview_button = _build_button(
+            'update',
+            self.update_preview_requested.emit,
+            preserve_case=True,
+            role='compactAction',
+        )
+        self.update_preview_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
+    def _add_extra_rows_after(self, form: QFormLayout) -> None:
+        form.addRow(
+            _build_widget_label('display', 'preview_max_size'),
+            _build_vertical_container(
+                _build_button_row(self.preview_max_size, self.update_preview_button, spacing=4),
+                spacing=0,
+            ),
+        )
 
 
 class SimulationSection(DataclassSection):
