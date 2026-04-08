@@ -84,6 +84,7 @@ def make_test_controller_gui_state() -> GuiState:
     state.display.use_display_transform = False
     state.display.gray_18_canvas = False
     state.display.white_padding = 0.0
+    state.display.preview_max_size = 768
     return state
 
 

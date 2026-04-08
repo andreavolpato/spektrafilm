@@ -124,6 +124,7 @@ class DisplayState:
     use_display_transform: bool
     gray_18_canvas: bool
     white_padding: float
+    preview_max_size: int
 
 
 @dataclass(slots=True)
@@ -262,6 +263,7 @@ def gui_state_from_params(
             use_display_transform=True,
             gray_18_canvas=True,
             white_padding=0.03,
+            preview_max_size=params.settings.preview_max_size,
         ),
     )
 

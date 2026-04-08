@@ -128,11 +128,14 @@ class ViewerLayerService:
         image: np.ndarray,
         *,
         white_padding: float,
+        hide_output: bool = True,
+        set_active: bool = True,
     ) -> None:
         image_world_size = _normalized_world_size(image)
         border_world_size = _padded_world_size(image_world_size, white_padding)
 
-        self.hide_layer(OUTPUT_LAYER_NAME)
+        if hide_output:
+            self.hide_layer(OUTPUT_LAYER_NAME)
 
         white_border = self._set_or_add_image_layer(
             np.ones((*np.asarray(image).shape[:2], 3), dtype=np.float32),
@@ -144,7 +147,8 @@ class ViewerLayerService:
         _set_layer_geometry(preview_layer, world_size=image_world_size)
 
         self._ensure_stack_order()
-        self.set_active_layer(preview_layer)
+        if set_active:
+            self.set_active_layer(preview_layer)
 
     def sync_white_border(self, *, white_padding: float) -> None:
         white_border = self.white_border_layer()

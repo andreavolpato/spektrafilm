@@ -261,6 +261,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         save_output_layer=object(),
         report_display_transform_status=object(),
         set_gray_18_canvas_enabled=object(),
+        refresh_preview_cache=object(),
     )
     original_connect_auto_preview_signals = app_module.connect_auto_preview_signals
     widgets = SimpleNamespace(
@@ -279,7 +280,11 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
             scan_requested=FakeSignal(),
             save_requested=FakeSignal(),
         ),
-        display=SimpleNamespace(use_display_transform=SimpleNamespace(toggled=FakeSignal()), gray_18_canvas=SimpleNamespace(toggled=FakeSignal())),
+        display=SimpleNamespace(
+            use_display_transform=SimpleNamespace(toggled=FakeSignal()),
+            gray_18_canvas=SimpleNamespace(toggled=FakeSignal()),
+            preview_max_size=SimpleNamespace(valueChanged=FakeSignal()),
+        ),
     )
 
     try:
@@ -301,6 +306,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
     assert widgets.simulation.save_requested.connected == [controller.save_output_layer]
     assert widgets.display.use_display_transform.toggled.connected == [controller.report_display_transform_status]
     assert widgets.display.gray_18_canvas.toggled.connected == [controller.set_gray_18_canvas_enabled]
+    assert widgets.display.preview_max_size.valueChanged.connected == [controller.refresh_preview_cache]
     assert captured['auto_preview_args'] == (controller, widgets)
 
 
@@ -365,6 +371,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     assert widgets.simulation.exposure_compensation_ev.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_lens_blur.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_unsharp_mask._editors[0].valueChanged.connected == [controller.request_auto_preview]
+    assert widgets.display.preview_max_size.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.output_color_space.currentTextChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.bottom_auto_preview.toggled.connected == [controller.request_auto_preview]
     assert widgets.simulation.bottom_scan_film.toggled.connected == [controller.request_auto_preview]

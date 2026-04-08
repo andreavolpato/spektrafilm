@@ -112,6 +112,26 @@ def test_load_input_image_builds_preview_stack_and_homes_view(monkeypatch) -> No
     assert captured['reset_view'] is True
 
 
+def test_load_input_image_requests_auto_preview_once_when_enabled(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: True)))
+    raw_image = np.full((4, 2, 3), 0.25, dtype=np.float32)
+    preview_image = np.full((2, 1, 3), 0.5, dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    def fake_set_or_add_input_stack(image) -> None:
+        captured['stack_image'] = image
+        controller._current_preview_image = preview_image
+
+    monkeypatch.setattr(controller_module, 'load_image_oiio', lambda path: raw_image)
+    monkeypatch.setattr(controller, '_set_or_add_input_stack', fake_set_or_add_input_stack)
+    monkeypatch.setattr(controller, 'request_auto_preview', lambda: captured.setdefault('preview_requests', 0) or captured.__setitem__('preview_requests', captured.get('preview_requests', 0) + 1))
+
+    controller.load_input_image('C:/tmp/example.png')
+
+    np.testing.assert_allclose(captured['stack_image'], raw_image)
+    assert captured['preview_requests'] == 1
+
+
 def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(monkeypatch) -> None:
     viewer = FakeViewer([FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older')])
     controller = GuiController(viewer=viewer, widgets=object())
@@ -163,6 +183,28 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
     np.testing.assert_allclose(controller._current_input_image, raw_image)
     np.testing.assert_allclose(controller._current_preview_image, preview_image)
     assert captured['reset_view'] is True
+
+
+def test_load_raw_image_requests_auto_preview_once_when_enabled(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: True)))
+    raw_image = np.full((4, 2, 3), 0.4, dtype=np.float32)
+    preview_image = np.full((2, 1, 3), 0.6, dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    def fake_set_or_add_input_stack(image) -> None:
+        captured['stack_image'] = image
+        controller._current_preview_image = preview_image
+
+    monkeypatch.setattr(controller_module, 'load_and_process_raw_file', lambda path, **kwargs: raw_image)
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: make_test_controller_gui_state())
+    monkeypatch.setattr(controller, '_set_or_add_input_stack', fake_set_or_add_input_stack)
+    monkeypatch.setattr(controller_module, 'set_status', lambda *args, **kwargs: None)
+    monkeypatch.setattr(controller, 'request_auto_preview', lambda: captured.setdefault('preview_requests', 0) or captured.__setitem__('preview_requests', captured.get('preview_requests', 0) + 1))
+
+    controller.load_raw_image('C:/tmp/example.nef')
+
+    np.testing.assert_allclose(captured['stack_image'], raw_image)
+    assert captured['preview_requests'] == 1
 
 
 def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_layers(monkeypatch) -> None:
@@ -437,6 +479,48 @@ def test_request_auto_preview_replays_after_active_simulation(monkeypatch) -> No
     replay_callback()
 
     assert captured['preview_runs'] == 1
+
+
+def test_refresh_preview_cache_recomputes_cached_preview_without_hiding_visible_output(monkeypatch) -> None:
+    viewer = FakeViewer()
+    controller = GuiController(viewer=viewer, widgets=object())
+    gui_state = make_test_controller_gui_state()
+    raw_image = np.full((6, 4, 3), 0.25, dtype=np.float32)
+    old_preview = np.full((3, 2, 3), 0.1, dtype=np.float32)
+    new_preview = np.full((4, 3, 3), 0.6, dtype=np.float32)
+    preview_display = np.full((4, 3, 3), 0.9, dtype=np.float32)
+    output_image = np.full((8, 4, 3), 99, dtype=np.uint8)
+    float_image = np.full((8, 4, 3), 0.5, dtype=np.float32)
+
+    controller._layers.set_or_add_input_preview_layer(old_preview, white_padding=gui_state.display.white_padding)
+    controller._layers.set_or_add_output_layer(
+        output_image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+    output_layer = controller._output_layer()
+    assert output_layer is not None
+    controller._set_active_layer(output_layer)
+
+    controller._current_input_image = raw_image
+    controller._current_preview_image = old_preview
+
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: SimpleNamespace(settings=SimpleNamespace(preview_max_size=1024)))
+    monkeypatch.setattr(controller, '_resize_for_preview', lambda image, *, max_size: new_preview)
+    monkeypatch.setattr(controller, '_prepare_input_color_preview_image', lambda *args, **kwargs: preview_display)
+    monkeypatch.setattr(controller_module, 'reset_viewer_camera', lambda viewer: (_ for _ in ()).throw(AssertionError('should not home viewer')))
+
+    controller.refresh_preview_cache(1024)
+
+    np.testing.assert_allclose(controller._current_input_image, raw_image)
+    np.testing.assert_allclose(controller._current_preview_image, new_preview)
+    np.testing.assert_allclose(controller._preview_input_layer().data, preview_display)
+    assert controller._output_layer() is output_layer
+    assert output_layer.visible is True
+    assert viewer.layers.selection.active is output_layer
 
 
 @pytest.mark.parametrize(
