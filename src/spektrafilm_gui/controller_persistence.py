@@ -35,7 +35,7 @@ def save_current_state_to_file(
     dialog_parent_fn: Callable[[Any], Any],
     message_box: Any,
 ) -> None:
-    filepath, _ = file_dialog.getSaveFileName(
+    filepath, _ = file_dialog.get_save_file_name(
         dialog_parent_fn(viewer),
         'Save GUI state',
         'gui_state.json',
@@ -66,7 +66,7 @@ def load_state_from_file(
     dialog_parent_fn: Callable[[Any], Any],
     message_box: Any,
 ) -> None:
-    filepath, _ = file_dialog.getOpenFileName(
+    filepath, _ = file_dialog.get_open_file_name(
         dialog_parent_fn(viewer),
         'Load GUI state',
         '',

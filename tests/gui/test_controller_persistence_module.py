@@ -18,10 +18,10 @@ class FakeFileDialog:
         self.save_result = save_result
         self.open_result = open_result
 
-    def getSaveFileName(self, *args, **kwargs):  # noqa: N802 - Qt API name
+    def get_save_file_name(self, *args, **kwargs):
         return self.save_result
 
-    def getOpenFileName(self, *args, **kwargs):  # noqa: N802 - Qt API name
+    def get_open_file_name(self, *args, **kwargs):
         return self.open_result
 
 
