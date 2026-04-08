@@ -7,6 +7,7 @@ from spektrafilm_gui.widget_sections import (
     CouplersSection,
     DataclassSection,
     DisplaySection,
+    DiffusionSection,
     EnlargerSection,
     ExposureControlSection,
     FilePickerSection,
@@ -49,6 +50,7 @@ class WidgetBundle:
     load_raw: LoadRawSection
     grain: GrainSection
     preflashing: PreflashingSection
+    diffusion: DiffusionSection
     halation: HalationSection
     couplers: CouplersSection
     glare: GlareSection
@@ -81,6 +83,7 @@ def create_widget_bundle() -> WidgetBundle:
         load_raw=LoadRawSection(),
         grain=GrainSection(),
         preflashing=PreflashingSection(),
+        diffusion=DiffusionSection(simulation),
         halation=HalationSection(),
         couplers=CouplersSection(),
         glare=glare,

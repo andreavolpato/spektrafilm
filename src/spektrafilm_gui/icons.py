@@ -31,6 +31,7 @@ _SECTION_HEADER_ICONS = {
     'couplers': 'tabler:chart-sankey',
     'glare': 'tabler:background',
     'preflash': 'tabler:sparkles',
+    'diffusion': 'tabler:artboard',
     'spectral upsampling': 'tabler:prism-light',
     'tune': 'tabler:stroke-curved',
     'experimental': 'tabler:flask',

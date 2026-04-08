@@ -539,6 +539,9 @@ class SimulationSection(DataclassSection):
                 'print_exposure_compensation',
                 'print_y_filter_shift',
                 'print_m_filter_shift',
+                'diffusion_strength',
+                'diffusion_spatial_scale',
+                'diffusion_intensity',
                 'print_illuminant',
                 'scan_lens_blur',
                 'scan_white_correction',
@@ -712,6 +715,22 @@ class EnlargerSection(QWidget):
                     _spec_row('simulation', 'print_m_filter_shift', simulation_section.print_m_filter_shift),
                 ],
                 expanded=True,
+            ),
+        )
+
+
+class DiffusionSection(QWidget):
+    def __init__(self, simulation_section: SimulationSection):
+        super().__init__()
+        self.setLayout(
+            _build_linked_form_section(
+                'Diffusion',
+                [
+                    _spec_row('simulation', 'diffusion_strength', simulation_section.diffusion_strength),
+                    _spec_row('simulation', 'diffusion_spatial_scale', simulation_section.diffusion_spatial_scale),
+                    _spec_row('simulation', 'diffusion_intensity', simulation_section.diffusion_intensity),
+                ],
+                expanded=False,
             ),
         )
 

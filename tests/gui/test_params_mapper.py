@@ -75,6 +75,17 @@ def test_build_params_maps_runtime_strings() -> None:
     assert params.io.output_cctf_encoding is True
 
 
+def test_build_params_maps_enlarger_diffusion_filter() -> None:
+    state = make_state()
+    state.simulation.diffusion_strength = 0.5
+    state.simulation.diffusion_spatial_scale = 1.6
+    state.simulation.diffusion_intensity = 0.7
+
+    params = build_params_from_state(state)
+
+    assert params.enlarger.diffusion_filter == (0.5, 1.6, 0.7)
+
+
 def test_build_params_uses_preview_tuned_lut_settings() -> None:
     params = build_params_from_state(make_state())
 
@@ -97,6 +108,9 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.output_color_space == 'sRGB'
     assert state.simulation.saving_color_space == 'sRGB'
     assert state.simulation.saving_cctf_encoding is True
+    assert state.simulation.diffusion_strength == 0.0
+    assert state.simulation.diffusion_spatial_scale == 1.0
+    assert state.simulation.diffusion_intensity == 1.0
     assert state.simulation.scan_white_correction == 0.0
     assert state.simulation.scan_black_correction == 0.0
     assert state.display.use_display_transform is True

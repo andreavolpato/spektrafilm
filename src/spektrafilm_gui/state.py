@@ -105,6 +105,9 @@ class SimulationState:
     print_exposure_compensation: bool
     print_y_filter_shift: float
     print_m_filter_shift: float
+    diffusion_strength: float
+    diffusion_spatial_scale: float
+    diffusion_intensity: float
     scan_lens_blur: float
     scan_white_correction: float
     scan_black_correction: float
@@ -242,6 +245,9 @@ def gui_state_from_params(
             print_exposure_compensation=params.enlarger.print_exposure_compensation,
             print_y_filter_shift=params.enlarger.y_filter_shift,
             print_m_filter_shift=params.enlarger.m_filter_shift,
+            diffusion_strength=float(params.enlarger.diffusion_filter[0]),
+            diffusion_spatial_scale=float(params.enlarger.diffusion_filter[1]),
+            diffusion_intensity=float(params.enlarger.diffusion_filter[2]),
             scan_lens_blur=params.scanner.lens_blur,
             scan_white_correction=params.scanner.white_correction,
             scan_black_correction=params.scanner.black_correction,

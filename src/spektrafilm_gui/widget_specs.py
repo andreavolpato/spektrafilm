@@ -89,6 +89,25 @@ GUI_WIDGET_SPECS = {
             tooltip="M filter shift of the color enlarger from a neutral position, in Kodak CC units",
             step=1,
         ),
+        "diffusion_strength": WidgetSpec(
+            label="Diffusion strength",
+            tooltip="strength of the diffusion filter 1/8=0.125, 1/4=0.25, 1/2=0.5, ..",
+            min_value=0,
+            max_value=1,
+            step=0.125,
+        ),
+        "diffusion_spatial_scale": WidgetSpec(
+            label="Spatial scale",
+            tooltip="scale spatially the filter blooming",
+            min_value=0,
+            step=0.1,
+        ),
+        "diffusion_intensity": WidgetSpec(
+            label="Intensity",
+            tooltip="tune the intensity of the filter",
+            min_value=0,
+            step=0.1,
+        ),
         "scan_lens_blur": WidgetSpec(
             label="Scan lens blur",
             tooltip="Sigma of gaussian filter in pixel for the scanner lens blur",
@@ -121,7 +140,7 @@ GUI_WIDGET_SPECS = {
             label="Saving CCTF encoding",
             tooltip="Add or not the CCTF to the saved image file",
         ),
-        "auto_preview": WidgetSpec(label="Auto preview", tooltip="trigger the preview after every change of gui parameters, read preview tooltip for details"),
+        "auto_preview": WidgetSpec(label="Auto preview", tooltip="trigger the preview after every change of gui parameters, use mouse scrollwheel on parameters field, read preview tooltip for details"),
         "scan_film": WidgetSpec(label="Scan film", tooltip="Show a scan of the negative instead of the print"),
     },
     "display": {
