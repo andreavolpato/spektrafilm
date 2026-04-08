@@ -79,11 +79,11 @@ def _deserialize_dataclass(cls: type[GuiStateType], data: dict[str, Any]) -> Gui
 
 
 def load_dialog_dir(key: str) -> str:
-    return QSettings().value(f'dialog_dirs/{key}', '')
+    return QSettings('spektrafilm', 'spektrafilm').value(f'dialog_dirs/{key}', '')
 
 
 def save_dialog_dir(key: str, directory: str) -> None:
-    QSettings().setValue(f'dialog_dirs/{key}', directory)
+    QSettings('spektrafilm', 'spektrafilm').setValue(f'dialog_dirs/{key}', directory)
 
 
 def _deserialize_value(annotation: Any, value: Any) -> Any:
