@@ -146,9 +146,10 @@ conda env remove -n spektrafilm
 
 ## Testing
 
-Run the test suite with:
+Install the dev dependencies, then run the test suite:
 
 ```bash
+pip install -e ".[dev]"
 python -m pytest tests -v
 ```
 

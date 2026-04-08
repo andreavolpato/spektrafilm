@@ -34,6 +34,9 @@ dependencies = [
     "pyconify~=0.2.1",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.scripts]
 spektrafilm = "spektrafilm_gui.app:main"
 
