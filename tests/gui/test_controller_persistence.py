@@ -12,6 +12,8 @@ def test_load_state_from_file_syncs_canvas_background(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller_module.QFileDialog, 'getOpenFileName', staticmethod(lambda *args, **kwargs: ('state.json', 'JSON (*.json)')))
+    monkeypatch.setattr(controller_module, 'load_dialog_dir', lambda key: '')
+    monkeypatch.setattr(controller_module, 'save_dialog_dir', lambda key, directory: None)
     monkeypatch.setattr(controller_module, 'load_gui_state_from_path', lambda path: PROJECT_DEFAULT_GUI_STATE)
     monkeypatch.setattr(controller_module, 'apply_gui_state', lambda state, *, widgets: captured.setdefault('applied', (state, widgets)))
     monkeypatch.setattr(controller, '_sync_canvas_background', lambda: captured.setdefault('canvas_synced', True))
@@ -60,6 +62,8 @@ def test_save_current_state_to_file_persists_json(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller_module, 'dialog_parent', lambda viewer: None)
+    monkeypatch.setattr(controller_module, 'load_dialog_dir', lambda key: '')
+    monkeypatch.setattr(controller_module, 'save_dialog_dir', lambda key, directory: None)
     monkeypatch.setattr(
         controller_module.QFileDialog,
         'getSaveFileName',
@@ -81,6 +85,8 @@ def test_load_state_from_file_applies_loaded_state(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller_module, 'dialog_parent', lambda viewer: None)
+    monkeypatch.setattr(controller_module, 'load_dialog_dir', lambda key: '')
+    monkeypatch.setattr(controller_module, 'save_dialog_dir', lambda key, directory: None)
     monkeypatch.setattr(
         controller_module.QFileDialog,
         'getOpenFileName',
