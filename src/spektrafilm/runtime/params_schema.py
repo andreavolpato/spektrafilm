@@ -32,7 +32,6 @@ class EnlargerParams:
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
     preflash_m_filter_shift: float = 0.0
-    just_preflash: bool = False
 
 
 @dataclass
@@ -91,7 +90,6 @@ class GlareParams:
 @dataclass
 class FilmRenderingParams:
     density_curve_gamma: float = 1.0
-    base_density_scale: float = 1.0
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
@@ -101,7 +99,6 @@ class FilmRenderingParams:
 @dataclass
 class PrintRenderingParams:
     density_curve_gamma: float = 1.0
-    base_density_scale: float = 1.0
     glare: GlareParams = field(default_factory=GlareParams)
 
 

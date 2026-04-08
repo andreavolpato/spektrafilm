@@ -30,7 +30,7 @@ def _create_lut_3d(function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=3
 #     lut = np.reshape(function(X), (steps, steps, 3))
 #     return lut
 
-def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=32):
+def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=32, lut=None):
     # Computes the function on the data using a 3D LUT for acceleration.
     # The data is assumed to be in the range [xmin, xmax] and will be normalized for LUT indexing.
     # The lut is created on the fly in the range [xmin, xmax] with the specified number of steps.
@@ -39,7 +39,8 @@ def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0),
     xmax = _as_channel_bounds(xmax)
     if np.any(xmax <= xmin):
         raise ValueError('xmax must be greater than xmin')
-    lut = _create_lut_3d(function, xmin, xmax, steps)
+    if lut is None:
+        lut = _create_lut_3d(function, xmin, xmax, steps)
     data_normalized = (data - xmin) / (xmax - xmin)
     return apply_lut_3d(lut, data_normalized), lut
 

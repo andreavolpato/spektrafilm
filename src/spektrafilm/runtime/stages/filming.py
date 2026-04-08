@@ -6,18 +6,19 @@ from spektrafilm.model.color_filters import compute_band_pass_filter
 from spektrafilm.model.diffusion import apply_gaussian_blur_um, apply_halation_um
 from spektrafilm.model.emulsion import compute_density_spectral, develop, develop_simple
 from spektrafilm.utils.autoexposure import measure_autoexposure_ev
-from spektrafilm.utils.spectral_upsampling import rgb_to_raw
+from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_mallett2019
 from spektrafilm.utils.timings import timeit
 
 
 class FilmingStage:
     def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
-                 resize_service,enlarger_service):
+                 lut_service, resize_service, enlarger_service):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
         self._io = io_params
         self._settings = settings_params
+        self._lut_service = lut_service
         self._resize_service = resize_service
         self._enlarger_service = enlarger_service
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
@@ -78,11 +79,17 @@ class FilmingStage:
             band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
             sensitivity *= band_pass_filter[:, None]
 
-        raw = rgb_to_raw(rgb, sensitivity,
-                         color_space=color_space, 
-                         apply_cctf_decoding=apply_cctf_decoding, 
-                         reference_illuminant=self._film.info.reference_illuminant,
-                         method=self._settings.rgb_to_raw_method)
+        if self._settings.rgb_to_raw_method == "hanatos2025":
+            raw = rgb_to_raw_hanatos2025(rgb, sensitivity,
+                            color_space=color_space, 
+                            apply_cctf_decoding=apply_cctf_decoding, 
+                            reference_illuminant=self._film.info.reference_illuminant,
+                            tc_lut=self._lut_service.get_filming_tc_lut(sensitivity))
+        elif self._settings.rgb_to_raw_method == "mallett2019":
+            raw = rgb_to_raw_mallett2019(rgb, sensitivity,
+                            color_space=color_space,
+                            apply_cctf_decoding=apply_cctf_decoding,
+                            reference_illuminant=self._film.info.reference_illuminant)
         return raw
     
     def _compute_density_spectral_midgray_to_balance_print(self):
@@ -103,6 +110,5 @@ class FilmingStage:
             self._film.data.channel_density,
             density_midgray,
             base_density=self._film.data.base_density,
-            base_density_scale=self._film_render.base_density_scale,
         )
         return density_spectral_midgray

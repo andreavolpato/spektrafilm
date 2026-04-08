@@ -18,7 +18,7 @@ class ScanningStage:
         self,
         film,
         film_render_params,
-        print,
+        print_profile,
         print_render_params,
         scanner_params,
         io_params,
@@ -28,7 +28,7 @@ class ScanningStage:
     ):
         self._film = film
         self._film_render = film_render_params
-        self._print = print
+        self._print = print_profile
         self._print_render = print_render_params
         self._scanner = scanner_params
         self._io = io_params
@@ -44,39 +44,39 @@ class ScanningStage:
 
     def density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._io.scan_film:
-            profile = self._film
-            base_density_scale = self._film_render.base_density_scale
+            channel_density = self._film.data.channel_density
+            base_density = self._film.data.base_density
             glare = None
             density_min = -np.array(self._film_render.grain.density_min)
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
+            scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
         else:
-            profile = self._print
-            base_density_scale = self._print_render.base_density_scale
+            channel_density = self._print.data.channel_density
+            base_density = self._print.data.base_density
             glare = self._print_render.glare
             density_min = np.nanmin(self._print.data.density_curves, axis=0)
             density_max = np.nanmax(self._print.data.density_curves, axis=0)
-
-        scan_illuminant = standard_illuminant(profile.info.viewing_illuminant)
+            scan_illuminant = standard_illuminant(self._print.info.viewing_illuminant)
+            
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
         def cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
             density_spectral = compute_density_spectral(
-                profile.data.channel_density,
+                channel_density,
                 density_cmy,
-                base_density=profile.data.base_density,
-                base_density_scale=base_density_scale,
+                base_density,
             )
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
             return np.log10(np.fmax(xyz, 0.0) + 1e-10)
 
-        log_xyz = self._lut_service.compute(
+        log_xyz = self._lut_service.spectral_compute(
             density_channels,
             spectral_calculation=cmy_to_log_xyz,
             data_min=density_min,
             data_max=density_max,
             use_lut=use_lut,
-            save_scanner_lut=True,
+            use_scanner_lut_memory=True,
         )
         xyz = 10 ** log_xyz
         
@@ -88,8 +88,9 @@ class ScanningStage:
                 cmy_black = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
                 cmy_white = np.zeros((1,1,3))
             elif not self._io.scan_film and self._print.info.type == 'negative':
-                cmy_black = self._color_reference_service.cmy_print_black
-                cmy_white = self._color_reference_service.cmy_print_white
+                cmy_black = self._color_reference_service.cmy_print_black()
+                cmy_white = self._color_reference_service.cmy_print_white()
+            else: raise ValueError("Unsupported film/print type for black and white correction.")
             log_xyz_black = cmy_to_log_xyz(cmy_black)
             log_xyz_white = cmy_to_log_xyz(cmy_white)
             y_black = (10 ** log_xyz_black)[:, :, 1]

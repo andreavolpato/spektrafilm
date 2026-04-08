@@ -99,7 +99,7 @@ def compute_lut_spectra(lut_size=128, smooth_steps=1, lut_coeffs_filename='hanat
     lut_spectra = np.array(lut_spectra, dtype=np.half)
     return lut_spectra
 
-def _load_spectra_lut(filename='irradiance_xy_tc.npy'):
+def _load_hanatos2025_spectra_lut(filename='irradiance_xy_tc.npy'):
     data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
     with data_path.open('rb') as file:
         spectra_lut = np.double(np.load(file))
@@ -177,14 +177,17 @@ def rgb_to_raw_mallett2019(RGB, sensitivity,
 ################################################################################
 # Using hanatos irradiance spectra generation
 
-HANATOS2025_SPECTRA_LUT = _load_spectra_lut()
+HANATOS2025_SPECTRA_LUT = _load_hanatos2025_spectra_lut()
+
+def compute_hanatos2025_tc_lut(sensitivity, spectra_lut=HANATOS2025_SPECTRA_LUT):
+    return contract('ijl,lm->ijm', HANATOS2025_SPECTRA_LUT, sensitivity)
 
 def _normalize_raw_to_midgray(raw, midgray_spectrum, sensitivity):
     raw_midgray = np.einsum('k,km->m', midgray_spectrum, sensitivity)
     return raw / raw_midgray[1]
 
 def rgb_to_raw_hanatos2025(rgb, sensitivity,
-                           color_space, apply_cctf_decoding, reference_illuminant):
+                           color_space, apply_cctf_decoding, reference_illuminant, tc_lut=None):
     if rgb.shape[1] == 1: # if a single pixel is provided, compute the spectrum directly
         spectrum = rgb_to_smooth_spectrum(
             rgb,
@@ -201,7 +204,8 @@ def rgb_to_raw_hanatos2025(rgb, sensitivity,
             apply_cctf_decoding=apply_cctf_decoding,
             reference_illuminant=reference_illuminant,
         )
-        tc_lut  = contract('ijl,lm->ijm', HANATOS2025_SPECTRA_LUT, sensitivity)
+        if tc_lut is None:
+            tc_lut  = compute_hanatos2025_tc_lut(sensitivity)
         raw = apply_lut_cubic_2d(tc_lut, tc_raw)
         raw *= b[...,None] # scale the raw back with the scale factor
 

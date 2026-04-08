@@ -16,7 +16,7 @@ from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStag
 class SimulationPipeline:
     """Thin runtime orchestrator that composes stage objects."""
 
-    def __init__(self, params):
+    def __init__(self, params, update_params=False):
         self._params = copy.deepcopy(params)
 
         self.camera = self._params.camera
@@ -32,11 +32,14 @@ class SimulationPipeline:
 
         self.timings = {}
 
-        self._lut_service = SpectralLUTService(self.settings.lut_resolution)
-        self._enlarger_service = EnlargerService(self.enlarger)
-        self._color_reference_service = ColorReferenceService(self.film.data, self.print.data, self.io.scan_film)
-
         self._resize_service = ResizingService(self.io, self.camera.film_format_mm)
+        if not update_params:
+            self._lut_service = SpectralLUTService(self.settings.lut_resolution)
+        self._enlarger_service = EnlargerService(self.enlarger)
+        self._color_reference_service = ColorReferenceService(self.film.data, self.film_render,
+                                                              self.print.data, self.print_render,
+                                                              self.io.scan_film)
+
         
         self._filming_stage = FilmingStage(
             self.film,
@@ -44,6 +47,7 @@ class SimulationPipeline:
             self.camera,
             self.io,
             self.settings,
+            self._lut_service,
             self._resize_service, # to get pixel size um for blurs
             self._enlarger_service, # to compute and save density spectral midgray to balance print
         )
@@ -77,6 +81,7 @@ class SimulationPipeline:
         self._scanning_stage.timings = self.timings
 
     def process(self, image):
+        """Process an image through the simulation pipeline."""
         image = self._preprocess(image)
         image = self._pipeline(image)
         return image
@@ -104,4 +109,8 @@ class SimulationPipeline:
         if self.debug.return_film_density_cmy: return cmy_film
         if self.debug.return_print_density_cmy: return cmy_print
         return rgb_scan
+    
+    def update_params(self,params):
+        """Update params and re-initialize stages that depend on them."""
+        self.__init__(params, update_params=True)
 

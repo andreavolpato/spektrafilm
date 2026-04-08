@@ -19,11 +19,10 @@ def compute_density_spectral(
     channel_density,
     density_cmy,
     base_density=None,
-    base_density_scale=1.0,
 ):
     density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(channel_density))
     if base_density is not None:
-        density_spectral += np.asarray(base_density) * base_density_scale
+        density_spectral += np.asarray(base_density)
     return density_spectral
 
 def develop_simple(

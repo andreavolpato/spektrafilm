@@ -16,7 +16,7 @@ class PrintingStage:
         self,
         film,
         film_render_params,
-        print,
+        print_profile,
         print_render_params,
         enlarger_params,
         settings_params,
@@ -27,7 +27,7 @@ class PrintingStage:
     ):
         self._film = film
         self._film_render = film_render_params
-        self._print = print
+        self._print = print_profile
         self._print_render = print_render_params
         self._enlarger = enlarger_params
         self._settings = settings_params
@@ -44,13 +44,13 @@ class PrintingStage:
         self._color_reference_service.log_raw_print_black = self.film_cmy_to_print_log_raw(cmy_film_black)
         self._color_reference_service.log_raw_print_white = self.film_cmy_to_print_log_raw(cmy_film_white)
         
-        log_raw_print = self._lut_service.compute(
+        log_raw_print = self._lut_service.spectral_compute(
             cmy_film_density,
             spectral_calculation=self.film_cmy_to_print_log_raw,
             data_min=-np.array(self._film_render.grain.density_min),
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
             use_lut=self._settings.use_enlarger_lut,
-            save_enlarger_lut=True,
+            use_enlarger_lut_memory=True,
         )    
         raw = 10**log_raw_print
         raw = apply_promist_filter(raw, self._enlarger.diffusion_filter[0],
@@ -63,19 +63,7 @@ class PrintingStage:
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
         
         density_curves_glare_compensated = self._print_corrected_density_curves()
-        
-        self._color_reference_service.cmy_print_black = develop_simple(
-            self._color_reference_service.log_raw_print_black,
-            self._print.data.log_exposure,
-            density_curves_glare_compensated,
-            gamma_factor=self._print_render.density_curve_gamma,
-        )
-        self._color_reference_service.cmy_print_white = develop_simple(
-            self._color_reference_service.log_raw_print_white,
-            self._print.data.log_exposure,
-            density_curves_glare_compensated,
-            gamma_factor=self._print_render.density_curve_gamma,
-        )
+
         
         return develop_simple(
             log_raw,
@@ -94,19 +82,13 @@ class PrintingStage:
             self._film.data.channel_density,
             cmy_film_density,
             base_density=self._film.data.base_density,
-            base_density_scale=self._film_render.base_density_scale,
         )
         print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
         light = density_to_light(density_spectral, print_illuminant)
         raw = contract("ijk, kl->ijl", light, sensitivity)
         raw *= self._enlarger.print_exposure
         raw *= self.compute_exposure_factor_midgray(sensitivity, print_illuminant)
-
-        raw_preflash = self.compute_raw_preflash(enlarger_light_source, sensitivity)
-        if self._enlarger.just_preflash:
-            raw = raw_preflash
-        else:
-            raw += raw_preflash
+        raw += self.compute_raw_preflash(enlarger_light_source, sensitivity)
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
     def compute_raw_preflash(self, light_source, sensitivity):

@@ -15,6 +15,9 @@ class Simulator:
     def __init__(self, params: RuntimePhotoParams):
         self._params = params # should stay static
         self._pipeline = SimulationPipeline(params)
+        self._sync_public_state_from_pipeline()
+
+    def _sync_public_state_from_pipeline(self) -> None:
         self.camera = self._pipeline.camera
         self.film = self._pipeline.film
         self.film_render = self._pipeline.film_render
@@ -28,13 +31,21 @@ class Simulator:
         self.timings = self._pipeline.timings
 
     def process(self, image):
+        """Process the input image through the simulation pipeline and return the final result."""
         return self._pipeline.process(image)
+    
+    def update_params(self, params):
+        """Update the parameters of the simulation pipeline."""
+        self._params = params
+        self._pipeline.update_params(params)
+        self._sync_public_state_from_pipeline()
 
 ######################################################################################
 # Convenience functions for single-call simulation without needing to instantiate the Simulator class.
 
 def simulate(image, params: RuntimePhotoParams,
-             digest_params_first: bool = True):
+             digest_params_first: bool = True,
+             print_timings: bool = False):
     """Convenience function to run the simulation pipeline with a single call.
     The simulator needs digested parameters to run. By default they are digested on the fly.
     If you already have digested parameters or want to digest them yourself, set digest_params_first=False.
@@ -42,18 +53,24 @@ def simulate(image, params: RuntimePhotoParams,
     if digest_params_first:
         params = digest_params(params)
     simulator = Simulator(params)
-    return simulator.process(image)
+    result = simulator.process(image)
+    if print_timings:
+        print("Simulation timings:", simulator.timings)
+    return result
 
 
 def simulate_preview(image, params: RuntimePhotoParams,
-                     digest_params_first: bool = True):
+                     digest_params_first: bool = True,
+                     print_timings: bool = False):
     """Convenience function to run the simulation pipeline with a single call.
     The simulator needs digested parameters to run. By default they are digested on the fly.
     If you already have digested parameters or want to digest them yourself, set digest_params_first=False.
     """
     max_size = params.settings.preview_max_size
-    return simulate(resize_for_preview(image, max_size), 
-                    params, digest_params_first=digest_params_first)
+    result = simulate(resize_for_preview(image, max_size), params,
+                      digest_params_first=digest_params_first,
+                      print_timings=print_timings)
+    return result
 
 
 #######################################################################################################
