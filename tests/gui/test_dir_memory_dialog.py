@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from spektrafilm_gui import controller as controller_module
 from spektrafilm_gui.controller import _DirMemoryDialog
 
@@ -20,7 +22,7 @@ def test_get_save_file_name_combines_remembered_dir_with_filename(monkeypatch) -
 
     _DirMemoryDialog('k').get_save_file_name(None, '', 'output.png', '')
 
-    assert captured['initial'] == '/remembered/dir/output.png'
+    assert Path(captured['initial']) == Path('/remembered/dir/output.png')
 
 
 def test_get_save_file_name_uses_filename_when_no_dir(monkeypatch) -> None:
@@ -58,7 +60,7 @@ def test_get_save_file_name_stores_parent_dir(monkeypatch) -> None:
 
     _DirMemoryDialog('k').get_save_file_name(None, '', 'out.png', '')
 
-    assert captured['dir'] == '/some/dir'
+    assert Path(captured['dir']) == Path('/some/dir')
 
 
 def test_get_save_file_name_does_not_store_on_cancel(monkeypatch) -> None:
