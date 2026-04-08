@@ -121,6 +121,7 @@ GUI_WIDGET_SPECS = {
             label="Saving CCTF encoding",
             tooltip="Add or not the CCTF to the saved image file",
         ),
+        "auto_preview": WidgetSpec(label="Auto preview", tooltip="trigger the preview after every change of gui parameters, read preview tooltip for details"),
         "scan_film": WidgetSpec(label="Scan film", tooltip="Show a scan of the negative instead of the print"),
     },
     "display": {
@@ -226,7 +227,6 @@ GUI_WIDGET_SPECS = {
             tooltip="Preflash exposure value in ev for the print",
             step=0.005,
         ),
-        "just_preflash": WidgetSpec(tooltip="Only apply preflash to the print, to visualize the preflash effect"),
         "y_filter_shift": WidgetSpec(
             tooltip="Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
             step=1,
@@ -291,7 +291,6 @@ GUI_WIDGET_SPECS = {
 
 
 GUI_AUXILIARY_SPECS = {
-    "input_layer": WidgetSpec(label="Input layer"),
     "scan_for_print": WidgetSpec(
         label="Scan for print",
         tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.",
@@ -302,7 +301,7 @@ GUI_AUXILIARY_SPECS = {
 GUI_BUTTON_SPECS = {
     "preview": ButtonSpec(
         text="PREVIEW",
-        tooltip="Run the full simulation on the resized preview input",
+        tooltip="run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)",
         preserve_case=True,
     ),
     "scan": ButtonSpec(

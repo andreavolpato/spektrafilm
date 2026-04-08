@@ -51,7 +51,6 @@ class PreflashingState:
     exposure: float
     y_filter_shift: float
     m_filter_shift: float
-    just_preflash: bool
 
 
 @dataclass(slots=True)
@@ -113,6 +112,7 @@ class SimulationState:
     output_color_space: str
     saving_color_space: str
     saving_cctf_encoding: bool
+    auto_preview: bool
     scan_film: bool
 
 
@@ -198,7 +198,6 @@ def gui_state_from_params(
             exposure=params.enlarger.preflash_exposure,
             y_filter_shift=params.enlarger.preflash_y_filter_shift,
             m_filter_shift=params.enlarger.preflash_m_filter_shift,
-            just_preflash=params.enlarger.just_preflash,
         ),
         halation=HalationState(
             active=params.film_render.halation.active,
@@ -250,6 +249,7 @@ def gui_state_from_params(
             output_color_space="sRGB",
             saving_color_space="sRGB",
             saving_cctf_encoding=params.io.output_cctf_encoding,
+            auto_preview=True,
             scan_film=params.io.scan_film,
         ),
         display=DisplayState(

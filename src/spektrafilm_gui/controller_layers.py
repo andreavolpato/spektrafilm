@@ -11,19 +11,11 @@ if TYPE_CHECKING:
 
 INPUT_LAYER_NAME = 'input'
 INPUT_PREVIEW_LAYER_NAME = 'input_preview'
-INPUT_COLOR_PREVIEW_LAYER_NAME = 'input_color_preview'
 WHITE_BORDER_LAYER_NAME = 'white_border'
 OUTPUT_LAYER_NAME = 'output'
-INPUT_LAYER_NAMES = (
-    INPUT_COLOR_PREVIEW_LAYER_NAME,
-    INPUT_PREVIEW_LAYER_NAME,
-    INPUT_LAYER_NAME,
-)
 STACK_LAYER_ORDER = (
     WHITE_BORDER_LAYER_NAME,
-    INPUT_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
-    INPUT_COLOR_PREVIEW_LAYER_NAME,
     OUTPUT_LAYER_NAME,
 )
 
@@ -89,27 +81,6 @@ def _layer_world_size(layer: NapariImageLayer) -> tuple[float, float]:
     return float(height) * scale_y, float(width) * scale_x
 
 
-def set_input_layer_metadata(
-    layer: NapariImageLayer,
-    *,
-    raw_image: np.ndarray,
-    input_raw_data_key: str,
-    input_padding_pixels_key: str,
-) -> None:
-    layer.metadata[input_raw_data_key] = np.asarray(raw_image)
-    layer.metadata[input_padding_pixels_key] = 0.0
-
-
-def processing_input_image(layer: NapariImageLayer, *, input_raw_data_key: str) -> np.ndarray:
-    metadata = getattr(layer, 'metadata', None)
-    if not isinstance(metadata, dict):
-        return np.asarray(layer.data)[..., :3]
-    raw_image = metadata.get(input_raw_data_key)
-    if raw_image is None:
-        return np.asarray(layer.data)[..., :3]
-    return np.asarray(raw_image)[..., :3]
-
-
 def set_output_layer_metadata(
     layer: NapariImageLayer,
     *,
@@ -131,20 +102,10 @@ def set_output_layer_metadata(
 @dataclass(slots=True)
 class ViewerLayerService:
     viewer: Any
-    input_raw_data_key: str
-    input_padding_pixels_key: str
     output_float_data_key: str
     output_color_space_key: str
     output_cctf_encoding_key: str
     output_display_transform_key: str
-
-    def available_input_layers(self) -> list[NapariImageLayer]:
-        layers: list[NapariImageLayer] = []
-        for layer_name in INPUT_LAYER_NAMES:
-            layer = self.image_layer(layer_name)
-            if layer is not None:
-                layers.append(layer)
-        return layers
 
     def image_layer(self, layer_name: str) -> NapariImageLayer | None:
         return next(
@@ -156,93 +117,49 @@ class ViewerLayerService:
             None,
         )
 
-    def selected_input_layer(self, layer_name: str | None) -> NapariImageLayer | None:
-        if not layer_name:
-            return None
-        return self.image_layer(layer_name)
-
-    def input_layer(self) -> NapariImageLayer | None:
-        return self.image_layer(INPUT_LAYER_NAME)
-
     def preview_input_layer(self) -> NapariImageLayer | None:
         return self.image_layer(INPUT_PREVIEW_LAYER_NAME)
-
-    def color_preview_layer(self) -> NapariImageLayer | None:
-        return self.image_layer(INPUT_COLOR_PREVIEW_LAYER_NAME)
 
     def white_border_layer(self) -> NapariImageLayer | None:
         return self.image_layer(WHITE_BORDER_LAYER_NAME)
 
-    def set_or_add_input_stack(
+    def set_or_add_input_preview_layer(
         self,
-        full_image: np.ndarray,
+        image: np.ndarray,
         *,
-        preview_image: np.ndarray,
-        color_preview_image: np.ndarray,
         white_padding: float,
-        refresh_input_layers_fn: Any,
     ) -> None:
-        image_world_size = _normalized_world_size(preview_image)
+        image_world_size = _normalized_world_size(image)
         border_world_size = _padded_world_size(image_world_size, white_padding)
 
-        self.remove_layer(OUTPUT_LAYER_NAME)
+        self.hide_layer(OUTPUT_LAYER_NAME)
 
         white_border = self._set_or_add_image_layer(
-            np.ones((*np.asarray(preview_image).shape[:2], 3), dtype=np.float32),
+            np.ones((*np.asarray(image).shape[:2], 3), dtype=np.float32),
             layer_name=WHITE_BORDER_LAYER_NAME,
         )
         _set_layer_geometry(white_border, world_size=border_world_size)
-        white_border.visible = True
 
-        input_layer = self._set_or_add_image_layer(np.asarray(full_image), layer_name=INPUT_LAYER_NAME)
-        set_input_layer_metadata(
-            input_layer,
-            raw_image=np.asarray(full_image),
-            input_raw_data_key=self.input_raw_data_key,
-            input_padding_pixels_key=self.input_padding_pixels_key,
-        )
-        _set_layer_geometry(input_layer, world_size=image_world_size)
-        input_layer.visible = True
-
-        preview_layer = self._set_or_add_image_layer(np.asarray(preview_image), layer_name=INPUT_PREVIEW_LAYER_NAME)
-        set_input_layer_metadata(
-            preview_layer,
-            raw_image=np.asarray(preview_image),
-            input_raw_data_key=self.input_raw_data_key,
-            input_padding_pixels_key=self.input_padding_pixels_key,
-        )
+        preview_layer = self._set_or_add_image_layer(np.asarray(image), layer_name=INPUT_PREVIEW_LAYER_NAME)
         _set_layer_geometry(preview_layer, world_size=image_world_size)
-        preview_layer.visible = True
-
-        color_preview_layer = self._set_or_add_image_layer(np.asarray(color_preview_image), layer_name=INPUT_COLOR_PREVIEW_LAYER_NAME)
-        set_input_layer_metadata(
-            color_preview_layer,
-            raw_image=np.asarray(preview_image),
-            input_raw_data_key=self.input_raw_data_key,
-            input_padding_pixels_key=self.input_padding_pixels_key,
-        )
-        _set_layer_geometry(color_preview_layer, world_size=image_world_size)
-        color_preview_layer.visible = True
 
         self._ensure_stack_order()
-        self.set_active_layer(color_preview_layer)
-        refresh_input_layers_fn(selected_name=INPUT_COLOR_PREVIEW_LAYER_NAME)
+        self.set_active_layer(preview_layer)
 
     def sync_white_border(self, *, white_padding: float) -> None:
         white_border = self.white_border_layer()
         if white_border is None:
             return
 
-        preview_layer = self.preview_input_layer() or self.color_preview_layer() or self.input_layer()
+        preview_layer = self.preview_input_layer()
         if preview_layer is None:
             return
 
         border_world_size = _padded_world_size(_layer_world_size(preview_layer), white_padding)
         _set_layer_geometry(white_border, world_size=border_world_size)
-        white_border.visible = True
 
     def current_image_world_size(self) -> tuple[float, float] | None:
-        layer = self.preview_input_layer() or self.color_preview_layer() or self.input_layer()
+        layer = self.preview_input_layer()
         if layer is None:
             return None
         return _layer_world_size(layer)
@@ -272,12 +189,22 @@ class ViewerLayerService:
         image_world_size = self.current_image_world_size()
         if image_world_size is not None:
             _set_layer_geometry(layer, world_size=image_world_size)
-        layer.visible = True
-        self._ensure_stack_order()
+        if not layer.visible:
+            layer.visible = True
+        self.move_layer_to_top(layer)
         self.set_active_layer(layer)
 
     def output_layer(self) -> NapariImageLayer | None:
-        return self.image_layer(OUTPUT_LAYER_NAME)
+        layer = self.image_layer(OUTPUT_LAYER_NAME)
+        if layer is None or not layer.visible:
+            return None
+        return layer
+
+    def hide_layer(self, layer_name: str) -> None:
+        layer = self.image_layer(layer_name)
+        if layer is None or not layer.visible:
+            return
+        layer.visible = False
 
     def remove_layer(self, layer_name: str) -> None:
         layer = self.image_layer(layer_name)
@@ -301,10 +228,6 @@ class ViewerLayerService:
         if selection is not None and hasattr(selection, 'active'):
             selection.active = layer
 
-    def show_only_layer(self, target_layer: NapariImageLayer) -> None:
-        for layer in self.viewer.layers:
-            layer.visible = layer is target_layer
-
     def _set_or_add_image_layer(self, image: np.ndarray, *, layer_name: str) -> NapariImageLayer:
         existing_layer = self.image_layer(layer_name)
         if existing_layer is None:
@@ -313,10 +236,17 @@ class ViewerLayerService:
         return existing_layer
 
     def _ensure_stack_order(self) -> None:
-        for layer_name in STACK_LAYER_ORDER:
-            layer = self.image_layer(layer_name)
-            if layer is not None:
-                self.move_layer_to_top(layer)
+        stack_layers = [
+            layer
+            for layer_name in STACK_LAYER_ORDER
+            if (layer := self.image_layer(layer_name)) is not None
+        ]
+        if not stack_layers:
+            return
+        if list(self.viewer.layers[-len(stack_layers) :]) == stack_layers:
+            return
+        for layer in stack_layers:
+            self.move_layer_to_top(layer)
 
     def output_layer_float_data(self) -> np.ndarray | None:
         output_layer = self.output_layer()

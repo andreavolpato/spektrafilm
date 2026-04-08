@@ -31,7 +31,6 @@ PROFILE_SYNC_FIELDS: dict[str, tuple[str, ...]] = {
         'exposure',
         'y_filter_shift',
         'm_filter_shift',
-        'just_preflash',
     ),
     'halation': (
         'active',

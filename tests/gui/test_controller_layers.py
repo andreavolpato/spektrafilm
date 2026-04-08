@@ -3,29 +3,24 @@ from __future__ import annotations
 import numpy as np
 
 from spektrafilm_gui.controller import (
-    INPUT_PADDING_PIXELS_KEY,
-    INPUT_RAW_DATA_KEY,
     OUTPUT_CCTF_ENCODING_KEY,
     OUTPUT_COLOR_SPACE_KEY,
     OUTPUT_DISPLAY_TRANSFORM_KEY,
     OUTPUT_FLOAT_DATA_KEY,
 )
 from spektrafilm_gui.controller_layers import (
-    INPUT_COLOR_PREVIEW_LAYER_NAME,
-    INPUT_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
+    OUTPUT_LAYER_NAME,
     ViewerLayerService,
     WHITE_BORDER_LAYER_NAME,
 )
 
-from .helpers import FakeLayer, FakeViewer
+from .helpers import FakeLayer, FakeLayerList, FakeViewer
 
 
 def _make_service(viewer: FakeViewer) -> ViewerLayerService:
     return ViewerLayerService(
         viewer=viewer,
-        input_raw_data_key=INPUT_RAW_DATA_KEY,
-        input_padding_pixels_key=INPUT_PADDING_PIXELS_KEY,
         output_float_data_key=OUTPUT_FLOAT_DATA_KEY,
         output_color_space_key=OUTPUT_COLOR_SPACE_KEY,
         output_cctf_encoding_key=OUTPUT_CCTF_ENCODING_KEY,
@@ -33,69 +28,107 @@ def _make_service(viewer: FakeViewer) -> ViewerLayerService:
     )
 
 
-def test_set_or_add_input_stack_creates_fixed_layers_with_shared_world_frame() -> None:
+class VisibilityTrackingLayer:
+    def __init__(self, data: np.ndarray | None = None, *, name: str = 'layer', visible: bool = True) -> None:
+        self.name = name
+        self.data = np.zeros((1, 1, 3), dtype=np.float32) if data is None else data
+        self.metadata: dict[str, object] = {}
+        self.scale = (1.0, 1.0)
+        self.translate = (0.0, 0.0)
+        self._type_string = 'image'
+        self.visible_set_calls = 0
+        self._visible = bool(visible)
+
+    @property
+    def visible(self) -> bool:
+        return self._visible
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        self.visible_set_calls += 1
+        self._visible = bool(value)
+
+
+class VisibilityTrackingViewer(FakeViewer):
+    def add_image(self, image: np.ndarray, name: str) -> VisibilityTrackingLayer:
+        layer = VisibilityTrackingLayer(image, name=name)
+        self.layers.append(layer)
+        return layer
+
+
+class MoveTrackingLayerList(FakeLayerList):
+    def __init__(self, layers: list[FakeLayer], *, active=None) -> None:
+        super().__init__(layers, active=active)
+        self.move_calls = 0
+
+    def move(self, src: int, dst: int) -> None:
+        self.move_calls += 1
+        super().move(src, dst)
+
+
+class TrackingViewer(FakeViewer):
+    def __init__(self, layers: list[FakeLayer] | None = None):
+        super().__init__([])
+        self.layers = MoveTrackingLayerList(layers or [])
+        self.reset_view_calls = 0
+
+    def add_image(self, image: np.ndarray, name: str) -> VisibilityTrackingLayer:
+        layer = VisibilityTrackingLayer(image, name=name)
+        self.layers.append(layer)
+        return layer
+
+
+def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_frame() -> None:
     viewer = FakeViewer([FakeLayer(name='older-1'), FakeLayer(name='older-2')])
     service = _make_service(viewer)
-    captured: dict[str, object] = {}
-    full_image = np.full((4, 2, 3), 0.25, dtype=np.float32)
-    preview_image = np.full((2, 1, 3), 0.5, dtype=np.float32)
-    color_preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
+    preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
 
-    service.set_or_add_input_stack(
-        full_image,
-        preview_image=preview_image,
-        color_preview_image=color_preview_image,
+    service.set_or_add_input_preview_layer(
+        preview_image,
         white_padding=0.25,
-        refresh_input_layers_fn=lambda *, selected_name: captured.setdefault('selected_name', selected_name),
     )
 
-    assert [layer.name for layer in viewer.layers[-4:]] == [
+    assert [layer.name for layer in viewer.layers[-2:]] == [
         WHITE_BORDER_LAYER_NAME,
-        INPUT_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
-        INPUT_COLOR_PREVIEW_LAYER_NAME,
-    ]
-    assert [layer.name for layer in service.available_input_layers()] == [
-        INPUT_COLOR_PREVIEW_LAYER_NAME,
-        INPUT_PREVIEW_LAYER_NAME,
-        INPUT_LAYER_NAME,
     ]
 
     white_border = service.white_border_layer()
-    input_layer = service.input_layer()
     preview_layer = service.preview_input_layer()
-    color_preview_layer = service.color_preview_layer()
     assert white_border is not None
-    assert input_layer is not None
     assert preview_layer is not None
-    assert color_preview_layer is not None
-
-    np.testing.assert_allclose(input_layer.metadata[INPUT_RAW_DATA_KEY], full_image)
-    np.testing.assert_allclose(preview_layer.metadata[INPUT_RAW_DATA_KEY], preview_image)
-    np.testing.assert_allclose(color_preview_layer.metadata[INPUT_RAW_DATA_KEY], preview_image)
-    assert input_layer.metadata[INPUT_PADDING_PIXELS_KEY] == 0.0
-    assert captured['selected_name'] == INPUT_COLOR_PREVIEW_LAYER_NAME
-    assert viewer.layers.selection.active is color_preview_layer
-
+    assert viewer.layers.selection.active is preview_layer
     assert white_border.visible is True
-    assert input_layer.visible is True
     assert preview_layer.visible is True
-    assert color_preview_layer.visible is True
-    assert input_layer.scale == (0.25, 0.25)
     assert preview_layer.scale == (0.5, 0.5)
-    assert color_preview_layer.scale == (0.5, 0.5)
     assert white_border.scale == (0.75, 1.0)
+
+
+def test_repeated_input_preview_updates_skip_stack_reorder() -> None:
+    viewer = TrackingViewer()
+    service = _make_service(viewer)
+    preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.25,
+    )
+    move_calls = viewer.layers.move_calls
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.25,
+    )
+
+    assert viewer.layers.move_calls == move_calls
 
 
 def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None:
     viewer = FakeViewer()
     service = _make_service(viewer)
-    service.set_or_add_input_stack(
-        np.full((4, 2, 3), 0.25, dtype=np.float32),
-        preview_image=np.full((2, 1, 3), 0.5, dtype=np.float32),
-        color_preview_image=np.full((2, 1, 3), 0.75, dtype=np.float32),
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32),
         white_padding=0.1,
-        refresh_input_layers_fn=lambda **_: None,
     )
 
     image = np.full((8, 4, 3), 77, dtype=np.uint8)
@@ -122,6 +155,98 @@ def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None
     assert preview_layer.visible is True
     assert viewer.layers.selection.active is output_layer
     assert output_layer.scale == (0.125, 0.125)
+
+
+def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hidden_layer() -> None:
+    viewer = VisibilityTrackingViewer()
+    service = _make_service(viewer)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32),
+        white_padding=0.1,
+    )
+
+    image = np.full((8, 4, 3), 77, dtype=np.uint8)
+    float_image = np.full((8, 4, 3), 0.5, dtype=np.float32)
+    service.set_or_add_output_layer(
+        image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    output_layer = service.output_layer()
+    assert isinstance(output_layer, VisibilityTrackingLayer)
+    visible_set_calls = output_layer.visible_set_calls
+
+    service.set_or_add_output_layer(
+        image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    assert output_layer.visible is True
+    assert output_layer.visible_set_calls == visible_set_calls
+
+    output_layer.visible = False
+    service.set_or_add_output_layer(
+        image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    assert output_layer.visible is True
+    assert output_layer.visible_set_calls == visible_set_calls + 2
+
+
+def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output() -> None:
+    viewer = TrackingViewer()
+    service = _make_service(viewer)
+    preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.1,
+    )
+
+    output_image = np.full((8, 4, 3), 77, dtype=np.uint8)
+    float_image = np.full((8, 4, 3), 0.5, dtype=np.float32)
+    service.set_or_add_output_layer(
+        output_image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    hidden_output = service.image_layer(OUTPUT_LAYER_NAME)
+    assert isinstance(hidden_output, VisibilityTrackingLayer)
+    visible_set_calls = hidden_output.visible_set_calls
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.1,
+    )
+
+    assert service.output_layer() is None
+    assert service.image_layer(OUTPUT_LAYER_NAME) is hidden_output
+    assert hidden_output.visible is False
+    assert hidden_output.visible_set_calls == visible_set_calls + 1
+
+    service.set_or_add_output_layer(
+        output_image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    assert service.output_layer() is hidden_output
+    assert hidden_output.visible is True
 
 
 def test_output_layer_render_settings_fall_back_without_output_layer() -> None:

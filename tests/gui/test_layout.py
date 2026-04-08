@@ -190,17 +190,17 @@ def test_reset_viewer_camera_calls_viewer_reset() -> None:
     assert viewer.reset_calls == 1
 
 
-def test_reset_viewer_camera_fits_active_layer_only_during_reset() -> None:
+def test_reset_viewer_camera_preserves_visibility_with_active_layer() -> None:
     active_layer = FakeLayer(name='active', visible=True)
     other_layer = FakeLayer(name='other', visible=True)
     viewer = _make_resettable_viewer([other_layer, active_layer], active=active_layer)
 
     reset_viewer_camera(viewer)
 
-    _assert_camera_reset(viewer, during=[False, True], after=[True, True])
+    _assert_camera_reset(viewer, during=[True, True], after=[True, True])
 
 
-def test_reset_viewer_camera_falls_back_to_top_visible_layer_when_no_active_layer() -> None:
+def test_reset_viewer_camera_preserves_visibility_without_active_layer() -> None:
     hidden_layer = FakeLayer(name='hidden', visible=False)
     visible_layer = FakeLayer(name='visible', visible=True)
     viewer = _make_resettable_viewer([hidden_layer, visible_layer], active=None)

@@ -12,7 +12,7 @@ image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif'
 # image = [[[0.184,0.184,0.184]]]
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
 params = init_params(print_profile='kodak_portra_endura')
-params.io.input_cctf_decoding = True
+params.io.input_cctf_decoding = False
 params.print_render.glare.active = False
 params.debug.deactivate_stochastic_effects = False
 params.camera.exposure_compensation_ev = 0
@@ -33,7 +33,7 @@ params.settings.use_enlarger_lut = True
 params.settings.use_scanner_lut = True
 params.settings.lut_resolution = 32
 params.debug.print_timings = True
-image = simulate(image, params)
+image = simulate(image, params, print_timings=True)
 
 # plt.imshow(image[:,:,1])
 plt.imshow(image)
