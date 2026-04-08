@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import numpy as np
 
 from spektrafilm.profiles.io import load_profile
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
@@ -25,13 +26,30 @@ def digest_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.enlarger.c_filter_neutral = c_filter
         params.enlarger.m_filter_neutral = m_filter
         params.enlarger.y_filter_neutral = y_filter
-    
+        
+    if params.settings.preview_mode:
+        params.enlarger.lens_blur = 0.0
+        params.film_render.dir_couplers.diffusion_size_um = 0.0
+        params.film_render.grain.active = False
+        params.film_render.grain.agx_particle_area_um2 = 0.0
+        params.film_render.grain.blur = 0.0
+        params.film_render.halation.size_um = [0.0, 0.0, 0.0]
+        params.film_render.halation.scattering_size_um = [0.0, 0.0, 0.0]
+        params.print_render.glare.blur = 0.0
+        params.camera.lens_blur_um = 0.0
+        params.scanner.lens_blur = 0.0
+        params.scanner.unsharp_mask = (0.0, 0.0)
+
     # film overrides
     # define here all the specifics to stocks that should be applied in params.film_render
     if params.film.is_positive:
         params.film_render.dir_couplers.ratio_rgb = (0.35, 0.23, 0.12)
     if params.film.is_negative:
         params.film_render.dir_couplers.ratio_rgb = (0.35, 0.35, 0.35)
+        
+    # stock specifics overrides
+    if params.film.info.stock == "fujifilm_provia_100f":
+        params.film_render.dir_couplers.ratio_rgb = np.array((0.35, 0.23, 0.12))*1.2
 
     # debug switches
     if params.debug.deactivate_spatial_effects:

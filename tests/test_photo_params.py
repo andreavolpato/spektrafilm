@@ -46,7 +46,6 @@ class TestInitParamsDefaults:
         assert params.enlarger.normalize_print_exposure is True
         assert params.enlarger.y_filter_shift == 0.0
         assert params.enlarger.m_filter_shift == 0.0
-        assert params.enlarger.just_preflash is False
         assert np.isfinite(params.enlarger.y_filter_neutral)
         assert np.isfinite(params.enlarger.m_filter_neutral)
         assert np.isfinite(params.enlarger.c_filter_neutral)
@@ -57,7 +56,6 @@ class TestInitParamsDefaults:
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
         assert params.film_render.density_curve_gamma == 1.0
-        assert params.film_render.base_density_scale == 1.0
         assert params.film_render.grain.active is True
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
@@ -65,7 +63,6 @@ class TestInitParamsDefaults:
         assert params.film_render.dir_couplers.ratio_rgb == (0.35, 0.35, 0.35)
 
         assert params.print_render.density_curve_gamma == 1.0
-        assert params.print_render.base_density_scale == 1.0
         assert params.print_render.glare.active is True
 
         assert params.io.input_color_space == 'ProPhoto RGB'

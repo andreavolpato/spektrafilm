@@ -144,10 +144,8 @@ def _make_load_raw_section(monkeypatch):
 def _make_filepicker_section(monkeypatch):
     build_ui = getattr(widgets_module.FilePickerSection, '_build_ui')
     choose_file = getattr(widgets_module.FilePickerSection, '_choose_file')
-    selected_input_layer_name = getattr(widgets_module.FilePickerSection, 'selected_input_layer_name')
     created_buttons: list[FakeButton] = []
     monkeypatch.setattr(widgets_module, 'QLineEdit', FakeLineEdit)
-    monkeypatch.setattr(widgets_module, 'QComboBox', FakeComboBox)
     monkeypatch.setattr(
         widgets_module,
         '_build_button',
@@ -158,7 +156,6 @@ def _make_filepicker_section(monkeypatch):
     monkeypatch.setattr(widgets_module, '_set_single_collapsible_layout', lambda *args, **kwargs: None)
     section = SimpleNamespace(load_requested=FakeSignal())
     setattr(section, '_choose_file', lambda: choose_file(section))
-    setattr(section, 'selected_input_layer_name', lambda: selected_input_layer_name(section))
     build_ui(section)
     return section, created_buttons
 
@@ -246,31 +243,6 @@ def test_file_picker_choose_file_ignores_cancelled_dialog(monkeypatch) -> None:
     assert section.load_requested.emitted == []
 
 
-def test_file_picker_set_available_layers_preserves_current_selection(monkeypatch) -> None:
-    section, _created_buttons = _make_filepicker_section(monkeypatch)
-
-    widgets_module.FilePickerSection.set_available_layers(section, ['input', 'mask'], selected_name='mask')
-    widgets_module.FilePickerSection.set_available_layers(section, ['input', 'mask', 'preview'])
-
-    assert section.input_layer.items == ['input', 'mask', 'preview']
-    assert section.input_layer.currentText() == 'mask'
-    assert section.input_layer.blocked_calls == [True, False, True, False]
-
-
-def test_file_picker_set_available_layers_uses_selected_name_override(monkeypatch) -> None:
-    section, _created_buttons = _make_filepicker_section(monkeypatch)
-
-    widgets_module.FilePickerSection.set_available_layers(section, ['input', 'mask', 'preview'], selected_name='preview')
-
-    assert section.input_layer.currentText() == 'preview'
-
-
-def test_file_picker_selected_input_layer_name_returns_none_when_empty(monkeypatch) -> None:
-    section, _created_buttons = _make_filepicker_section(monkeypatch)
-
-    assert widgets_module.FilePickerSection.selected_input_layer_name(section) is None
-
-
 def test_gui_config_buttons_emit_expected_actions(monkeypatch) -> None:
     section, created_buttons = _make_gui_config_section(monkeypatch)
 
@@ -291,15 +263,16 @@ def test_gui_config_buttons_emit_expected_actions(monkeypatch) -> None:
     assert section.restore_factory_default_requested.emit_count == 1
 
 
-def test_input_image_section_adds_input_layer_before_input_color_space(monkeypatch) -> None:
+def test_input_image_section_does_not_add_auxiliary_rows() -> None:
     form = FakeForm()
-    add_extra_rows_before = getattr(widgets_module.InputImageSection, '_add_extra_rows_before')
-    monkeypatch.setattr(widgets_module, '_build_auxiliary_label', lambda name: f'label:{name}')
-    section = SimpleNamespace(_filepicker_section=SimpleNamespace(input_layer='input-layer-combo'))
+    add_extra_rows_before = getattr(widgets_module.InputImageSection, '_add_extra_rows_before', None)
+    if add_extra_rows_before is None:
+        return
+    section = SimpleNamespace(_filepicker_section=SimpleNamespace())
 
     add_extra_rows_before(section, form)
 
-    assert form.rows == [('label:input_layer', 'input-layer-combo')]
+    assert form.rows == []
 
 
 def test_load_raw_widget_specs_include_requested_tooltips() -> None:
@@ -317,6 +290,15 @@ def test_load_raw_widget_specs_include_requested_tooltips() -> None:
 def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
     assert widget_specs_module.get_auxiliary_spec('scan_for_print').tooltip == (
         'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.'
+    )
+
+
+def test_preview_and_auto_preview_specs_include_requested_tooltips() -> None:
+    assert widget_specs_module.get_button_spec('preview').tooltip == (
+        'run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)'
+    )
+    assert widget_specs_module.get_widget_spec('simulation', 'auto_preview').tooltip == (
+        'trigger the preview after every change of gui parameters, read preview tooltip for details'
     )
 
 

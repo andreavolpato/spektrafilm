@@ -17,6 +17,13 @@ class EnlargerService:
         y_filter = self._enlarger.y_filter_neutral + self._enlarger.y_filter_shift
         filter_cc_values = np.array([c_filter, m_filter, y_filter])
         return color_enlarger(light_source, filter_cc_values)
+    
+    def enlarger_neutral_illuminant(self, light_source):
+        c_filter = self._enlarger.c_filter_neutral
+        m_filter = self._enlarger.m_filter_neutral
+        y_filter = self._enlarger.y_filter_neutral
+        filter_cc_values = np.array([c_filter, m_filter, y_filter])
+        return color_enlarger(light_source, filter_cc_values)
 
     def preflash_filtered_illuminant(self, light_source):
         c_filter = self._enlarger.c_filter_neutral

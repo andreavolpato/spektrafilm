@@ -8,7 +8,6 @@ import pytest
 from spektrafilm_gui import controller as controller_module
 from spektrafilm_gui.controller import GuiController, PROFILE_SYNC_FIELDS
 from spektrafilm_gui.controller_layers import (
-    INPUT_COLOR_PREVIEW_LAYER_NAME,
     INPUT_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
@@ -23,7 +22,8 @@ pytestmark = pytest.mark.integration
 def _run_simulation_case(
     monkeypatch,
     *,
-    input_layer,
+    input_image=None,
+    preview_source_image=None,
     source_layer_name: str = INPUT_PREVIEW_LAYER_NAME,
     gui_state=None,
     simulated_image=None,
@@ -32,15 +32,18 @@ def _run_simulation_case(
 ) -> dict[str, object]:
     controller = GuiController(viewer=object(), widgets=object())
     gui_state = make_test_controller_gui_state() if gui_state is None else gui_state
+    input_image = np.full((6, 4, 3), 0.25, dtype=np.float32) if input_image is None else input_image
+    preview_source_image = (
+        np.full((4, 2, 3), 0.125, dtype=np.float32)
+        if preview_source_image is None
+        else preview_source_image
+    )
     simulated_image = np.full((4, 4, 3), 0.5, dtype=np.float32) if simulated_image is None else simulated_image
     preview_image = np.full((4, 4, 3), 99, dtype=np.uint8) if preview_image is None else preview_image
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(
-        type(controller._layers),
-        'selected_input_layer',
-        lambda _self, name: input_layer if name == source_layer_name else None,
-    )
+    controller._current_input_image = np.asarray(input_image)
+    controller._current_preview_image = np.asarray(preview_source_image)
     monkeypatch.setattr(controller, '_sync_white_border', lambda *, white_padding: captured.setdefault('white_padding', white_padding))
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: object())
@@ -81,40 +84,37 @@ def test_load_input_image_builds_preview_stack_and_homes_view(monkeypatch) -> No
         FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older-1'),
         FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older-2'),
     ])
-    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
-    controller = GuiController(viewer=viewer, widgets=widgets)
+    controller = GuiController(viewer=viewer, widgets=object())
     gui_state = make_test_controller_gui_state()
     raw_image = np.full((4, 2, 3), 0.25, dtype=np.float32)
     preview_image = np.full((2, 1, 3), 0.5, dtype=np.float32)
+    preview_display_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller_module, 'load_image_oiio', lambda path: raw_image)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: SimpleNamespace(settings=SimpleNamespace(preview_max_size=300)))
     monkeypatch.setattr(controller, '_resize_for_preview', lambda image, *, max_size: preview_image)
-    monkeypatch.setattr(controller, '_prepare_input_color_preview_image', lambda *args, **kwargs: np.full((2, 1, 3), 0.75, dtype=np.float32))
+    monkeypatch.setattr(controller, '_prepare_input_color_preview_image', lambda *args, **kwargs: preview_display_image)
     monkeypatch.setattr(controller_module, 'reset_viewer_camera', lambda viewer: captured.setdefault('reset_view', True))
 
     controller.load_input_image('C:/tmp/example.png')
 
-    assert len(viewer.layers) == 6
-    assert [layer.name for layer in viewer.layers[-4:]] == [
+    assert len(viewer.layers) == 4
+    assert [layer.name for layer in viewer.layers[-2:]] == [
         WHITE_BORDER_LAYER_NAME,
-        INPUT_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
-        INPUT_COLOR_PREVIEW_LAYER_NAME,
     ]
-    np.testing.assert_allclose(viewer.layers[-3].metadata[controller_module.INPUT_RAW_DATA_KEY], raw_image)
-    np.testing.assert_allclose(viewer.layers[-2].metadata[controller_module.INPUT_RAW_DATA_KEY], preview_image)
-    np.testing.assert_allclose(viewer.layers[-1].metadata[controller_module.INPUT_RAW_DATA_KEY], preview_image)
+    np.testing.assert_allclose(controller._current_input_image, raw_image)
+    np.testing.assert_allclose(controller._current_preview_image, preview_image)
+    np.testing.assert_allclose(viewer.layers[-1].data, preview_display_image)
     assert viewer.layers.selection.active is viewer.layers[-1]
     assert captured['reset_view'] is True
 
 
 def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(monkeypatch) -> None:
     viewer = FakeViewer([FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older')])
-    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
-    controller = GuiController(viewer=viewer, widgets=widgets)
+    controller = GuiController(viewer=viewer, widgets=object())
     gui_state = make_test_controller_gui_state()
     gui_state.input_image.input_color_space = 'Display P3'
     gui_state.input_image.apply_cctf_decoding = True
@@ -155,13 +155,13 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
         'output_cctf_encoding': True,
         'lens_info_out': {},
     }
-    assert len(viewer.layers) == 5
-    assert [layer.name for layer in viewer.layers[-4:]] == [
+    assert len(viewer.layers) == 3
+    assert [layer.name for layer in viewer.layers[-2:]] == [
         WHITE_BORDER_LAYER_NAME,
-        INPUT_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
-        INPUT_COLOR_PREVIEW_LAYER_NAME,
     ]
+    np.testing.assert_allclose(controller._current_input_image, raw_image)
+    np.testing.assert_allclose(controller._current_preview_image, preview_image)
     assert captured['reset_view'] is True
 
 
@@ -169,8 +169,7 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
     viewer = FakeViewer([
         FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older'),
     ])
-    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
-    controller = GuiController(viewer=viewer, widgets=widgets)
+    controller = GuiController(viewer=viewer, widgets=object())
     gui_state = make_test_controller_gui_state()
     gui_state.load_raw.white_balance = 'custom'
     gui_state.load_raw.temperature = 3200.0
@@ -212,8 +211,7 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
 
 def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch) -> None:
     viewer = FakeViewer([FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older')])
-    widgets = SimpleNamespace(filepicker=SimpleNamespace(set_available_layers=lambda *args, **kwargs: None))
-    controller = GuiController(viewer=viewer, widgets=widgets)
+    controller = GuiController(viewer=viewer, widgets=object())
     gui_state = make_test_controller_gui_state()
     gui_state.load_raw.lens_correction = True
     raw_image = np.full((2, 2, 3), 0.4, dtype=np.float32)
@@ -246,23 +244,6 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
         ('Loading raw...', 0),
         ('Loaded raw, lens correction not applied', 5000),
     ]
-
-
-def test_select_input_layer_sets_active_layer_without_reordering() -> None:
-    selected_layer = FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name=INPUT_PREVIEW_LAYER_NAME)
-    viewer = FakeViewer([
-        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name=WHITE_BORDER_LAYER_NAME),
-        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name=INPUT_LAYER_NAME),
-        selected_layer,
-        FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name=INPUT_COLOR_PREVIEW_LAYER_NAME),
-    ])
-    controller = GuiController(viewer=viewer, widgets=object())
-
-    controller.select_input_layer(INPUT_PREVIEW_LAYER_NAME)
-
-    assert viewer.layers[2] is selected_layer
-    assert viewer.layers.selection.active is selected_layer
-    assert all(layer.visible is True for layer in viewer.layers)
 
 
 def test_apply_profile_defaults_routes_through_selection_digest(monkeypatch) -> None:
@@ -326,17 +307,11 @@ def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
         controller_module.PROFILE_SYNC_FIELDS = original_fields
 
 
-def test_run_simulation_uses_processing_input_metadata(monkeypatch) -> None:
+def test_run_simulation_uses_cached_preview_input(monkeypatch) -> None:
     raw_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
-    display_image = np.full((2, 2, 3), 0.5, dtype=np.float32)
-    input_layer = FakeLayer(
-        display_image,
-        metadata={controller_module.INPUT_RAW_DATA_KEY: raw_image},
-        name=INPUT_PREVIEW_LAYER_NAME,
-    )
     captured = _run_simulation_case(
         monkeypatch,
-        input_layer=input_layer,
+        preview_source_image=raw_image,
         simulated_image=np.full((2, 2, 3), 0.5, dtype=np.float32),
         preview_image=np.full((2, 2, 3), 99, dtype=np.uint8),
     )
@@ -346,13 +321,12 @@ def test_run_simulation_uses_processing_input_metadata(monkeypatch) -> None:
 
 
 def test_run_simulation_passes_display_transform_settings(monkeypatch) -> None:
-    input_layer = SimpleNamespace(data=np.full((2, 2, 3), 0.25, dtype=np.float32), metadata={})
     gui_state = make_test_controller_gui_state()
     gui_state.display.use_display_transform = True
     gui_state.display.white_padding = 0.5
     captured = _run_simulation_case(
         monkeypatch,
-        input_layer=input_layer,
+        preview_source_image=np.full((2, 2, 3), 0.25, dtype=np.float32),
         gui_state=gui_state,
         simulated_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
         preview_image=np.full((6, 6, 3), 99, dtype=np.uint8),
@@ -394,18 +368,14 @@ def test_run_preview_and_scan_start_async_simulation(monkeypatch, method_name: s
 
 
 def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> None:
-    input_layer = SimpleNamespace(data=np.full((2, 2, 3), 0.25, dtype=np.float32), metadata={})
     simulation_section = SimpleNamespace(preview_button=None, scan_button=None, save_button=None)
     widgets = SimpleNamespace(simulation=simulation_section)
     controller = GuiController(viewer=object(), widgets=widgets)
     gui_state = make_test_controller_gui_state()
+    preview_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(
-        type(controller._layers),
-        'selected_input_layer',
-        lambda _self, name: input_layer if name == INPUT_PREVIEW_LAYER_NAME else None,
-    )
+    controller._current_preview_image = preview_image
     monkeypatch.setattr(controller, '_sync_white_border', lambda *, white_padding: captured.setdefault('white_padding', white_padding))
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: object())
@@ -417,29 +387,79 @@ def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> No
     assert captured['status'] == ('Computing preview...', 0)
     assert captured['white_padding'] == gui_state.display.white_padding
     assert controller._active_simulation_label == 'Preview'
+    np.testing.assert_allclose(captured['worker']._request.image, np.double(preview_image))
+
+
+def test_request_auto_preview_schedules_once_and_runs_preview(monkeypatch) -> None:
+    simulation_section = SimpleNamespace(auto_preview_value=lambda: True)
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=simulation_section))
+    controller._current_preview_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    def fake_single_shot(delay_ms, callback):
+        captured.setdefault('scheduled', []).append((delay_ms, callback))
+
+    monkeypatch.setattr(controller_module.QTimer, 'singleShot', staticmethod(fake_single_shot))
+    monkeypatch.setattr(controller, 'run_preview', lambda: captured.setdefault('preview_runs', 0) or captured.__setitem__('preview_runs', captured.get('preview_runs', 0) + 1))
+
+    controller.request_auto_preview()
+    controller.request_auto_preview()
+
+    assert len(captured['scheduled']) == 1
+    scheduled_delay, scheduled_callback = captured['scheduled'][0]
+    assert scheduled_delay == 0
+
+    scheduled_callback()
+
+    assert captured['preview_runs'] == 1
+
+
+def test_request_auto_preview_replays_after_active_simulation(monkeypatch) -> None:
+    simulation_section = SimpleNamespace(auto_preview_value=lambda: True)
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=simulation_section))
+    controller._current_preview_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
+    controller._active_simulation_worker = object()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module.QTimer, 'singleShot', staticmethod(lambda delay_ms, callback: captured.setdefault('scheduled', []).append((delay_ms, callback))))
+    monkeypatch.setattr(controller, 'run_preview', lambda: captured.setdefault('preview_runs', 0) or captured.__setitem__('preview_runs', captured.get('preview_runs', 0) + 1))
+
+    controller.request_auto_preview()
+    scheduled_callback = captured['scheduled'][0][1]
+    scheduled_callback()
+
+    assert controller._pending_auto_preview is True
+    assert 'preview_runs' not in captured
+
+    controller._active_simulation_worker = None
+    controller._replay_pending_auto_preview()
+    replay_callback = captured['scheduled'][1][1]
+    replay_callback()
+
+    assert captured['preview_runs'] == 1
 
 
 @pytest.mark.parametrize(
-    ('source_layer_name', 'mode_label', 'expected_grain_active', 'expected_halation_active'),
+    ('source_layer_name', 'mode_label', 'expected_preview_mode'),
     [
-        (INPUT_PREVIEW_LAYER_NAME, 'Preview', False, False),
-        (INPUT_LAYER_NAME, 'Scan', True, True),
+        (INPUT_PREVIEW_LAYER_NAME, 'Preview', True),
+        (INPUT_LAYER_NAME, 'Scan', False),
     ],
-    ids=['preview-disables-grain-and-halation', 'scan-preserves-grain-and-halation'],
+    ids=['preview-enables-preview-mode', 'scan-disables-preview-mode'],
 )
-def test_start_simulation_tunes_preview_effects_only(
+def test_start_simulation_sets_preview_mode_before_runtime_digest(
     monkeypatch,
     source_layer_name: str,
     mode_label: str,
-    expected_grain_active: bool,
-    expected_halation_active: bool,
+    expected_preview_mode: bool,
 ) -> None:
-    input_layer = SimpleNamespace(data=np.full((2, 2, 3), 0.25, dtype=np.float32), metadata={})
     simulation_section = SimpleNamespace(preview_button=None, scan_button=None, save_button=None)
     widgets = SimpleNamespace(simulation=simulation_section)
     controller = GuiController(viewer=object(), widgets=widgets)
     gui_state = make_test_controller_gui_state()
+    image_data = np.full((2, 2, 3), 0.25, dtype=np.float32)
     params = SimpleNamespace(
+        settings=SimpleNamespace(preview_mode=False),
         film_render=SimpleNamespace(
             grain=SimpleNamespace(active=True),
             halation=SimpleNamespace(active=True),
@@ -447,11 +467,8 @@ def test_start_simulation_tunes_preview_effects_only(
     )
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(
-        type(controller._layers),
-        'selected_input_layer',
-        lambda _self, name: input_layer if name == source_layer_name else None,
-    )
+    controller._current_input_image = image_data
+    controller._current_preview_image = image_data
     monkeypatch.setattr(controller, '_sync_white_border', lambda *, white_padding: None)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: params)
@@ -460,8 +477,9 @@ def test_start_simulation_tunes_preview_effects_only(
 
     controller._start_simulation(source_layer_name=source_layer_name, mode_label=mode_label)
 
-    assert params.film_render.grain.active is expected_grain_active
-    assert params.film_render.halation.active is expected_halation_active
+    assert params.settings.preview_mode is expected_preview_mode
+    assert params.film_render.grain.active is True
+    assert params.film_render.halation.active is True
     assert captured['request'].params is params
 
 
@@ -496,6 +514,51 @@ def test_execute_simulation_request_routes_through_runtime_simulator_path(monkey
     np.testing.assert_allclose(captured['runtime_call'][0], request.image)
     assert captured['runtime_call'][1] is request.params
     assert result.mode_label == 'Preview'
+
+
+def test_process_image_with_runtime_reuses_cached_simulator(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    params_first = object()
+    params_second = object()
+    digested_first = object()
+    digested_second = object()
+    image_first = np.full((2, 2, 3), 0.25, dtype=np.float32)
+    image_second = np.full((2, 2, 3), 0.5, dtype=np.float32)
+    captured: dict[str, object] = {
+        'constructed': [],
+        'updated': [],
+        'processed': [],
+    }
+
+    class FakeSimulator:
+        def __init__(self, params) -> None:
+            captured['constructed'].append(params)
+
+        def update_params(self, params) -> None:
+            captured['updated'].append(params)
+
+        def process(self, image):
+            captured['processed'].append(np.array(image, copy=True))
+            return np.asarray(image) + 0.1
+
+    def fake_digest_params(params):
+        if params is params_first:
+            return digested_first
+        if params is params_second:
+            return digested_second
+        raise AssertionError('unexpected params object')
+
+    monkeypatch.setattr(controller_module, 'digest_params', fake_digest_params)
+    monkeypatch.setattr(controller_module, 'runtime_simulator', lambda params: FakeSimulator(params))
+
+    first = controller._process_image_with_runtime(image_first, params_first)
+    second = controller._process_image_with_runtime(image_second, params_second)
+
+    assert captured['constructed'] == [digested_first]
+    assert captured['updated'] == [digested_second]
+    assert len(captured['processed']) == 2
+    np.testing.assert_allclose(first, image_first + 0.1)
+    np.testing.assert_allclose(second, image_second + 0.1)
 
 
 def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:

@@ -143,6 +143,7 @@ class SettingsParams:
     lut_resolution: int = 17
     use_fast_stats: bool = False
     preview_max_size: int = 512
+    preview_mode: bool = False
     neutral_print_filters_from_database: bool = True
 
 

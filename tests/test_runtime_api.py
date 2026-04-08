@@ -1,8 +1,11 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
 from spektrafilm import AgXPhoto, Simulator, init_params, photo_params, simulate
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm.runtime import process as process_module
 
 
 pytestmark = pytest.mark.integration
@@ -21,6 +24,44 @@ class TestRuntimeApi:
 
         assert params.film.info.stock == 'kodak_portra_400'
         assert isinstance(simulator, Simulator)
+
+    def test_update_params_refreshes_public_runtime_state(self, monkeypatch):
+        class FakePipeline:
+            def __init__(self, params):
+                self._apply(params)
+
+            def _apply(self, params):
+                label = params.label
+                self.camera = SimpleNamespace(label=f'camera-{label}')
+                self.film = SimpleNamespace(label=f'film-{label}')
+                self.film_render = SimpleNamespace(label=f'film-render-{label}')
+                self.enlarger = SimpleNamespace(label=f'enlarger-{label}')
+                self.print = SimpleNamespace(label=f'print-{label}')
+                self.print_render = SimpleNamespace(label=f'print-render-{label}')
+                self.scanner = SimpleNamespace(label=f'scanner-{label}')
+                self.io = SimpleNamespace(label=f'io-{label}')
+                self.debug = SimpleNamespace(label=f'debug-{label}')
+                self.settings = SimpleNamespace(label=f'settings-{label}')
+                self.timings = {'label': label}
+
+            def process(self, image):
+                return image
+
+            def update_params(self, params):
+                self._apply(params)
+
+        monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
+        initial_params = SimpleNamespace(label='initial')
+        updated_params = SimpleNamespace(label='updated')
+
+        simulator = process_module.Simulator(initial_params)
+        simulator.update_params(updated_params)
+
+        assert simulator._params is updated_params
+        assert simulator.camera.label == 'camera-updated'
+        assert simulator.print.label == 'print-updated'
+        assert simulator.settings.label == 'settings-updated'
+        assert simulator.timings == {'label': 'updated'}
 
     def test_art_extlut_compatibility_path_runs(self):
         """reference this https://github.com/artraweditor/ART/blob/master/tools/extlut/spektrafilm_mklut.py"""

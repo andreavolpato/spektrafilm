@@ -242,22 +242,7 @@ def _home_view_target_layer(viewer: napari.Viewer) -> object | None:
 def reset_viewer_camera(viewer: napari.Viewer) -> None:
     reset_view = getattr(viewer, 'reset_view', None)
     if callable(reset_view):
-        target_layer = _home_view_target_layer(viewer)
-        if target_layer is None:
-            reset_view()
-            return
-
-        layers = list(getattr(viewer, 'layers', []))
-        visibility_by_layer = [(layer, getattr(layer, 'visible', True)) for layer in layers]
-        try:
-            for layer, _ in visibility_by_layer:
-                if hasattr(layer, 'visible'):
-                    layer.visible = layer is target_layer
-            reset_view()
-        finally:
-            for layer, was_visible in visibility_by_layer:
-                if hasattr(layer, 'visible'):
-                    layer.visible = was_visible
+        reset_view()
 
 
 def _viewer_device_pixel_ratio(viewer: napari.Viewer) -> float:

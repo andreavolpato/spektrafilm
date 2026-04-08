@@ -1,7 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from importlib import import_module
 from typing import Any, Callable, cast
 
+import numpy as np
 from qtpy import QtCore, QtGui, QtWidgets
 
 from spektrafilm_gui.controller import GuiController
@@ -12,8 +13,8 @@ from spektrafilm_gui.napari_layout import (
     show_viewer_window,
 )
 from spektrafilm_gui.persistence import load_default_gui_state
-from spektrafilm_gui.state_bridge import apply_gui_state
-from spektrafilm_gui.theme_palette import ACCENT_COLOR_TEXT, GRAY_0, GRAY_1, GRAY_2, GRAY_3, TEXT_DIM, TEXT_MAIN, TEXT_SELECTION_BG
+from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES, apply_gui_state
+from spektrafilm_gui.theme_palette import GRAY_0, GRAY_1, GRAY_2, GRAY_3, TEXT_DIM, TEXT_MAIN, TEXT_SELECTION_BG
 from spektrafilm_gui.widgets import WidgetBundle, create_widget_bundle
 from spektrafilm.utils.numba_warmup import warmup
 
@@ -23,6 +24,7 @@ QTimer = getattr(QtCore, 'QTimer')
 
 _background_warmup_started = False
 _background_warmup_scheduled = False
+WARMUP_IMAGE_SHAPE = (16, 16, 3)
 
 @dataclass(slots=True)
 class GuiApp:
@@ -32,13 +34,53 @@ class GuiApp:
     main_window: QtWidgets.QMainWindow
 
 
+def _warmup_full_gui() -> None:
+    gui_state = load_default_gui_state()
+    warmup()
+
+    colour_module = import_module('colour')
+    pil_image_module = import_module('PIL.Image')
+    imagecms_module = import_module('PIL.ImageCms')
+    controller_runtime = import_module('spektrafilm_gui.controller_runtime')
+    params_mapper = import_module('spektrafilm_gui.params_mapper')
+    runtime_api = import_module('spektrafilm.runtime.api')
+    import_module('spektrafilm.utils.io')
+    import_module('spektrafilm.utils.preview')
+    import_module('spektrafilm.utils.raw_file_processor')
+
+    warmup_image = np.full(WARMUP_IMAGE_SHAPE, 0.18, dtype=np.float64)
+    controller_runtime.prepare_input_color_preview_image(
+        warmup_image,
+        input_color_space=gui_state.input_image.input_color_space,
+        apply_cctf_decoding=gui_state.input_image.apply_cctf_decoding,
+        colour_module=colour_module,
+    )
+
+    params = params_mapper.build_params_from_state(gui_state)
+    simulator = runtime_api.Simulator(runtime_api.digest_params(params))
+    scan = np.asarray(simulator.process(warmup_image), dtype=np.float32)
+
+    # Force the display path once as part of startup so the first preview avoids lazy import/setup cost.
+    controller_runtime.prepare_output_display_image(
+        scan,
+        output_color_space=gui_state.simulation.output_color_space,
+        use_display_transform=True,
+        imagecms_module=imagecms_module,
+        colour_module=colour_module,
+        pil_image_module=pil_image_module,
+    )
+
+
 class _WarmupTask(QRunnable):
-    def __init__(self, *, warmup_fn: Callable[[], None] = warmup) -> None:
+    def __init__(self, *, warmup_fn: Callable[[], None] | None = None) -> None:
         super().__init__()
-        self._warmup_fn = warmup_fn
+        self._warmup_fn = _warmup_full_gui if warmup_fn is None else warmup_fn
 
     def run(self) -> None:
-        self._warmup_fn()
+        try:
+            self._warmup_fn()
+        except (AttributeError, ImportError, LookupError, OSError, RuntimeError, TypeError, ValueError):
+            return
 
 
 def _build_app_palette() -> QtGui.QPalette:
@@ -116,10 +158,41 @@ def _schedule_background_warmup(
     scheduler(0, _start_background_warmup)
 
 
+def _connect_auto_preview_signal(widget: Any, callback: Callable[..., None]) -> None:
+    editors = getattr(widget, '_editors', None)
+    if editors is not None:
+        for editor in editors:
+            _connect_auto_preview_signal(editor, callback)
+        return
+
+    for signal_name in ('toggled', 'currentTextChanged', 'valueChanged'):
+        signal = getattr(widget, signal_name, None)
+        if signal is not None and hasattr(signal, 'connect'):
+            signal.connect(callback)
+            return
+
+
+def connect_auto_preview_signals(controller: GuiController, widgets: WidgetBundle) -> None:
+    for section_name in GUI_STATE_SECTION_NAMES:
+        section = getattr(widgets, section_name, None)
+        if section is None:
+            continue
+
+        state_cls = getattr(section, '_state_cls', None)
+        if state_cls is None:
+            continue
+
+        for field_info in fields(state_cls):
+            _connect_auto_preview_signal(getattr(section, field_info.name), controller.request_auto_preview)
+
+    widgets.simulation.bottom_auto_preview.toggled.connect(controller.request_auto_preview)
+    widgets.simulation.bottom_scan_film.toggled.connect(controller.request_auto_preview)
+    widgets.simulation.bottom_scan_for_print.toggled.connect(controller.request_auto_preview)
+
+
 def connect_controller_signals(controller: GuiController, widgets: WidgetBundle) -> None:
     widgets.filepicker.load_requested.connect(controller.load_input_image)
     widgets.load_raw.load_requested.connect(controller.load_raw_image)
-    widgets.filepicker.input_layer.currentTextChanged.connect(controller.select_input_layer)
     widgets.simulation.film_stock.textActivated.connect(controller.apply_profile_defaults)
     widgets.simulation.print_paper.textActivated.connect(controller.apply_profile_defaults)
     widgets.gui_config.save_current_as_default_requested.connect(controller.save_current_as_default)
@@ -131,6 +204,7 @@ def connect_controller_signals(controller: GuiController, widgets: WidgetBundle)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
     widgets.display.use_display_transform.toggled.connect(controller.report_display_transform_status)
     widgets.display.gray_18_canvas.toggled.connect(controller.set_gray_18_canvas_enabled)
+    connect_auto_preview_signals(controller, widgets)
 
 
 def gray_18_canvas_enabled(widgets: WidgetBundle) -> bool:
@@ -149,7 +223,6 @@ def initialize_controller(
     controller = controller_cls(viewer=viewer, widgets=widgets)
     controller.sync_display_transform_availability(report_status=False)
     connect_signals_fn(controller, widgets)
-    controller.refresh_input_layers()
     return controller
 
 

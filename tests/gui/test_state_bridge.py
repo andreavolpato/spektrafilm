@@ -21,10 +21,17 @@ class StubSection:
 
 
 class StubSimulationSection(StubSection):
-    def __init__(self, state: object, *, scan_film: bool = False):
+    def __init__(self, state: object, *, auto_preview: bool = True, scan_film: bool = False):
         super().__init__(state)
+        self._auto_preview = auto_preview
         self._scan_film = scan_film
         self.reset_scan_for_print_calls = 0
+
+    def set_auto_preview_value(self, value: bool) -> None:
+        self._auto_preview = value
+
+    def auto_preview_value(self) -> bool:
+        return self._auto_preview
 
     def set_scan_film_value(self, value: bool) -> None:
         self._scan_film = value
@@ -43,7 +50,6 @@ def _make_state() -> GuiState:
     state.load_raw.temperature = 3200.0
     state.load_raw.tint = 0.85
     state.grain.active = False
-    state.preflashing.just_preflash = True
     state.halation.halation_strength = (7.0, 5.0, 3.0)
     state.couplers.diffusion_interlayer = 1.75
     state.glare.blur = 0.8
@@ -70,7 +76,11 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
         couplers=StubSection(clone_state_section(state.couplers)),
         glare=StubSection(clone_state_section(state.glare)),
         special=StubSection(clone_state_section(state.special)),
-        simulation=StubSimulationSection(clone_state_section(state.simulation), scan_film=state.simulation.scan_film),
+        simulation=StubSimulationSection(
+            clone_state_section(state.simulation),
+            auto_preview=state.simulation.auto_preview,
+            scan_film=state.simulation.scan_film,
+        ),
         preview_crop=object(),
         camera=object(),
         exposure_control=object(),
@@ -94,16 +104,21 @@ def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
 
     for section_name in GUI_STATE_SECTION_NAMES:
         assert widgets.__getattribute__(section_name).get_state() == getattr(source_state, section_name)
+    assert widgets.simulation.auto_preview_value() is source_state.simulation.auto_preview
     assert widgets.simulation.scan_film_value() is True
     assert widgets.simulation.reset_scan_for_print_calls == 1
 
 
 def test_collect_gui_state_reads_all_sections_and_bottom_bar_scan_flag() -> None:
     source_state = _make_state()
+    source_state.simulation.auto_preview = False
     source_state.simulation.scan_film = False
     widgets = _make_widgets(source_state)
+    widgets.simulation.set_auto_preview_value(True)
     widgets.simulation.set_scan_film_value(True)
 
     collected_state = collect_gui_state(widgets=widgets)
 
-    assert collected_state == _make_state()
+    expected_state = _make_state()
+    expected_state.simulation.auto_preview = True
+    assert collected_state == expected_state

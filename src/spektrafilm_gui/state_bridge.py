@@ -39,6 +39,7 @@ def apply_gui_state_sections(
     for section_name in section_names:
         _get_stateful_widget(widgets, section_name).set_state(getattr(state, section_name))
     if 'simulation' in section_names:
+        widgets.simulation.set_auto_preview_value(state.simulation.auto_preview)
         widgets.simulation.set_scan_film_value(state.simulation.scan_film)
         widgets.simulation.reset_scan_for_print_value()
 
@@ -48,5 +49,6 @@ def collect_gui_state(
     widgets: WidgetBundle,
 ) -> GuiState:
     gui_state = GuiState(**{section_name: _get_stateful_widget(widgets, section_name).get_state() for section_name in GUI_STATE_SECTION_NAMES})
+    gui_state.simulation.auto_preview = widgets.simulation.auto_preview_value()
     gui_state.simulation.scan_film = widgets.simulation.scan_film_value()
     return gui_state

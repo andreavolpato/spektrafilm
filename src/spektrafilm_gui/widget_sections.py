@@ -304,9 +304,6 @@ class InputImageSection(SimpleDataclassSection):
         self._filepicker_section = filepicker_section
         super().__init__()
 
-    def _add_extra_rows_before(self, form: QFormLayout) -> None:
-        form.addRow(_build_auxiliary_label('input_layer'), self._filepicker_section.input_layer)
-
 
 class LoadRawSection(DataclassSection):
     load_requested = Signal(str)
@@ -464,7 +461,6 @@ class FilePickerSection(QWidget):
         self.file_path = QLineEdit()
         self.file_path.setReadOnly(True)
         self.file_path.setPlaceholderText(_normalize_ui_text('No image selected'))
-        self.input_layer = QComboBox()
 
         browse_button = _build_button('Select file', self._choose_file, role='compactAction')
         content = _build_vertical_container(_build_button_row(self.file_path, browse_button, spacing=4), spacing=6)
@@ -479,22 +475,6 @@ class FilePickerSection(QWidget):
 
     def set_path(self, path: str) -> None:
         self.file_path.setText(path)
-
-    def set_available_layers(self, layer_names: list[str], *, selected_name: str | None = None) -> None:
-        current_name = selected_name or self.selected_input_layer_name()
-        self.input_layer.blockSignals(True)
-        self.input_layer.clear()
-        self.input_layer.addItems(layer_names)
-        if current_name:
-            index = self.input_layer.findText(current_name)
-            if index >= 0:
-                self.input_layer.setCurrentIndex(index)
-        self.input_layer.blockSignals(False)
-
-    def selected_input_layer_name(self) -> str | None:
-        if self.input_layer.count() == 0:
-            return None
-        return self.input_layer.currentText()
 
 
 class GuiConfigSection(QWidget):
@@ -564,6 +544,7 @@ class SimulationSection(DataclassSection):
                 'scan_white_correction',
                 'scan_black_correction',
                 'scan_unsharp_mask',
+                'auto_preview',
                 'scan_film',
                 'output_color_space',
                 'saving_color_space',
@@ -574,6 +555,7 @@ class SimulationSection(DataclassSection):
     def _init_extra_widgets(self) -> None:
         self._glare_section = None
         self._scan_for_print_restore_state = None
+        self.bottom_auto_preview = BoolEditor()
         self.bottom_scan_film = BoolEditor()
         self.bottom_scan_for_print = BoolEditor()
         scan_for_print_spec = get_auxiliary_spec('scan_for_print')
@@ -608,6 +590,9 @@ class SimulationSection(DataclassSection):
         scan_film_row = QHBoxLayout()
         scan_film_row.setContentsMargins(0, 0, 0, 0)
         scan_film_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        scan_film_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
+        scan_film_row.addWidget(self.bottom_auto_preview)
+        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
         scan_film_row.addWidget(_build_widget_label('simulation', 'scan_film'))
         scan_film_row.addWidget(self.bottom_scan_film)
         scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
@@ -635,6 +620,12 @@ class SimulationSection(DataclassSection):
 
     def action_bar(self) -> QWidget:
         return self.bottom_bar
+
+    def set_auto_preview_value(self, value: bool) -> None:
+        self.bottom_auto_preview.setChecked(value)
+
+    def auto_preview_value(self) -> bool:
+        return self.bottom_auto_preview.isChecked()
 
     def set_scan_film_value(self, value: bool) -> None:
         self.bottom_scan_film.setChecked(value)
