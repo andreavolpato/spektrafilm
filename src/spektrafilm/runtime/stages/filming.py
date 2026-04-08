@@ -12,12 +12,13 @@ from spektrafilm.utils.timings import timeit
 
 class FilmingStage:
     def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
-                 enlarger_service):
+                 resize_service,enlarger_service):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
         self._io = io_params
         self._settings = settings_params
+        self._resize_service = resize_service
         self._enlarger_service = enlarger_service
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
         self._pixel_size_um = None

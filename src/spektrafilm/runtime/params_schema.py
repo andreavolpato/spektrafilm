@@ -28,6 +28,7 @@ class EnlargerParams:
     m_filter_neutral: float = 65 # kodak cc values
     c_filter_neutral: float = 0 # kodak cc values
     lens_blur: float = 0.0
+    diffusion_filter: tuple[float, float, float] = (0.0, 1.0, 1.0) # (strength, spatial_scale, intensity)
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
     preflash_m_filter_shift: float = 0.0

@@ -15,7 +15,6 @@ class ColorReferenceService:
         self.log_raw_print_white = None
         self.cmy_print_black = None
         self.cmy_print_white = None
-        
 
     def _compute_film_white_spectral_density(self):
         max_density = np.nanmax(self._film_data.density_curves, axis=0)

@@ -36,7 +36,7 @@ class SimulationPipeline:
         self._enlarger_service = EnlargerService(self.enlarger)
         self._color_reference_service = ColorReferenceService(self.film.data, self.print.data, self.io.scan_film)
 
-        self._resizing_service = ResizingService(self.io, self.camera.film_format_mm)
+        self._resize_service = ResizingService(self.io, self.camera.film_format_mm)
         
         self._filming_stage = FilmingStage(
             self.film,
@@ -44,6 +44,7 @@ class SimulationPipeline:
             self.camera,
             self.io,
             self.settings,
+            self._resize_service, # to get pixel size um for blurs
             self._enlarger_service, # to compute and save density spectral midgray to balance print
         )
         self._printing_stage = PrintingStage(
@@ -55,6 +56,7 @@ class SimulationPipeline:
             self.settings,
             self._lut_service,
             self._enlarger_service,
+            self._resize_service, # to get pixel size um for diffusion filter
             self._color_reference_service,
         )
         self._scanning_stage = ScanningStage(
@@ -82,7 +84,7 @@ class SimulationPipeline:
     def _preprocess(self, image):
         image = np.double(np.array(image)[:, :, 0:3])
         image = self._filming_stage.auto_exposure(image) # autoexposure service?
-        image = self._resizing_service.crop_and_rescale(image)
+        image = self._resize_service.crop_and_rescale(image)
         return image
 
     def _pipeline(self, rgb_image):
