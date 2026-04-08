@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -16,8 +17,10 @@ from spektrafilm_gui.controller_layers import (
 )
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
+    load_dialog_dir,
     load_gui_state_from_path,
     save_default_gui_state,
+    save_dialog_dir,
     save_gui_state_to_path,
 )
 from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
@@ -42,6 +45,29 @@ QFileDialog = QtWidgets.QFileDialog
 QMessageBox = QtWidgets.QMessageBox
 SimulationRequest = runtime.SimulationRequest
 SimulationResult = runtime.SimulationResult
+
+
+class _DirMemoryDialog:
+    """Wraps QFileDialog to open in the last-used directory via QSettings."""
+
+    def __init__(self, key: str) -> None:
+        self._key = key
+
+    def get_save_file_name(self, parent, title, filename, file_filter):
+        last_dir = load_dialog_dir(self._key)
+        initial = str(Path(last_dir) / Path(filename).name) if last_dir else filename
+        path, fmt = QFileDialog.getSaveFileName(parent, title, initial, file_filter)
+        if path:
+            save_dialog_dir(self._key, str(Path(path).parent))
+        return path, fmt
+
+    def get_open_file_name(self, parent, title, _initial, file_filter):
+        path, fmt = QFileDialog.getOpenFileName(
+            parent, title, load_dialog_dir(self._key), file_filter
+        )
+        if path:
+            save_dialog_dir(self._key, str(Path(path).parent))
+        return path, fmt
 
 
 class _LazyModuleProxy:
@@ -231,7 +257,7 @@ class GuiController:
             QMessageBox.warning(dialog_parent(self._viewer), 'Save output', 'Run a simulation before saving the output layer.')
             return
 
-        filepath, _ = QFileDialog.getSaveFileName(
+        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
             dialog_parent(self._viewer),
             'Save output image',
             'output.png',
@@ -292,7 +318,7 @@ class GuiController:
         persistence_actions.save_current_state_to_file(
             viewer=self._viewer,
             widgets=self._widgets,
-            file_dialog=QFileDialog,
+            file_dialog=_DirMemoryDialog('gui_state'),
             collect_gui_state_fn=collect_gui_state,
             save_gui_state_to_path_fn=save_gui_state_to_path,
             set_status_fn=set_status,
@@ -304,7 +330,7 @@ class GuiController:
         persistence_actions.load_state_from_file(
             viewer=self._viewer,
             widgets=self._widgets,
-            file_dialog=QFileDialog,
+            file_dialog=_DirMemoryDialog('gui_state'),
             load_gui_state_from_path_fn=load_gui_state_from_path,
             apply_gui_state_fn=apply_gui_state,
             sync_canvas_background_fn=self._sync_canvas_background,

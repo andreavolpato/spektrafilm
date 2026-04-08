@@ -5,7 +5,7 @@ from dataclasses import asdict, fields, is_dataclass
 from pathlib import Path
 from typing import Any, TypeVar, get_origin, get_type_hints
 
-from qtpy.QtCore import QStandardPaths
+from qtpy.QtCore import QSettings, QStandardPaths
 
 from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE, clone_gui_state
 
@@ -76,6 +76,14 @@ def _deserialize_dataclass(cls: type[GuiStateType], data: dict[str, Any]) -> Gui
             raise ValueError(f"Missing field {field_name!r} in {cls.__name__}.")
         values[field_name] = _deserialize_value(type_hints[field_name], data[field_name])
     return cls(**values)
+
+
+def load_dialog_dir(key: str) -> str:
+    return QSettings('spektrafilm', 'spektrafilm').value(f'dialog_dirs/{key}', '')
+
+
+def save_dialog_dir(key: str, directory: str) -> None:
+    QSettings('spektrafilm', 'spektrafilm').setValue(f'dialog_dirs/{key}', directory)
 
 
 def _deserialize_value(annotation: Any, value: Any) -> Any:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import fields
+from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
 from qtpy import QtCore, QtWidgets
@@ -30,6 +31,7 @@ from spektrafilm_gui.state import (
     SimulationState,
     SpecialState,
 )
+from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
 from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
@@ -337,9 +339,10 @@ class LoadRawSection(DataclassSection):
         form.addRow(self.reprocess_button)
 
     def _choose_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input raw'))
+        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input raw'), load_dialog_dir('raw_input'))
         if not path:
             return
+        save_dialog_dir('raw_input', str(Path(path).parent))
         self.set_path(path)
         self.load_requested.emit(path)
 
@@ -467,9 +470,10 @@ class FilePickerSection(QWidget):
         _set_single_collapsible_layout(self, 'Import RGB', content)
 
     def _choose_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input image'))
+        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input image'), load_dialog_dir('rgb_input'))
         if not path:
             return
+        save_dialog_dir('rgb_input', str(Path(path).parent))
         self.file_path.setText(path)
         self.load_requested.emit(path)
 
