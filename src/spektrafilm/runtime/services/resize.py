@@ -15,19 +15,17 @@ class ResizingService:
         self.pixel_size_um = None
 
     def crop_and_rescale(self, image: np.ndarray) -> np.ndarray:
+        self.pixel_size_um = self.film_format_mm * 1000 / np.max(image.shape[0:2])
 
         if self._io.crop:
-            image = crop_image(image, center=self._io.crop_center, size=self._io.crop_size)
+            image = crop_image(image, center=self._io.crop_center, size=self._io.crop_size)            
 
         if self._io.upscale_factor != 1.0:
+            self.pixel_size_um /= self._io.upscale_factor
             image = skimage.transform.rescale(
                 image,
                 self._io.upscale_factor,
                 channel_axis=2,
                 order=3,
             )
-
-        pixel_size_um = self.film_format_mm * 1000 / np.max(image.shape[0:2])
-        self.pixel_size_um = pixel_size_um
-
         return image
