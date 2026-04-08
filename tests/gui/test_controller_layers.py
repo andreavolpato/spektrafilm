@@ -249,6 +249,45 @@ def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output
     assert hidden_output.visible is True
 
 
+def test_input_preview_update_can_preserve_visible_output_and_active_layer() -> None:
+    viewer = TrackingViewer()
+    service = _make_service(viewer)
+    preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.1,
+    )
+
+    output_image = np.full((8, 4, 3), 77, dtype=np.uint8)
+    float_image = np.full((8, 4, 3), 0.5, dtype=np.float32)
+    service.set_or_add_output_layer(
+        output_image,
+        float_image=float_image,
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    output_layer = service.output_layer()
+    assert isinstance(output_layer, VisibilityTrackingLayer)
+    visible_set_calls = output_layer.visible_set_calls
+    viewer.layers.selection.active = output_layer
+
+    updated_preview = np.full((4, 2, 3), 0.5, dtype=np.float32)
+    service.set_or_add_input_preview_layer(
+        updated_preview,
+        white_padding=0.1,
+        hide_output=False,
+        set_active=False,
+    )
+
+    np.testing.assert_allclose(service.preview_input_layer().data, updated_preview)
+    assert output_layer.visible is True
+    assert output_layer.visible_set_calls == visible_set_calls
+    assert viewer.layers.selection.active is output_layer
+
+
 def test_output_layer_render_settings_fall_back_without_output_layer() -> None:
     service = _make_service(FakeViewer([FakeLayer(name='input')]))
 

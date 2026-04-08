@@ -65,12 +65,14 @@ def test_build_params_maps_runtime_strings() -> None:
     state.input_image.spectral_upsampling_method = 'mallett2019'
     state.simulation.output_color_space = 'ACES2065-1'
     state.simulation.saving_cctf_encoding = False
+    state.display.preview_max_size = 1024
 
     params = build_params_from_state(state)
 
     assert params.camera.auto_exposure_method == 'median'
     assert params.io.input_color_space == 'Display P3'
     assert params.settings.rgb_to_raw_method == 'mallett2019'
+    assert params.settings.preview_max_size == 1024
     assert params.io.output_color_space == 'ACES2065-1'
     assert params.io.output_cctf_encoding is True
 
@@ -117,6 +119,7 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
     assert state.display.white_padding == 0.03
+    assert state.display.preview_max_size == 512
 
 
 def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None:

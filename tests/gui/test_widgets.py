@@ -334,6 +334,15 @@ def test_scanner_correction_widget_specs_use_requested_float_bounds() -> None:
     assert black_spec.step == 0.01
 
 
+def test_preview_max_size_widget_spec_uses_requested_bounds_and_tooltip() -> None:
+    spec = widget_specs_module.get_widget_spec('display', 'preview_max_size')
+
+    assert spec.label == 'Preview max size'
+    assert spec.tooltip == 'max size of the long edge of the preview image in pixels'
+    assert spec.min_value == 256
+    assert spec.step == 128
+
+
 def test_diffusion_widget_specs_use_requested_bounds_and_tooltips() -> None:
     strength_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_strength')
     spatial_scale_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_spatial_scale')

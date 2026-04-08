@@ -122,6 +122,7 @@ class GuiController:
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
         self._set_or_add_input_stack(image)
+        self._request_auto_preview_if_enabled()
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
@@ -155,6 +156,17 @@ class GuiController:
             set_status(self._viewer, "Loaded raw, lens correction not applied")
         else:
             set_status(self._viewer, "Loaded raw")
+        self._request_auto_preview_if_enabled()
+
+    def refresh_preview_cache(self, *_args) -> None:
+        input_image = self._current_input_image
+        if input_image is None:
+            return
+        self._update_preview_cache(
+            np.asarray(input_image),
+            home_input_stack=False,
+            hide_output=False,
+        )
 
     def apply_profile_defaults(self, _selected_value: str) -> None:
         state = collect_gui_state(widgets=self._widgets)
@@ -190,6 +202,11 @@ class GuiController:
             return
         self._auto_preview_scheduled = True
         QTimer.singleShot(0, self._run_scheduled_auto_preview)
+
+    def _request_auto_preview_if_enabled(self) -> None:
+        if not self._auto_preview_enabled() or self._current_preview_image is None:
+            return
+        self.request_auto_preview()
 
     def report_display_transform_status(self, enabled: bool) -> None:
         if enabled and not self.sync_display_transform_availability(report_status=True):
@@ -336,6 +353,19 @@ class GuiController:
         self,
         image: np.ndarray,
     ) -> None:
+        self._update_preview_cache(
+            np.asarray(image),
+            home_input_stack=True,
+            hide_output=True,
+        )
+
+    def _update_preview_cache(
+        self,
+        image: np.ndarray,
+        *,
+        home_input_stack: bool,
+        hide_output: bool,
+    ) -> None:
         state = collect_gui_state(widgets=self._widgets)
         params = build_params_from_state(state)
         preview_image = self._resize_for_preview(image, max_size=params.settings.preview_max_size)
@@ -349,8 +379,11 @@ class GuiController:
         self._layers.set_or_add_input_preview_layer(
             preview_display_image,
             white_padding=state.display.white_padding,
+            hide_output=hide_output,
+            set_active=home_input_stack or self._output_layer() is None,
         )
-        self._home_input_stack()
+        if home_input_stack:
+            self._home_input_stack()
 
     def _sync_white_border(self, *, white_padding: float) -> None:
         self._layers.sync_white_border(white_padding=white_padding)

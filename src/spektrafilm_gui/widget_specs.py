@@ -159,6 +159,12 @@ GUI_WIDGET_SPECS = {
             max_value=1,
             step=0.01,
         ),
+        "preview_max_size": WidgetSpec(
+            label="Preview max size",
+            tooltip="max size of the long edge of the preview image in pixels",
+            min_value=256,
+            step=128,
+        ),
     },
     "special": {
         "film_gamma_factor": WidgetSpec(
