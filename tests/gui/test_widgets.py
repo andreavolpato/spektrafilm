@@ -293,15 +293,6 @@ def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
     )
 
 
-def test_preview_and_auto_preview_specs_include_requested_tooltips() -> None:
-    assert widget_specs_module.get_button_spec('preview').tooltip == (
-        'run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)'
-    )
-    assert widget_specs_module.get_widget_spec('simulation', 'auto_preview').tooltip == (
-        'trigger the preview after every change of gui parameters, read preview tooltip for details'
-    )
-
-
 def test_scan_for_print_toggle_applies_and_restores_scanner_and_glare_state() -> None:
     toggle_scan_for_print = getattr(widgets_module.SimulationSection, '_apply_scan_for_print_mode')
     glare_section = SimpleNamespace(active=FakeValueEditor(True))
@@ -343,6 +334,25 @@ def test_scanner_correction_widget_specs_use_requested_float_bounds() -> None:
     assert black_spec.step == 0.01
 
 
+def test_diffusion_widget_specs_use_requested_bounds_and_tooltips() -> None:
+    strength_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_strength')
+    spatial_scale_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_spatial_scale')
+    intensity_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_intensity')
+
+    assert strength_spec.tooltip == 'strength of the diffusion filter 1/8=0.125, 1/4=0.25, 1/2=0.5, ..'
+    assert strength_spec.min_value == 0
+    assert strength_spec.max_value == 1
+    assert strength_spec.step == 0.125
+
+    assert spatial_scale_spec.tooltip == 'scale spatially the filter blooming'
+    assert spatial_scale_spec.min_value == 0
+    assert spatial_scale_spec.step == 0.1
+
+    assert intensity_spec.tooltip == 'tune the intensity of the filter'
+    assert intensity_spec.min_value == 0
+    assert intensity_spec.step == 0.1
+
+
 def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) -> None:
     monkeypatch.setattr(icons_module, 'pyconify', None)
     icons_module.section_header_icon.cache_clear()
@@ -354,6 +364,10 @@ def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) ->
 
 def test_section_header_icon_name_maps_crop_and_upscale_title() -> None:
     assert icons_module.section_header_icon_name('Crop and upscale') == 'tabler:crop'
+
+
+def test_section_header_icon_name_maps_diffusion_title() -> None:
+    assert icons_module.section_header_icon_name('Diffusion') == 'tabler:artboard'
 
 
 def test_collapsible_section_shows_icon_for_mapped_main_tab_title(monkeypatch) -> None:

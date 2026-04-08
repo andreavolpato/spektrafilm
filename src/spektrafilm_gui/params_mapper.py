@@ -107,6 +107,11 @@ def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
     params.enlarger.print_exposure_compensation = state.simulation.print_exposure_compensation
     params.enlarger.y_filter_shift = state.simulation.print_y_filter_shift
     params.enlarger.m_filter_shift = state.simulation.print_m_filter_shift
+    params.enlarger.diffusion_filter = (
+        state.simulation.diffusion_strength,
+        state.simulation.diffusion_spatial_scale,
+        state.simulation.diffusion_intensity,
+    )
     params.enlarger.preflash_exposure = state.preflashing.exposure
     params.enlarger.preflash_y_filter_shift = state.preflashing.y_filter_shift
     params.enlarger.preflash_m_filter_shift = state.preflashing.m_filter_shift

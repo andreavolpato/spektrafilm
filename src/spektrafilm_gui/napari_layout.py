@@ -223,22 +223,6 @@ def _borrow_layer_list_widget(viewer: napari.Viewer) -> QWidget | None:
     return widget
 
 
-def _home_view_target_layer(viewer: napari.Viewer) -> object | None:
-    layers = getattr(viewer, 'layers', None)
-    if layers is None:
-        return None
-
-    selection = getattr(layers, 'selection', None)
-    active_layer = getattr(selection, 'active', None)
-    if active_layer is not None and hasattr(active_layer, 'visible'):
-        return active_layer
-
-    for layer in reversed(list(layers)):
-        if getattr(layer, 'visible', False):
-            return layer
-    return None
-
-
 def reset_viewer_camera(viewer: napari.Viewer) -> None:
     reset_view = getattr(viewer, 'reset_view', None)
     if callable(reset_view):
@@ -298,6 +282,22 @@ def _layer_pixel_world_size(layer: object | None) -> float:
     if not axis_scales:
         return 1.0
     return sum(axis_scales) / len(axis_scales)
+
+
+def _home_view_target_layer(viewer: napari.Viewer) -> object | None:
+    layers = getattr(viewer, 'layers', None)
+    if layers is None:
+        return None
+
+    selection = getattr(layers, 'selection', None)
+    active_layer = getattr(selection, 'active', None)
+    if active_layer is not None and getattr(active_layer, 'visible', True):
+        return active_layer
+
+    for layer in reversed(list(layers)):
+        if getattr(layer, 'visible', True):
+            return layer
+    return None
 
 
 def set_viewer_zoom_percent(viewer: napari.Viewer, percent: float) -> None:
@@ -403,7 +403,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
         'MAIN',
     )
     panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain)), 'FILM')
-    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.glare, widgets.preflashing)), 'PRINT')
+    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.glare, widgets.preflashing, widgets.diffusion)), 'PRINT')
     panel.addTab(
         _wrap_scrollable(_build_controls_tab(widgets.spectral_upsampling, widgets.tune, widgets.special)),
         'ADVANCED',

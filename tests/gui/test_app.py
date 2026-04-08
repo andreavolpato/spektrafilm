@@ -332,6 +332,9 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 'print_exposure_compensation',
                 'print_y_filter_shift',
                 'print_m_filter_shift',
+                'diffusion_strength',
+                'diffusion_spatial_scale',
+                'diffusion_intensity',
                 'print_illuminant',
                 'scan_lens_blur',
                 'scan_white_correction',
@@ -358,6 +361,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     assert widgets.input_image.crop_size._editors[0].valueChanged.connected == [controller.request_auto_preview]
     assert widgets.special.film_gamma_factor.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.print_y_filter_shift.valueChanged.connected == [controller.request_auto_preview]
+    assert widgets.simulation.diffusion_strength.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.exposure_compensation_ev.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_lens_blur.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_unsharp_mask._editors[0].valueChanged.connected == [controller.request_auto_preview]
