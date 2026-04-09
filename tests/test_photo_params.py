@@ -85,7 +85,7 @@ class TestInitParamsDefaults:
         assert params.settings.use_scanner_lut is False
         assert params.settings.lut_resolution == 17
         assert params.settings.use_fast_stats is False
-        assert params.settings.preview_max_size == 512
+        assert params.settings.preview_max_size == 768
 
 class TestSimulatorDebugSwitches:
     def test_deactivate_spatial_effects_params(self):
