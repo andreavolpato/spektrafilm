@@ -119,7 +119,7 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
     assert state.display.white_padding == 0.03
-    assert state.display.preview_max_size == 512
+    assert state.display.preview_max_size == 768
 
 
 def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None:

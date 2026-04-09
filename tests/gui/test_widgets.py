@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import fields
 import os
 from types import SimpleNamespace
+from typing import get_origin
 
 from spektrafilm_gui import widget_specs as widget_specs_module
 from spektrafilm_gui import icons as icons_module
 from spektrafilm_gui import widget_primitives as primitives_module
 from spektrafilm_gui import widget_sections as widgets_module
+from spektrafilm_gui import state as state_module
 
 
 class FakeLineEdit:
@@ -360,6 +363,40 @@ def test_diffusion_widget_specs_use_requested_bounds_and_tooltips() -> None:
     assert intensity_spec.tooltip == 'tune the intensity of the filter'
     assert intensity_spec.min_value == 0
     assert intensity_spec.step == 0.1
+
+
+def test_numeric_widget_specs_define_minimum_and_step() -> None:
+    sections = {
+        'simulation': state_module.SimulationState,
+        'display': state_module.DisplayState,
+        'special': state_module.SpecialState,
+        'glare': state_module.GlareState,
+        'halation': state_module.HalationState,
+        'couplers': state_module.CouplersState,
+        'grain': state_module.GrainState,
+        'preflashing': state_module.PreflashingState,
+        'input_image': state_module.InputImageState,
+        'load_raw': state_module.LoadRawState,
+    }
+
+    missing: list[str] = []
+    for section_name, state_cls in sections.items():
+        section_specs = widget_specs_module.GUI_WIDGET_SPECS.get(section_name, {})
+        for field_info in fields(state_cls):
+            annotation = field_info.type
+            is_numeric = annotation in (int, float) or get_origin(annotation) is tuple
+            if not is_numeric:
+                continue
+            spec = section_specs.get(field_info.name)
+            if spec is None:
+                missing.append(f'{section_name}.{field_info.name}: missing spec')
+                continue
+            if spec.min_value is None:
+                missing.append(f'{section_name}.{field_info.name}: missing min_value')
+            if spec.step is None:
+                missing.append(f'{section_name}.{field_info.name}: missing step')
+
+    assert missing == []
 
 
 def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) -> None:
