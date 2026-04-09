@@ -183,19 +183,20 @@ GUI_WIDGET_SPECS = {
         "active": WidgetSpec(tooltip="Add glare to the print"),
         "percent": WidgetSpec(
             tooltip="Percentage of the glare light (typically 0.1-0.25)",
+            step=0.01,
+            min_value=0,
+            max_value=1,
+        ),
+        "roughness": WidgetSpec(
+            tooltip="Roughness of the glare light (0-1)",
+            min_value=0,
+            max_value=1,
             step=0.05,
         ),
-        "roughness": WidgetSpec(tooltip="Roughness of the glare light (0-1)"),
-        "blur": WidgetSpec(tooltip="Sigma of gaussian blur in pixels for the glare"),
-        "compensation_removal_factor": WidgetSpec(
-            tooltip="Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0).",
-            step=0.05,
-        ),
-        "compensation_removal_density": WidgetSpec(
-            tooltip="Density of the glare compensation removal from the print, typical values (1.0-1.5).",
-        ),
-        "compensation_removal_transition": WidgetSpec(
-            tooltip="Transition density range of the glare compensation removal from the print, typical values (0.1-0.5).",
+        "blur": WidgetSpec(
+            tooltip="Sigma of gaussian blur in pixels for the glare",
+            min_value=0,
+            step=0.1,
         ),
     },
     "halation": {

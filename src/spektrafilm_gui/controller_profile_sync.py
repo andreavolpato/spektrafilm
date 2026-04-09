@@ -52,9 +52,6 @@ PROFILE_SYNC_FIELDS: dict[str, tuple[str, ...]] = {
         'percent',
         'roughness',
         'blur',
-        'compensation_removal_factor',
-        'compensation_removal_density',
-        'compensation_removal_transition',
     ),
     'special': (
         'film_gamma_factor',

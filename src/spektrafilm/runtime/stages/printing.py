@@ -5,7 +5,6 @@ from opt_einsum import contract
 
 from spektrafilm.model.diffusion import apply_promist_filter
 from spektrafilm.model.emulsion import compute_density_spectral, develop_simple
-from spektrafilm.model.density_curves import remove_viewing_glare_comp
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.timings import timeit
 from spektrafilm.utils.conversions import density_to_light
@@ -61,14 +60,11 @@ class PrintingStage:
 
     @timeit("_develop_print")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
-        
-        density_curves_glare_compensated = self._print_corrected_density_curves()
-
-        
+                
         return develop_simple(
             log_raw,
             self._print.data.log_exposure,
-            density_curves_glare_compensated,
+            self._print.data.density_curves,
             gamma_factor=self._print_render.density_curve_gamma,
         )
 
@@ -114,18 +110,3 @@ class PrintingStage:
         # use the geometric mean to normalize the exposure
         raw_midgray_geomean = np.exp(np.mean(np.log(raw_midgray), axis=2, keepdims=True))
         return 1 / raw_midgray_geomean
-
-    def _print_corrected_density_curves(self):
-        if self._print_render.glare.compensation_removal_factor > 0:
-            log_exposure = self._print.data.log_exposure
-            density_curves = self._print.data.density_curves
-            density_curves = remove_viewing_glare_comp(
-                log_exposure,
-                density_curves,
-                factor=self._print_render.glare.compensation_removal_factor,
-                density=self._print_render.glare.compensation_removal_density,
-                transition=self._print_render.glare.compensation_removal_transition,
-            )
-            return density_curves
-        else:
-            return self._print.data.density_curves

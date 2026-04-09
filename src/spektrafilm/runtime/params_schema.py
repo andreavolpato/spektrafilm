@@ -82,9 +82,6 @@ class GlareParams:
     percent: float = 0.03
     roughness: float = 0.7
     blur: float = 0.5
-    compensation_removal_factor: float = 0.0
-    compensation_removal_density: float = 1.2
-    compensation_removal_transition: float = 0.3
 
 
 @dataclass

@@ -59,7 +59,6 @@ def _prepare_fitting_profile(profile):
     working_profile = copy.deepcopy(profile)
     working_profile.debug.deactivate_spatial_effects = True
     working_profile.debug.deactivate_stochastic_effects = True
-    working_profile.print_render.glare.compensation_removal_factor = 0.0
     working_profile.io.input_cctf_decoding = False
     working_profile.io.input_color_space = 'sRGB'
     working_profile.io.upscale_factor = 1.0

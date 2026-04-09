@@ -78,9 +78,6 @@ class GlareState:
     percent: float
     roughness: float
     blur: float
-    compensation_removal_factor: float
-    compensation_removal_density: float
-    compensation_removal_transition: float
 
 
 @dataclass(slots=True)
@@ -223,9 +220,6 @@ def gui_state_from_params(
             percent=params.print_render.glare.percent,
             roughness=params.print_render.glare.roughness,
             blur=params.print_render.glare.blur,
-            compensation_removal_factor=params.print_render.glare.compensation_removal_factor,
-            compensation_removal_density=params.print_render.glare.compensation_removal_density,
-            compensation_removal_transition=params.print_render.glare.compensation_removal_transition,
         ),
         special=SpecialState(
             film_channel_swap=(0, 1, 2),

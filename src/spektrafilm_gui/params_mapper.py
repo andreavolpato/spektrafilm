@@ -44,9 +44,6 @@ def _apply_glare(params: RuntimePhotoParams, state: GuiState) -> None:
     params.print_render.glare.percent = state.glare.percent
     params.print_render.glare.roughness = state.glare.roughness
     params.print_render.glare.blur = state.glare.blur
-    params.print_render.glare.compensation_removal_factor = state.glare.compensation_removal_factor
-    params.print_render.glare.compensation_removal_density = state.glare.compensation_removal_density
-    params.print_render.glare.compensation_removal_transition = state.glare.compensation_removal_transition
 
 
 def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
