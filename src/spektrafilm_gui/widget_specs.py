@@ -217,20 +217,24 @@ GUI_WIDGET_SPECS = {
         "dir_couplers_amount": WidgetSpec(
             tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
             step=0.05,
+            min_value=0,
         ),
         "dir_couplers_diffusion_um": WidgetSpec(
             tooltip="Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
             step=5,
+            min_value=0,
         ),
         "diffusion_interlayer": WidgetSpec(
             tooltip="Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.",
+            min_value=0,
         ),
     },
     "grain": {
         "active": WidgetSpec(tooltip="Add grain to the negative"),
         "particle_area_um2": WidgetSpec(
             tooltip="Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on.",
-            step=0.1,
+            step=0.2,
+            min_value=0,
         ),
         "particle_scale": WidgetSpec(tooltip="Scale of particle area for the RGB layers, multiplies particle_area_um2"),
         "particle_scale_layers": WidgetSpec(
@@ -240,18 +244,25 @@ GUI_WIDGET_SPECS = {
         "uniformity": WidgetSpec(tooltip="Uniformity of the grain, typical values (0.94-0.98)"),
         "blur": WidgetSpec(
             tooltip="Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res).",
+            min_value=0,
+            step=0.05,
         ),
         "blur_dye_clouds_um": WidgetSpec(
             tooltip="Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)",
+            min_value=0,
+            step=0.1,
         ),
         "micro_structure": WidgetSpec(
             tooltip="Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.",
+            min_value=0,
+            step=0.1,
         ),
     },
     "preflashing": {
         "exposure": WidgetSpec(
             tooltip="Preflash exposure value in ev for the print",
             step=0.005,
+            min_value=0,
         ),
         "y_filter_shift": WidgetSpec(
             tooltip="Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), in Kodak CC units",
@@ -267,12 +278,16 @@ GUI_WIDGET_SPECS = {
         "crop_center": WidgetSpec(
             label="Crop center",
             tooltip="Center of the crop region in relative coordinates in x, y (0-1)",
-            step=0.02,
+            step=0.01,
+            min_value=0,
+            max_value=1,
         ),
         "crop_size": WidgetSpec(
             label="Crop size",
             tooltip="Normalized size of the crop region in x, y (0,1), as fraction of the long side.",
             step=0.01,
+            min_value=0,
+            max_value=1,
         ),
         "input_color_space": WidgetSpec(
             label="Input color space",
@@ -282,7 +297,7 @@ GUI_WIDGET_SPECS = {
             label="Apply CCTF decoding",
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
-        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution", step=0.5),
+        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution", step=0.5, min_value=1),
         "spectral_upsampling_method": WidgetSpec(
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
@@ -305,6 +320,7 @@ GUI_WIDGET_SPECS = {
             label="Temperature",
             tooltip="Temperature in Kelvin for the custom whitebalance, not used for the other white balance settings",
             step=100,
+            min_value=1000,
         ),
         "tint": WidgetSpec(
             label="Tint",
