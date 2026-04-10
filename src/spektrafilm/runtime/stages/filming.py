@@ -12,7 +12,7 @@ from spektrafilm.utils.timings import timeit
 
 class FilmingStage:
     def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
-                 lut_service, resize_service, enlarger_service):
+                 lut_service, resize_service, enlarger_service, color_reference_service):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
@@ -22,6 +22,7 @@ class FilmingStage:
         self._resize_service = resize_service
         self._enlarger_service = enlarger_service
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
+        self._color_reference_service = color_reference_service
         self._pixel_size_um = None
 
     # public methods
@@ -50,6 +51,7 @@ class FilmingStage:
         raw *= 2 ** self._camera.exposure_compensation_ev
         raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._pixel_size_um)
         raw = apply_halation_um(raw, self._film_render.halation, self._pixel_size_um)
+        raw *= self._color_reference_service.black_white_filming_exposure_correction()
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
 

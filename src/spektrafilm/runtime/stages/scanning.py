@@ -35,7 +35,12 @@ class ScanningStage:
         self._settings = settings_params
         self._lut_service = lut_service
         self._color_reference_service = color_reference_service
-
+        
+        self.cmy_to_log_xyz = self._return_callable_cmy_to_log_xyz()
+        
+        # communicate to the color reference service the callable to convert cmy densities to log xyz
+        self._color_reference_service.cmy_to_log_xyz = self.cmy_to_log_xyz
+        
     # public methods
 
     @timeit("_scan")
@@ -48,15 +53,11 @@ class ScanningStage:
 
     def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._io.scan_film:
-            channel_density = self._film.data.channel_density
-            base_density = self._film.data.base_density
             glare = None
             density_min = -np.array(self._film_render.grain.density_min)
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
             scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
         else:
-            channel_density = self._print.data.channel_density
-            base_density = self._print.data.base_density
             glare = self._print_render.glare
             density_min = np.nanmin(self._print.data.density_curves, axis=0)
             density_max = np.nanmax(self._print.data.density_curves, axis=0)
@@ -64,26 +65,16 @@ class ScanningStage:
             
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
-        def _cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
-            density_spectral = compute_density_spectral(
-                channel_density,
-                density_cmy,
-                base_density,
-            )
-            light = density_to_light(density_spectral, scan_illuminant)
-            xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
-            return np.log10(np.fmax(xyz, 0.0) + 1e-10)
-
         log_xyz = self._lut_service.spectral_compute(
             density_channels,
-            spectral_calculation=_cmy_to_log_xyz,
+            spectral_calculation=self.cmy_to_log_xyz,
             data_min=density_min,
             data_max=density_max,
             use_lut=use_lut,
             use_scanner_lut_memory=True,
         )
         xyz = 10 ** log_xyz
-        xyz = self._color_reference_service.black_white_xyz_correction(xyz, cmy_to_log_xyz=_cmy_to_log_xyz)
+        xyz = self._color_reference_service.black_white_xyz_correction(xyz)
         illuminant_xyz = contract("k,kl->l", scan_illuminant, STANDARD_OBSERVER_CMFS[:]) / normalization
         illuminant_xy = colour.XYZ_to_xy(illuminant_xyz)
         xyz = add_glare(xyz, illuminant_xyz, glare)
@@ -93,6 +84,29 @@ class ScanningStage:
             apply_cctf_encoding=False,
             illuminant=illuminant_xy,
         )
+
+    def _return_callable_cmy_to_log_xyz(self):
+        if self._io.scan_film:
+            channel_density = self._film.data.channel_density
+            base_density = self._film.data.base_density
+            scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
+        else:
+            channel_density = self._print.data.channel_density
+            base_density = self._print.data.base_density
+            scan_illuminant = standard_illuminant(self._print.info.viewing_illuminant)
+            
+        normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
+
+        def cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
+            density_spectral = compute_density_spectral(
+                channel_density,
+                density_cmy,
+                base_density,
+            )
+            light = density_to_light(density_spectral, scan_illuminant)
+            xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
+            return np.log10(np.fmax(xyz, 0.0) + 1e-10)
+        return cmy_to_log_xyz
 
     def _apply_blur_and_unsharp(self, rgb: np.ndarray) -> np.ndarray:
         rgb = apply_gaussian_blur(rgb, self._scanner.lens_blur)

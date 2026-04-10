@@ -53,6 +53,7 @@ class SimulationPipeline:
             self._lut_service,
             self._resize_service, # to get pixel size um for blurs
             self._enlarger_service, # to compute and save density spectral midgray to balance print
+            self._color_reference_service,
         )
         self._printing_stage = PrintingStage(
             self.film,
