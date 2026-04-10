@@ -418,7 +418,7 @@ class GuiController:
         if self._white_border_layer() is None:
             return
         reset_viewer_camera(self._viewer)
-        self._set_active_layer(self._preview_input_layer())
+        self._set_active_layer(self._white_border_layer())
 
     def _simulation_input_image(self, *, source_layer_name: str) -> np.ndarray | None:
         if source_layer_name == INPUT_PREVIEW_LAYER_NAME:
