@@ -51,9 +51,9 @@ class TestInitParamsDefaults:
 
         assert params.scanner.lens_blur == 0.0
         assert params.scanner.white_correction is False
-        assert params.scanner.white_level == 0.95
+        assert params.scanner.white_level == 0.98
         assert params.scanner.black_correction is False
-        assert params.scanner.black_level == 0.02
+        assert params.scanner.black_level == 0.01
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
         assert params.film_render.density_curve_gamma == 1.0
@@ -86,7 +86,7 @@ class TestInitParamsDefaults:
         assert params.settings.use_scanner_lut is False
         assert params.settings.lut_resolution == 17
         assert params.settings.use_fast_stats is False
-        assert params.settings.preview_max_size == 512
+        assert params.settings.preview_max_size == 640
 
 class TestSimulatorDebugSwitches:
     def test_deactivate_spatial_effects_params(self):

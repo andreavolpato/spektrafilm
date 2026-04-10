@@ -119,6 +119,10 @@ def _supports_output_layer_crossfade(source_image: np.ndarray, target_image: np.
     return _supports_output_layer_animation(source) and _supports_output_layer_animation(target)
 
 
+def _layer_data_shape(layer: NapariImageLayer) -> tuple[int, ...]:
+    return tuple(int(dimension) for dimension in np.asarray(layer.data).shape)
+
+
 def _image_to_float_frame(image: np.ndarray) -> np.ndarray:
     data = np.asarray(image)
     if np.issubdtype(data.dtype, np.integer):
@@ -297,10 +301,16 @@ class ViewerLayerService:
         output_image = np.asarray(image)
         crossfade_source_image: np.ndarray | None = None
         use_crossfade = False
+        replace_layer = False
         if existing_layer is not None and not animate_on_show:
             crossfade_source_image = np.array(existing_layer.data, copy=True)
             self._stop_output_layer_animation(existing_layer, restore_final=False)
             use_crossfade = _supports_output_layer_crossfade(crossfade_source_image, output_image)
+            replace_layer = not use_crossfade and _layer_data_shape(existing_layer) != tuple(int(dimension) for dimension in output_image.shape)
+
+        if replace_layer and existing_layer is not None:
+            self.remove_layer(OUTPUT_LAYER_NAME)
+            existing_layer = None
 
         if existing_layer is None:
             layer = self._set_or_add_image_layer(output_image, layer_name=OUTPUT_LAYER_NAME)
@@ -337,6 +347,8 @@ class ViewerLayerService:
                 source_image=crossfade_source_image,
                 target_image=output_image,
             )
+        else:
+            _refresh_layer(layer)
 
     def output_layer(self) -> NapariImageLayer | None:
         layer = self.image_layer(OUTPUT_LAYER_NAME)

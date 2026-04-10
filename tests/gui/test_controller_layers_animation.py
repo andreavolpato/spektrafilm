@@ -178,6 +178,41 @@ def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(
     np.testing.assert_array_equal(new_frames[-1], second_image)
 
 
+def test_preview_to_scan_shape_change_recreates_output_layer_without_restarting_animation(monkeypatch) -> None:
+    _FakeTimer.created.clear()
+    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    service = _make_service()
+    service.set_or_add_input_preview_layer(np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1)
+    preview_image = np.full((4, 4, 3), 77, dtype=np.uint8)
+    scan_image = np.full((8, 8, 3), 88, dtype=np.uint8)
+
+    service.set_or_add_output_layer(
+        preview_image,
+        float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    preview_layer = service.output_layer()
+    assert preview_layer is not None
+
+    service.set_or_add_output_layer(
+        scan_image,
+        float_image=np.full((8, 8, 3), 0.6, dtype=np.float32),
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    scan_layer = service.output_layer()
+    assert scan_layer is not None
+    assert scan_layer is not preview_layer
+    assert len(_FakeTimer.created) == 1
+    np.testing.assert_array_equal(scan_layer.data, scan_image)
+    assert scan_layer.refresh_calls >= 1
+
+
 def test_large_output_skips_polaroid_animation(monkeypatch) -> None:
     _FakeTimer.created.clear()
     monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)

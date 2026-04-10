@@ -118,14 +118,14 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.diffusion_spatial_scale == 1.0
     assert state.simulation.diffusion_intensity == 1.0
     assert state.simulation.scan_white_correction is False
-    assert state.simulation.scan_white_level == 0.95
+    assert state.simulation.scan_white_level == 0.98
     assert state.simulation.scan_black_correction is False
-    assert state.simulation.scan_black_level == 0.02
+    assert state.simulation.scan_black_level == 0.01
     assert state.display.use_display_transform is True
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
     assert state.display.white_padding == 0.03
-    assert state.display.preview_max_size == 512
+    assert state.display.preview_max_size == 640
     assert state.display.output_interpolation == 'spline36'
 
 
