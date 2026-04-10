@@ -117,7 +117,9 @@ def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
 def _apply_scanner(params: RuntimePhotoParams, state: GuiState) -> None:
     params.scanner.lens_blur = state.simulation.scan_lens_blur
     params.scanner.white_correction = state.simulation.scan_white_correction
+    params.scanner.white_level = state.simulation.scan_white_level
     params.scanner.black_correction = state.simulation.scan_black_correction
+    params.scanner.black_level = state.simulation.scan_black_level
     params.scanner.unsharp_mask = state.simulation.scan_unsharp_mask
 
 

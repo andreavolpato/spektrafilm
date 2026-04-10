@@ -349,7 +349,9 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 'print_illuminant',
                 'scan_lens_blur',
                 'scan_white_correction',
+                'scan_white_level',
                 'scan_black_correction',
+                'scan_black_level',
                 'scan_unsharp_mask',
                 'auto_preview',
                 'scan_film',
@@ -375,6 +377,8 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     assert widgets.simulation.diffusion_strength.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.exposure_compensation_ev.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_lens_blur.valueChanged.connected == [controller.request_auto_preview]
+    assert widgets.simulation.scan_white_correction.toggled.connected == [controller.request_auto_preview]
+    assert widgets.simulation.scan_white_level.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_unsharp_mask._editors[0].valueChanged.connected == [controller.request_auto_preview]
     assert widgets.display.preview_max_size.valueChanged.connected == []
     assert widgets.simulation.output_color_space.currentTextChanged.connected == [controller.request_auto_preview]

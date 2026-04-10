@@ -15,6 +15,7 @@ class WidgetSpec:
     min_value: float | int | None = None
     max_value: float | int | None = None
     step: float | int | None = None
+    decimals: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,17 +117,27 @@ GUI_WIDGET_SPECS = {
         ),
         "scan_white_correction": WidgetSpec(
             label="Scan white correction",
-            tooltip="White point correction applied to the scanner output",
+            tooltip="Enable white point correction applied to the scanner output",
+        ),
+        "scan_white_level": WidgetSpec(
+            label="Scan white level",
+            tooltip="Target white level applied when white correction is enabled",
             min_value=0,
             max_value=1,
-            step=0.01,
+            step=0.005,
+            decimals=3,
         ),
         "scan_black_correction": WidgetSpec(
             label="Scan black correction",
-            tooltip="Black point correction applied to the scanner output",
+            tooltip="Enable black point correction applied to the scanner output",
+        ),
+        "scan_black_level": WidgetSpec(
+            label="Scan black level",
+            tooltip="Target black level applied when black correction is enabled",
             min_value=0,
             max_value=1,
-            step=0.01,
+            step=0.005,
+            decimals=3,
         ),
         "scan_unsharp_mask": WidgetSpec(
             label="Scan unsharp mask",
@@ -162,7 +173,8 @@ GUI_WIDGET_SPECS = {
         "preview_max_size": WidgetSpec(
             label="Preview max size",
             tooltip="max size of the long edge of the preview image in pixels",
-            min_value=256,
+            min_value=128,
+            max_value=1024,
             step=128,
         ),
     },
@@ -335,7 +347,7 @@ GUI_WIDGET_SPECS = {
 GUI_AUXILIARY_SPECS = {
     "scan_for_print": WidgetSpec(
         label="Scan for print",
-        tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.",
+        tooltip="Scan the image for print, ie white and black correction of the scanner are active, and glare is deactivated.",
     ),
 }
 

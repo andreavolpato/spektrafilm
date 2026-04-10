@@ -37,8 +37,10 @@ class EnlargerParams:
 @dataclass
 class ScannerParams:
     lens_blur: float = 0.0
-    white_correction: float = 0.0
-    black_correction: float = 0.0
+    white_correction: bool = False
+    black_correction: bool = False
+    white_level: float = 0.95
+    black_level: float = 0.02
     unsharp_mask: tuple[float, float] = (0.7, 0.7)
 
 
@@ -70,7 +72,7 @@ class HalationParams:
 class DirCouplersParams:
     active: bool = True
     amount: float = 1.0
-    ratio_rgb: tuple[float, float, float] = (0.35, 0.35, 0.35)
+    ratio_rgb: tuple[float, float, float] = None # set in digest_params
     diffusion_interlayer: float = 2.0
     diffusion_size_um: float = 10.0
     high_exposure_shift: float = 0.0

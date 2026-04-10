@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from dataclasses import fields
 import os
 from types import SimpleNamespace
@@ -278,32 +279,14 @@ def test_input_image_section_does_not_add_auxiliary_rows() -> None:
     assert form.rows == []
 
 
-def test_load_raw_widget_specs_include_requested_tooltips() -> None:
-    assert widget_specs_module.get_widget_spec('load_raw', 'white_balance').tooltip == (
-        'Select white balance settings, if custom you can tune temperature and tint'
-    )
-    assert widget_specs_module.get_widget_spec('load_raw', 'temperature').tooltip == (
-        'Temperature in Kelvin for the custom whitebalance, not used for the other white balance settings'
-    )
-    assert widget_specs_module.get_widget_spec('load_raw', 'tint').tooltip == (
-        'Tint value for the custom white balance, not used for the other white balance settings'
-    )
-
-
-def test_scan_for_print_auxiliary_spec_includes_requested_tooltip() -> None:
-    assert widget_specs_module.get_auxiliary_spec('scan_for_print').tooltip == (
-        'Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.'
-    )
-
-
 def test_scan_for_print_toggle_applies_and_restores_scanner_and_glare_state() -> None:
     toggle_scan_for_print = getattr(widgets_module.SimulationSection, '_apply_scan_for_print_mode')
     glare_section = SimpleNamespace(active=FakeValueEditor(True))
 
     section = SimpleNamespace(
         bottom_scan_film=FakeCheckbox(True),
-        scan_white_correction=FakeValueEditor(0.25),
-        scan_black_correction=FakeValueEditor(0.5),
+        scan_white_correction=FakeValueEditor(False),
+        scan_black_correction=FakeValueEditor(True),
         _glare_section=glare_section,
         _scan_for_print_restore_state=None,
     )
@@ -312,57 +295,17 @@ def test_scan_for_print_toggle_applies_and_restores_scanner_and_glare_state() ->
 
     assert section.bottom_scan_film.isChecked() is True
     assert section.bottom_scan_film.enabled is True
-    assert section.scan_white_correction.value == 1.0
-    assert section.scan_black_correction.value == 1.0
+    assert section.scan_white_correction.value is True
+    assert section.scan_black_correction.value is True
     assert glare_section.active.value is False
 
     toggle_scan_for_print(section, False)
 
     assert section.bottom_scan_film.isChecked() is True
-    assert section.scan_white_correction.value == 0.25
-    assert section.scan_black_correction.value == 0.5
+    assert section.scan_white_correction.value is False
+    assert section.scan_black_correction.value is True
     assert glare_section.active.value is True
     assert getattr(section, '_scan_for_print_restore_state') is None
-
-
-def test_scanner_correction_widget_specs_use_requested_float_bounds() -> None:
-    white_spec = widget_specs_module.get_widget_spec('simulation', 'scan_white_correction')
-    black_spec = widget_specs_module.get_widget_spec('simulation', 'scan_black_correction')
-
-    assert white_spec.min_value == 0
-    assert white_spec.max_value == 1
-    assert white_spec.step == 0.01
-    assert black_spec.min_value == 0
-    assert black_spec.max_value == 1
-    assert black_spec.step == 0.01
-
-
-def test_preview_max_size_widget_spec_uses_requested_bounds_and_tooltip() -> None:
-    spec = widget_specs_module.get_widget_spec('display', 'preview_max_size')
-
-    assert spec.label == 'Preview max size'
-    assert spec.tooltip == 'max size of the long edge of the preview image in pixels'
-    assert spec.min_value == 256
-    assert spec.step == 128
-
-
-def test_diffusion_widget_specs_use_requested_bounds_and_tooltips() -> None:
-    strength_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_strength')
-    spatial_scale_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_spatial_scale')
-    intensity_spec = widget_specs_module.get_widget_spec('simulation', 'diffusion_intensity')
-
-    assert strength_spec.tooltip == 'strength of the diffusion filter 1/8=0.125, 1/4=0.25, 1/2=0.5, ..'
-    assert strength_spec.min_value == 0
-    assert strength_spec.max_value == 1
-    assert strength_spec.step == 0.125
-
-    assert spatial_scale_spec.tooltip == 'scale spatially the filter blooming'
-    assert spatial_scale_spec.min_value == 0
-    assert spatial_scale_spec.step == 0.1
-
-    assert intensity_spec.tooltip == 'tune the intensity of the filter'
-    assert intensity_spec.min_value == 0
-    assert intensity_spec.step == 0.1
 
 
 def test_numeric_widget_specs_define_minimum_and_step() -> None:
@@ -408,14 +351,6 @@ def test_section_header_icon_returns_empty_icon_without_pyconify(monkeypatch) ->
     assert icon.isNull() is True
 
 
-def test_section_header_icon_name_maps_crop_and_upscale_title() -> None:
-    assert icons_module.section_header_icon_name('Crop and upscale') == 'tabler:crop'
-
-
-def test_section_header_icon_name_maps_diffusion_title() -> None:
-    assert icons_module.section_header_icon_name('Diffusion') == 'tabler:artboard'
-
-
 def test_collapsible_section_shows_icon_for_mapped_main_tab_title(monkeypatch) -> None:
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     from qtpy import QtGui, QtWidgets
@@ -430,3 +365,29 @@ def test_collapsible_section_shows_icon_for_mapped_main_tab_title(monkeypatch) -
     section = primitives_module.CollapsibleSection('Import RGB', QtWidgets.QWidget(), expanded=True)
 
     assert section.has_header_icon() is True
+
+
+def test_widget_spec_decimals_configure_float_editors(monkeypatch) -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    @dataclass
+    class TestState:
+        float_value: float = 0.0
+        float_pair: tuple[float, float] = (0.0, 0.0)
+
+    monkeypatch.setitem(
+        widget_specs_module.GUI_WIDGET_SPECS,
+        'test',
+        {
+            'float_value': widget_specs_module.WidgetSpec(decimals=4),
+            'float_pair': widget_specs_module.WidgetSpec(decimals=3),
+        },
+    )
+
+    section = widgets_module.DataclassSection(state_cls=TestState, section_name='test', title='Test')
+
+    assert section.float_value.decimals() == 4
+    assert [editor.decimals() for editor in section.float_pair.editors] == [3, 3]

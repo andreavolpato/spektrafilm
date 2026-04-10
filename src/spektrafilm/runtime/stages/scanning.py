@@ -36,13 +36,17 @@ class ScanningStage:
         self._lut_service = lut_service
         self._color_reference_service = color_reference_service
 
+    # public methods
+
     @timeit("_scan")
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
-        rgb = self.density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
-        rgb = self.apply_blur_and_unsharp(rgb)
-        return self.apply_cctf_encoding_and_clip(rgb)
+        rgb = self._density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
+        rgb = self._apply_blur_and_unsharp(rgb)
+        return self._apply_cctf_encoding_and_clip(rgb)
 
-    def density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
+    # private methods
+
+    def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._io.scan_film:
             channel_density = self._film.data.channel_density
             base_density = self._film.data.base_density
@@ -60,7 +64,7 @@ class ScanningStage:
             
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
-        def cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
+        def _cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
             density_spectral = compute_density_spectral(
                 channel_density,
                 density_cmy,
@@ -72,36 +76,17 @@ class ScanningStage:
 
         log_xyz = self._lut_service.spectral_compute(
             density_channels,
-            spectral_calculation=cmy_to_log_xyz,
+            spectral_calculation=_cmy_to_log_xyz,
             data_min=density_min,
             data_max=density_max,
             use_lut=use_lut,
             use_scanner_lut_memory=True,
         )
         xyz = 10 ** log_xyz
-        
-        # black and white correction
-        if self._io.scan_film and self._film.info.type == 'negative':
-            pass # do not correct for black and white the negative scan
-        else:
-            if self._io.scan_film and self._film.info.type == 'positive':
-                cmy_black = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
-                cmy_white = np.zeros((1,1,3))
-            elif not self._io.scan_film and self._print.info.type == 'negative':
-                cmy_black = self._color_reference_service.cmy_print_black()
-                cmy_white = self._color_reference_service.cmy_print_white()
-            else: raise ValueError("Unsupported film/print type for black and white correction.")
-            log_xyz_black = cmy_to_log_xyz(cmy_black)
-            log_xyz_white = cmy_to_log_xyz(cmy_white)
-            y_black = (10 ** log_xyz_black)[:, :, 1]
-            y_white = (10 ** log_xyz_white)[:, :, 1]
-            xyz = black_and_white_correction(xyz, y_black=y_black, y_white=y_white,
-                                            black_correction=self._scanner.black_correction,
-                                            white_correction=self._scanner.white_correction)
-            
+        xyz = self._color_reference_service.black_white_xyz_correction(xyz, cmy_to_log_xyz=_cmy_to_log_xyz)
         illuminant_xyz = contract("k,kl->l", scan_illuminant, STANDARD_OBSERVER_CMFS[:]) / normalization
-        xyz = add_glare(xyz, illuminant_xyz, glare)
         illuminant_xy = colour.XYZ_to_xy(illuminant_xyz)
+        xyz = add_glare(xyz, illuminant_xyz, glare)
         return colour.XYZ_to_RGB(
             xyz,
             colourspace=self._io.output_color_space,
@@ -109,14 +94,14 @@ class ScanningStage:
             illuminant=illuminant_xy,
         )
 
-    def apply_blur_and_unsharp(self, rgb: np.ndarray) -> np.ndarray:
+    def _apply_blur_and_unsharp(self, rgb: np.ndarray) -> np.ndarray:
         rgb = apply_gaussian_blur(rgb, self._scanner.lens_blur)
         sigma, amount = self._scanner.unsharp_mask
         if sigma > 0 and amount > 0:
             rgb = apply_unsharp_mask(rgb, sigma=sigma, amount=amount)
         return rgb
 
-    def apply_cctf_encoding_and_clip(self, rgb: np.ndarray) -> np.ndarray:
+    def _apply_cctf_encoding_and_clip(self, rgb: np.ndarray) -> np.ndarray:
         if self._io.output_cctf_encoding:
             rgb = colour.RGB_to_RGB(
                 rgb,
@@ -129,10 +114,3 @@ class ScanningStage:
 
 
 
-def black_and_white_correction(xyz, y_black, y_white, black_correction, white_correction):  
-    y = xyz[:, :, 1]
-    y_black_corrected = y_black * black_correction
-    y_white_corrected = y_white * white_correction + (1-white_correction)
-    y_corrected = np.clip((y - y_black_corrected) / (y_white_corrected - y_black_corrected), 0, 1)
-    scale = y_corrected / (y + 1e-10)
-    return xyz * scale[:, :, None]
