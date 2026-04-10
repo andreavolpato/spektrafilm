@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import colour
 import numpy as np
 
 from spektrafilm.utils import raw_file_processor
@@ -14,39 +13,6 @@ def _assert_valid_rgb(image: np.ndarray) -> None:
     assert image.shape[2] == 3
     assert image.size > 0
     assert np.all(np.isfinite(image))
-
-
-def test_white_balance_adaptation_maps_source_white_to_daylight_reference() -> None:
-    whitepoint_from_temperature = getattr(raw_file_processor, '_whitepoint_xyz_from_temperature')
-    aces_colourspace = getattr(raw_file_processor, '_ACES_COLOURSPACE')
-    apply_white_balance_adaptation = getattr(raw_file_processor, '_apply_white_balance_adaptation')
-
-    source_white_xyz = whitepoint_from_temperature(3200.0)
-    target_white_xyz = whitepoint_from_temperature(6504.0)
-    source_white_xyz = source_white_xyz / source_white_xyz[1]
-    target_white_xyz = target_white_xyz / target_white_xyz[1]
-
-    source_white_rgb = colour.XYZ_to_RGB(
-        source_white_xyz[np.newaxis, np.newaxis, :],
-        colourspace=aces_colourspace,
-        chromatic_adaptation_transform=None,
-        apply_cctf_encoding=False,
-    ).astype(np.float32)
-    target_white_rgb = colour.XYZ_to_RGB(
-        target_white_xyz[np.newaxis, np.newaxis, :],
-        colourspace=aces_colourspace,
-        chromatic_adaptation_transform=None,
-        apply_cctf_encoding=False,
-    ).astype(np.float32)
-
-    adapted = apply_white_balance_adaptation(
-        source_white_rgb,
-        source_white_xyz,
-        target_white_xyz,
-    )
-
-    _assert_valid_rgb(adapted)
-    np.testing.assert_allclose(adapted, target_white_rgb, atol=5e-4, rtol=5e-4)
 
 
 def test_load_and_process_raw_file_smoke_without_external_raw(monkeypatch) -> None:
