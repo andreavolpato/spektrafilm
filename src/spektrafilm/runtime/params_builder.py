@@ -13,7 +13,7 @@ def _get_neutral_print_filters():
     return read_neutral_print_filters()
 
 
-def digest_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
+def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> RuntimePhotoParams:
     """Digest the params to prepare for use in the runtime pipeline.
     In the pipeline params should be static and not be changed.
     params.settings and params.debug should contain all the switching logic for the digesting.
@@ -39,8 +39,10 @@ def digest_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.camera.lens_blur_um = 0.0
         params.scanner.lens_blur = 0.0
         params.scanner.unsharp_mask = (0.0, 0.0)
-
-    params = _apply_film_specifics(params)
+    
+    if apply_stocks_specifics:
+        params = _apply_film_specifics(params)
+        params = _apply_print_specifics(params)
     
     # debug switches
     if params.debug.deactivate_spatial_effects:
@@ -94,6 +96,10 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 1.3
     return params
 
+def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
+    """Apply print specific settings to the params."""
+    # define here all the specifics to stocks that should be applied in params.print_render
+    return params
 
 
 __all__ = ["digest_params", "init_params"]

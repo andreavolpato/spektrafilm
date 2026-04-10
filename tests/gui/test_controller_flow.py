@@ -291,6 +291,7 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
 
 def test_apply_profile_defaults_routes_through_selection_digest(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=object())
+    controller._next_runtime_digest_applies_stock_specifics = False
     gui_state = make_test_controller_gui_state()
     captured: dict[str, object] = {}
     built_params = object()
@@ -320,6 +321,7 @@ def test_apply_profile_defaults_routes_through_selection_digest(monkeypatch) -> 
     assert captured['digested_input'] is built_params
     assert captured['synced_args'] == (digested_params, gui_state.simulation.film_stock, gui_state.simulation.print_paper)
     assert captured['applied_state'] is synced_state
+    assert controller._next_runtime_digest_applies_stock_specifics is True
 
 
 def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
@@ -611,6 +613,7 @@ def test_process_image_with_runtime_reuses_cached_simulator(monkeypatch) -> None
     image_second = np.full((2, 2, 3), 0.5, dtype=np.float32)
     captured: dict[str, object] = {
         'constructed': [],
+        'digest_flags': [],
         'updated': [],
         'processed': [],
     }
@@ -626,7 +629,8 @@ def test_process_image_with_runtime_reuses_cached_simulator(monkeypatch) -> None
             captured['processed'].append(np.array(image, copy=True))
             return np.asarray(image) + 0.1
 
-    def fake_digest_params(params):
+    def fake_digest_params(params, *, apply_stocks_specifics=True):
+        captured['digest_flags'].append(apply_stocks_specifics)
         if params is params_first:
             return digested_first
         if params is params_second:
@@ -640,10 +644,47 @@ def test_process_image_with_runtime_reuses_cached_simulator(monkeypatch) -> None
     second = controller._process_image_with_runtime(image_second, params_second)
 
     assert captured['constructed'] == [digested_first]
+    assert captured['digest_flags'] == [True, False]
     assert captured['updated'] == [digested_second]
     assert len(captured['processed']) == 2
     np.testing.assert_allclose(first, image_first + 0.1)
     np.testing.assert_allclose(second, image_second + 0.1)
+
+
+def test_process_image_with_runtime_reapplies_stock_specific_digest_after_profile_change(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    params = object()
+    digested_params = object()
+    image = np.full((2, 2, 3), 0.25, dtype=np.float32)
+    captured: dict[str, object] = {
+        'digest_flags': [],
+        'updated': [],
+        'processed': [],
+    }
+
+    class FakeSimulator:
+        def update_params(self, runtime_params) -> None:
+            captured['updated'].append(runtime_params)
+
+        def process(self, runtime_image):
+            captured['processed'].append(np.array(runtime_image, copy=True))
+            return np.asarray(runtime_image) + 0.2
+
+    def fake_digest_params(runtime_params, *, apply_stocks_specifics=True):
+        captured['digest_flags'].append(apply_stocks_specifics)
+        assert runtime_params is params
+        return digested_params
+
+    controller._runtime_simulator = FakeSimulator()
+    controller._next_runtime_digest_applies_stock_specifics = True
+    monkeypatch.setattr(controller_module, 'digest_params', fake_digest_params)
+
+    result = controller._process_image_with_runtime(image, params)
+
+    assert captured['digest_flags'] == [True]
+    assert captured['updated'] == [digested_params]
+    assert controller._next_runtime_digest_applies_stock_specifics is False
+    np.testing.assert_allclose(result, image + 0.2)
 
 
 def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:

@@ -182,14 +182,21 @@ GUI_WIDGET_SPECS = {
         "film_gamma_factor": WidgetSpec(
             label="Film gamma factor",
             tooltip="Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast",
+            step=0.05,
+            min_value=0,
         ),
         "film_channel_swap": WidgetSpec(label="Film channel swap"),
         "print_gamma_factor": WidgetSpec(
             label="Print gamma factor",
             tooltip="Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast",
             step=0.05,
+            min_value=0,
         ),
-        "print_channel_swap": WidgetSpec(label="Print channel swap"),
+        "print_channel_swap": WidgetSpec(label="Print channel swap",
+        min_value=0,
+        max_value=2,
+        step=1
+        )
     },
     "glare": {
         "active": WidgetSpec(tooltip="Add glare to the print"),
@@ -214,31 +221,47 @@ GUI_WIDGET_SPECS = {
     "halation": {
         "scattering_strength": WidgetSpec(
             tooltip="Fraction of scattered light (0-100, percentage) for each channel [R,G,B]",
+            min_value=0,
+            max_value=100,
+            step=1,
         ),
         "scattering_size_um": WidgetSpec(
             tooltip="Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
+            min_value=0,
+            step=0.1,
         ),
         "halation_strength": WidgetSpec(
             tooltip="Fraction of halation light (0-100, percentage) for each channel [R,G,B]",
+            min_value=0,
+            max_value=100,
+            step=1,
         ),
         "halation_size_um": WidgetSpec(
             tooltip="Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
+            min_value=0,
+            step=0.1,
         ),
     },
     "couplers": {
         "dir_couplers_amount": WidgetSpec(
             tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
-            step=0.05,
             min_value=0,
+            step=0.05,
+        ),
+        "dir_couplers_ratio": WidgetSpec(
+            tooltip="relative amount of coupler in RGB layers, if dir coupler amount is 1.0 they are effectevile gamma values of the log exposure correction.",
+            min_value=0,
+            step=0.02,
         ),
         "dir_couplers_diffusion_um": WidgetSpec(
             tooltip="Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
-            step=5,
             min_value=0,
+            step=5,
         ),
         "diffusion_interlayer": WidgetSpec(
             tooltip="Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.",
             min_value=0,
+            step=0.5,
         ),
     },
     "grain": {
@@ -251,6 +274,8 @@ GUI_WIDGET_SPECS = {
         "particle_scale": WidgetSpec(tooltip="Scale of particle area for the RGB layers, multiplies particle_area_um2"),
         "particle_scale_layers": WidgetSpec(
             tooltip="Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2",
+            min_value=0,
+            step=0.25,
         ),
         "density_min": WidgetSpec(tooltip="Minimum density of the grain, typical values (0.03-0.06)"),
         "uniformity": WidgetSpec(tooltip="Uniformity of the grain, typical values (0.94-0.98)"),
@@ -309,7 +334,10 @@ GUI_WIDGET_SPECS = {
             label="Apply CCTF decoding",
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
-        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution", step=0.5, min_value=1),
+        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution",
+                                     min_value=1,
+                                     step=0.5,
+                                     ),
         "spectral_upsampling_method": WidgetSpec(
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
@@ -317,10 +345,14 @@ GUI_WIDGET_SPECS = {
         "filter_uv": WidgetSpec(
             label="UV filter",
             tooltip="Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.",
+            min_value=0,
+            step=1,
         ),
         "filter_ir": WidgetSpec(
             label="IR filter",
             tooltip="Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.",
+            min_value=0,
+            step=1,
         ),
     },
     "load_raw": {
@@ -337,6 +369,7 @@ GUI_WIDGET_SPECS = {
         "tint": WidgetSpec(
             label="Tint",
             tooltip="Tint value for the custom white balance, not used for the other white balance settings",
+            min_value=0,
             step=0.01,
         ),
         "lens_correction": WidgetSpec(label="Lens correction", tooltip="Apply lens corrections"),

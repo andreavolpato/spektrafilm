@@ -140,6 +140,7 @@ class GuiController:
         self._active_simulation_worker: runtime.SimulationWorker | None = None
         self._active_simulation_label: str | None = None
         self._runtime_simulator = None
+        self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
@@ -206,6 +207,7 @@ class GuiController:
             print_paper=state.simulation.print_paper,
         )
         self._apply_profile_sync_state(synced_state)
+        self._next_runtime_digest_applies_stock_specifics = True
 
     def apply_film_profile_defaults(self, film_stock: str) -> None:
         self.apply_profile_defaults(film_stock)
@@ -513,12 +515,20 @@ class GuiController:
         )
 
     def _process_image_with_runtime(self, image_data: np.ndarray, params) -> np.ndarray:
-        digested_params = digest_params(params)
+        apply_stocks_specifics = (
+            self._runtime_simulator is None
+            or self._next_runtime_digest_applies_stock_specifics
+        )
+        digested_params = digest_params(
+            params,
+            apply_stocks_specifics=apply_stocks_specifics,
+        )
         try:
             if self._runtime_simulator is None:
                 self._runtime_simulator = runtime_simulator(digested_params)
             else:
                 self._runtime_simulator.update_params(digested_params)
+            self._next_runtime_digest_applies_stock_specifics = False
             return self._runtime_simulator.process(image_data)
         except Exception:
             self._runtime_simulator = None

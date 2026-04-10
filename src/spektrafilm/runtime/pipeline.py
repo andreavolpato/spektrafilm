@@ -13,6 +13,7 @@ from spektrafilm.runtime.services import (
 from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
 
 
+
 class SimulationPipeline:
     """Thin runtime orchestrator that composes stage objects."""
 
@@ -116,4 +117,5 @@ class SimulationPipeline:
     def update_params(self,params):
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
+            
 
