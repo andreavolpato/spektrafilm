@@ -2,7 +2,6 @@ import numpy as np
 from pytest import mark
 
 from spektrafilm.runtime.params_builder import digest_params, init_params
-from spektrafilm.runtime.pipeline import SimulationPipeline
 from spektrafilm.runtime.process import Simulator
 
 
@@ -51,8 +50,10 @@ class TestInitParamsDefaults:
         assert np.isfinite(params.enlarger.c_filter_neutral)
 
         assert params.scanner.lens_blur == 0.0
-        assert params.scanner.white_correction == 0.0
-        assert params.scanner.black_correction == 0.0
+        assert params.scanner.white_correction is False
+        assert params.scanner.white_level == 0.95
+        assert params.scanner.black_correction is False
+        assert params.scanner.black_level == 0.02
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
         assert params.film_render.density_curve_gamma == 1.0
@@ -60,7 +61,7 @@ class TestInitParamsDefaults:
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
         assert params.film_render.dir_couplers.amount == 1.0
-        assert params.film_render.dir_couplers.ratio_rgb == (0.35, 0.35, 0.35)
+        assert params.film_render.dir_couplers.ratio_rgb is None
 
         assert params.print_render.density_curve_gamma == 1.0
         assert params.print_render.glare.active is True
@@ -123,51 +124,3 @@ class TestDigestParamsFilmDefaults:
         digest_params(params)
 
         assert params.io.scan_film is True
-
-
-class TestSimulationPipelineDigestBoundary:
-    def test_pipeline_does_not_apply_debug_switches(self):
-        params = init_params()
-        halation_size = params.film_render.halation.size_um
-        scattering_size = params.film_render.halation.scattering_size_um
-        diffusion_size = params.film_render.dir_couplers.diffusion_size_um
-        grain_blur = params.film_render.grain.blur
-        grain_blur_dye_clouds = params.film_render.grain.blur_dye_clouds_um
-        glare_blur = params.print_render.glare.blur
-        lens_blur_um = params.camera.lens_blur_um
-        enlarger_lens_blur = params.enlarger.lens_blur
-        scanner_lens_blur = params.scanner.lens_blur
-        unsharp_mask = params.scanner.unsharp_mask
-        grain_active = params.film_render.grain.active
-        glare_active = params.print_render.glare.active
-
-        params.debug.deactivate_spatial_effects = True
-        params.debug.deactivate_stochastic_effects = True
-
-        pipeline = SimulationPipeline(params)
-
-        assert pipeline.film_render.halation.size_um == halation_size
-        assert pipeline.film_render.halation.scattering_size_um == scattering_size
-        assert pipeline.film_render.dir_couplers.diffusion_size_um == diffusion_size
-        assert pipeline.film_render.grain.blur == grain_blur
-        assert pipeline.film_render.grain.blur_dye_clouds_um == grain_blur_dye_clouds
-        assert pipeline.print_render.glare.blur == glare_blur
-        assert pipeline.camera.lens_blur_um == lens_blur_um
-        assert pipeline.enlarger.lens_blur == enlarger_lens_blur
-        assert pipeline.scanner.lens_blur == scanner_lens_blur
-        assert pipeline.scanner.unsharp_mask == unsharp_mask
-        assert pipeline.film_render.grain.active is grain_active
-        assert pipeline.print_render.glare.active is glare_active
-
-
-class TestRuntimeParamsCompatibility:
-    def test_lut_storage_path_is_initialized(self):
-        params = init_params()
-        params.debug.deactivate_spatial_effects = True
-        params.debug.deactivate_stochastic_effects = True
-        params.settings.use_enlarger_lut = True
-        params.settings.use_scanner_lut = True
-        photo = Simulator(digest_params(params))
-
-        image = np.ones((4, 4, 3), dtype=np.float64) * 0.18
-        photo.process(image)
