@@ -189,6 +189,27 @@ def set_output_layer_metadata(
     layer.metadata[output_display_transform_key] = use_display_transform
 
 
+def set_output_layer_interpolation(layer: NapariImageLayer, mode: str) -> None:
+    try:
+        setattr(layer, 'interpolation2d', mode)
+        _refresh_layer(layer)
+        return
+    except (AttributeError, TypeError, ValueError):
+        pass
+
+    try:
+        setattr(layer, 'interpolation', mode)
+        _refresh_layer(layer)
+    except (AttributeError, TypeError, ValueError):
+        return
+
+
+def _refresh_layer(layer: NapariImageLayer) -> None:
+    refresh = getattr(layer, 'refresh', None)
+    if callable(refresh):
+        refresh()
+
+
 @dataclass(slots=True)
 class ViewerLayerService:
     viewer: Any
@@ -269,6 +290,7 @@ class ViewerLayerService:
         output_color_space: str,
         output_cctf_encoding: bool,
         use_display_transform: bool,
+        output_interpolation_mode: str = 'spline36',
     ) -> None:
         existing_layer = self.image_layer(OUTPUT_LAYER_NAME)
         animate_on_show = existing_layer is None or not bool(getattr(existing_layer, 'visible', True))
@@ -298,6 +320,7 @@ class ViewerLayerService:
             output_cctf_encoding_key=self.output_cctf_encoding_key,
             output_display_transform_key=self.output_display_transform_key,
         )
+        set_output_layer_interpolation(layer, output_interpolation_mode)
         image_world_size = self.current_image_world_size()
         if image_world_size is not None:
             _set_layer_geometry(layer, world_size=_fit_image_world_size(np.asarray(image), bounding_world_size=image_world_size))
@@ -320,6 +343,10 @@ class ViewerLayerService:
         if layer is None or not layer.visible:
             return None
         return layer
+
+    @staticmethod
+    def set_output_layer_interpolation(layer: NapariImageLayer, mode: str) -> None:
+        set_output_layer_interpolation(layer, mode)
 
     def hide_layer(self, layer_name: str) -> None:
         layer = self.image_layer(layer_name)
@@ -503,6 +530,7 @@ class ViewerLayerService:
             delete_later()
         if restore_final:
             layer.data = np.array(handle.final_image, copy=True)
+            _refresh_layer(layer)
 
     def output_layer_float_data(self) -> np.ndarray | None:
         output_layer = self.output_layer()

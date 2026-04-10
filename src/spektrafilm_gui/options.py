@@ -28,3 +28,13 @@ class RawWhiteBalance(Enum):
 class AutoExposureMethods(Enum):
     median = "median"
     center_weighted = "center_weighted"
+
+
+class NapariInterpolationModes(Enum):
+    nearest = "nearest"
+    linear = "linear"
+    cubic = "cubic"
+    spline16 = "spline16"
+    spline36 = "spline36"
+    lanczos = "lanczos"
+    blackman = "blackman"

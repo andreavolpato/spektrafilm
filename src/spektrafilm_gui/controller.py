@@ -244,6 +244,12 @@ class GuiController:
     def set_gray_18_canvas_enabled(self, enabled: bool) -> None:
         set_canvas_background(self._viewer, gray_18_canvas=enabled)
 
+    def set_output_interpolation_mode(self, mode: str) -> None:
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+        self._layers.set_output_layer_interpolation(output_layer, mode)
+
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if runtime.display_profile_available(imagecms_module=ImageCms):
             return True
@@ -375,6 +381,7 @@ class GuiController:
             output_color_space=output_color_space,
             output_cctf_encoding=output_cctf_encoding,
             use_display_transform=use_display_transform,
+            output_interpolation_mode=self._output_interpolation_mode(),
         )
 
     def _set_or_add_input_stack(
@@ -477,6 +484,19 @@ class GuiController:
         color_space = output_layer.metadata.get(OUTPUT_COLOR_SPACE_KEY, default_color_space)
         cctf_encoding = output_layer.metadata.get(OUTPUT_CCTF_ENCODING_KEY, default_cctf_encoding)
         return str(color_space), bool(cctf_encoding)
+
+    def _output_interpolation_mode(self) -> str:
+        display_section = getattr(self._widgets, 'display', None)
+        editor = getattr(display_section, 'output_interpolation', None)
+        value = getattr(editor, 'value', None)
+        if isinstance(value, str) and value:
+            return value
+        current_text = getattr(editor, 'currentText', None)
+        if callable(current_text):
+            text = current_text()
+            if isinstance(text, str) and text:
+                return text
+        return 'spline36'
 
     @staticmethod
     def _resize_for_preview(image_data: np.ndarray, *, max_size: int) -> np.ndarray:

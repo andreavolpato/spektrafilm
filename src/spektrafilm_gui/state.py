@@ -124,6 +124,7 @@ class DisplayState:
     gray_18_canvas: bool
     white_padding: float
     preview_max_size: int
+    output_interpolation: str = 'spline36'
 
 
 @dataclass(slots=True)
@@ -260,6 +261,7 @@ def gui_state_from_params(
         display=DisplayState(
             use_display_transform=True,
             gray_18_canvas=True,
+            output_interpolation='spline36',
             white_padding=0.03,
             preview_max_size=params.settings.preview_max_size,
         ),

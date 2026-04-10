@@ -548,12 +548,10 @@ class DisplaySection(SimpleDataclassSection):
     SECTION_NAME = 'display'
     TITLE = 'Display'
     COLLAPSED_BY_DEFAULT = False
+    ENUM_FIELDS_KEY = 'display'
     HIDDEN_FIELDS = {'preview_max_size'}
 
     update_preview_requested = Signal()
-
-    def __init__(self):
-        super().__init__()
 
     def _init_extra_widgets(self) -> None:
         self.update_preview_button = _build_button(

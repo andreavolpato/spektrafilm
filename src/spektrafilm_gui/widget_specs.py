@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from spektrafilm_gui.options import AutoExposureMethods, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
+from spektrafilm_gui.options import AutoExposureMethods, NapariInterpolationModes, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
@@ -32,6 +32,9 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
     },
     "load_raw": {
         "white_balance": RawWhiteBalance,
+    },
+    "display": {
+        "output_interpolation": NapariInterpolationModes,
     },
     "simulation": {
         "film_stock": FilmStocks,
@@ -162,6 +165,10 @@ GUI_WIDGET_SPECS = {
         "gray_18_canvas": WidgetSpec(
             label="Gray 18% canvas",
             tooltip="Use neutral 18% gray as backgroung to judge the exposure and neutral colors",
+        ),
+        "output_interpolation": WidgetSpec(
+            label="Output interpolation",
+            tooltip="Napari interpolation mode used to display the output layer in the viewer.",
         ),
         "white_padding": WidgetSpec(
             label="White padding",

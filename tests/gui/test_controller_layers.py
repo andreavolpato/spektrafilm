@@ -197,10 +197,33 @@ def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None
     assert output_layer.metadata[OUTPUT_COLOR_SPACE_KEY] == 'ACES2065-1'
     assert output_layer.metadata[OUTPUT_CCTF_ENCODING_KEY] is True
     assert output_layer.metadata[OUTPUT_DISPLAY_TRANSFORM_KEY] is False
+    assert output_layer.interpolation2d == 'spline36'
     assert output_layer.visible is True
     assert preview_layer.visible is False
     assert viewer.layers.selection.active is output_layer
     assert output_layer.scale == (0.125, 0.125)
+
+
+def test_set_or_add_output_layer_applies_requested_interpolation_mode() -> None:
+    viewer = FakeViewer()
+    service = _make_service(viewer)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32),
+        white_padding=0.1,
+    )
+
+    service.set_or_add_output_layer(
+        np.full((8, 4, 3), 77, dtype=np.uint8),
+        float_image=np.full((8, 4, 3), 0.5, dtype=np.float32),
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+        output_interpolation_mode='nearest',
+    )
+
+    output_layer = service.output_layer()
+    assert output_layer is not None
+    assert output_layer.interpolation2d == 'nearest'
 
 
 def test_set_or_add_output_layer_preserves_square_pixels_for_cropped_aspect_changes() -> None:

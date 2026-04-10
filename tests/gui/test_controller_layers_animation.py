@@ -61,6 +61,7 @@ class _FakeLayer:
         self.translate = (0.0, 0.0)
         self._type_string = 'image'
         self.data_history: list[np.ndarray] = []
+        self.refresh_calls = 0
 
     @property
     def data(self) -> np.ndarray:
@@ -70,6 +71,9 @@ class _FakeLayer:
     def data(self, value: np.ndarray) -> None:
         self._data = np.array(value, copy=True)
         self.data_history.append(np.array(self._data, copy=True))
+
+    def refresh(self) -> None:
+        self.refresh_calls += 1
 
 
 class _FakeLayerSelection:
@@ -131,6 +135,7 @@ def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:
     assert len(output_layer.data_history) >= 2
     assert not np.array_equal(output_layer.data_history[0], output_image)
     np.testing.assert_array_equal(output_layer.data, output_image)
+    assert output_layer.refresh_calls >= 1
     assert len(_FakeTimer.created) == 1
     assert _FakeTimer.created[0].started is True
     assert _FakeTimer.created[0].stopped is True

@@ -141,7 +141,7 @@ class SettingsParams:
     use_scanner_lut: bool = False
     lut_resolution: int = 17
     use_fast_stats: bool = False
-    preview_max_size: int = 512
+    preview_max_size: int = 640
     preview_mode: bool = False
     neutral_print_filters_from_database: bool = True
 
