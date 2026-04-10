@@ -55,6 +55,7 @@ class PrintingStage:
         )    
         raw = 10**log_raw_print
         raw *= self._enlarger.print_exposure
+        raw *= self._color_reference_service.black_white_printing_exposure_correction()
         raw = apply_promist_filter(raw, self._enlarger.diffusion_filter[0],
                                    pixel_size_um=self._resize_service.pixel_size_um,
                                    spatial_scale=self._enlarger.diffusion_filter[1],

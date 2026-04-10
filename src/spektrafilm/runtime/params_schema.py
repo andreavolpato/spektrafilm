@@ -39,8 +39,8 @@ class ScannerParams:
     lens_blur: float = 0.0
     white_correction: bool = False
     black_correction: bool = False
-    white_level: float = 0.95
-    black_level: float = 0.02
+    white_level: float = 0.98
+    black_level: float = 0.01
     unsharp_mask: tuple[float, float] = (0.7, 0.7)
 
 
