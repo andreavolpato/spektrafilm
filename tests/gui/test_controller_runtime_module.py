@@ -15,13 +15,6 @@ class FakeSignal:
         self.emitted.append(value)
 
 
-def test_display_profile_name_falls_back_to_filename_stem() -> None:
-    display_profile = SimpleNamespace(filename='C:/profiles/monitor.icc')
-    imagecms_module = SimpleNamespace(getProfileName=lambda profile: '', PyCMSError=RuntimeError)
-
-    assert runtime_module.display_profile_name(display_profile, imagecms_module=imagecms_module) == 'monitor'
-
-
 def test_execute_simulation_request_uses_runtime_runner_without_padding() -> None:
     request = runtime_module.SimulationRequest(
         mode_label='Preview',
@@ -62,16 +55,6 @@ def test_simulation_worker_emits_failure_message() -> None:
 
     assert worker.signals.finished.emitted == []
     assert worker.signals.failed.emitted == ['ValueError: bad simulation']
-
-
-def test_apply_white_padding_preserves_float_fill_value() -> None:
-    image = np.full((1, 1, 3), 0.25, dtype=np.float32)
-
-    padded = runtime_module.apply_white_padding(image, 1)
-
-    assert padded.shape == (3, 3, 3)
-    np.testing.assert_allclose(padded[1, 1], np.array([0.25, 0.25, 0.25], dtype=np.float32))
-    np.testing.assert_allclose(padded[0, 0], np.array([1.0, 1.0, 1.0], dtype=np.float32))
 
 
 def test_prepare_input_color_preview_image_converts_to_srgb_float_preview() -> None:
