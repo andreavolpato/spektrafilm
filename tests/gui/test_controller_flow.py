@@ -108,7 +108,8 @@ def test_load_input_image_builds_preview_stack_and_homes_view(monkeypatch) -> No
     np.testing.assert_allclose(controller._current_input_image, raw_image)
     np.testing.assert_allclose(controller._current_preview_image, preview_image)
     np.testing.assert_allclose(viewer.layers[-1].data, preview_display_image)
-    assert viewer.layers.selection.active is viewer.layers[-1]
+    assert viewer.layers[-1].visible is False
+    assert viewer.layers.selection.active is viewer.layers[-2]
     assert captured['reset_view'] is True
 
 
