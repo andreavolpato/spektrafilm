@@ -24,11 +24,14 @@ class FilmingStage:
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
         self._pixel_size_um = None
 
+    # public methods
+
     @timeit("_auto_exposure")
     def auto_exposure(self, image: np.ndarray) -> float:
         if self._camera.auto_exposure:
+            small_preview = self._resize_service.small_preview(image)
             autoexposure_ev = measure_autoexposure_ev(
-                image,
+                small_preview,
                 self._io.input_color_space,
                 self._io.input_cctf_decoding,
                 method=self._camera.auto_exposure_method,
@@ -64,6 +67,8 @@ class FilmingStage:
             gamma_factor=self._film_render.density_curve_gamma,
             use_fast_stats=self._settings.use_fast_stats,
         )
+
+    # private methods
 
     def _rgb_to_film_raw(
         self,
