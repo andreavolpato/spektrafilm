@@ -14,6 +14,7 @@ from spektrafilm_gui.controller_layers import (
     INPUT_PREVIEW_LAYER_NAME,
     OUTPUT_LAYER_NAME,
     ViewerLayerService,
+    WATERMARK_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
 )
 
@@ -124,6 +125,18 @@ def _complete_output_animation(monkeypatch) -> None:
     monkeypatch.setattr(controller_layers_module, 'QTimer', _ImmediateTimer)
 
 
+@pytest.fixture(autouse=True)
+def _stub_virtual_paper_back(monkeypatch) -> None:
+    def fake_virtual_photo_paper_back(*, canvas_size, **_kwargs):
+        width, height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        return np.full((int(height), int(width), 3), 0.2, dtype=np.float32)
+
+    controller_layers_module.clear_watermark_image_cache()
+    monkeypatch.setattr(controller_layers_module, 'virtual_photo_paper_back', fake_virtual_photo_paper_back)
+    yield
+    controller_layers_module.clear_watermark_image_cache()
+
+
 def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_frame() -> None:
     viewer = FakeViewer([FakeLayer(name='older-1'), FakeLayer(name='older-2')])
     service = _make_service(viewer)
@@ -134,18 +147,24 @@ def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_f
         white_padding=0.25,
     )
 
-    assert [layer.name for layer in viewer.layers[-2:]] == [
+    assert [layer.name for layer in viewer.layers[-3:]] == [
         WHITE_BORDER_LAYER_NAME,
+        WATERMARK_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
     ]
 
     white_border = service.white_border_layer()
+    watermark_layer = service.watermark_layer()
     preview_layer = service.preview_input_layer()
     assert white_border is not None
+    assert watermark_layer is not None
     assert preview_layer is not None
     assert viewer.layers.selection.active is white_border
     assert white_border.visible is True
+    assert watermark_layer.visible is True
     assert preview_layer.visible is False
+    assert watermark_layer.data.shape == (1024, 512, 3)
+    assert watermark_layer.interpolation2d == 'spline36'
     assert preview_layer.scale == (0.5, 0.5)
     assert white_border.scale == (0.75, 1.0)
 
@@ -167,8 +186,6 @@ def test_repeated_input_preview_updates_skip_stack_reorder() -> None:
     )
 
     assert viewer.layers.move_calls == move_calls
-
-
 def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None:
     viewer = FakeViewer()
     service = _make_service(viewer)

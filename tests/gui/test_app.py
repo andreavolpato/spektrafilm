@@ -492,6 +492,36 @@ def test_initialize_controller_syncs_connects_and_refreshes() -> None:
     assert controller is captured['connected'][0]
 
 
+def test_initialize_controller_shows_startup_placeholder_when_available() -> None:
+    captured: dict[str, object] = {}
+
+    class FakeController:
+        def __init__(self, *, viewer, widgets) -> None:
+            captured['init'] = (viewer, widgets)
+
+        def sync_display_transform_availability(self, *, report_status: bool) -> None:
+            captured['sync'] = report_status
+
+        def show_startup_placeholder(self) -> None:
+            captured['startup_placeholder'] = True
+
+    widgets = object()
+    viewer = object()
+
+    controller = app_module.initialize_controller(
+        viewer=viewer,
+        widgets=widgets,
+        controller_cls=FakeController,
+        connect_signals_fn=lambda controller, widgets: captured.setdefault('connected', (controller, widgets)),
+    )
+
+    assert captured['init'] == (viewer, widgets)
+    assert captured['sync'] is False
+    assert captured['startup_placeholder'] is True
+    assert captured['connected'][1] is widgets
+    assert controller is captured['connected'][0]
+
+
 def test_build_main_window_for_app_uses_gray_18_canvas_state() -> None:
     captured: dict[str, object] = {}
     viewer = object()

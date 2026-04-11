@@ -260,6 +260,9 @@ def initialize_controller(
 ) -> GuiController:
     controller = controller_cls(viewer=viewer, widgets=widgets)
     controller.sync_display_transform_availability(report_status=False)
+    show_startup_placeholder = getattr(controller, 'show_startup_placeholder', None)
+    if callable(show_startup_placeholder):
+        show_startup_placeholder()
     connect_signals_fn(controller, widgets)
     return controller
 
