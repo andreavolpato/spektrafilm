@@ -45,6 +45,7 @@ QFileDialog = QtWidgets.QFileDialog
 QMessageBox = QtWidgets.QMessageBox
 SimulationRequest = runtime.SimulationRequest
 SimulationResult = runtime.SimulationResult
+STARTUP_PREVIEW_ASPECT_RATIO = (3, 2)
 
 
 class _DirMemoryDialog:
@@ -146,6 +147,26 @@ class GuiController:
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
         self._active_simulation_reports_status = True
+
+    def show_startup_placeholder(self) -> None:
+        if self._white_border_layer() is not None:
+            return
+
+        state = collect_gui_state(widgets=self._widgets)
+        preview_height = max(int(state.display.preview_max_size), 1)
+        preview_width = max(
+            int(round(preview_height * STARTUP_PREVIEW_ASPECT_RATIO[1] / STARTUP_PREVIEW_ASPECT_RATIO[0])),
+            1,
+        )
+        placeholder_preview = np.zeros((preview_height, preview_width, 3), dtype=np.uint8)
+        self._layers.set_or_add_input_preview_layer(
+            placeholder_preview,
+            watermark_source_size=(preview_height, preview_width),
+            white_padding=state.display.white_padding,
+            hide_output=True,
+            set_active=True,
+        )
+        self._home_input_stack()
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
@@ -420,6 +441,7 @@ class GuiController:
         self._current_preview_image = preview_image
         self._layers.set_or_add_input_preview_layer(
             preview_display_image,
+            watermark_source_size=tuple(int(dimension) for dimension in image.shape[:2]),
             white_padding=state.display.white_padding,
             hide_output=hide_output,
             set_active=home_input_stack or self._output_layer() is None,

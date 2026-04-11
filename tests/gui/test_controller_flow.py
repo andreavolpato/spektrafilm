@@ -6,10 +6,12 @@ import numpy as np
 import pytest
 
 from spektrafilm_gui import controller as controller_module
+from spektrafilm_gui import controller_layers as controller_layers_module
 from spektrafilm_gui.controller import GuiController, PROFILE_SYNC_FIELDS
 from spektrafilm_gui.controller_layers import (
     INPUT_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
+    WATERMARK_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
 )
 
@@ -17,6 +19,18 @@ from .helpers import FakeLayer, FakeViewer, make_test_controller_gui_state
 
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def _stub_virtual_paper_back(monkeypatch) -> None:
+    def fake_virtual_photo_paper_back(*, canvas_size, **_kwargs):
+        width, height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        return np.full((int(height), int(width), 3), 0.2, dtype=np.float32)
+
+    controller_layers_module.clear_watermark_image_cache()
+    monkeypatch.setattr(controller_layers_module, 'virtual_photo_paper_back', fake_virtual_photo_paper_back)
+    yield
+    controller_layers_module.clear_watermark_image_cache()
 
 
 def _run_simulation_case(
@@ -100,16 +114,46 @@ def test_load_input_image_builds_preview_stack_and_homes_view(monkeypatch) -> No
 
     controller.load_input_image('C:/tmp/example.png')
 
-    assert len(viewer.layers) == 4
-    assert [layer.name for layer in viewer.layers[-2:]] == [
+    assert len(viewer.layers) == 5
+    assert [layer.name for layer in viewer.layers[-3:]] == [
         WHITE_BORDER_LAYER_NAME,
+        WATERMARK_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
     ]
     np.testing.assert_allclose(controller._current_input_image, raw_image)
     np.testing.assert_allclose(controller._current_preview_image, preview_image)
     np.testing.assert_allclose(viewer.layers[-1].data, preview_display_image)
     assert viewer.layers[-1].visible is False
-    assert viewer.layers.selection.active is viewer.layers[-2]
+    assert viewer.layers.selection.active is viewer.layers[-3]
+    assert captured['reset_view'] is True
+
+
+def test_show_startup_placeholder_builds_portrait_preview_stack_and_homes_view(monkeypatch) -> None:
+    viewer = FakeViewer()
+    controller = GuiController(viewer=viewer, widgets=object())
+    gui_state = make_test_controller_gui_state()
+    gui_state.display.preview_max_size = 90
+    gui_state.display.white_padding = 0.05
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, 'reset_viewer_camera', lambda viewer: captured.setdefault('reset_view', True))
+
+    controller.show_startup_placeholder()
+
+    assert len(viewer.layers) == 3
+    assert [layer.name for layer in viewer.layers] == [
+        WHITE_BORDER_LAYER_NAME,
+        WATERMARK_LAYER_NAME,
+        INPUT_PREVIEW_LAYER_NAME,
+    ]
+    assert viewer.layers.selection.active is viewer.layers[0]
+    assert viewer.layers[0].visible is True
+    assert viewer.layers[1].visible is True
+    assert viewer.layers[2].visible is False
+    assert viewer.layers[2].data.shape == (90, 60, 3)
+    assert controller._current_input_image is None
+    assert controller._current_preview_image is None
     assert captured['reset_view'] is True
 
 
@@ -176,9 +220,10 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
         'output_cctf_encoding': True,
         'lens_info_out': {},
     }
-    assert len(viewer.layers) == 3
-    assert [layer.name for layer in viewer.layers[-2:]] == [
+    assert len(viewer.layers) == 4
+    assert [layer.name for layer in viewer.layers[-3:]] == [
         WHITE_BORDER_LAYER_NAME,
+        WATERMARK_LAYER_NAME,
         INPUT_PREVIEW_LAYER_NAME,
     ]
     np.testing.assert_allclose(controller._current_input_image, raw_image)
@@ -564,6 +609,35 @@ def test_refresh_preview_cache_recomputes_cached_preview_without_hiding_visible_
     assert controller._output_layer() is output_layer
     assert output_layer.visible is True
     assert viewer.layers.selection.active is output_layer
+
+
+def test_update_preview_cache_uses_input_image_shape_for_watermark_layer(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    gui_state = make_test_controller_gui_state()
+    raw_image = np.full((6, 4, 3), 0.25, dtype=np.float32)
+    preview_image = np.full((4, 3, 3), 0.6, dtype=np.float32)
+    preview_display_image = np.full((4, 3, 3), 0.9, dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller, '_resize_for_preview', lambda image, *, max_size: preview_image)
+    monkeypatch.setattr(controller, '_prepare_input_color_preview_image', lambda *args, **kwargs: preview_display_image)
+    monkeypatch.setattr(controller, '_output_layer', lambda: None)
+
+    def fake_set_or_add_input_preview_layer(_self, image, **kwargs):
+        captured['image'] = np.asarray(image)
+        captured.update(kwargs)
+
+    monkeypatch.setattr(type(controller._layers), 'set_or_add_input_preview_layer', fake_set_or_add_input_preview_layer)
+
+    controller._update_preview_cache(
+        raw_image,
+        home_input_stack=False,
+        hide_output=True,
+    )
+
+    np.testing.assert_allclose(captured['image'], preview_display_image)
+    assert captured['watermark_source_size'] == raw_image.shape[:2]
 
 
 @pytest.mark.parametrize(

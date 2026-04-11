@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from spektrafilm_gui import controller_layers as controller_layers_module
 from spektrafilm_gui.controller_layers import ViewerLayerService
@@ -110,6 +111,18 @@ def _make_service() -> ViewerLayerService:
         output_cctf_encoding_key='cctf',
         output_display_transform_key='display',
     )
+
+
+@pytest.fixture(autouse=True)
+def _stub_virtual_paper_back(monkeypatch) -> None:
+    def fake_virtual_photo_paper_back(*, canvas_size, **_kwargs):
+        width, height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        return np.full((int(height), int(width), 3), 0.2, dtype=np.float32)
+
+    controller_layers_module.clear_watermark_image_cache()
+    monkeypatch.setattr(controller_layers_module, 'virtual_photo_paper_back', fake_virtual_photo_paper_back)
+    yield
+    controller_layers_module.clear_watermark_image_cache()
 
 
 def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:

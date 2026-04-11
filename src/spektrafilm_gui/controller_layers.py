@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -24,16 +26,55 @@ class _LayerAnimationHandle:
 INPUT_LAYER_NAME = 'input'
 INPUT_PREVIEW_LAYER_NAME = 'input_preview'
 WHITE_BORDER_LAYER_NAME = 'white_border'
+WATERMARK_LAYER_NAME = 'watermark'
 OUTPUT_LAYER_NAME = 'output'
 STACK_LAYER_ORDER = (
     WHITE_BORDER_LAYER_NAME,
+    WATERMARK_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
     OUTPUT_LAYER_NAME,
 )
-OUTPUT_LAYER_ANIMATION_DURATION_MS = 1000
+OUTPUT_LAYER_ANIMATION_DURATION_MS = 1600
 OUTPUT_LAYER_ANIMATION_INTERVAL_MS = 32
 OUTPUT_LAYER_CROSSFADE_FRAMES = 10
 OUTPUT_LAYER_ANIMATION_MAX_PIXELS = 1_500_000
+WATERMARK_LONG_EDGE_PIXELS = 1024
+
+
+def virtual_photo_paper_back(*args, **kwargs):
+    return import_module('spektrafilm_gui.virtual_photo_paper_back').virtual_photo_paper_back(*args, **kwargs)
+
+
+def _watermark_raster_size(
+    source_height: int,
+    source_width: int,
+    *,
+    long_edge_pixels: int = WATERMARK_LONG_EDGE_PIXELS,
+) -> tuple[int, int]:
+    safe_height = max(int(source_height), 1)
+    safe_width = max(int(source_width), 1)
+    safe_long_edge = max(int(long_edge_pixels), 1)
+
+    current_long_edge = max(safe_height, safe_width)
+    if safe_height >= safe_width:
+        target_height = safe_long_edge
+        target_width = max(int(round(safe_width * safe_long_edge / current_long_edge)), 1)
+        return target_height, target_width
+
+    target_width = safe_long_edge
+    target_height = max(int(round(safe_height * safe_long_edge / current_long_edge)), 1)
+    return target_height, target_width
+
+
+@lru_cache(maxsize=32)
+def _build_watermark_image(height: int, width: int) -> np.ndarray:
+    safe_height = max(int(height), 1)
+    safe_width = max(int(width), 1)
+    return np.ascontiguousarray(virtual_photo_paper_back(canvas_size=(safe_width, safe_height)))
+
+
+def clear_watermark_image_cache() -> None:
+    _build_watermark_image.cache_clear()
 
 
 def is_napari_image_layer(layer: object) -> bool:
@@ -244,27 +285,50 @@ class ViewerLayerService:
     def white_border_layer(self) -> NapariImageLayer | None:
         return self.image_layer(WHITE_BORDER_LAYER_NAME)
 
+    def watermark_layer(self) -> NapariImageLayer | None:
+        return self.image_layer(WATERMARK_LAYER_NAME)
+
     def set_or_add_input_preview_layer(
         self,
         image: np.ndarray,
         *,
+        watermark_source_size: tuple[int, int] | None = None,
+        watermark_canvas_size: tuple[int, int] | None = None,
         white_padding: float,
         hide_output: bool = True,
         set_active: bool = True,
     ) -> None:
-        image_world_size = _normalized_world_size(image)
+        image_data = np.asarray(image)
+        image_world_size = _normalized_world_size(image_data)
         border_world_size = _padded_world_size(image_world_size, white_padding)
+        watermark_reference_size = watermark_source_size if watermark_source_size is not None else watermark_canvas_size
+        watermark_height, watermark_width = _watermark_raster_size(
+            *(
+                tuple(int(dimension) for dimension in watermark_reference_size)
+                if watermark_reference_size is not None
+                else image_data.shape[:2]
+            ),
+        )
 
         if hide_output:
             self.hide_layer(OUTPUT_LAYER_NAME)
 
         white_border = self._set_or_add_image_layer(
-            np.ones((*np.asarray(image).shape[:2], 3), dtype=np.float32),
+            np.ones((*image_data.shape[:2], 3), dtype=np.float32),
             layer_name=WHITE_BORDER_LAYER_NAME,
         )
         _set_layer_geometry(white_border, world_size=border_world_size)
 
-        preview_layer = self._set_or_add_image_layer(np.asarray(image), layer_name=INPUT_PREVIEW_LAYER_NAME)
+        watermark_layer = self._set_or_add_image_layer(
+            np.array(_build_watermark_image(watermark_height, watermark_width), copy=True),
+            layer_name=WATERMARK_LAYER_NAME,
+        )
+        set_output_layer_interpolation(watermark_layer, 'spline36')
+        _set_layer_geometry(watermark_layer, world_size=image_world_size)
+        if not watermark_layer.visible:
+            watermark_layer.visible = True
+
+        preview_layer = self._set_or_add_image_layer(image_data, layer_name=INPUT_PREVIEW_LAYER_NAME)
         _set_layer_geometry(preview_layer, world_size=image_world_size)
         if preview_layer.visible:
             preview_layer.visible = False
