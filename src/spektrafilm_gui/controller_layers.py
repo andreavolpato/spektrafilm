@@ -32,7 +32,7 @@ STACK_LAYER_ORDER = (
 )
 OUTPUT_LAYER_ANIMATION_DURATION_MS = 1000
 OUTPUT_LAYER_ANIMATION_INTERVAL_MS = 32
-OUTPUT_LAYER_CROSSFADE_FRAMES = 8
+OUTPUT_LAYER_CROSSFADE_FRAMES = 10
 OUTPUT_LAYER_ANIMATION_MAX_PIXELS = 1_500_000
 
 
@@ -214,6 +214,11 @@ def _refresh_layer(layer: NapariImageLayer) -> None:
         refresh()
 
 
+def _set_layer_data(layer: NapariImageLayer, image: np.ndarray) -> None:
+    layer.data = image
+    _refresh_layer(layer)
+
+
 @dataclass(slots=True)
 class ViewerLayerService:
     viewer: Any
@@ -299,14 +304,21 @@ class ViewerLayerService:
         existing_layer = self.image_layer(OUTPUT_LAYER_NAME)
         animate_on_show = existing_layer is None or not bool(getattr(existing_layer, 'visible', True))
         output_image = np.asarray(image)
+        output_shape = tuple(int(dimension) for dimension in output_image.shape)
         crossfade_source_image: np.ndarray | None = None
         use_crossfade = False
         replace_layer = False
-        if existing_layer is not None and not animate_on_show:
-            crossfade_source_image = np.array(existing_layer.data, copy=True)
+        if existing_layer is not None:
+            existing_data = np.asarray(existing_layer.data)
+            existing_shape = tuple(int(dimension) for dimension in existing_data.shape)
             self._stop_output_layer_animation(existing_layer, restore_final=False)
-            use_crossfade = _supports_output_layer_crossfade(crossfade_source_image, output_image)
-            replace_layer = not use_crossfade and _layer_data_shape(existing_layer) != tuple(int(dimension) for dimension in output_image.shape)
+            if animate_on_show:
+                replace_layer = existing_shape != output_shape
+            else:
+                use_crossfade = _supports_output_layer_crossfade(existing_data, output_image)
+                if use_crossfade:
+                    crossfade_source_image = np.array(existing_data, copy=True)
+                replace_layer = not use_crossfade and existing_shape != output_shape
 
         if replace_layer and existing_layer is not None:
             self.remove_layer(OUTPUT_LAYER_NAME)
@@ -394,7 +406,7 @@ class ViewerLayerService:
         existing_layer = self.image_layer(layer_name)
         if existing_layer is None:
             return self.viewer.add_image(image, name=layer_name)
-        existing_layer.data = image
+        _set_layer_data(existing_layer, image)
         return existing_layer
 
     def _ensure_stack_order(self) -> None:
@@ -452,10 +464,10 @@ class ViewerLayerService:
             if current_index >= len(frame_times):
                 self._stop_output_layer_animation(layer)
                 return
-            layer.data = _coerce_output_animation_frame(
+            _set_layer_data(layer, _coerce_output_animation_frame(
                 render_polaroid_frame(state, float(frame_times[current_index])),
                 reference_image=output_image,
-            )
+            ))
             if current_index >= len(frame_times) - 1:
                 self._stop_output_layer_animation(layer)
 
@@ -464,10 +476,10 @@ class ViewerLayerService:
             timer=timer,
             final_image=output_image,
         )
-        layer.data = _coerce_output_animation_frame(
+        _set_layer_data(layer, _coerce_output_animation_frame(
             render_polaroid_frame(state, float(frame_times[0])),
             reference_image=output_image,
-        )
+        ))
         start()
 
     def _start_output_layer_crossfade(
@@ -483,7 +495,7 @@ class ViewerLayerService:
         safe_interval_ms = max(int(interval_ms), 1)
         timer_cls = QTimer
         if timer_cls is None:
-            layer.data = np.array(target_image, copy=True)
+            _set_layer_data(layer, np.array(target_image, copy=True))
             return
 
         self._stop_output_layer_animation(layer, restore_final=False)
@@ -498,7 +510,7 @@ class ViewerLayerService:
         connect = getattr(timeout_signal, 'connect', None)
         start = getattr(timer, 'start', None)
         if not callable(connect) or not callable(start):
-            layer.data = np.array(target_image, copy=True)
+            _set_layer_data(layer, np.array(target_image, copy=True))
             return
 
         current_step = 0
@@ -511,11 +523,11 @@ class ViewerLayerService:
             if current_step >= safe_frame_count:
                 self._stop_output_layer_animation(layer)
                 return
-            layer.data = _blend_output_animation_frame(
+            _set_layer_data(layer, _blend_output_animation_frame(
                 source_frame,
                 final_image,
                 alpha=float(current_step) / float(safe_frame_count),
-            )
+            ))
 
         connect(_tick)
         self._output_animations[id(layer)] = _LayerAnimationHandle(
@@ -541,8 +553,7 @@ class ViewerLayerService:
         if callable(delete_later):
             delete_later()
         if restore_final:
-            layer.data = np.array(handle.final_image, copy=True)
-            _refresh_layer(layer)
+            _set_layer_data(layer, np.array(handle.final_image, copy=True))
 
     def output_layer_float_data(self) -> np.ndarray | None:
         output_layer = self.output_layer()

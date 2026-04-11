@@ -342,6 +342,48 @@ def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output
     assert hidden_output.visible is True
 
 
+def test_hidden_output_with_changed_shape_is_recreated_for_next_output() -> None:
+    viewer = TrackingViewer()
+    service = _make_service(viewer)
+    preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.1,
+    )
+
+    first_output = np.full((4, 4, 3), 77, dtype=np.uint8)
+    second_output = np.full((8, 8, 3), 88, dtype=np.uint8)
+    service.set_or_add_output_layer(
+        first_output,
+        float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    hidden_output = service.image_layer(OUTPUT_LAYER_NAME)
+    assert isinstance(hidden_output, VisibilityTrackingLayer)
+
+    service.set_or_add_input_preview_layer(
+        preview_image,
+        white_padding=0.1,
+    )
+
+    service.set_or_add_output_layer(
+        second_output,
+        float_image=np.full((8, 8, 3), 0.6, dtype=np.float32),
+        output_color_space='ACES2065-1',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    recreated_output = service.output_layer()
+    assert recreated_output is not None
+    assert recreated_output is not hidden_output
+    np.testing.assert_array_equal(recreated_output.data, second_output)
+
+
 def test_input_preview_update_can_preserve_visible_output_and_active_layer() -> None:
     viewer = TrackingViewer()
     service = _make_service(viewer)

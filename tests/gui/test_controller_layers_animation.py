@@ -135,10 +135,30 @@ def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:
     assert len(output_layer.data_history) >= 2
     assert not np.array_equal(output_layer.data_history[0], output_image)
     np.testing.assert_array_equal(output_layer.data, output_image)
-    assert output_layer.refresh_calls >= 1
+    assert output_layer.refresh_calls >= len(output_layer.data_history)
     assert len(_FakeTimer.created) == 1
     assert _FakeTimer.created[0].started is True
     assert _FakeTimer.created[0].stopped is True
+
+
+def test_reused_input_preview_layer_refreshes_after_data_swap(monkeypatch) -> None:
+    _FakeTimer.created.clear()
+    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    service = _make_service()
+    first_preview = np.full((2, 1, 3), 0.25, dtype=np.float32)
+    second_preview = np.full((2, 1, 3), 0.75, dtype=np.float32)
+
+    service.set_or_add_input_preview_layer(first_preview, white_padding=0.1)
+
+    preview_layer = service.preview_input_layer()
+    assert preview_layer is not None
+    initial_refresh_calls = preview_layer.refresh_calls
+
+    service.set_or_add_input_preview_layer(second_preview, white_padding=0.1)
+
+    assert service.preview_input_layer() is preview_layer
+    np.testing.assert_array_equal(preview_layer.data, second_preview)
+    assert preview_layer.refresh_calls > initial_refresh_calls
 
 
 def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(monkeypatch) -> None:

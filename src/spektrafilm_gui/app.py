@@ -24,6 +24,7 @@ QTimer = getattr(QtCore, 'QTimer')
 
 _background_warmup_started = False
 _background_warmup_scheduled = False
+_background_warmup_pool: Any | None = None
 WARMUP_IMAGE_SHAPE = (16, 16, 3)
 
 @dataclass(slots=True)
@@ -32,6 +33,28 @@ class GuiApp:
     widgets: WidgetBundle
     controller: GuiController
     main_window: QtWidgets.QMainWindow
+
+
+def _warmup_launch_input_path(gui_state: object | None = None) -> None:
+    state = load_default_gui_state() if gui_state is None else gui_state
+    try:
+        colour_module = import_module('colour')
+        controller_runtime = import_module('spektrafilm_gui.controller_runtime')
+        import_module('spektrafilm.utils.io')
+        import_module('spektrafilm.utils.preview')
+    except (AttributeError, ImportError, LookupError, OSError, RuntimeError, TypeError, ValueError):
+        return
+
+    warmup_image = np.full(WARMUP_IMAGE_SHAPE, 0.18, dtype=np.float64)
+    try:
+        controller_runtime.prepare_input_color_preview_image(
+            warmup_image,
+            input_color_space=state.input_image.input_color_space,
+            apply_cctf_decoding=state.input_image.apply_cctf_decoding,
+            colour_module=colour_module,
+        )
+    except (AttributeError, LookupError, RuntimeError, TypeError, ValueError):
+        return
 
 
 def _warmup_full_gui() -> None:
@@ -135,14 +158,24 @@ def _create_widgets() -> WidgetBundle:
 def _start_background_warmup(
     *,
     thread_pool: Any | None = None,
+    thread_pool_factory: Callable[[], Any] | None = None,
     task_factory: Callable[[], QRunnable] = _WarmupTask,
 ) -> None:
-    global _background_warmup_started, _background_warmup_scheduled
+    global _background_warmup_started, _background_warmup_scheduled, _background_warmup_pool
     if _background_warmup_started:
         return
     _background_warmup_started = True
     _background_warmup_scheduled = False
-    pool = QThreadPool.globalInstance() if thread_pool is None else thread_pool
+    if thread_pool is None:
+        if _background_warmup_pool is None:
+            pool_factory = QThreadPool if thread_pool_factory is None else thread_pool_factory
+            _background_warmup_pool = pool_factory()
+            set_max_thread_count = getattr(_background_warmup_pool, 'setMaxThreadCount', None)
+            if callable(set_max_thread_count):
+                set_max_thread_count(1)
+        pool = _background_warmup_pool
+    else:
+        pool = thread_pool
     pool.start(task_factory())
 
 
@@ -248,7 +281,9 @@ def create_app() -> GuiApp:
     viewer = _create_viewer()
     _apply_app_palette()
     widgets = _create_widgets()
-    apply_gui_state(load_default_gui_state(), widgets=widgets)
+    gui_state = load_default_gui_state()
+    apply_gui_state(gui_state, widgets=widgets)
+    _warmup_launch_input_path(gui_state)
     controller = initialize_controller(viewer=viewer, widgets=widgets)
     main_window = build_main_window_for_app(viewer=viewer, widgets=widgets)
     _schedule_background_warmup()

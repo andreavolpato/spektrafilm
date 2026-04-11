@@ -145,6 +145,7 @@ class GuiController:
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
+        self._active_simulation_reports_status = True
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
@@ -190,7 +191,7 @@ class GuiController:
         if input_image is None:
             return
         self._update_preview_cache(
-            np.asarray(input_image),
+            input_image,
             home_input_stack=False,
             hide_output=False,
         )
@@ -220,7 +221,14 @@ class GuiController:
         )
 
     def run_preview(self) -> None:
-        self._start_simulation(source_layer_name=INPUT_PREVIEW_LAYER_NAME, mode_label='Preview')
+        self._run_preview(report_status=True)
+
+    def _run_preview(self, *, report_status: bool) -> None:
+        self._start_simulation(
+            source_layer_name=INPUT_PREVIEW_LAYER_NAME,
+            mode_label='Preview',
+            report_status=report_status,
+        )
 
     def run_scan(self) -> None:
         self._start_simulation(source_layer_name=INPUT_LAYER_NAME, mode_label='Scan')
@@ -389,7 +397,7 @@ class GuiController:
         image: np.ndarray,
     ) -> None:
         self._update_preview_cache(
-            np.asarray(image),
+            image,
             home_input_stack=True,
             hide_output=True,
         )
@@ -402,15 +410,14 @@ class GuiController:
         hide_output: bool,
     ) -> None:
         state = collect_gui_state(widgets=self._widgets)
-        params = build_params_from_state(state)
-        preview_image = self._resize_for_preview(image, max_size=params.settings.preview_max_size)
+        preview_image = self._resize_for_preview(image, max_size=state.display.preview_max_size)
         preview_display_image = self._prepare_input_color_preview_image(
             preview_image,
             input_color_space=state.input_image.input_color_space,
             apply_cctf_decoding=state.input_image.apply_cctf_decoding,
         )
-        self._current_input_image = np.asarray(image)
-        self._current_preview_image = np.asarray(preview_image)
+        self._current_input_image = image
+        self._current_preview_image = preview_image
         self._layers.set_or_add_input_preview_layer(
             preview_display_image,
             white_padding=state.display.white_padding,
@@ -431,9 +438,9 @@ class GuiController:
 
     def _simulation_input_image(self, *, source_layer_name: str) -> np.ndarray | None:
         if source_layer_name == INPUT_PREVIEW_LAYER_NAME:
-            return None if self._current_preview_image is None else np.asarray(self._current_preview_image)
+            return self._current_preview_image
         if source_layer_name == INPUT_LAYER_NAME:
-            return None if self._current_input_image is None else np.asarray(self._current_input_image)
+            return self._current_input_image
         return None
 
     def _auto_preview_enabled(self) -> bool:
@@ -449,7 +456,7 @@ class GuiController:
         if self._active_simulation_worker is not None:
             self._pending_auto_preview = True
             return
-        self.run_preview()
+        self._run_preview(report_status=False)
 
     def _replay_pending_auto_preview(self) -> None:
         if not self._pending_auto_preview:
@@ -594,7 +601,7 @@ class GuiController:
             settings.preview_mode = source_layer_name == INPUT_PREVIEW_LAYER_NAME
         return params
 
-    def _start_simulation(self, *, source_layer_name: str, mode_label: str) -> None:
+    def _start_simulation(self, *, source_layer_name: str, mode_label: str, report_status: bool = True) -> None:
         if self._active_simulation_worker is not None:
             set_status(self._viewer, 'Simulation already running')
             return
@@ -625,13 +632,17 @@ class GuiController:
         worker.signals.failed.connect(self._on_simulation_failed)
         self._active_simulation_worker = worker
         self._active_simulation_label = mode_label
+        self._active_simulation_reports_status = report_status
         self._set_simulation_controls_enabled(False)
-        set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
+        if report_status:
+            set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
         self._thread_pool.start(worker)
 
     def _on_simulation_finished(self, result: SimulationResult) -> None:
+        report_status = self._active_simulation_reports_status
         self._active_simulation_worker = None
         self._active_simulation_label = None
+        self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
         self._set_or_add_output_layer(
             result.display_image,
@@ -640,13 +651,15 @@ class GuiController:
             output_cctf_encoding=True,
             use_display_transform=result.use_display_transform,
         )
-        set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
+        if report_status:
+            set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
         self._replay_pending_auto_preview()
 
     def _on_simulation_failed(self, message: str) -> None:
         self._active_simulation_worker = None
         mode_label = self._active_simulation_label or 'Simulation'
         self._active_simulation_label = None
+        self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
         QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
         set_status(self._viewer, f'{mode_label} failed')

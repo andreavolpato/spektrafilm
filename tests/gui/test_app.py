@@ -69,6 +69,7 @@ def test_schedule_background_warmup_queues_only_once(monkeypatch) -> None:
     captured: list[tuple[int, object]] = []
     monkeypatch.setattr(app_module, '_background_warmup_started', False)
     monkeypatch.setattr(app_module, '_background_warmup_scheduled', False)
+    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
 
     def fake_single_shot(delay_ms: int, callback) -> None:
         captured.append((delay_ms, callback))
@@ -83,6 +84,7 @@ def test_start_background_warmup_starts_task_once(monkeypatch) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(app_module, '_background_warmup_started', False)
     monkeypatch.setattr(app_module, '_background_warmup_scheduled', True)
+    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
 
     class FakeThreadPool:
         def __init__(self) -> None:
@@ -108,6 +110,34 @@ def test_start_background_warmup_starts_task_once(monkeypatch) -> None:
     assert app_module._background_warmup_scheduled is False
 
 
+def test_start_background_warmup_uses_dedicated_pool_when_not_injected(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(app_module, '_background_warmup_started', False)
+    monkeypatch.setattr(app_module, '_background_warmup_scheduled', True)
+    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
+
+    class FakeThreadPool:
+        def __init__(self) -> None:
+            self.started: list[object] = []
+            self.max_thread_count: int | None = None
+
+        def setMaxThreadCount(self, value: int) -> None:  # noqa: N802 - Qt API name
+            self.max_thread_count = value
+
+        def start(self, task) -> None:
+            self.started.append(task)
+
+    app_module._start_background_warmup(
+        thread_pool_factory=lambda: captured.setdefault('pool', FakeThreadPool()),
+        task_factory=lambda: captured.setdefault('task', object()),
+    )
+
+    fake_pool = captured['pool']
+    assert fake_pool.started == [captured['task']]
+    assert fake_pool.max_thread_count == 1
+    assert app_module._background_warmup_pool is fake_pool
+
+
 def test_warmup_task_defaults_to_full_gui_warmup(monkeypatch) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(app_module, '_warmup_full_gui', lambda: captured.setdefault('ran', True))
@@ -119,6 +149,46 @@ def test_warmup_task_defaults_to_full_gui_warmup(monkeypatch) -> None:
 
 def test_warmup_task_swallows_background_failures() -> None:
     app_module._WarmupTask(warmup_fn=lambda: (_ for _ in ()).throw(RuntimeError('boom'))).run()
+
+
+def test_warmup_launch_input_path_primes_first_image_load(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    fake_state = SimpleNamespace(
+        input_image=SimpleNamespace(input_color_space='ACES2065-1', apply_cctf_decoding=False),
+    )
+    fake_colour_module = object()
+    fake_io_module = object()
+    fake_preview_module = object()
+
+    def fake_prepare_input_color_preview_image(image, **kwargs):
+        captured['input_preview'] = (np.asarray(image), kwargs)
+        return np.asarray(image, dtype=np.float32)
+
+    fake_controller_runtime = SimpleNamespace(
+        prepare_input_color_preview_image=fake_prepare_input_color_preview_image,
+    )
+    module_map = {
+        'colour': fake_colour_module,
+        'spektrafilm_gui.controller_runtime': fake_controller_runtime,
+        'spektrafilm.utils.io': fake_io_module,
+        'spektrafilm.utils.preview': fake_preview_module,
+    }
+
+    monkeypatch.setattr(app_module, 'import_module', lambda name: module_map[name])
+
+    app_module._warmup_launch_input_path(fake_state)
+
+    input_preview_image, input_preview_kwargs = captured['input_preview']
+    assert input_preview_image.shape == app_module.WARMUP_IMAGE_SHAPE
+    assert input_preview_kwargs['input_color_space'] == 'ACES2065-1'
+    assert input_preview_kwargs['apply_cctf_decoding'] is False
+    assert input_preview_kwargs['colour_module'] is fake_colour_module
+
+
+def test_warmup_launch_input_path_swallows_launch_failures(monkeypatch) -> None:
+    monkeypatch.setattr(app_module, 'import_module', lambda name: (_ for _ in ()).throw(RuntimeError(name)))
+
+    app_module._warmup_launch_input_path(SimpleNamespace(input_image=SimpleNamespace(input_color_space='sRGB', apply_cctf_decoding=False)))
 
 
 def test_warmup_full_gui_runs_preview_pipeline(monkeypatch) -> None:
@@ -215,10 +285,12 @@ def test_create_app_syncs_display_transform_availability_before_connecting(monke
 
     monkeypatch.setattr(app_module, '_background_warmup_started', False)
     monkeypatch.setattr(app_module, '_background_warmup_scheduled', False)
+    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
     monkeypatch.setattr(app_module, '_apply_app_palette', lambda: captured.setdefault('palette', True))
     monkeypatch.setattr(app_module, '_create_viewer', lambda: fake_viewer)
     monkeypatch.setattr(app_module, '_create_widgets', lambda: fake_widgets)
-    monkeypatch.setattr(app_module, 'load_default_gui_state', lambda: object())
+    fake_gui_state = object()
+    monkeypatch.setattr(app_module, 'load_default_gui_state', lambda: fake_gui_state)
     monkeypatch.setattr(app_module, 'apply_gui_state', lambda state, *, widgets: captured.setdefault('applied', (state, widgets)))
     fake_controller = object()
 
@@ -232,11 +304,14 @@ def test_create_app_syncs_display_transform_availability_before_connecting(monke
 
     monkeypatch.setattr(app_module, 'initialize_controller', fake_initialize_controller)
     monkeypatch.setattr(app_module, 'build_main_window_for_app', fake_build_main_window_for_app)
+    monkeypatch.setattr(app_module, '_warmup_launch_input_path', lambda state: captured.setdefault('launch_warmup_state', state))
     monkeypatch.setattr(app_module, '_schedule_background_warmup', lambda: captured.setdefault('warmup_scheduled', True))
 
     app = app_module.create_app()
 
     assert captured['palette'] is True
+    assert captured['applied'] == (fake_gui_state, fake_widgets)
+    assert captured['launch_warmup_state'] is fake_gui_state
     assert captured['controller_args'] == (fake_viewer, fake_widgets)
     assert captured['window_args'] == (fake_viewer, fake_widgets)
     assert captured['warmup_scheduled'] is True
