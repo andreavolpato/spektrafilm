@@ -162,6 +162,10 @@ class TupleEditor(QtWidgets.QWidget):
         self.setLayout(layout)
 
     @property
+    def editors(self) -> tuple[QtWidgets.QWidget, ...]:
+        return tuple(self._editors)
+
+    @property
     def value(self) -> tuple[Any, ...]:
         return tuple(editor.value for editor in self._editors)
 

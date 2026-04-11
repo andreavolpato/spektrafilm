@@ -29,6 +29,33 @@ def _make_fake_filter_params(y_filter: float = 0.0, m_filter: float = 0.0, c_fil
     )
 
 
+def _make_runtime_like_filter_params(y_filter: float = 0.0, m_filter: float = 0.0, c_filter: float = 0.0):
+    return SimpleNamespace(
+        film=SimpleNamespace(info=SimpleNamespace(is_positive=False)),
+        print=SimpleNamespace(info=SimpleNamespace(is_negative=True)),
+        debug=SimpleNamespace(
+            deactivate_spatial_effects=False,
+            deactivate_stochastic_effects=False,
+        ),
+        settings=SimpleNamespace(neutral_print_filters_from_database=True),
+        io=SimpleNamespace(
+            input_cctf_decoding=True,
+            input_color_space='ProPhoto RGB',
+            upscale_factor=2.0,
+        ),
+        camera=SimpleNamespace(auto_exposure=True),
+        enlarger=SimpleNamespace(
+            illuminant='light_a',
+            print_exposure=1.0,
+            print_exposure_compensation=True,
+            normalize_print_exposure=False,
+            y_filter_neutral=y_filter,
+            m_filter_neutral=m_filter,
+            c_filter_neutral=c_filter,
+        ),
+    )
+
+
 def _install_fake_filter_axes(monkeypatch) -> None:
     monkeypatch.setattr(print_filters_module, 'PrintPapers', [SimpleNamespace(value='paper_a')])
     monkeypatch.setattr(print_filters_module, 'Illuminants', [SimpleNamespace(value='light_a')])
@@ -110,6 +137,60 @@ def test_fit_neutral_print_filters_uses_default_cyan_start(monkeypatch):
     assert fitted_y == pytest.approx(11.0)
     assert fitted_m == pytest.approx(22.0)
     np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
+
+
+@pytest.mark.unit
+def test_prepare_fitting_profile_disables_database_neutral_filters(monkeypatch):
+    params = _make_runtime_like_filter_params(y_filter=11.0, m_filter=22.0, c_filter=33.0)
+    digest_flags = []
+
+    def fake_digest(profile):
+        digest_flags.append(profile.settings.neutral_print_filters_from_database)
+        return profile
+
+    monkeypatch.setattr(print_filters_module, 'digest_params', fake_digest)
+
+    prepared = print_filters_module._prepare_profile_for_fitting(params)
+
+    assert digest_flags == [False]
+    assert prepared.settings.neutral_print_filters_from_database is False
+    assert prepared.debug.deactivate_spatial_effects is True
+    assert prepared.debug.deactivate_stochastic_effects is True
+
+
+@pytest.mark.unit
+def test_fit_neutral_print_filters_iter_uses_prepared_params_without_redigest(monkeypatch):
+    params = _make_runtime_like_filter_params(y_filter=0.0, m_filter=0.0, c_filter=0.0)
+    simulate_digest_flags = []
+
+    monkeypatch.setattr(print_filters_module, 'digest_params', lambda profile: profile)
+
+    def fake_simulate(_image, profile, digest_params_first=True, print_timings=False):
+        del print_timings
+        simulate_digest_flags.append(digest_params_first)
+        residual = np.array(
+            [
+                profile.enlarger.m_filter_neutral - 10.0,
+                profile.enlarger.y_filter_neutral - 20.0,
+                profile.enlarger.print_exposure - 1.5,
+            ],
+            dtype=np.float64,
+        ) * 1e-2
+        return print_filters_module.MIDGRAY_RGB + residual.reshape(1, 1, 3)
+
+    monkeypatch.setattr(print_filters_module, 'simulate', fake_simulate)
+
+    c_filter, fitted_m, fitted_y, residuals = print_filters_module.fit_neutral_print_filters_iter(
+        params,
+        start_filters=(0.0, 0.0, 0.0),
+    )
+
+    assert c_filter == pytest.approx(0.0)
+    assert fitted_m == pytest.approx(10.0, abs=1e-3)
+    assert fitted_y == pytest.approx(20.0, abs=1e-3)
+    assert np.sum(np.abs(residuals)) < 1e-6
+    assert simulate_digest_flags
+    assert set(simulate_digest_flags) == {False}
 
 
 @pytest.mark.unit

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from spektrafilm_gui.options import AutoExposureMethods, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
+from spektrafilm_gui.options import AutoExposureMethods, NapariInterpolationModes, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
@@ -15,6 +15,7 @@ class WidgetSpec:
     min_value: float | int | None = None
     max_value: float | int | None = None
     step: float | int | None = None
+    decimals: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,9 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
     },
     "load_raw": {
         "white_balance": RawWhiteBalance,
+    },
+    "display": {
+        "output_interpolation": NapariInterpolationModes,
     },
     "simulation": {
         "film_stock": FilmStocks,
@@ -116,17 +120,27 @@ GUI_WIDGET_SPECS = {
         ),
         "scan_white_correction": WidgetSpec(
             label="Scan white correction",
-            tooltip="White point correction applied to the scanner output",
+            tooltip="Enable white point correction applied to the scanner output",
+        ),
+        "scan_white_level": WidgetSpec(
+            label="Scan white level",
+            tooltip="Target white level applied when white correction is enabled",
             min_value=0,
             max_value=1,
-            step=0.01,
+            step=0.005,
+            decimals=3,
         ),
         "scan_black_correction": WidgetSpec(
             label="Scan black correction",
-            tooltip="Black point correction applied to the scanner output",
+            tooltip="Enable black point correction applied to the scanner output",
+        ),
+        "scan_black_level": WidgetSpec(
+            label="Scan black level",
+            tooltip="Target black level applied when black correction is enabled",
             min_value=0,
             max_value=1,
-            step=0.01,
+            step=0.005,
+            decimals=3,
         ),
         "scan_unsharp_mask": WidgetSpec(
             label="Scan unsharp mask",
@@ -152,6 +166,10 @@ GUI_WIDGET_SPECS = {
             label="Gray 18% canvas",
             tooltip="Use neutral 18% gray as backgroung to judge the exposure and neutral colors",
         ),
+        "output_interpolation": WidgetSpec(
+            label="Output interpolation",
+            tooltip="Napari interpolation mode used to display the output layer in the viewer.",
+        ),
         "white_padding": WidgetSpec(
             label="White padding",
             tooltip="Expand the white border layer around the normalized preview frame, expressed as a fraction of the image long edge.",
@@ -162,7 +180,8 @@ GUI_WIDGET_SPECS = {
         "preview_max_size": WidgetSpec(
             label="Preview max size",
             tooltip="max size of the long edge of the preview image in pixels",
-            min_value=256,
+            min_value=128,
+            max_value=1024,
             step=128,
         ),
     },
@@ -170,14 +189,21 @@ GUI_WIDGET_SPECS = {
         "film_gamma_factor": WidgetSpec(
             label="Film gamma factor",
             tooltip="Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast",
+            step=0.05,
+            min_value=0,
         ),
         "film_channel_swap": WidgetSpec(label="Film channel swap"),
         "print_gamma_factor": WidgetSpec(
             label="Print gamma factor",
             tooltip="Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast",
             step=0.05,
+            min_value=0,
         ),
-        "print_channel_swap": WidgetSpec(label="Print channel swap"),
+        "print_channel_swap": WidgetSpec(label="Print channel swap",
+        min_value=0,
+        max_value=2,
+        step=1
+        )
     },
     "glare": {
         "active": WidgetSpec(tooltip="Add glare to the print"),
@@ -202,31 +228,47 @@ GUI_WIDGET_SPECS = {
     "halation": {
         "scattering_strength": WidgetSpec(
             tooltip="Fraction of scattered light (0-100, percentage) for each channel [R,G,B]",
+            min_value=0,
+            max_value=100,
+            step=1,
         ),
         "scattering_size_um": WidgetSpec(
             tooltip="Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
+            min_value=0,
+            step=0.1,
         ),
         "halation_strength": WidgetSpec(
             tooltip="Fraction of halation light (0-100, percentage) for each channel [R,G,B]",
+            min_value=0,
+            max_value=100,
+            step=1,
         ),
         "halation_size_um": WidgetSpec(
             tooltip="Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
+            min_value=0,
+            step=0.1,
         ),
     },
     "couplers": {
         "dir_couplers_amount": WidgetSpec(
             tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
-            step=0.05,
             min_value=0,
+            step=0.05,
+        ),
+        "dir_couplers_ratio": WidgetSpec(
+            tooltip="relative amount of coupler in RGB layers, if dir coupler amount is 1.0 they are effectevile gamma values of the log exposure correction.",
+            min_value=0,
+            step=0.02,
         ),
         "dir_couplers_diffusion_um": WidgetSpec(
             tooltip="Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
-            step=5,
             min_value=0,
+            step=5,
         ),
         "diffusion_interlayer": WidgetSpec(
             tooltip="Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.",
             min_value=0,
+            step=0.5,
         ),
     },
     "grain": {
@@ -239,6 +281,8 @@ GUI_WIDGET_SPECS = {
         "particle_scale": WidgetSpec(tooltip="Scale of particle area for the RGB layers, multiplies particle_area_um2"),
         "particle_scale_layers": WidgetSpec(
             tooltip="Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2",
+            min_value=0,
+            step=0.25,
         ),
         "density_min": WidgetSpec(tooltip="Minimum density of the grain, typical values (0.03-0.06)"),
         "uniformity": WidgetSpec(tooltip="Uniformity of the grain, typical values (0.94-0.98)"),
@@ -297,7 +341,10 @@ GUI_WIDGET_SPECS = {
             label="Apply CCTF decoding",
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
-        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution", step=0.5, min_value=1),
+        "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution",
+                                     min_value=1,
+                                     step=0.5,
+                                     ),
         "spectral_upsampling_method": WidgetSpec(
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
@@ -305,10 +352,14 @@ GUI_WIDGET_SPECS = {
         "filter_uv": WidgetSpec(
             label="UV filter",
             tooltip="Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.",
+            min_value=0,
+            step=1,
         ),
         "filter_ir": WidgetSpec(
             label="IR filter",
             tooltip="Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.",
+            min_value=0,
+            step=1,
         ),
     },
     "load_raw": {
@@ -325,6 +376,7 @@ GUI_WIDGET_SPECS = {
         "tint": WidgetSpec(
             label="Tint",
             tooltip="Tint value for the custom white balance, not used for the other white balance settings",
+            min_value=0,
             step=0.01,
         ),
         "lens_correction": WidgetSpec(label="Lens correction", tooltip="Apply lens corrections"),
@@ -335,7 +387,7 @@ GUI_WIDGET_SPECS = {
 GUI_AUXILIARY_SPECS = {
     "scan_for_print": WidgetSpec(
         label="Scan for print",
-        tooltip="Scan the image for print, deactivate a few virtual paper effects, ie white and black correction of the scanner are both set to 1, and glare is deactivated. Tune them yourself without this checkbox if you want to customize the look.",
+        tooltip="Scan the image for print, ie white and black correction of the scanner are active, and glare is deactivated.",
     ),
 }
 

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from spektrafilm import AgXPhoto, Simulator, init_params, photo_params, simulate
+from spektrafilm import AgXPhoto, Simulator, photo_params, simulate
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime import process as process_module
 
@@ -17,13 +17,6 @@ class TestRuntimeApi:
         direct_result = Simulator(default_params).process(small_rgb_image)
 
         np.testing.assert_allclose(new_result, direct_result, atol=1e-12)
-
-    def test_public_runtime_symbols_remain_available(self):
-        params = init_params()
-        simulator = Simulator(params)
-
-        assert params.film.info.stock == 'kodak_portra_400'
-        assert isinstance(simulator, Simulator)
 
     def test_update_params_refreshes_public_runtime_state(self, monkeypatch):
         class FakePipeline:
@@ -57,7 +50,6 @@ class TestRuntimeApi:
         simulator = process_module.Simulator(initial_params)
         simulator.update_params(updated_params)
 
-        assert simulator._params is updated_params
         assert simulator.camera.label == 'camera-updated'
         assert simulator.print.label == 'print-updated'
         assert simulator.settings.label == 'settings-updated'

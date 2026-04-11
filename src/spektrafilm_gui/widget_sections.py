@@ -124,6 +124,10 @@ def _spec_row(section_name: str, field_name: str, widget: QWidget) -> tuple[QLab
     return _build_widget_label(section_name, field_name), widget
 
 
+def _compound_spec_row(section_name: str, label_field_name: str, *widgets: QWidget) -> tuple[QLabel, QWidget]:
+    return _build_widget_label(section_name, label_field_name), _build_inline_container(*widgets, stretch_last=True)
+
+
 def _build_button_row(*widgets: QWidget, stretch: int | None = None, spacing: int = 6) -> QHBoxLayout:
     row = QHBoxLayout()
     row.setContentsMargins(0, 0, 0, 0)
@@ -134,6 +138,31 @@ def _build_button_row(*widgets: QWidget, stretch: int | None = None, spacing: in
         else:
             row.addWidget(widget, stretch)
     return row
+
+
+def _build_inline_container(
+    *widgets: QWidget,
+    spacing: int = 6,
+    add_stretch: bool = False,
+    stretch_last: bool = False,
+) -> QWidget:
+    container = QWidget()
+    container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    layout = QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(spacing)
+    last_widget_index = len(widgets) - 1
+    for index, widget in enumerate(widgets):
+        if stretch_last and index == last_widget_index:
+            size_policy = widget.sizePolicy()
+            size_policy.setHorizontalPolicy(QSizePolicy.Expanding)
+            widget.setSizePolicy(size_policy)
+            layout.addWidget(widget, 1)
+        else:
+            layout.addWidget(widget)
+    if add_stretch and not stretch_last:
+        layout.addStretch(1)
+    return container
 
 
 def _build_vertical_container(*items: QHBoxLayout | QFormLayout | QWidget, spacing: int = 6) -> QWidget:
@@ -217,6 +246,7 @@ class DataclassSection(QWidget):
         return
 
     def _build_editor(self, field_name: str, annotation: Any) -> QWidget:
+        spec = get_widget_spec(self._section_name, field_name)
         enum_cls = self._enum_fields.get(field_name)
         if enum_cls is not None:
             return EnumEditor(_enum_values(enum_cls))
@@ -225,12 +255,12 @@ class DataclassSection(QWidget):
         if annotation is int:
             return IntEditor()
         if annotation is float:
-            return FloatEditor()
+            return FloatEditor(decimals=2 if spec.decimals is None else spec.decimals)
         if get_origin(annotation) is tuple:
             element_types = get_args(annotation)
             if element_types and all(element_type is int for element_type in element_types):
                 return IntTupleEditor(len(element_types))
-            return FloatTupleEditor(len(element_types))
+            return FloatTupleEditor(len(element_types), decimals=2 if spec.decimals is None else spec.decimals)
         raise TypeError(f"Unsupported field type for {self._state_cls.__name__}.{field_name}: {annotation!r}")
 
     def _apply_specs(self) -> None:
@@ -518,12 +548,10 @@ class DisplaySection(SimpleDataclassSection):
     SECTION_NAME = 'display'
     TITLE = 'Display'
     COLLAPSED_BY_DEFAULT = False
+    ENUM_FIELDS_KEY = 'display'
     HIDDEN_FIELDS = {'preview_max_size'}
 
     update_preview_requested = Signal()
-
-    def __init__(self):
-        super().__init__()
 
     def _init_extra_widgets(self) -> None:
         self.update_preview_button = _build_button(
@@ -573,7 +601,9 @@ class SimulationSection(DataclassSection):
                 'print_illuminant',
                 'scan_lens_blur',
                 'scan_white_correction',
+                'scan_white_level',
                 'scan_black_correction',
+                'scan_black_level',
                 'scan_unsharp_mask',
                 'auto_preview',
                 'scan_film',
@@ -681,8 +711,8 @@ class SimulationSection(DataclassSection):
                     'scan_black_correction': self.scan_black_correction.value,
                     'glare_active': None if self._glare_section is None else self._glare_section.active.value,
                 }
-            self.scan_white_correction.value = 1.0
-            self.scan_black_correction.value = 1.0
+            self.scan_white_correction.value = True
+            self.scan_black_correction.value = True
             if self._glare_section is not None:
                 self._glare_section.active.value = False
             return
@@ -771,8 +801,18 @@ class ScannerSection(QWidget):
                 'Scanner',
                 [
                     _spec_row('simulation', 'scan_lens_blur', simulation_section.scan_lens_blur),
-                    _spec_row('simulation', 'scan_white_correction', simulation_section.scan_white_correction),
-                    _spec_row('simulation', 'scan_black_correction', simulation_section.scan_black_correction),
+                    _compound_spec_row(
+                        'simulation',
+                        'scan_white_correction',
+                        simulation_section.scan_white_correction,
+                        simulation_section.scan_white_level,
+                    ),
+                    _compound_spec_row(
+                        'simulation',
+                        'scan_black_correction',
+                        simulation_section.scan_black_correction,
+                        simulation_section.scan_black_level,
+                    ),
                     _spec_row('simulation', 'scan_unsharp_mask', simulation_section.scan_unsharp_mask),
                 ],
                 expanded=False,

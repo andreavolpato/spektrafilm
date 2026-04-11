@@ -35,23 +35,27 @@ class PrintingStage:
         self._resize_service = resize_service
         self._color_reference_service = color_reference_service
 
+    # public methods
+
     @timeit("_expose_print")
     def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
         
         cmy_film_black = np.zeros((1,1,3)) - np.array(self._film_render.grain.density_min)
         cmy_film_white = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
-        self._color_reference_service.log_raw_print_black = self.film_cmy_to_print_log_raw(cmy_film_black)
-        self._color_reference_service.log_raw_print_white = self.film_cmy_to_print_log_raw(cmy_film_white)
+        self._color_reference_service.log_raw_print_black = self._film_cmy_to_print_log_raw(cmy_film_black)
+        self._color_reference_service.log_raw_print_white = self._film_cmy_to_print_log_raw(cmy_film_white)
         
         log_raw_print = self._lut_service.spectral_compute(
             cmy_film_density,
-            spectral_calculation=self.film_cmy_to_print_log_raw,
+            spectral_calculation=self._film_cmy_to_print_log_raw,
             data_min=-np.array(self._film_render.grain.density_min),
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
             use_lut=self._settings.use_enlarger_lut,
             use_enlarger_lut_memory=True,
         )    
         raw = 10**log_raw_print
+        raw *= self._enlarger.print_exposure
+        raw *= self._color_reference_service.black_white_printing_exposure_correction()
         raw = apply_promist_filter(raw, self._enlarger.diffusion_filter[0],
                                    pixel_size_um=self._resize_service.pixel_size_um,
                                    spatial_scale=self._enlarger.diffusion_filter[1],
@@ -68,7 +72,9 @@ class PrintingStage:
             gamma_factor=self._print_render.density_curve_gamma,
         )
 
-    def film_cmy_to_print_log_raw(self, cmy_film_density: np.ndarray) -> np.ndarray:
+    # private methods
+
+    def _film_cmy_to_print_log_raw(self, cmy_film_density: np.ndarray) -> np.ndarray:
         sensitivity = 10 ** self._print.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
         enlarger_light_source = standard_illuminant(self._enlarger.illuminant)
@@ -82,12 +88,11 @@ class PrintingStage:
         print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
         light = density_to_light(density_spectral, print_illuminant)
         raw = contract("ijk, kl->ijl", light, sensitivity)
-        raw *= self._enlarger.print_exposure
-        raw *= self.compute_exposure_factor_midgray(sensitivity, print_illuminant)
-        raw += self.compute_raw_preflash(enlarger_light_source, sensitivity)
+        raw *= self._compute_exposure_factor_midgray(sensitivity, print_illuminant)
+        raw += self._compute_raw_preflash(enlarger_light_source, sensitivity)
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
-    def compute_raw_preflash(self, light_source, sensitivity):
+    def _compute_raw_preflash(self, light_source, sensitivity):
         if self._enlarger.preflash_exposure > 0:
             preflash_illuminant = self._enlarger_service.preflash_filtered_illuminant(light_source)
             density_base = np.asarray(self._film.data.base_density)[None, None, :]
@@ -96,7 +101,7 @@ class PrintingStage:
             return raw_preflash * self._enlarger.preflash_exposure
         return np.zeros((3,))
 
-    def compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
+    def _compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
         if not self._enlarger.normalize_print_exposure:
             return 1.0
 

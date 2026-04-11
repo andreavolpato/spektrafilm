@@ -28,6 +28,11 @@ params.film_render.grain.active = False
 params.debug.return_film_density_cmy = False
 params.debug.return_print_density_cmy = False
 
+params.scanner.black_correction = True
+params.scanner.white_correction = True
+params.scanner.black_level = 0.0
+params.scanner.white_level = 0.9
+
 params.settings.use_fast_stats = True
 params.settings.use_enlarger_lut = True
 params.settings.use_scanner_lut = True

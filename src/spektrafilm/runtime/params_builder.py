@@ -13,7 +13,7 @@ def _get_neutral_print_filters():
     return read_neutral_print_filters()
 
 
-def digest_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
+def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> RuntimePhotoParams:
     """Digest the params to prepare for use in the runtime pipeline.
     In the pipeline params should be static and not be changed.
     params.settings and params.debug should contain all the switching logic for the digesting.
@@ -39,18 +39,11 @@ def digest_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.camera.lens_blur_um = 0.0
         params.scanner.lens_blur = 0.0
         params.scanner.unsharp_mask = (0.0, 0.0)
-
-    # film overrides
-    # define here all the specifics to stocks that should be applied in params.film_render
-    if params.film.is_positive:
-        params.film_render.dir_couplers.ratio_rgb = (0.35, 0.23, 0.12)
-    if params.film.is_negative:
-        params.film_render.dir_couplers.ratio_rgb = (0.35, 0.35, 0.35)
-        
-    # stock specifics overrides
-    if params.film.info.stock == "fujifilm_provia_100f":
-        params.film_render.dir_couplers.ratio_rgb = np.array((0.35, 0.23, 0.12))*1.2
-
+    
+    if apply_stocks_specifics:
+        params = _apply_film_specifics(params)
+        params = _apply_print_specifics(params)
+    
     # debug switches
     if params.debug.deactivate_spatial_effects:
         params.film_render.halation.size_um = [0, 0, 0]
@@ -84,6 +77,28 @@ def init_params(
         film=load_profile(film_profile),
         print=load_profile(print_profile),
     )
+    return params
+
+def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
+    """Apply film specific settings to the params."""
+    # film overrides
+    # define here all the specifics to stocks that should be applied in params.film_render
+    if params.film.is_positive:
+        params.film_render.dir_couplers.ratio_rgb = (0.38, 0.26, 0.17)
+        
+    if params.film.is_negative:
+        params.film_render.dir_couplers.ratio_rgb = (0.42, 0.42, 0.42)
+
+    # stock specifics overrides
+    if params.film.info.stock == "fujifilm_velvia_100":
+        params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 0.9
+    if params.film.info.stock == "fujifilm_provia_100f":
+        params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 1.3
+    return params
+
+def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
+    """Apply print specific settings to the params."""
+    # define here all the specifics to stocks that should be applied in params.print_render
     return params
 
 

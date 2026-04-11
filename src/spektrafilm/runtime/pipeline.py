@@ -13,6 +13,7 @@ from spektrafilm.runtime.services import (
 from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
 
 
+
 class SimulationPipeline:
     """Thin runtime orchestrator that composes stage objects."""
 
@@ -36,9 +37,11 @@ class SimulationPipeline:
         if not update_params:
             self._lut_service = SpectralLUTService(self.settings.lut_resolution)
         self._enlarger_service = EnlargerService(self.enlarger)
-        self._color_reference_service = ColorReferenceService(self.film.data, self.film_render,
-                                                              self.print.data, self.print_render,
-                                                              self.io.scan_film)
+        self._color_reference_service = ColorReferenceService(self.film, self.film_render,
+                                                              self.print, self.print_render,
+                                                              self.scanner.black_correction, self.scanner.white_correction,
+                                                              self.scanner.black_level, self.scanner.white_level,
+                                                              self.io)
 
         
         self._filming_stage = FilmingStage(
@@ -50,6 +53,7 @@ class SimulationPipeline:
             self._lut_service,
             self._resize_service, # to get pixel size um for blurs
             self._enlarger_service, # to compute and save density spectral midgray to balance print
+            self._color_reference_service,
         )
         self._printing_stage = PrintingStage(
             self.film,
@@ -79,6 +83,7 @@ class SimulationPipeline:
         self._filming_stage.timings = self.timings
         self._printing_stage.timings = self.timings
         self._scanning_stage.timings = self.timings
+        self._lut_service.timings = self.timings
 
     def process(self, image):
         """Process an image through the simulation pipeline."""
@@ -113,4 +118,5 @@ class SimulationPipeline:
     def update_params(self,params):
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
+            
 

@@ -71,32 +71,20 @@ def test_pipeline_returns_valid_outputs_for_edge_cases(default_params) -> None:
         _assert_valid_output(result, shape=case['shape'], bounded=case.get('bounded', True))
 
 
-def test_scan_film_changes_pipeline_branch(default_params) -> None:
-    patch = _tile_rgb((0.30, 0.10, 0.05), 4)
-
-    default_params.io.scan_film = False
-    print_result = simulate(patch, default_params)
-
-    default_params.io.scan_film = True
-    negative_result = simulate(patch, default_params)
-
-    _assert_valid_output(print_result, shape=(4, 4, 3))
-    _assert_valid_output(negative_result, shape=(4, 4, 3))
-    assert not np.allclose(print_result, negative_result, atol=1e-3)
-
-
-def test_uniform_gray_input_has_no_spatial_artifacts(default_params) -> None:
+def test_uniform_gray_output_is_stable_and_artifact_free(default_params) -> None:
     gray = _tile_rgb((0.184, 0.184, 0.184), 8)
-    result = simulate(gray, default_params)
+    result_1 = simulate(gray, default_params)
+    result_2 = simulate(gray, default_params)
 
-    _assert_valid_output(result, shape=(8, 8, 3))
-    center_pixel = result[2, 2, :]
+    _assert_valid_output(result_1, shape=(8, 8, 3))
+    np.testing.assert_array_equal(result_1, result_2)
+    center_pixel = result_1[2, 2, :]
     for row in range(1, 6):
         for col in range(1, 6):
-            np.testing.assert_allclose(result[row, col, :], center_pixel, atol=1e-6)
+            np.testing.assert_allclose(result_1[row, col, :], center_pixel, atol=1e-6)
 
 
-def test_transfer_curve_controls_behave_consistently(default_params) -> None:
+def test_exposure_controls_behave_consistently(default_params) -> None:
     gray = _tile_rgb((0.18, 0.18, 0.18), 4)
     levels = [0.02, 0.05, 0.18, 0.5, 0.90]
     means = [np.mean(simulate(_tile_rgb((level, level, level), 4), default_params)) for level in levels]
@@ -130,10 +118,6 @@ def test_transfer_curve_controls_behave_consistently(default_params) -> None:
     assert delta_comp < delta_no_comp
     assert delta_comp < 0.05
 
-
-def test_normalize_print_exposure_false_bypasses_compensation(default_params) -> None:
-    gray = _tile_rgb((0.18, 0.18, 0.18), 4)
-
     default_params.enlarger.normalize_print_exposure = False
     default_params.enlarger.print_exposure_compensation = True
     default_params.camera.auto_exposure = False
@@ -146,8 +130,20 @@ def test_normalize_print_exposure_false_bypasses_compensation(default_params) ->
     np.testing.assert_allclose(result_with_comp, result_without_comp, atol=1e-6)
 
 
-def test_pipeline_distinguishes_stocks_and_input_chroma(default_params) -> None:
+def test_pipeline_distinguishes_major_configuration_changes(default_params) -> None:
+    patch = _tile_rgb((0.30, 0.10, 0.05), 4)
+
+    default_params.io.scan_film = False
+    print_result = simulate(patch, default_params)
+    default_params.io.scan_film = True
+    negative_result = simulate(patch, default_params)
+
+    _assert_valid_output(print_result, shape=(4, 4, 3))
+    _assert_valid_output(negative_result, shape=(4, 4, 3))
+    assert not np.allclose(print_result, negative_result, atol=1e-3)
+
     green_patch = _tile_rgb((0.05, 0.4, 0.05), 10)
+    default_params.io.scan_film = False
     result_portra = simulate(green_patch, default_params)
 
     params_fuji = make_fast_test_params(film_profile='fujifilm_c200')
@@ -165,14 +161,6 @@ def test_pipeline_distinguishes_stocks_and_input_chroma(default_params) -> None:
     assert not np.allclose(results['red'], results['green'], atol=1e-2)
     assert not np.allclose(results['green'], results['blue'], atol=1e-2)
     assert not np.allclose(results['red'], results['blue'], atol=1e-2)
-
-
-def test_pipeline_is_deterministic_with_stochastic_effects_disabled(default_params) -> None:
-    gray = _tile_rgb((0.18, 0.18, 0.18), 4)
-    result_1 = simulate(gray, default_params)
-    result_2 = simulate(gray, default_params)
-
-    np.testing.assert_array_equal(result_1, result_2)
 
 
 def test_lut_path_stays_close_to_direct_path(default_params) -> None:

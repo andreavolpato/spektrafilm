@@ -15,6 +15,8 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 MIDGRAY_RGB = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
 DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 50, 50)  # kodak cc values in CMY order
+DEFAULT_INITIAL_PRINT_EXPOSURE = 1.2
+DEFAULT_INITIAL_PRINT_FILTERS = (0, 70, 70)  # kodak cc values in CMY order
 DEFAULT_RESIDUE_THRESHOLD = 5e-4
 
 NeutralPrintFilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
@@ -55,28 +57,15 @@ class NeutralPrintFilterRegenerationResult:
     residues: NeutralPrintFilterResidueDatabase
 
 
-def _prepare_fitting_profile(profile):
-    working_profile = copy.deepcopy(profile)
-    working_profile.debug.deactivate_spatial_effects = True
-    working_profile.debug.deactivate_stochastic_effects = True
-    working_profile.io.input_cctf_decoding = False
-    working_profile.io.input_color_space = 'sRGB'
-    working_profile.io.upscale_factor = 1.0
-    working_profile.camera.auto_exposure = False
-    working_profile.enlarger.print_exposure_compensation = False
-    working_profile.enlarger.normalize_print_exposure = True
-    return digest_params(working_profile)
-
-
 def fit_neutral_print_filters_iter(profile, start_filters):
-    working_profile = _prepare_fitting_profile(profile)
-
+    working_profile = copy.deepcopy(profile)
+    working_profile = _prepare_profile_for_fitting(working_profile)
     def midgray_print(cmy_values, print_exposure):
         working_profile.enlarger.c_filter_neutral = cmy_values[0]
         working_profile.enlarger.m_filter_neutral = cmy_values[1]
         working_profile.enlarger.y_filter_neutral = cmy_values[2]
         working_profile.enlarger.print_exposure = print_exposure
-        return simulate(MIDGRAY_RGB, working_profile)
+        return simulate(MIDGRAY_RGB, working_profile, digest_params_first=False)
 
     def evaluate_residues(values):
         residual = midgray_print([c_filter, values[0], values[1]], values[2])
@@ -86,7 +75,7 @@ def fit_neutral_print_filters_iter(profile, start_filters):
     working_profile.enlarger.c_filter_neutral = c_filter
     working_profile.enlarger.m_filter_neutral = m0
     working_profile.enlarger.y_filter_neutral = y0
-    x0 = [m0, y0, 1.0]
+    x0 = [m0, y0, DEFAULT_INITIAL_PRINT_EXPOSURE]
     fit = scipy.optimize.least_squares(
         evaluate_residues,
         x0,
@@ -139,7 +128,7 @@ def fit_neutral_print_filters(profile, iterations=10, stock=None, rng=None):
     return filter_y, filter_m, residues
 
 
-def _build_neutral_print_filter_database(initial_filters=DEFAULT_NEUTRAL_PRINT_FILTERS) -> NeutralPrintFilterDatabase:
+def _build_neutral_print_filter_database(initial_filters=DEFAULT_INITIAL_PRINT_FILTERS) -> NeutralPrintFilterDatabase:
     return {
         paper.value: {
             light.value: {
@@ -165,25 +154,37 @@ def _build_neutral_print_filter_residue_database(initial_value=float('inf')) -> 
     }
 
 
-def _randomize_start_filters(filters, randomness, rng, initial_filters=DEFAULT_NEUTRAL_PRINT_FILTERS):
+def _randomize_start_filters(filters, randomness, rng, initial_filters=DEFAULT_INITIAL_PRINT_FILTERS):
     _, m_filter, y_filter = filters
     randomized_m = np.clip(m_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
     randomized_y = np.clip(y_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
     return [float(initial_filters[0]), float(randomized_m), float(randomized_y)]
 
 
-def _build_regeneration_params(stock, paper, illuminant, filters):
+def _build_regeneration_params(stock, paper, illuminant, start_filters):
     params = init_params(
         film_profile=stock,
         print_profile=paper,
     )
     params.enlarger.illuminant = illuminant
-    params.enlarger.normalize_print_exposure = False
-    params.enlarger.c_filter_neutral = float(filters[0])
-    params.enlarger.m_filter_neutral = float(filters[1])
-    params.enlarger.y_filter_neutral = float(filters[2])
+    params.enlarger.c_filter_neutral = float(start_filters[0])
+    params.enlarger.m_filter_neutral = float(start_filters[1])
+    params.enlarger.y_filter_neutral = float(start_filters[2])
     return params
 
+def _prepare_profile_for_fitting(params):
+    params.enlarger.normalize_print_exposure = False
+    params.debug.deactivate_spatial_effects = True
+    params.debug.deactivate_stochastic_effects = True
+    params.settings.neutral_print_filters_from_database = False
+    params.io.input_cctf_decoding = False
+    params.io.input_color_space = 'sRGB'
+    params.io.upscale_factor = 1.0
+    params.camera.auto_exposure = False
+    params.enlarger.print_exposure_compensation = False
+    params.enlarger.normalize_print_exposure = True
+    params = digest_params(params)
+    return params
 
 def _fit_neutral_print_filter_entry(
     *,
