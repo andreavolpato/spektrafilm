@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from spektrafilm.utils import raw_file_processor
 
@@ -150,9 +151,24 @@ def test_process_raw_file_as_shot_uses_camera_white_balance(monkeypatch):
     assert 'user_wb' not in captured['postprocess']
 
 
-def test_process_raw_file_tungsten_and_custom_apply_colour_science_adjustment(monkeypatch):
+@pytest.mark.parametrize(
+    (
+        'white_balance',
+        'temperature',
+        'tint',
+        'expected_result_scale',
+        'expected_source_white',
+    ),
+    [
+        ('tungsten', None, None, np.array([1.0, 1.0, 1.0], dtype=np.float32), np.array([2.85, 1.0, 1.425])),
+        ('custom', 3200.0, 0.85, np.array([1.0, 0.85, 1.0], dtype=np.float32), np.array([3.2, 1.0, 1.6])),
+        ('custom', 6504.0, 1.0, np.array([1.0, 1.0, 1.0], dtype=np.float32), None),
+    ],
+    ids=['tungsten', 'custom-tungsten', 'custom-daylight'],
+)
+def test_process_raw_file_temperature_white_balance_variants(monkeypatch, white_balance, temperature, tint, expected_result_scale, expected_source_white):
     raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
-    postprocess_calls = []
+    postprocess_calls: list[dict[str, object]] = []
     adaptation_calls = []
 
     class Reader:
@@ -191,123 +207,67 @@ def test_process_raw_file_tungsten_and_custom_apply_colour_science_adjustment(mo
     monkeypatch.setattr(raw_file_processor.colour, 'chromatic_adaptation', fake_chromatic_adaptation)
     monkeypatch.setattr(raw_file_processor.colour, 'XYZ_to_RGB', lambda xyz, **kwargs: xyz)
 
-    tungsten = raw_file_processor.load_and_process_raw_file('example.nef', white_balance='tungsten')
-    custom = raw_file_processor.load_and_process_raw_file(
+    result = raw_file_processor.load_and_process_raw_file(
         'example.nef',
-        white_balance='custom',
-        temperature=3200.0,
-        tint=0.85,
+        white_balance=white_balance,
+        temperature=temperature,
+        tint=tint,
     )
 
     expected_linear = raw_image.astype(np.float32) / 65535.0
-    np.testing.assert_allclose(tungsten, expected_linear + 0.25)
-    np.testing.assert_allclose(custom, (expected_linear + 0.25) * np.array([1.0, 0.85, 1.0], dtype=np.float32))
+    expected = expected_linear if expected_source_white is None else expected_linear + 0.25
+    expected = expected * expected_result_scale
+    np.testing.assert_allclose(result, expected)
     assert all('user_wb' not in call for call in postprocess_calls)
     assert all('use_camera_wb' not in call for call in postprocess_calls)
-    assert len(adaptation_calls) == 2
-    np.testing.assert_allclose(adaptation_calls[0]['source'], [2.85, 1.0, 1.425])
-    np.testing.assert_allclose(adaptation_calls[0]['target'], [6.504, 1.0, 3.252])
-    np.testing.assert_allclose(adaptation_calls[1]['source'], [3.2, 1.0, 1.6])
-    np.testing.assert_allclose(adaptation_calls[1]['target'], [6.504, 1.0, 3.252])
-    assert adaptation_calls[0]['kwargs']['method'] == 'Von Kries'
-    assert adaptation_calls[1]['kwargs']['method'] == 'Von Kries'
+    if expected_source_white is None:
+        assert adaptation_calls == []
+    else:
+        assert len(adaptation_calls) == 1
+        np.testing.assert_allclose(adaptation_calls[0]['source'], expected_source_white)
+        np.testing.assert_allclose(adaptation_calls[0]['target'], [6.504, 1.0, 3.252])
+        assert adaptation_calls[0]['kwargs']['method'] == 'Von Kries'
 
 
-def test_process_raw_file_custom_daylight_uses_daylight_base_without_adjustment(monkeypatch):
-    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
-    captured = {}
-
-    class Reader:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
-
-        def postprocess(self, **kwargs):
-            captured['postprocess'] = kwargs
-            return raw_image
-
-    monkeypatch.setattr(
-        raw_file_processor,
-        'rawpy',
-        SimpleNamespace(
-            imread=lambda path: Reader(),
-            ColorSpace=SimpleNamespace(ACES='ACES'),
+@pytest.mark.parametrize(
+    ('lens_model', 'correction_summary', 'expect_database_call', 'expected_lens_info'),
+    [
+        ('', None, False, {}),
+        ('Canon EF 50mm f/1.8 STM', '', True, {}),
+        (
+            'Canon EF 50mm f/1.8 STM',
+            'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8',
+            True,
+            {'summary': 'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8'},
         ),
-    )
-    monkeypatch.setattr(raw_file_processor.colour, 'chromatic_adaptation', lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('unexpected chromatic adaptation')))
-
-    result = raw_file_processor.load_and_process_raw_file(
-        'example.nef',
-        white_balance='custom',
-        temperature=6504.0,
-        tint=1.0,
-    )
-
-    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
-    assert 'user_wb' not in captured['postprocess']
-    assert 'use_camera_wb' not in captured['postprocess']
-
-
-def test_process_raw_file_custom_does_not_require_raw_white_balance_metadata(monkeypatch):
-    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
-    captured = {'postprocess': []}
-
-    class Reader:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
-
-        def postprocess(self, **kwargs):
-            captured['postprocess'].append(kwargs)
-            return raw_image
-
-    monkeypatch.setattr(
-        raw_file_processor,
-        'rawpy',
-        SimpleNamespace(
-            imread=lambda path: Reader(),
-            ColorSpace=SimpleNamespace(ACES='ACES'),
-        ),
-    )
-    monkeypatch.setattr(raw_file_processor.colour, 'CCT_to_xy', lambda temperature, method='CIE Illuminant D Series': np.array([temperature, 0.0]))
-    monkeypatch.setattr(raw_file_processor.colour, 'xy_to_XYZ', lambda xy: np.array([xy[0] / 1000.0, 1.0, xy[0] / 2000.0]))
-    monkeypatch.setattr(raw_file_processor.colour, 'RGB_to_XYZ', lambda image, **kwargs: image)
-    monkeypatch.setattr(raw_file_processor.colour, 'chromatic_adaptation', lambda xyz, source_white_xyz, target_white_xyz, **kwargs: xyz + np.float32(0.25))
-    monkeypatch.setattr(raw_file_processor.colour, 'XYZ_to_RGB', lambda xyz, **kwargs: xyz)
-
-    result = raw_file_processor.load_and_process_raw_file(
-        'example.nef',
-        white_balance='custom',
-        temperature=3200.0,
-        tint=1.0,
-    )
-
-    expected_linear = raw_image.astype(np.float32) / 65535.0
-    assert captured['postprocess'] == [
-        {
-            'output_color': 'ACES',
-            'output_bps': 16,
-            'no_auto_bright': True,
-            'gamma': (1, 1),
-        }
-    ]
-    np.testing.assert_allclose(result, expected_linear + 0.25)
-
-
-def test_process_raw_file_skips_lens_correction_when_lens_model_missing(monkeypatch):
+    ],
+    ids=['missing-lens-model', 'no-correction-summary', 'correction-summary'],
+)
+def test_process_raw_file_lens_info_reporting(
+    monkeypatch,
+    lens_model: str,
+    correction_summary: str | None,
+    expect_database_call: bool,
+    expected_lens_info: dict[str, str],
+):
     raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
     lens_info_out: dict[str, str] = {}
 
-    def fail_database_creation():
-        raise AssertionError('lensfun database should not be queried without a lens model')
-
     _stub_raw_reader(monkeypatch, raw_image)
-    _stub_exif(monkeypatch, lens_model='')
-    monkeypatch.setattr(raw_file_processor.lensfunpy, 'Database', fail_database_creation)
+    _stub_exif(monkeypatch, lens_model=lens_model)
+
+    if not expect_database_call:
+        monkeypatch.setattr(
+            raw_file_processor.lensfunpy,
+            'Database',
+            lambda: (_ for _ in ()).throw(AssertionError('lensfun database should not be queried without a lens model')),
+        )
+    else:
+        monkeypatch.setattr(
+            raw_file_processor,
+            '_apply_lens_correction',
+            lambda rgb, exif_metadata: (rgb, '' if correction_summary is None else correction_summary),
+        )
 
     result = raw_file_processor.load_and_process_raw_file(
         'example.nef',
@@ -316,46 +276,4 @@ def test_process_raw_file_skips_lens_correction_when_lens_model_missing(monkeypa
     )
 
     np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
-    assert lens_info_out == {}
-
-
-def test_process_raw_file_leaves_lens_info_empty_when_no_correction_applied(monkeypatch):
-    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
-    lens_info_out: dict[str, str] = {}
-    _stub_raw_reader(monkeypatch, raw_image)
-    _stub_exif(monkeypatch)
-    monkeypatch.setattr(
-        raw_file_processor,
-        '_apply_lens_correction',
-        lambda rgb, exif_metadata: (rgb, ''),
-    )
-
-    result = raw_file_processor.load_and_process_raw_file(
-        'example.nef',
-        lens_correction=True,
-        lens_info_out=lens_info_out,
-    )
-
-    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
-    assert lens_info_out == {}
-
-
-def test_process_raw_file_populates_lens_info_when_correction_applied(monkeypatch):
-    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
-    lens_info_out: dict[str, str] = {}
-    _stub_raw_reader(monkeypatch, raw_image)
-    _stub_exif(monkeypatch)
-    monkeypatch.setattr(
-        raw_file_processor,
-        '_apply_lens_correction',
-        lambda rgb, exif_metadata: (rgb, 'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8'),
-    )
-
-    result = raw_file_processor.load_and_process_raw_file(
-        'example.nef',
-        lens_correction=True,
-        lens_info_out=lens_info_out,
-    )
-
-    np.testing.assert_allclose(result, raw_image.astype(np.float32) / 65535.0)
-    assert lens_info_out == {'summary': 'Canon EF 50mm f/1.8 STM @ 50.0mm f/2.8'}
+    assert lens_info_out == expected_lens_info

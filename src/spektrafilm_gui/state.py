@@ -106,8 +106,10 @@ class SimulationState:
     diffusion_spatial_scale: float
     diffusion_intensity: float
     scan_lens_blur: float
-    scan_white_correction: float
-    scan_black_correction: float
+    scan_white_correction: bool
+    scan_white_level: float
+    scan_black_correction: bool
+    scan_black_level: float
     scan_unsharp_mask: tuple[float, float]
     output_color_space: str
     saving_color_space: str
@@ -122,6 +124,7 @@ class DisplayState:
     gray_18_canvas: bool
     white_padding: float
     preview_max_size: int
+    output_interpolation: str = 'spline36'
 
 
 @dataclass(slots=True)
@@ -245,7 +248,9 @@ def gui_state_from_params(
             diffusion_intensity=float(params.enlarger.diffusion_filter[2]),
             scan_lens_blur=params.scanner.lens_blur,
             scan_white_correction=params.scanner.white_correction,
+            scan_white_level=params.scanner.white_level,
             scan_black_correction=params.scanner.black_correction,
+            scan_black_level=params.scanner.black_level,
             scan_unsharp_mask=tuple(params.scanner.unsharp_mask),
             output_color_space="sRGB",
             saving_color_space="sRGB",
@@ -256,6 +261,7 @@ def gui_state_from_params(
         display=DisplayState(
             use_display_transform=True,
             gray_18_canvas=True,
+            output_interpolation='spline36',
             white_padding=0.03,
             preview_max_size=params.settings.preview_max_size,
         ),

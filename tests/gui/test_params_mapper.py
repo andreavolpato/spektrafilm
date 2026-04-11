@@ -38,13 +38,17 @@ def test_build_params_maps_grain_fields() -> None:
 
 def test_build_params_maps_scanner_corrections() -> None:
     state = make_state()
-    state.simulation.scan_white_correction = 0.72
-    state.simulation.scan_black_correction = 0.14
+    state.simulation.scan_white_correction = True
+    state.simulation.scan_white_level = 0.72
+    state.simulation.scan_black_correction = False
+    state.simulation.scan_black_level = 0.14
 
     params = build_params_from_state(state)
 
-    assert params.scanner.white_correction == 0.72
-    assert params.scanner.black_correction == 0.14
+    assert params.scanner.white_correction is True
+    assert params.scanner.white_level == 0.72
+    assert params.scanner.black_correction is False
+    assert params.scanner.black_level == 0.14
 
 
 def test_build_params_converts_halation_percentages_to_fractions() -> None:
@@ -113,13 +117,16 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.simulation.diffusion_strength == 0.0
     assert state.simulation.diffusion_spatial_scale == 1.0
     assert state.simulation.diffusion_intensity == 1.0
-    assert state.simulation.scan_white_correction == 0.0
-    assert state.simulation.scan_black_correction == 0.0
+    assert state.simulation.scan_white_correction is False
+    assert state.simulation.scan_white_level == 0.98
+    assert state.simulation.scan_black_correction is False
+    assert state.simulation.scan_black_level == 0.01
     assert state.display.use_display_transform is True
     assert state.display.gray_18_canvas is True
     assert state.simulation.auto_exposure_method == 'center_weighted'
     assert state.display.white_padding == 0.03
-    assert state.display.preview_max_size == 768
+    assert state.display.preview_max_size == 640
+    assert state.display.output_interpolation == 'spline36'
 
 
 def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None:

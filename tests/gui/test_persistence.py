@@ -84,3 +84,12 @@ def test_gui_state_from_dict_rejects_missing_fields() -> None:
 
     with pytest.raises(ValueError, match='simulation'):
         gui_state_from_dict(data)
+
+
+def test_gui_state_from_dict_uses_default_for_missing_optional_display_field() -> None:
+    data = gui_state_to_dict(PROJECT_DEFAULT_GUI_STATE)
+    del data['display']['output_interpolation']
+
+    restored = gui_state_from_dict(data)
+
+    assert restored.display.output_interpolation == 'spline36'

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import MISSING, asdict, fields, is_dataclass
 from pathlib import Path
 from typing import Any, TypeVar, get_origin, get_type_hints
 
@@ -73,6 +73,12 @@ def _deserialize_dataclass(cls: type[GuiStateType], data: dict[str, Any]) -> Gui
     for field_info in fields(cls):
         field_name = field_info.name
         if field_name not in data:
+            if field_info.default is not MISSING:
+                values[field_name] = field_info.default
+                continue
+            if field_info.default_factory is not MISSING:
+                values[field_name] = field_info.default_factory()
+                continue
             raise ValueError(f"Missing field {field_name!r} in {cls.__name__}.")
         values[field_name] = _deserialize_value(type_hints[field_name], data[field_name])
     return cls(**values)

@@ -140,6 +140,7 @@ class GuiController:
         self._active_simulation_worker: runtime.SimulationWorker | None = None
         self._active_simulation_label: str | None = None
         self._runtime_simulator = None
+        self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
@@ -206,6 +207,7 @@ class GuiController:
             print_paper=state.simulation.print_paper,
         )
         self._apply_profile_sync_state(synced_state)
+        self._next_runtime_digest_applies_stock_specifics = True
 
     def apply_film_profile_defaults(self, film_stock: str) -> None:
         self.apply_profile_defaults(film_stock)
@@ -241,6 +243,12 @@ class GuiController:
 
     def set_gray_18_canvas_enabled(self, enabled: bool) -> None:
         set_canvas_background(self._viewer, gray_18_canvas=enabled)
+
+    def set_output_interpolation_mode(self, mode: str) -> None:
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+        self._layers.set_output_layer_interpolation(output_layer, mode)
 
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if runtime.display_profile_available(imagecms_module=ImageCms):
@@ -373,6 +381,7 @@ class GuiController:
             output_color_space=output_color_space,
             output_cctf_encoding=output_cctf_encoding,
             use_display_transform=use_display_transform,
+            output_interpolation_mode=self._output_interpolation_mode(),
         )
 
     def _set_or_add_input_stack(
@@ -418,7 +427,7 @@ class GuiController:
         if self._white_border_layer() is None:
             return
         reset_viewer_camera(self._viewer)
-        self._set_active_layer(self._preview_input_layer())
+        self._set_active_layer(self._white_border_layer())
 
     def _simulation_input_image(self, *, source_layer_name: str) -> np.ndarray | None:
         if source_layer_name == INPUT_PREVIEW_LAYER_NAME:
@@ -476,6 +485,19 @@ class GuiController:
         cctf_encoding = output_layer.metadata.get(OUTPUT_CCTF_ENCODING_KEY, default_cctf_encoding)
         return str(color_space), bool(cctf_encoding)
 
+    def _output_interpolation_mode(self) -> str:
+        display_section = getattr(self._widgets, 'display', None)
+        editor = getattr(display_section, 'output_interpolation', None)
+        value = getattr(editor, 'value', None)
+        if isinstance(value, str) and value:
+            return value
+        current_text = getattr(editor, 'currentText', None)
+        if callable(current_text):
+            text = current_text()
+            if isinstance(text, str) and text:
+                return text
+        return 'spline36'
+
     @staticmethod
     def _resize_for_preview(image_data: np.ndarray, *, max_size: int) -> np.ndarray:
         return resize_for_preview(image_data, max_size)
@@ -513,12 +535,20 @@ class GuiController:
         )
 
     def _process_image_with_runtime(self, image_data: np.ndarray, params) -> np.ndarray:
-        digested_params = digest_params(params)
+        apply_stocks_specifics = (
+            self._runtime_simulator is None
+            or self._next_runtime_digest_applies_stock_specifics
+        )
+        digested_params = digest_params(
+            params,
+            apply_stocks_specifics=apply_stocks_specifics,
+        )
         try:
             if self._runtime_simulator is None:
                 self._runtime_simulator = runtime_simulator(digested_params)
             else:
                 self._runtime_simulator.update_params(digested_params)
+            self._next_runtime_digest_applies_stock_specifics = False
             return self._runtime_simulator.process(image_data)
         except Exception:
             self._runtime_simulator = None

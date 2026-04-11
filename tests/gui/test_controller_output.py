@@ -160,6 +160,16 @@ def _make_display_transform_controller(*, with_toggle: bool) -> tuple[GuiControl
     return controller, toggle
 
 
+def test_set_output_interpolation_mode_updates_visible_output_layer(monkeypatch) -> None:
+    output_layer = FakeLayer(np.zeros((2, 2, 3), dtype=np.uint8), name='output')
+    controller = GuiController(viewer=object(), widgets=object())
+    monkeypatch.setattr(controller, '_output_layer', lambda: output_layer)
+
+    controller.set_output_interpolation_mode('nearest')
+
+    assert getattr(output_layer, 'interpolation2d') == 'nearest'
+
+
 @pytest.mark.parametrize(
     (
         'float_value',
