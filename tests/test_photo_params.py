@@ -77,9 +77,9 @@ class TestInitParamsDefaults:
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
-        assert params.debug.return_film_log_raw is False
-        assert params.debug.return_film_density_cmy is False
-        assert params.debug.return_print_density_cmy is False
+        assert params.debug.output_film_log_raw is False
+        assert params.debug.output_film_density_cmy is False
+        assert params.debug.output_print_density_cmy is False
         assert params.debug.print_timings is False
 
         assert params.settings.rgb_to_raw_method == 'hanatos2025'

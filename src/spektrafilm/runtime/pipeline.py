@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 
+from PIL.ImageQt import rgb
 import numpy as np
 
 from spektrafilm.runtime.services import (
@@ -87,36 +88,80 @@ class SimulationPipeline:
 
     def process(self, image):
         """Process an image through the simulation pipeline."""
-        image = self._preprocess(image)
-        image = self._pipeline(image)
+        if self.debug.debug_mode == 'off':
+            image = self._pipeline(image)
+        else:
+            image = self._pipeline_debug(image)
         return image
+    
+    def update(self, params):
+        """Update params and re-initialize stages that depend on them."""
+        self.__init__(params, update_params=True)
 
+    # private methods
+    
+    def _pipeline(self, image):
+        image = self._preprocess(image)
+        if self.io.scan_film: # replace with route switch
+            rgb_scan = self._pipeline_scan_film(image)
+        else:
+            rgb_scan = self._pipeline_print(image)
+        return rgb_scan
+    
     def _preprocess(self, image):
         image = np.double(np.array(image)[:, :, 0:3])
         image = self._filming_stage.auto_exposure(image) # autoexposure service?
         image = self._resize_service.crop_and_rescale(image)
         return image
+    
+    def _pipeline_scan_film(self, rgb_image):
+        log_raw_film = self._filming_stage.expose(rgb_image)
+        cmy_film = self._filming_stage.develop(log_raw_film)
+        rgb_scan = self._scanning_stage.scan(cmy_film)
+        return rgb_scan
+    
+    def _pipeline_print(self, rgb_image):
+        log_raw_film = self._filming_stage.expose(rgb_image)
+        cmy_film = self._filming_stage.develop(log_raw_film)
+        log_raw_print = self._printing_stage.expose(cmy_film)
+        cmy_print = self._printing_stage.develop(log_raw_print)
+        rgb_scan = self._scanning_stage.scan(cmy_print)
+        return rgb_scan
+    
+################################################################################
+    
+    # debug_methods
 
-    def _pipeline(self, rgb_image):
-        if self.io.scan_film: # replace with route switch
-            log_raw_film = self._filming_stage.expose(rgb_image)
-            cmy_film = self._filming_stage.develop(log_raw_film)
-            rgb_scan = self._scanning_stage.scan(cmy_film)
-        else:
-            log_raw_film = self._filming_stage.expose(rgb_image)
-            cmy_film = self._filming_stage.develop(log_raw_film)
+    def _pipeline_debug(self, rgb_image):
+        if self.debug.debug_mode == "output":
+            return self._debug_output_pipeline(rgb_image)
+        elif self.debug.debug_mode == "inject":
+            return self._debug_inject_pipeline(rgb_image)
+    
+    def _debug_output_pipeline(self, rgb_image):
+        """Run the pipeline with additional outputs for debugging."""
+        rgb_image = self._preprocess(rgb_image)
+        log_raw_film = self._filming_stage.expose(rgb_image)
+        if self.debug.output_film_log_raw:
+            return log_raw_film
+        
+        cmy_film = self._filming_stage.develop(log_raw_film)
+        if self.debug.output_film_density_cmy:
+            return cmy_film
+        
+        log_raw_print = self._printing_stage.expose(cmy_film)
+        cmy_print = self._printing_stage.develop(log_raw_print)
+        if self.debug.output_print_density_cmy:
+            return cmy_print
+        
+        rgb_scan = self._scanning_stage.scan(cmy_print)
+        return rgb_scan
+    
+    def _debug_inject_pipeline(self, cmy_film):
+        """Run the pipeline with additional inputs for debugging."""
+        if self.debug.inject_film_density_cmy:
             log_raw_print = self._printing_stage.expose(cmy_film)
             cmy_print = self._printing_stage.develop(log_raw_print)
             rgb_scan = self._scanning_stage.scan(cmy_print)
-        
-        # debugging outputs
-        if self.debug.return_film_log_raw: return log_raw_film
-        if self.debug.return_film_density_cmy: return cmy_film
-        if self.debug.return_print_density_cmy: return cmy_print
-        return rgb_scan
-    
-    def update_params(self,params):
-        """Update params and re-initialize stages that depend on them."""
-        self.__init__(params, update_params=True)
-            
+            return rgb_scan
 

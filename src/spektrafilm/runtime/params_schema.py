@@ -127,11 +127,12 @@ class IOParams:
 class DebugParams:
     deactivate_spatial_effects: bool = False
     deactivate_stochastic_effects: bool = False
-    input_source_density_cmy: bool = False
-    return_film_log_raw: bool = False
-    return_film_density_cmy: bool = False
-    return_print_density_cmy: bool = False
     print_timings: bool = False
+    debug_mode: str = 'off' # options: 'output', 'inject', 'off', switch only one of the following at a time
+    output_film_log_raw: bool = False
+    output_film_density_cmy: bool = False
+    output_print_density_cmy: bool = False
+    inject_film_density_cmy: bool = False
 
 
 @dataclass

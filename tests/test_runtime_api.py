@@ -40,7 +40,7 @@ class TestRuntimeApi:
             def process(self, image):
                 return image
 
-            def update_params(self, params):
+            def update(self, params):
                 self._apply(params)
 
         monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
