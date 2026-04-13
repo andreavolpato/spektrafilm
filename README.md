@@ -89,7 +89,7 @@ You can easily run the latest version of spektrafilm directly from the Git repos
 using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx --from git+https://github.com/andreavolpato/spektrafilm.git spektrafilm
+uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git@dev spektrafilm
 ```
 
 Or from a local working copy:

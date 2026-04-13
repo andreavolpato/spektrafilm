@@ -58,6 +58,9 @@ include = [
 spektrafilm = [
     "data/**/*",
 ]
+spektrafilm_gui = [
+    "assets/*",
+]
 spektrafilm_profile_creator = [
     "data/**/*",
 ]
