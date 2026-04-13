@@ -36,6 +36,8 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
             params.enlarger.c_filter_neutral = c_filter
             params.enlarger.m_filter_neutral = m_filter
             params.enlarger.y_filter_neutral = y_filter
+        else:
+            print(f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. Using defaults.")
         
     if params.settings.preview_mode:
         params.enlarger.lens_blur = 0.0

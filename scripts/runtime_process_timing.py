@@ -25,8 +25,8 @@ params.enlarger.preflash_exposure = 0.0
 params.enlarger.print_exposure_compensation = True
 params.enlarger.print_exposure = 1.0
 params.film_render.grain.active = False
-params.debug.return_film_density_cmy = False
-params.debug.return_print_density_cmy = False
+params.debug.output_film_density_cmy = False
+params.debug.output_print_density_cmy = False
 
 params.scanner.black_correction = True
 params.scanner.white_correction = True

@@ -89,9 +89,11 @@ def compute_case_output(case: RegressionCase) -> np.ndarray:
     params = make_fast_test_params(film_profile=case.film_profile, print_profile=case.print_profile)
 
     if case.output_mode == "negative_density":
-        params.debug.return_film_density_cmy = True
+        params.debug.debug_mode = "output"
+        params.debug.output_film_density_cmy = True
     elif case.output_mode == "film_raw":
-        params.debug.return_film_log_raw = True
+        params.debug.debug_mode = "output"
+        params.debug.output_film_log_raw = True
     elif case.output_mode != "print_rgb":
         raise KeyError(f"Unknown output mode: {case.output_mode}")
 
