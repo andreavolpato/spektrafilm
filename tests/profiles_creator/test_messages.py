@@ -42,7 +42,10 @@ def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> 
         film=source_profile.clone(),
         io=SimpleNamespace(),
         camera=SimpleNamespace(auto_exposure=True),
-        settings=SimpleNamespace(rgb_to_raw_method=''),
+        settings=SimpleNamespace(
+            rgb_to_raw_method='',
+            neutral_print_filters_from_database=True,
+        ),
         enlarger=SimpleNamespace(y_filter_neutral=0.0, m_filter_neutral=0.0),
     )
 
@@ -68,6 +71,8 @@ def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> 
     snapshots = get_diagnostic_profile_snapshots()
     entry = snapshots['refine_negative_film'][0]
 
+    assert params.enlarger.y_filter_neutral == 30.0
+    assert params.enlarger.m_filter_neutral == 40.0
     assert entry['stock'] == 'kodak_test_stock'
     assert entry['profile'] is not result
     np.testing.assert_allclose(entry['profile'].data.density_curves, result.data.density_curves)
