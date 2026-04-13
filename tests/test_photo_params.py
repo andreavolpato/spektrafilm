@@ -1,4 +1,5 @@
 import numpy as np
+import spektrafilm.runtime.params_builder as params_builder_module
 from pytest import mark
 
 from spektrafilm.runtime.params_builder import digest_params, init_params
@@ -124,3 +125,21 @@ class TestDigestParamsFilmDefaults:
         digest_params(params)
 
         assert params.io.scan_film is True
+
+    def test_missing_neutral_filter_database_entry_keeps_current_filters(self, monkeypatch):
+        params = init_params()
+        params.enlarger.c_filter_neutral = 12.0
+        params.enlarger.m_filter_neutral = 34.0
+        params.enlarger.y_filter_neutral = 56.0
+
+        monkeypatch.setattr(
+            params_builder_module,
+            '_get_neutral_print_filters',
+            lambda: {},
+        )
+
+        digest_params(params)
+
+        assert params.enlarger.c_filter_neutral == 12.0
+        assert params.enlarger.m_filter_neutral == 34.0
+        assert params.enlarger.y_filter_neutral == 56.0
