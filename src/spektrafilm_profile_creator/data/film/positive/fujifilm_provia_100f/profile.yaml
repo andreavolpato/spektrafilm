@@ -1,0 +1,13 @@
+name: Fujifilm Provia 100F
+profile:
+  type: positive
+  support: film
+  use: filming
+  channel_model: color
+  densitometer: status_A
+  log_sensitivity_density_over_min: 0.2
+  reference_illuminant: D55
+  viewing_illuminant: D50
+recipe:
+  data_trustability: 0.3
+  neutral_ramp_refinement: true

@@ -1,0 +1,16 @@
+name: Fujifilm Crystal Archive Type II
+profile:
+  type: negative
+  support: paper
+  use: printing
+  channel_model: color
+  densitometer: status_A
+  log_sensitivity_density_over_min: 1.0
+  reference_illuminant: TH-KG3
+  viewing_illuminant: D50
+donors:
+  density_curves: kodak_supra_endura
+recipe:
+  target_film: fujifilm_pro_400h
+  data_trustability: 0.1
+  neutral_ramp_refinement: true

@@ -1,91 +1,88 @@
 import matplotlib.pyplot as plt
-from agx_emulsion.profiles.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
-from agx_emulsion.profiles.io import save_profile
-from agx_emulsion.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
+from spektrafilm_profile_creator.plotting import plot_profile
+from spektrafilm.profiles.io import save_profile
+from spektrafilm_profile_creator import (
+    load_raw_profile,
+    load_stock_catalog,
+    process_raw_profile,
+)
+from spektrafilm_profile_creator import regenerate_neutral_filter_database
 
-process_print_paper = False
-process_negative = True
 
-print('----------------------------------------')
-print('Paper profiles')
-#               label,                               name,                               ref_illu        illu    sens, curv, dye,  dom
-paper_info = [('kodak_ektacolor_edge',              'Kodak Ektacolor Edge',              'TH-KG3-L',  'D50',  None, None, None, 1.0),
-              ('kodak_ultra_endura',                'Kodak Professional Ultra Endura',   'TH-KG3-L',  'D50',  None, None, None, 1.0),
-              ('kodak_endura_premier',              'Kodak Professional Endura Premier', 'TH-KG3-L',  'D50',  None, None, None, 1.0),
-              ('kodak_portra_endura',               'Kodak Professional Portra Endura',  'TH-KG3-L',  'D50',  None, None, None, 1.0),
-              ('kodak_supra_endura',                'Kodak Professional Supra Endura',   'TH-KG3-L',  'D50',  'kodak_portra_endura', None, 'kodak_portra_endura', 1.0),
-              ('fujifilm_crystal_archive_typeii',   'Fujifilm Crystal Archive Type II',  'TH-KG3-L',  'D50',  None, 'kodak_supra_endura', None, 1.0),
-              ('kodak_2393',                        'Kodak Vision Premier 2393',         'TH-KG3-L',  'K75P', None, None, None, 1.0),
-              ('kodak_2383',                        'Kodak Vision 2383',                 'TH-KG3-L',  'K75P', None, None, None, 1.0),
-]
 
-if process_print_paper:
-    for label, name, ref_illu, illu, sens, curv, dye, dom in paper_info:
-        profile = create_profile(stock=label,
-                                name=name,
-                                type='paper',
-                                log_sensitivity_donor=sens,
-                                denisty_curves_donor=curv,
-                                dye_density_cmy_donor=dye,
-                                densitometer='status_A',
-                                reference_illuminant=ref_illu,
-                                viewing_illuminant=illu,
-                                log_sensitivity_density_over_min=dom)
+PRINT_DATA_PACKAGE_PREFIX = 'spektrafilm_profile_creator.data.print.'
+
+
+def _is_print_stock(data_package: str) -> bool:
+    return data_package.startswith(PRINT_DATA_PACKAGE_PREFIX)
+
+
+def _collect_raw_profiles():
+    grouped_raw_profiles = {
+        'print_paper': [],
+        'print_film': [],
+        'negative_film': [],
+        'positive_film': [],
+    }
+
+    for stock, data_package in load_stock_catalog().items():
+        raw_profile = load_raw_profile(stock)
+        if not raw_profile.recipe.should_process:
+            continue
+
+        if _is_print_stock(data_package):
+            if raw_profile.info.support == 'paper':
+                grouped_raw_profiles['print_paper'].append(raw_profile)
+            elif raw_profile.info.support == 'film':
+                grouped_raw_profiles['print_film'].append(raw_profile)
+            continue
+
+        if raw_profile.info.support == 'film' and raw_profile.info.type == 'negative':
+            grouped_raw_profiles['negative_film'].append(raw_profile)
+        elif raw_profile.info.support == 'film' and raw_profile.info.type == 'positive':
+            grouped_raw_profiles['positive_film'].append(raw_profile)
+
+    return grouped_raw_profiles
+
+
+def _process_profiles(raw_profiles):
+    for raw_profile in raw_profiles:
+        profile = process_raw_profile(raw_profile)
         save_profile(profile)
         plot_profile(profile)
-        profile = process_paper_profile(profile)
-        save_profile(profile, '_uc')
+
+
+process_print_paper = True
+process_print_film = True
+process_negative = True
+process_positive = True
+
+grouped_raw_profiles = _collect_raw_profiles()
+
+print('----------------------------------------')
+print('Print paper profiles')
+if process_print_paper:
+    _process_profiles(grouped_raw_profiles['print_paper'])
+
+
+print('----------------------------------------')
+print('Print film profiles')
+if process_print_film:
+    _process_profiles(grouped_raw_profiles['print_film'])
 
 
 print('----------------------------------------')
 print('Negative profiles')
-
-#               label,                    name,                       suffix   dye_donor,   ls_donor            ddmm_donor           d_over_min, ref_ill target_paper,                align_mid_exp  trustability proc?
-stock_info = [
-              ('kodak_vision3_50d',      'Kodak Vision3 50D',         '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         False),
-              ('kodak_vision3_250d',     'Kodak Vision3 250D',        '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         False),
-              ('kodak_vision3_200t',     'Kodak Vision3 200T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         True),
-              ('kodak_vision3_500t',     'Kodak Vision3 500T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         False),
-              ('kodak_ektar_100',        'Kodak Ektar 100',           '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_portra_160',       'Kodak Portra 160',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_portra_400',       'Kodak Portra 400',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_portra_800',       'Kodak Portra 800',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_portra_800_push1', 'Kodak Portra 800 (Push 1)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_portra_800_push2', 'Kodak Portra 800 (Push 2)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_gold_200',         'Kodak Gold 200',            '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('kodak_ultramax_400',     'Kodak Ultramax 400',        '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
-              ('fujifilm_pro_400h',      'Fujifilm Pro 400H',         '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'mid',         0.3,         False),
-              ('fujifilm_xtra_400',      'Fujifilm X-Tra 400',        '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         False),
-              ('fujifilm_c200',          'Fujifilm C200',             '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'green',       0.3,         False),
-              ]
-
 if process_negative:
-    for label, name, suff, dye, ls_donor, ddmm_donor, d_over_min, ref_ill, target_paper, align_mid_exp, trustability, proc in stock_info:
-        if not proc:
-            continue
-        profile = create_profile(stock=label,
-                                 name=name,
-                                 type='negative',
-                                 densitometer='status_M',
-                                 dye_density_cmy_donor=dye,
-                                 log_sensitivity_donor=ls_donor,
-                                 dye_density_min_mid_donor=ddmm_donor,
-                                 reference_illuminant=ref_ill,
-                                 log_sensitivity_density_over_min=d_over_min)
-        save_profile(profile)
-        suffix = '_'+suff
-        if dye=='generic_a':
-            suffix += 'a'
-        profile = process_negative_profile(profile)
-        save_profile(profile, suffix+'u')
-        if align_mid_exp is not None:
-            profile = align_midscale_neutral_exposures(profile, reference_channel=align_mid_exp)
-        profile = correct_negative_curves_with_gray_ramp(profile, 
-                                                        target_paper=target_paper, 
-                                                        data_trustability=trustability)
-        profile = replace_fitted_density_curves(profile)
-        profile = adjust_log_exposure(profile)
-        save_profile(profile, 'c')
-        plot_profile(profile)
+    _process_profiles(grouped_raw_profiles['negative_film'])
+
+
+print('----------------------------------------')
+print('Positive profiles')
+if process_positive:
+    _process_profiles(grouped_raw_profiles['positive_film'])
+
+
+regenerate_neutral_filter_database()
 
 plt.show()

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spektrafilm"
+version = "0.3.0"
+description = "Spectral simulation of analog film photography"
+readme = "README.md"
+requires-python = "~=3.13"
+license = { text = "GPLv3" }
+authors = [
+    { name = "Andrea Volpato", email = "volpedellenevi@gmail.com" },
+]
+dependencies = [
+    "numpy~=2.4",
+    "matplotlib~=3.10",
+    "scipy~=1.17",
+    "colour-science~=0.4.6",
+    "scikit-image~=0.26",
+    "opt-einsum~=3.4.0",
+    "napari~=0.6.6",
+    "qtpy~=2.4",
+    "lmfit~=1.3.2",
+    "pyside6~=6.9",
+    "Pillow~=12.1",
+    "numba~=0.64",
+    "OpenImageIO~=3.1.11",
+    "pyfftw~=0.15.0",
+    "rawpy~=0.26.1",
+    "exifread~=3.5.1",
+    "lensfunpy~=1.18.0",
+    "PyYAML~=6.0",
+    "pyconify~=0.2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+spektrafilm = "spektrafilm_gui.app:main"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = [".", "src"]
+include = [
+    "spektrafilm",
+    "spektrafilm.*",
+    "spektrafilm_gui",
+    "spektrafilm_gui.*",
+    "spektrafilm_profile_creator",
+    "spektrafilm_profile_creator.*",
+]
+
+[tool.setuptools.package-data]
+spektrafilm = [
+    "data/**/*",
+]
+spektrafilm_gui = [
+    "assets/*",
+]
+spektrafilm_profile_creator = [
+    "data/**/*",
+]
+
