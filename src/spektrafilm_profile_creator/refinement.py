@@ -16,7 +16,7 @@ from spektrafilm_profile_creator.core.density_curves import replace_fitted_densi
 from spektrafilm_profile_creator.core.profile_transforms import apply_scale_shift_stretch_density_curves
 from spektrafilm_profile_creator.data.loader import load_raw_profile
 from spektrafilm_profile_creator.diagnostics.messages import log_event
-from spektrafilm_profile_creator.neutral_print_filters import DEFAULT_NEUTRAL_PRINT_FILTERS, fit_neutral_print_filters
+from spektrafilm_profile_creator.neutral_print_filters import DEFAULT_NEUTRAL_PRINT_FILTERS, fit_neutral_filters
 
 
 NEGATIVE_STAGE2_REGULARIZATION = {
@@ -369,7 +369,8 @@ def refine_negative_film(
     params.camera.auto_exposure = False
     params.enlarger.print_exposure_compensation = True
     params.settings.rgb_to_raw_method = 'hanatos2025'
-    fitted_y, fitted_m, _ = fit_neutral_print_filters(params, stock=source_profile.info.stock)
+    fitted_c, fitted_m, fitted_y, _ = fit_neutral_filters(params)
+    params.enlarger.c_filter_neutral = fitted_c
     params.enlarger.y_filter_neutral = fitted_y
     params.enlarger.m_filter_neutral = fitted_m
 
@@ -433,7 +434,7 @@ __all__ = [
     'DensityCurvesCorrection',
     'fit_gray_anchor',
     'fit_neutral_ramp',
-    'fit_neutral_print_filters',
+    'fit_neutral_filters',
     'refine_negative_film',
     'refine_positive_film',
     'refine_negative_print',

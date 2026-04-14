@@ -1,4 +1,5 @@
 import numpy as np
+import spektrafilm.runtime.params_builder as params_builder_module
 from pytest import mark
 
 from spektrafilm.runtime.params_builder import digest_params, init_params
@@ -76,9 +77,9 @@ class TestInitParamsDefaults:
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
-        assert params.debug.return_film_log_raw is False
-        assert params.debug.return_film_density_cmy is False
-        assert params.debug.return_print_density_cmy is False
+        assert params.debug.output_film_log_raw is False
+        assert params.debug.output_film_density_cmy is False
+        assert params.debug.output_print_density_cmy is False
         assert params.debug.print_timings is False
 
         assert params.settings.rgb_to_raw_method == 'hanatos2025'
@@ -124,3 +125,21 @@ class TestDigestParamsFilmDefaults:
         digest_params(params)
 
         assert params.io.scan_film is True
+
+    def test_missing_neutral_filter_database_entry_keeps_current_filters(self, monkeypatch):
+        params = init_params()
+        params.enlarger.c_filter_neutral = 12.0
+        params.enlarger.m_filter_neutral = 34.0
+        params.enlarger.y_filter_neutral = 56.0
+
+        monkeypatch.setattr(
+            params_builder_module,
+            '_get_neutral_print_filters',
+            lambda: {},
+        )
+
+        digest_params(params)
+
+        assert params.enlarger.c_filter_neutral == 12.0
+        assert params.enlarger.m_filter_neutral == 34.0
+        assert params.enlarger.y_filter_neutral == 56.0

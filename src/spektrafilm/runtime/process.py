@@ -17,6 +17,16 @@ class Simulator:
         self._pipeline = SimulationPipeline(params)
         self._sync_public_state_from_pipeline()
 
+    def process(self, image):
+        """Process the input image through the simulation pipeline and return the final result."""
+        return self._pipeline.process(image)
+    
+    def update_params(self, params):
+        """Update the parameters of the simulation pipeline."""
+        self._params = params
+        self._pipeline.update(params)
+        self._sync_public_state_from_pipeline()
+        
     def _sync_public_state_from_pipeline(self) -> None:
         self.camera = self._pipeline.camera
         self.film = self._pipeline.film
@@ -30,15 +40,6 @@ class Simulator:
         self.settings = self._pipeline.settings
         self.timings = self._pipeline.timings
 
-    def process(self, image):
-        """Process the input image through the simulation pipeline and return the final result."""
-        return self._pipeline.process(image)
-    
-    def update_params(self, params):
-        """Update the parameters of the simulation pipeline."""
-        self._params = params
-        self._pipeline.update_params(params)
-        self._sync_public_state_from_pipeline()
 
 ######################################################################################
 # Convenience functions for single-call simulation without needing to instantiate the Simulator class.

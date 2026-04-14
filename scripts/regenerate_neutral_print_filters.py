@@ -1,8 +1,8 @@
-from spektrafilm_profile_creator import regenerate_neutral_print_filters
+from spektrafilm_profile_creator import regenerate_neutral_filter_database
 
 
 def main() -> None:
-    regenerate_neutral_print_filters()
+    regenerate_neutral_filter_database()
 
 
 if __name__ == "__main__":

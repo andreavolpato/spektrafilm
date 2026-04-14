@@ -6,7 +6,7 @@ from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.utils.io import load_image_oiio, save_neutral_print_filters
 from spektrafilm_profile_creator import (
     NeutralPrintFilterRegenerationConfig,
-    fit_neutral_print_filter_entry,
+    fit_neutral_filter_entry,
     process_profile,
 )
 
@@ -54,16 +54,16 @@ def _plot_reference_simulation() -> None:
 def main() -> None:
     _process_target_profiles()
 
-    result = fit_neutral_print_filter_entry(
+    filters, residues = fit_neutral_filter_entry(
         stock=FILM_STOCK,
         paper=PRINT_PAPER,
         illuminant=ILLUMINANT,
         config=NeutralPrintFilterRegenerationConfig(),
     )
-    save_neutral_print_filters(result.filters)
+    save_neutral_print_filters(filters)
 
-    fitted_filters = result.filters[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
-    fitted_residue = result.residues[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
+    fitted_filters = filters[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
+    fitted_residue = residues[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
     print(
         f'Updated neutral print filters for {PRINT_PAPER} / {ILLUMINANT} / {FILM_STOCK}: '
         f'C={fitted_filters[0]:.6f}, M={fitted_filters[1]:.6f}, Y={fitted_filters[2]:.6f}, '

@@ -23,7 +23,6 @@ class FilmingStage:
         self._enlarger_service = enlarger_service
         self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
         self._color_reference_service = color_reference_service
-        self._pixel_size_um = None
 
     # public methods
 
@@ -47,10 +46,9 @@ class FilmingStage:
             color_space=self._io.input_color_space,
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
-        self._pixel_size_um = self._camera.film_format_mm * 1000 / np.max(image.shape[0:2])
         raw *= 2 ** self._camera.exposure_compensation_ev
-        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._pixel_size_um)
-        raw = apply_halation_um(raw, self._film_render.halation, self._pixel_size_um)
+        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._resize_service.pixel_size_um)
+        raw = apply_halation_um(raw, self._film_render.halation, self._resize_service.pixel_size_um)
         raw *= self._color_reference_service.black_white_filming_exposure_correction()
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
@@ -59,7 +57,7 @@ class FilmingStage:
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
         return develop(
             log_raw,
-            self._pixel_size_um,
+            self._resize_service.pixel_size_um,
             self._film.data.log_exposure,
             self._film.data.density_curves,
             self._film.data.density_curves_layers,

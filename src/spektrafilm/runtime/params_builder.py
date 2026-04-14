@@ -10,7 +10,10 @@ from spektrafilm.utils.io import read_neutral_print_filters
 
 @lru_cache(maxsize=1)
 def _get_neutral_print_filters():
-    return read_neutral_print_filters()
+    try:
+        return read_neutral_print_filters()
+    except FileNotFoundError:
+        return {}
 
 
 def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> RuntimePhotoParams:
@@ -22,10 +25,19 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     # read neutral print filters from database
     if params.settings.neutral_print_filters_from_database:
         filters = _get_neutral_print_filters()
-        c_filter, m_filter, y_filter = filters[params.print.info.stock][params.enlarger.illuminant][params.film.info.stock]
-        params.enlarger.c_filter_neutral = c_filter
-        params.enlarger.m_filter_neutral = m_filter
-        params.enlarger.y_filter_neutral = y_filter
+        stock_filters = (
+            filters
+            .get(params.print.info.stock, {})
+            .get(params.enlarger.illuminant, {})
+            .get(params.film.info.stock)
+        )
+        if stock_filters is not None:
+            c_filter, m_filter, y_filter = stock_filters
+            params.enlarger.c_filter_neutral = c_filter
+            params.enlarger.m_filter_neutral = m_filter
+            params.enlarger.y_filter_neutral = y_filter
+        else:
+            print(f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. Using defaults.")
         
     if params.settings.preview_mode:
         params.enlarger.lens_blur = 0.0

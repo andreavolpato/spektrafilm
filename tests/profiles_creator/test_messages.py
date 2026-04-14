@@ -42,12 +42,15 @@ def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> 
         film=source_profile.clone(),
         io=SimpleNamespace(),
         camera=SimpleNamespace(auto_exposure=True),
-        settings=SimpleNamespace(rgb_to_raw_method=''),
-        enlarger=SimpleNamespace(y_filter_neutral=0.0, m_filter_neutral=0.0),
+        settings=SimpleNamespace(
+            rgb_to_raw_method='',
+            neutral_print_filters_from_database=True,
+        ),
+        enlarger=SimpleNamespace(c_filter_neutral=0.0, y_filter_neutral=0.0, m_filter_neutral=0.0),
     )
 
     monkeypatch.setattr(refinement_module, '_build_runtime_params', lambda *args, **kwargs: params)
-    monkeypatch.setattr(refinement_module, 'fit_neutral_print_filters', lambda current_params, stock=None: (30.0, 40.0, None))
+    monkeypatch.setattr(refinement_module, 'fit_neutral_filters', lambda current_params: (20.0, 40.0, 30.0, None))
     monkeypatch.setattr(
         refinement_module,
         'fit_gray_anchor',
@@ -68,14 +71,17 @@ def test_refine_negative_film_stores_corrected_profile_snapshot(monkeypatch) -> 
     snapshots = get_diagnostic_profile_snapshots()
     entry = snapshots['refine_negative_film'][0]
 
+    assert params.enlarger.y_filter_neutral == 30.0
+    assert params.enlarger.m_filter_neutral == 40.0
+    assert params.enlarger.c_filter_neutral == 20.0
     assert entry['stock'] == 'kodak_test_stock'
     assert entry['profile'] is not result
     np.testing.assert_allclose(entry['profile'].data.density_curves, result.data.density_curves)
 
 
 def test_log_event_promotes_explicit_stock_to_prefix(capsys) -> None:
-    log_event('fit_neutral_print_filters', stock='kodak_gold_200')
+    log_event('fit_neutral_filters', stock='kodak_gold_200')
 
     captured = capsys.readouterr()
 
-    assert captured.out == '[profile_creator / kodak_gold_200] fit_neutral_print_filters\n'
+    assert captured.out == '[profile_creator / kodak_gold_200] fit_neutral_filters\n'

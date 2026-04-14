@@ -83,6 +83,10 @@ Dependency direction:
 
 ## Installation
 
+> [!NOTE]
+> Since agx-emulsion is not compatible with the latest Python version, an older
+> version like 3.13 must be used.
+
 ### Using `uv`
 
 You can easily run the latest version of spektrafilm directly from the Git repository
@@ -94,7 +98,13 @@ uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git@de
 
 Or from a local working copy:
 ```bash
-uvx path/to/local/working_copy
+uvx --python 3.13 path/to/local/working_copy
+```
+
+Alternatively, you can install spektrafilm permanently which will provide you the `spektrafilm` command:
+
+```bash
+uvx install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git@dev
 ```
 
 #### Installing uv
@@ -134,7 +144,7 @@ Install the package `spektrafilm` by going to the repository folder and running:
 ```bash
 pip install -e .
 ```
-Launch the GUI:
+Launch the GUI by activating the environment and:
 
 ```bash
 spektrafilm
@@ -183,7 +193,7 @@ For fine-tuning halation, adjust `scattering size`, `scattering strength`, `hala
 
 There are controls to apply lens blur at several stages of the pipeline, for example in the camera lens, the color enlarger lens, or the scanner. There is also a control for blurring density to simulate diffusion during development, `grain > blur`. The scanner also has sharpness controls via a simple unsharp mask filter.
 
-For example, magnifying the film to a 0.7 x 0.7 mm crop reveals the isolated dye clouds.
+For example, upscaling a small crop of the film 12 times reveals the dye clouds.
 
 ![Example of GUI interface with color test image.](img/readme/gui_grain_magnified.png)
 
@@ -197,9 +207,7 @@ The simulation expects linear scene-referred files as input, with or without a t
 
 ## Example usage of the GUI
 
-[Watch the GUI demo video](https://github.com/user-attachments/assets/5f16aba6-3f59-41a2-a9d1-6ffa4d1c939c)
-
-Thank you to Adam Severeid from the [discuss.pixls.us](https://discuss.pixls.us/) forum, [Have a seat, we’ve been waiting for you. - discuss.pixls.us](https://discuss.pixls.us/t/have-a-seat-weve-been-waiting-for-you/44814), for providing the RAW file I used here in a Play Raw post.
+[Watch the GUI demo video](https://github.com/user-attachments/assets/534746b5-87ec-4bd0-96c9-5214ef7e381b)
 
 ## Things to consider
 
