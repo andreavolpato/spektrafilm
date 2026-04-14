@@ -39,18 +39,28 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Installation
 
+> [!NOTE]
+> Since agx-emulsion is not compatible with the latest Python version, an older
+> version like 3.12 must be used.
+
 ### Using `uv`
 
 You can easily run the latest version of agx-emulsion directly from the git repository
 using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx --from git+https://github.com/andreavolpato/agx-emulsion.git agx-emulsion
+uvx --python 3.12 --from git+https://github.com/andreavolpato/agx-emulsion.git agx-emulsion
 ```
 
 Or from a local working copy:
 ```bash
-uvx path/to/local/working_copy
+uvx --python 3.12 path/to/local/working_copy
+```
+
+Alternatively, you can install agx-emulsion permanently which will provide you the `agx-emulsion` command:
+
+```bash
+uvx install --python 3.12 git+https://github.com/andreavolpato/spektrafilm.git
 ```
 
 #### Installing uv
