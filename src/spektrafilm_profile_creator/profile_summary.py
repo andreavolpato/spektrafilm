@@ -48,6 +48,7 @@ DEFAULT_COLUMNS = (
     'stock',
     'support',
     'type',
+    'stage',
     'use',
     'densitometer',
     'reference_illuminant',
@@ -59,7 +60,7 @@ DEFAULT_COLUMNS = (
     'issues',
 )
 
-DEFAULT_SORT_COLUMNS = ('support', 'type', 'use', 'stock')
+DEFAULT_SORT_COLUMNS = ('support', 'type', 'stage', 'use', 'stock')
 
 
 def _dataclass_values(instance) -> dict[str, object]:
@@ -237,7 +238,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--sort-by',
         default=','.join(DEFAULT_SORT_COLUMNS),
-        help='Comma-separated sort columns. Defaults to support,type,use,stock.',
+        help='Comma-separated sort columns. Defaults to support,type,stage,use,stock.',
     )
     parser.add_argument(
         '--csv',

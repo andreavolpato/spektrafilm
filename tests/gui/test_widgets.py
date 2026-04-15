@@ -10,6 +10,7 @@ from spektrafilm_gui import widget_specs as widget_specs_module
 from spektrafilm_gui import icons as icons_module
 from spektrafilm_gui import widget_primitives as primitives_module
 from spektrafilm_gui import widget_sections as widgets_module
+from spektrafilm_gui import widget_editors as widget_editors_module
 from spektrafilm_gui import state as state_module
 
 
@@ -391,3 +392,19 @@ def test_widget_spec_decimals_configure_float_editors(monkeypatch) -> None:
 
     assert section.float_value.decimals() == 4
     assert [editor.decimals() for editor in section.float_pair.editors] == [3, 3]
+
+
+def test_simulation_section_profile_use_badges_follow_selected_profiles() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    section = widgets_module.SimulationSection()
+
+    assert isinstance(section.film_stock, widget_editors_module.ProfileEnumEditor)
+    assert isinstance(section.print_paper, widget_editors_module.ProfileEnumEditor)
+    assert section.film_stock.currentText() == list(state_module.FilmStocks)[0].value
+    assert section.print_paper.currentText() == list(state_module.PrintPapers)[0].value
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'photo / kodak_portra_400'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / kodak_vision3_50d'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'

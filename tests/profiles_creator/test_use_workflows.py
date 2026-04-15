@@ -6,7 +6,7 @@ from spektrafilm_profile_creator import RawProfile, RawProfileRecipe, process_ra
 
 
 def test_process_raw_profile_routes_print_film_to_printing_workflow(monkeypatch) -> None:
-    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_2383', support='film', use='printing', type='negative'))
+    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_2383', support='film', stage='printing', use='cine', type='negative'))
     captured_steps: list[str] = []
 
     def record_step(name: str):
@@ -46,7 +46,7 @@ def test_process_raw_profile_routes_print_film_to_printing_workflow(monkeypatch)
 
 def test_process_raw_profile_routes_print_film_to_optional_neutral_ramp_refinement(monkeypatch) -> None:
     raw_profile = RawProfile(
-        info=ProfileInfo(stock='kodak_2383', support='film', use='printing', type='negative'),
+        info=ProfileInfo(stock='kodak_2383', support='film', stage='printing', use='cine', type='negative'),
         recipe=RawProfileRecipe(target_film='kodak_vision3_250d', neutral_ramp_refinement=True),
     )
     captured_calls: list[tuple[str, bool | None]] = []
@@ -91,7 +91,7 @@ def test_process_raw_profile_routes_print_film_to_optional_neutral_ramp_refineme
 
 
 def test_process_raw_profile_defaults_negative_film_to_no_neutral_ramp_refinement(monkeypatch) -> None:
-    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_portra_400', support='film', use='filming', type='negative'))
+    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_portra_400', support='film', stage='filming', use='photo', type='negative'))
     captured_neutral_ramp_refinement: list[bool] = []
 
     def record_step(_name: str):
@@ -125,7 +125,7 @@ def test_process_raw_profile_defaults_negative_film_to_no_neutral_ramp_refinemen
 
 def test_process_raw_profile_can_disable_positive_film_stage_two_refinement(monkeypatch) -> None:
     raw_profile = RawProfile(
-        info=ProfileInfo(stock='kodak_ektachrome_100', support='film', use='filming', type='positive'),
+        info=ProfileInfo(stock='kodak_ektachrome_100', support='film', stage='filming', use='photo', type='positive'),
         recipe=RawProfileRecipe(neutral_ramp_refinement=False),
     )
     captured_neutral_ramp_refinement: list[bool] = []

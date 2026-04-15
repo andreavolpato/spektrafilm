@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from qtpy import QtCore, QtGui, QtWidgets
@@ -7,8 +8,15 @@ from qtpy import QtCore, QtGui, QtWidgets
 QPointF = getattr(QtCore, 'QPointF')
 QRect = getattr(QtCore, 'QRect')
 QSize = getattr(QtCore, 'QSize')
+QStyle = QtWidgets.QStyle
+QStyleOptionComboBox = QtWidgets.QStyleOptionComboBox
+QStyledItemDelegate = QtWidgets.QStyledItemDelegate
+QStylePainter = QtWidgets.QStylePainter
 
+from spektrafilm.profiles.io import load_profile
 from spektrafilm_gui.theme_palette import (
+    ACCENT_COLOR_TEXT,
+    ACCENT_COLOR_TEXT_SECONDARY,
     BOOL_EDITOR_BORDER_CHECKED,
     BOOL_EDITOR_BORDER_UNCHECKED,
     BOOL_EDITOR_CHECKED_DISABLED,
@@ -19,6 +27,123 @@ from spektrafilm_gui.theme_palette import (
     BOOL_EDITOR_HOVER_BG,
 )
 from spektrafilm_gui.theme import resolve_theme_qcolor
+
+
+@lru_cache(maxsize=None)
+def _profile_use_text_and_color(profile_name: str) -> tuple[str, str]:
+    if not profile_name:
+        return '', ACCENT_COLOR_TEXT
+    try:
+        info = load_profile(profile_name).info
+    except (FileNotFoundError, TypeError, ValueError):
+        return '', ACCENT_COLOR_TEXT
+    if info.is_cine:
+        return 'cine', ACCENT_COLOR_TEXT_SECONDARY
+    if info.is_photo:
+        return 'photo', ACCENT_COLOR_TEXT
+    return '', ACCENT_COLOR_TEXT
+
+
+def _draw_profile_display_text(
+    painter: QtGui.QPainter,
+    rect: QtCore.QRect,
+    *,
+    profile_name: str,
+    base_color: QtGui.QColor,
+    font: QtGui.QFont,
+) -> None:
+    profile_use, use_color = _profile_use_text_and_color(profile_name)
+    if not profile_use:
+        painter.setPen(base_color)
+        painter.setFont(font)
+        painter.drawText(rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, profile_name)
+        return
+
+    font_metrics = QtGui.QFontMetrics(font)
+    prefix_text = f'{profile_use} '
+    slash_text = '/ '
+    prefix_width = font_metrics.horizontalAdvance(prefix_text)
+    slash_width = font_metrics.horizontalAdvance(slash_text)
+
+    painter.setFont(font)
+    prefix_rect = QRect(rect.x(), rect.y(), prefix_width, rect.height())
+    slash_rect = QRect(rect.x() + prefix_width, rect.y(), slash_width, rect.height())
+    value_rect = QRect(rect.x() + prefix_width + slash_width, rect.y(), max(0, rect.width() - prefix_width - slash_width), rect.height())
+
+    painter.setPen(QtGui.QColor(use_color))
+    painter.drawText(prefix_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, prefix_text)
+    painter.setPen(base_color)
+    painter.drawText(slash_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, slash_text)
+    painter.drawText(value_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, profile_name)
+
+
+class ProfileEnumItemDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index) -> None:  # noqa: N802 - Qt API name
+        display_value = index.data(QtCore.Qt.DisplayRole) or ''
+        style_option = QtWidgets.QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        style_option.text = ''
+
+        style = style_option.widget.style() if style_option.widget is not None else QtWidgets.QApplication.style()
+        style.drawControl(QStyle.CE_ItemViewItem, style_option, painter, style_option.widget)
+
+        text_color = style_option.palette.color(
+            QtGui.QPalette.HighlightedText if style_option.state & QStyle.State_Selected else QtGui.QPalette.Text,
+        )
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, style_option, style_option.widget)
+        _draw_profile_display_text(
+            painter,
+            text_rect.adjusted(0, 0, -4, 0),
+            profile_name=display_value,
+            base_color=text_color,
+            font=style_option.font,
+        )
+
+
+class ProfileEnumEditor(QtWidgets.QComboBox):
+    def __init__(self, values: list[str]):
+        super().__init__()
+        self.addItems(values)
+        self.setItemDelegate(ProfileEnumItemDelegate(self))
+        if self.count() > 0 and self.currentIndex() < 0:
+            self.setCurrentIndex(0)
+
+    @staticmethod
+    def display_text_for_value(value: str) -> str:
+        profile_use, _color = _profile_use_text_and_color(value)
+        if not profile_use:
+            return value
+        return f'{profile_use} / {value}'
+
+    @property
+    def value(self) -> str:
+        return self.currentText()
+
+    @value.setter
+    def value(self, value: str) -> None:
+        index = self.findText(value)
+        if index >= 0:
+            self.setCurrentIndex(index)
+        else:
+            raise ValueError(f"{value!r} is not a valid option")
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        del event
+        painter = QStylePainter(self)
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        current_value = self.currentText() or (self.itemText(0) if self.count() > 0 else '')
+        option.currentText = ''
+        painter.drawComplexControl(QStyle.CC_ComboBox, option)
+        painter.drawControl(QStyle.CE_ComboBoxLabel, option)
+        text_rect = self.style().subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, self)
+        _draw_profile_display_text(
+            painter,
+            text_rect.adjusted(1, 0, -1, 0),
+            profile_name=current_value,
+            base_color=option.palette.color(QtGui.QPalette.Text),
+            font=self.font(),
+        )
 
 
 class FloatEditor(QtWidgets.QDoubleSpinBox):
