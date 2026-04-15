@@ -32,7 +32,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     #########################################################################################################
     # negative film workflow
     #########################################################################################################
-    if raw_profile.info.use == 'filming' and raw_profile.info.type == 'negative':
+    if raw_profile.info.stage == 'filming' and raw_profile.info.type == 'negative':
         # channel density
         profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
         profile = densitometer_normalization(profile)
@@ -44,7 +44,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = unmix_density(profile)
         profile = refine_negative_film(
             profile,
-            target_print=recipe.target_print,
+            target_print=raw_profile.info.target_print,
             data_trustability=recipe.data_trustability,
             stretch_curves=recipe.stretch_curves,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
@@ -55,7 +55,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     ##########################################################################################################
     # positive film workflow
     ##########################################################################################################
-    if raw_profile.info.use == 'filming' and raw_profile.info.type == 'positive':
+    if raw_profile.info.stage == 'filming' and raw_profile.info.type == 'positive':
         # channel density
         profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
@@ -76,7 +76,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     ##########################################################################################################
     # negative paper workflow
     ##########################################################################################################
-    if raw_profile.info.use == 'printing' and raw_profile.info.type == 'negative':
+    if raw_profile.info.stage == 'printing' and raw_profile.info.type == 'negative':
         # channel density
         profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
@@ -95,7 +95,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = replace_fitted_density_curves(profile)
         return profile
     
-    raise NotImplementedError(f"Workflow not implemented for profile type '{raw_profile.info.type}' and use '{raw_profile.info.use}' combination.")
+    raise NotImplementedError(f"Workflow not implemented for profile type '{raw_profile.info.type}' and stage '{raw_profile.info.stage}' combination.")
 
 def process_profile(stock: str) -> Profile:
     raw_profile = load_raw_profile(stock)
