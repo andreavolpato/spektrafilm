@@ -12,3 +12,4 @@ profile:
 recipe:
   data_trustability: 0.3
   neutral_ramp_refinement: true
+  stretch_curves: true

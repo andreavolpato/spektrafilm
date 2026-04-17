@@ -21,10 +21,15 @@ def compute_densitometer_crosstalk_matrix(densitometer_intensity, dye_density):
     return crosstalk_matrix
 
 
-def unmix_density_curves(curves, crosstalk_matrix):
+def unmix_status_density(status_density, crosstalk_matrix):
     inverse_crosstalk = np.linalg.inv(crosstalk_matrix)
-    density_curves_raw = np.einsum('ij,kj->ki', inverse_crosstalk, curves)
-    return np.clip(density_curves_raw, 0, None)
+    if len(np.shape(status_density)) == 2:
+        unmixed_density = np.einsum('ij,kj->ki', inverse_crosstalk, status_density)
+    elif len(np.shape(status_density)) == 1:
+        unmixed_density = np.dot(inverse_crosstalk, status_density)
+    else:
+        raise ValueError(f'status_density must be 1D or 2D, got shape {np.shape(status_density)}')
+    return np.clip(unmixed_density, 0, None)
 
 
 def unmix_density(profile, densitometer_intensity=None):
@@ -41,7 +46,7 @@ def unmix_density(profile, densitometer_intensity=None):
         channel_density,
     )
     updated_profile = profile.update_data(
-        density_curves=unmix_density_curves(
+        density_curves=unmix_status_density(
             density_curves,
             densitometer_crosstalk_matrix,
         )
@@ -83,6 +88,9 @@ def densitometer_normalization(profile, iterations=5):
 
     updated_profile = profile.update_data(
         channel_density=channel_density * normalization_coefficients,
+    )
+    updated_profile = profile.update_info(
+        fitted_cmy_midscale_neutral_density = profile.info.fitted_cmy_midscale_neutral_density / normalization_coefficients
     )
     log_event(
         'densitometer_normalization',

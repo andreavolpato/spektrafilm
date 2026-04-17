@@ -56,6 +56,7 @@ process_print_paper = True
 process_print_film = True
 process_negative = True
 process_positive = True
+fit_neutral_filters = True
 
 grouped_raw_profiles = _collect_raw_profiles()
 
@@ -83,6 +84,7 @@ if process_positive:
     _process_profiles(grouped_raw_profiles['positive_film'])
 
 
-regenerate_neutral_filter_database()
+if fit_neutral_filters:
+    regenerate_neutral_filter_database()
 
 plt.show()

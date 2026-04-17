@@ -3,9 +3,7 @@ from __future__ import annotations
 import copy
 from time import perf_counter
 
-from PIL.ImageQt import rgb
 import numpy as np
-from skimage import exposure
 
 from spektrafilm.runtime.services import (
     EnlargerService,
@@ -130,8 +128,10 @@ class SimulationPipeline:
                     y_filter_neutral=None,
                     film_density_curves=None,
                     print_density_curves=None,):
+        invalidates_print_balance_reference = False
         if exposure_compensation_ev is not None:
             self.camera.exposure_compensation_ev = exposure_compensation_ev
+            invalidates_print_balance_reference = True
         if print_exposure is not None:
             self.enlarger.print_exposure = print_exposure
         if c_filter_neutral is not None:
@@ -142,18 +142,14 @@ class SimulationPipeline:
             self.enlarger.y_filter_neutral = y_filter_neutral
         if film_density_curves is not None:
             self.film.data.density_curves = film_density_curves
+            invalidates_print_balance_reference = True
         if print_density_curves is not None:
             self.print.data.density_curves = print_density_curves
-        # if argument is not in the defined list return an error
-        for key in locals().keys():
-            if key not in ['exposure_compensation_ev',
-                           'print_exposure',
-                           'c_filter_neutral',
-                           'm_filter_neutral',
-                           'y_filter_neutral',
-                           'film_density_curves',
-                           'print_density_curves']:
-                raise ValueError(f"Unsupported parameter for soft update: {key}")    
+        if invalidates_print_balance_reference:
+            (
+                self._enlarger_service.density_spectral_midgray,
+                self._enlarger_service.density_spectral_midgray_comp,
+            ) = self._filming_stage._compute_density_spectral_midgray_to_balance_print()
         
     # private methods
     

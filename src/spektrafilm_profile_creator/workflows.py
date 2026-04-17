@@ -45,7 +45,6 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = refine_negative_film(
             profile,
             target_print=raw_profile.info.target_print,
-            data_trustability=recipe.data_trustability,
             stretch_curves=recipe.stretch_curves,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
@@ -57,9 +56,9 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     ##########################################################################################################
     if raw_profile.info.stage == 'filming' and raw_profile.info.type == 'positive':
         # channel density
-        profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
+        profile = densitometer_normalization(profile)
         # sensitivity
         profile = balance_film_sensitivity(profile)
         # density curves
@@ -67,7 +66,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = unmix_density(profile)
         profile = refine_positive_film(
             profile,
-            data_trustability=recipe.data_trustability,
+            stretch_curves=recipe.stretch_curves,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
@@ -78,9 +77,9 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     ##########################################################################################################
     if raw_profile.info.stage == 'printing' and raw_profile.info.type == 'negative':
         # channel density
-        profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
+        profile = densitometer_normalization(profile)
         # sensitivity
         profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
         # density curves
@@ -89,7 +88,6 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = refine_negative_print(
             profile,
             target_film=recipe.target_film,
-            data_trustability=recipe.data_trustability,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)

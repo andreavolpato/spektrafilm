@@ -5,12 +5,15 @@ from __future__ import annotations
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.runtime.pipeline import SimulationPipeline
 from spektrafilm.utils.preview import resize_for_preview
-from spektrafilm.runtime.params_builder import digest_params, init_params
+from spektrafilm.runtime.params_builder import (
+    digest_params,
+    init_params,
+)
 
 class Simulator:
     """User-facing wrapper around the runtime simulation pipeline.
     The params passed to the constructor should be static and not be changed.
-    They can be updated with the update_params method, which will update the internal pipeline parameters.
+    They can be refreshed with update_params or soft_update, which delegate to the internal pipeline.
     """
 
     def __init__(self, params: RuntimePhotoParams):
@@ -19,17 +22,17 @@ class Simulator:
     def process(self, image):
         """Process the input image through the simulation pipeline and return the final result."""
         return self._pipeline.process(image)
-    
+
     def update_params(self, params):
         """Update the parameters of the simulation pipeline."""
         self._pipeline.update(params)
-    
-    def soft_update_params(self, **kwargs):
+
+    def soft_update(self, **kwargs):
         """Soft update parameters by only changing the provided fields, keeping the rest unchanged.
         only selected safe parameters can be updated with this method
         """
         self._pipeline.soft_update(**kwargs)
-        
+
     def get_timings(self):
         """Get the timings of the different stages of the simulation pipeline."""
         return self._pipeline.get_timings()
