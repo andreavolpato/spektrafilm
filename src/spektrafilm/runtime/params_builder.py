@@ -16,29 +16,43 @@ def _get_neutral_print_filters():
         return {}
 
 
+def apply_database_neutral_print_filters(
+    params: RuntimePhotoParams,
+    *,
+    database=None,
+    warn_missing: bool = True,
+) -> RuntimePhotoParams:
+    if not params.settings.neutral_print_filters_from_database:
+        return params
+
+    filters = _get_neutral_print_filters() if database is None else database
+    stock_filters = (
+        filters
+        .get(params.print.info.stock, {})
+        .get(params.enlarger.illuminant, {})
+        .get(params.film.info.stock)
+    )
+    if stock_filters is not None:
+        c_filter, m_filter, y_filter = (float(value) for value in stock_filters)
+        params.enlarger.c_filter_neutral = c_filter
+        params.enlarger.m_filter_neutral = m_filter
+        params.enlarger.y_filter_neutral = y_filter
+    elif warn_missing:
+        print(
+            f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} "
+            f"with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. "
+            "Using defaults."
+        )
+    return params
+
+
 def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> RuntimePhotoParams:
     """Digest the params to prepare for use in the runtime pipeline.
     In the pipeline params should be static and not be changed.
     params.settings and params.debug should contain all the switching logic for the digesting.
     """
+    params = apply_database_neutral_print_filters(params)
 
-    # read neutral print filters from database
-    if params.settings.neutral_print_filters_from_database:
-        filters = _get_neutral_print_filters()
-        stock_filters = (
-            filters
-            .get(params.print.info.stock, {})
-            .get(params.enlarger.illuminant, {})
-            .get(params.film.info.stock)
-        )
-        if stock_filters is not None:
-            c_filter, m_filter, y_filter = stock_filters
-            params.enlarger.c_filter_neutral = c_filter
-            params.enlarger.m_filter_neutral = m_filter
-            params.enlarger.y_filter_neutral = y_filter
-        else:
-            print(f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. Using defaults.")
-        
     if params.settings.preview_mode:
         params.enlarger.lens_blur = 0.0
         params.film_render.dir_couplers.diffusion_size_um = 0.0
@@ -114,4 +128,8 @@ def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     return params
 
 
-__all__ = ["digest_params", "init_params"]
+__all__ = [
+    "apply_database_neutral_print_filters",
+    "digest_params",
+    "init_params",
+]

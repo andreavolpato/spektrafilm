@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import copy
 
 import numpy as np
 import pytest
@@ -39,10 +40,54 @@ class TestRuntimeApi:
         simulator = process_module.Simulator(initial_params)
         assert not hasattr(simulator, 'camera')
         assert not hasattr(simulator, 'timings')
+        assert not hasattr(simulator, 'update')
 
         simulator.update_params(updated_params)
 
         assert simulator.process('frame') == 'processed-updated-frame'
+
+    def test_soft_update_delegates_to_pipeline(self, monkeypatch):
+        captured_kwargs = {}
+
+        class FakePipeline:
+            def __init__(self, params):
+                self.label = params.label
+                self.timings = {'label': params.label}
+
+            def process(self, image):
+                return image
+
+            def soft_update(self, **kwargs):
+                captured_kwargs.update(kwargs)
+
+        monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
+        simulator = process_module.Simulator(SimpleNamespace(label='initial'))
+
+        simulator.soft_update(print_exposure=1.5, exposure_compensation_ev=-0.25)
+
+        assert captured_kwargs == {
+            'print_exposure': 1.5,
+            'exposure_compensation_ev': -0.25,
+        }
+
+    def test_soft_update_keeps_print_exposure_compensation_consistent_with_rebuild(self, default_params):
+        params = copy.deepcopy(default_params)
+        params.camera.auto_exposure = False
+        params.enlarger.normalize_print_exposure = True
+        params.enlarger.print_exposure_compensation = True
+
+        image = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
+        simulator = process_module.Simulator(copy.deepcopy(params))
+
+        for exposure_compensation_ev in (-2.0, -1.0, 0.0, 1.0, 2.0):
+            simulator.soft_update(exposure_compensation_ev=exposure_compensation_ev)
+            soft_updated = simulator.process(image)
+
+            rebuilt_params = copy.deepcopy(params)
+            rebuilt_params.camera.exposure_compensation_ev = exposure_compensation_ev
+            rebuilt = process_module.Simulator(rebuilt_params).process(image)
+
+            np.testing.assert_allclose(soft_updated, rebuilt, atol=1e-12)
 
     def test_simulate_prints_pipeline_timings(self, monkeypatch, capsys):
         class FakePipeline:

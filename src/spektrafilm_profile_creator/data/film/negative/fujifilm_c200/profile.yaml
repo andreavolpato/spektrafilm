@@ -16,3 +16,4 @@ recipe:
   dye_density_reconstruct_model: dmid_dmin
   data_trustability: 0.3
   neutral_ramp_refinement: true
+  stretch_curves: true

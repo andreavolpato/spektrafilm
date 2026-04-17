@@ -6,7 +6,7 @@ from spektrafilm_profile_creator.core.densitometer import (
     compute_densitometer_crosstalk_matrix,
     densitometer_normalization,
     unmix_density,
-    unmix_density_curves,
+    unmix_status_density,
 )
 from spektrafilm_profile_creator.core.density_curves import (
     compute_density_curves,
@@ -41,5 +41,5 @@ __all__ = [
     'remove_density_min',
     'replace_fitted_density_curves',
     'unmix_density',
-    'unmix_density_curves',
+    'unmix_status_density',
 ]

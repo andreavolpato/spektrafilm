@@ -13,3 +13,4 @@ recipe:
   target_film: kodak_vision3_250d
   data_trustability: 0.3
   neutral_ramp_refinement: true
+  neutral_log_exposure_correction: true

@@ -342,7 +342,7 @@ GUI_WIDGET_SPECS = {
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
         "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution",
-                                     min_value=1,
+                                     min_value=0.0,
                                      step=0.5,
                                      ),
         "spectral_upsampling_method": WidgetSpec(

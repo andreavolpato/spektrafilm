@@ -3,16 +3,15 @@ import matplotlib.pyplot as plt
 from spektrafilm import init_params, simulate
 from spektrafilm.profiles.io import save_profile
 from spektrafilm.model.illuminants import Illuminants
-from spektrafilm.utils.io import load_image_oiio, save_neutral_print_filters
+from spektrafilm.utils.io import load_image_oiio
 from spektrafilm_profile_creator import (
-    NeutralPrintFilterRegenerationConfig,
-    fit_neutral_filter_entry,
     process_profile,
+    regenerate_neutral_filter_entry,
 )
 
 
-FILM_STOCK = 'kodak_portra_400'
-PRINT_PAPER = 'kodak_ultra_endura' 
+FILM_STOCK = 'kodak_gold_200'
+PRINT_PAPER = 'kodak_portra_endura' 
 ILLUMINANT = Illuminants.lamp.value
 REFERENCE_IMAGE = 'img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif'
 
@@ -31,7 +30,7 @@ def _plot_reference_simulation() -> None:
     params.film_render.grain.sublayers_active = True
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
-    params.camera.exposure_compensation_ev = 2
+    params.camera.exposure_compensation_ev = 0
     params.enlarger.print_exposure = 1.0
     params.camera.film_format_mm = 35
     params.print_render.glare.active = True
@@ -54,16 +53,11 @@ def _plot_reference_simulation() -> None:
 def main() -> None:
     _process_target_profiles()
 
-    filters, residues = fit_neutral_filter_entry(
+    fitted_filters, fitted_residue = regenerate_neutral_filter_entry(
         stock=FILM_STOCK,
         paper=PRINT_PAPER,
         illuminant=ILLUMINANT,
-        config=NeutralPrintFilterRegenerationConfig(),
     )
-    save_neutral_print_filters(filters)
-
-    fitted_filters = filters[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
-    fitted_residue = residues[PRINT_PAPER][ILLUMINANT][FILM_STOCK]
     print(
         f'Updated neutral print filters for {PRINT_PAPER} / {ILLUMINANT} / {FILM_STOCK}: '
         f'C={fitted_filters[0]:.6f}, M={fitted_filters[1]:.6f}, Y={fitted_filters[2]:.6f}, '

@@ -79,6 +79,7 @@ def balance_print_sensitivity(profile,
         updated_profile,
         sensitivity_correction=correction,
         log_exposure_correction=log_exposure_correction,
+        target_film=target_film,
     )
     return updated_profile
 
@@ -113,6 +114,7 @@ def reconstruct_metameric_neutral(profile, midgray_value=0.184):
     mid = midscale_neutral(fitted_density)
     updated_profile = profile.update_info(fitted_cmy_midscale_neutral_density=np.array(fitted_density))
     updated_profile = updated_profile.update_data(midscale_neutral_density=mid)
+    
     log_event(
         'reconstruct_metameric_neutral',
         updated_profile,
