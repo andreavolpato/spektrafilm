@@ -95,6 +95,8 @@ class FilmingStage:
                             color_space=color_space,
                             apply_cctf_decoding=apply_cctf_decoding,
                             reference_illuminant=self._film.info.reference_illuminant)
+        else:
+            raise ValueError(f"Unsupported rgb_to_raw method: {self._settings.rgb_to_raw_method}")
         return raw
     
     def _compute_density_spectral_midgray_to_balance_print(self):
