@@ -99,7 +99,7 @@ class SimulationPipeline:
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
         
-    def soft_update(self, 
+    def soft_update(self,
                     exposure_compensation_ev=None,
                     print_exposure=None,
                     c_filter_neutral=None,
@@ -121,6 +121,16 @@ class SimulationPipeline:
             self.film.data.density_curves = film_density_curves
         if print_density_curves is not None:
             self.print.data.density_curves = print_density_curves
+        # if argument is not in the defined list return an error
+        for key in locals().keys():
+            if key not in ['exposure_compensation_ev',
+                           'print_exposure',
+                           'c_filter_neutral',
+                           'm_filter_neutral',
+                           'y_filter_neutral',
+                           'film_density_curves',
+                           'print_density_curves']:
+                raise ValueError(f"Unsupported parameter for soft update: {key}")    
         
     # private methods
     

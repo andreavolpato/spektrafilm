@@ -21,7 +21,7 @@ class FilmingStage:
         self._lut_service = lut_service
         self._resize_service = resize_service
         self._enlarger_service = enlarger_service
-        self._enlarger_service.density_spectral_midgray = self._compute_density_spectral_midgray_to_balance_print()
+        self._enlarger_service.density_spectral_midgray, self._enlarger_service.density_spectral_midgray_comp = self._compute_density_spectral_midgray_to_balance_print()
         self._color_reference_service = color_reference_service
 
     # public methods
@@ -100,22 +100,29 @@ class FilmingStage:
         return raw
     
     def _compute_density_spectral_midgray_to_balance_print(self):
+        rgb_midgray = np.array([[[0.184] * 3]])
+        density_spectral_midgray = self._simple_rgb_to_density_spectral(rgb_midgray)
         if self._enlarger_service.print_exposure_compensation:
             neg_exp_comp_ev = self._camera.exposure_compensation_ev
+            rgb_midgray_comp = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
+            density_spectral_midgray_comp = self._simple_rgb_to_density_spectral(rgb_midgray_comp)
         else:
-            neg_exp_comp_ev = 0.0
-        rgb_midgray = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
-        raw_midgray = self._rgb_to_film_raw(rgb_midgray)
-        log_raw_midgray = np.log10(raw_midgray + 1e-10)
-        density_midgray = develop_simple(
-            log_raw_midgray,
+            density_spectral_midgray_comp = None
+        return density_spectral_midgray, density_spectral_midgray_comp
+
+    def _simple_rgb_to_density_spectral(self, rgb: np.ndarray) -> np.ndarray:
+        raw = self._rgb_to_film_raw(rgb) 
+        log_raw = np.log10(raw + 1e-10)
+        density_cmy = develop_simple(
+            log_raw,
             self._film.data.log_exposure,
             self._film.data.density_curves,
             gamma_factor=self._film_render.density_curve_gamma,
         )
-        density_spectral_midgray = compute_density_spectral(
+        density_spectral = compute_density_spectral(
             self._film.data.channel_density,
-            density_midgray,
+            density_cmy,
             base_density=self._film.data.base_density,
         )
-        return density_spectral_midgray
+        return density_spectral
+    
