@@ -4,6 +4,7 @@ import copy
 
 from PIL.ImageQt import rgb
 import numpy as np
+from skimage import exposure
 
 from spektrafilm.runtime.services import (
     EnlargerService,
@@ -97,7 +98,30 @@ class SimulationPipeline:
     def update(self, params):
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
-
+        
+    def soft_update(self, 
+                    exposure_compensation_ev=None,
+                    print_exposure=None,
+                    c_filter_neutral=None,
+                    m_filter_neutral=None,
+                    y_filter_neutral=None,
+                    film_density_curves=None,
+                    print_density_curves=None,):
+        if exposure_compensation_ev is not None:
+            self.camera.exposure_compensation_ev = exposure_compensation_ev
+        if print_exposure is not None:
+            self.enlarger.print_exposure = print_exposure
+        if c_filter_neutral is not None:
+            self.enlarger.c_filter_neutral = c_filter_neutral
+        if m_filter_neutral is not None:
+            self.enlarger.m_filter_neutral = m_filter_neutral
+        if y_filter_neutral is not None:
+            self.enlarger.y_filter_neutral = y_filter_neutral
+        if film_density_curves is not None:
+            self.film.data.density_curves = film_density_curves
+        if print_density_curves is not None:
+            self.print.data.density_curves = print_density_curves
+        
     # private methods
     
     def _pipeline(self, image):

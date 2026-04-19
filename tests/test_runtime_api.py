@@ -83,7 +83,6 @@ class TestRuntimeApi:
             params.io.upscale_factor = 1.0
             params.scanner.lens_blur = 0.0
             params.scanner.unsharp_mask = (0.0, 0.0)
-            params.settings.use_camera_lut = False
             params.settings.use_enlarger_lut = False
             params.settings.use_scanner_lut = False
             params.settings.rgb_to_raw_method = 'mallett2019'
@@ -102,7 +101,6 @@ class TestRuntimeApi:
         assert params.io.compute_negative is False
         assert params.io.full_image is True
         assert params.io.preview_resize_factor == 1.0
-        assert params.settings.use_camera_lut is False
 
         output = AgXPhoto(params).process(image)
         assert output.shape == image.shape
