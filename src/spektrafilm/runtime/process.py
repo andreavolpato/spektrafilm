@@ -10,12 +10,11 @@ from spektrafilm.runtime.params_builder import digest_params, init_params
 class Simulator:
     """User-facing wrapper around the runtime simulation pipeline.
     The params passed to the constructor should be static and not be changed.
+    They can be updated with the update_params method, which will update the internal pipeline parameters.
     """
 
     def __init__(self, params: RuntimePhotoParams):
-        self._params = params # should stay static
-        self._pipeline = SimulationPipeline(params)
-        self._sync_public_state_from_pipeline()
+        self._pipeline = SimulationPipeline(params) # should stay private
 
     def process(self, image):
         """Process the input image through the simulation pipeline and return the final result."""
@@ -23,22 +22,17 @@ class Simulator:
     
     def update_params(self, params):
         """Update the parameters of the simulation pipeline."""
-        self._params = params
         self._pipeline.update(params)
-        self._sync_public_state_from_pipeline()
+    
+    def soft_update_params(self, **kwargs):
+        """Soft update parameters by only changing the provided fields, keeping the rest unchanged.
+        only selected safe parameters can be updated with this method
+        """
+        self._pipeline.soft_update(**kwargs)
         
-    def _sync_public_state_from_pipeline(self) -> None:
-        self.camera = self._pipeline.camera
-        self.film = self._pipeline.film
-        self.film_render = self._pipeline.film_render
-        self.enlarger = self._pipeline.enlarger
-        self.print = self._pipeline.print
-        self.print_render = self._pipeline.print_render
-        self.scanner = self._pipeline.scanner
-        self.io = self._pipeline.io
-        self.debug = self._pipeline.debug
-        self.settings = self._pipeline.settings
-        self.timings = self._pipeline.timings
+    def get_timings(self):
+        """Get the timings of the different stages of the simulation pipeline."""
+        return self._pipeline.timings
 
 
 ######################################################################################
@@ -56,7 +50,7 @@ def simulate(image, params: RuntimePhotoParams,
     simulator = Simulator(params)
     result = simulator.process(image)
     if print_timings:
-        print("Simulation timings:", simulator.timings)
+        print("Simulation timings:", simulator.get_timings())
     return result
 
 
