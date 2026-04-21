@@ -110,6 +110,7 @@ def load_image_oiio(*args, **kwargs):
 
 
 def save_image_oiio(*args, **kwargs):
+    return import_module("spektrafilm.utils.io").save_image_oiio(*args, **kwargs)
 
 
 def read_image_metadata(*args, **kwargs):
@@ -150,6 +151,7 @@ class GuiController:
         self._runtime_simulator = None
         self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
+        self._current_input_path: str | None = None
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
@@ -177,6 +179,7 @@ class GuiController:
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
+        self._current_input_path = path
         self._set_or_add_input_stack(image)
         self._request_auto_preview_if_enabled()
 
@@ -200,6 +203,7 @@ class GuiController:
             set_status(self._viewer, 'Load raw failed')
             return
 
+        self._current_input_path = path
         self._set_or_add_input_stack(image)
 
         lens_summary = lens_info.get('summary')
@@ -339,13 +343,25 @@ class GuiController:
                 apply_cctf_decoding=source_cctf_encoding,
                 apply_cctf_encoding=saving_cctf_encoding,
             )
+
+        source_metadata = None
+
+        if self._current_input_path is not None:
+            source_metadata = read_image_metadata(self._current_input_path)
+
         try:
             save_image_oiio(filepath, image_data)
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
             return
 
-        set_status(self._viewer, f'Saved output image to {filepath}')
+        if source_metadata is not None:
+            try:
+                write_image_metadata(filepath, source_metadata)
+            except Exception:
+                pass
+
+        set_status(self._viewer, f"Saved output image to {filepath}")
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(
