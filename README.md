@@ -104,7 +104,7 @@ uvx --python 3.13 path/to/local/working_copy
 Alternatively, you can install spektrafilm permanently which will provide you the `spektrafilm` command:
 
 ```bash
-uvx install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git@dev
+uv tool install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git@dev
 ```
 
 #### Installing uv
