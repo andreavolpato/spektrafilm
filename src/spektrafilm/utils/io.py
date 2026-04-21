@@ -68,8 +68,14 @@ def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
     if ext == "exr":
         return
 
-    spec = oiio.ImageInput.open(filename).spec()
+    image_input = oiio.ImageInput.open(filename)
+    if image_input is None:
+        raise RuntimeError(f"Could not open image file with OpenImageIO: {filename}")
 
+    try:
+        spec = image_input.spec()
+    finally:
+        image_input.close()
     destination = exiv2.ImageFactory.open(filename)
     destination.readMetadata()
 
@@ -81,7 +87,7 @@ def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
 
     destination_exif["Exif.Image.Orientation"] = 1
     destination_exif["Exif.Image.DateTime"] = datetime.datetime.now().strftime("%Y:%m:%d %H:%M:%S")
-    destination_exif["Exif.Image.Software"] = "Spektrafilm"
+    destination_exif["Exif.Image.Software"] = "spektrafilm"
     destination_exif["Exif.Photo.PixelXDimension"] = spec.width
     destination_exif["Exif.Photo.PixelYDimension"] = spec.height
 
