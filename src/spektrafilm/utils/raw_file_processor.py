@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from os import PathLike
 
 import colour
-import exifread
+import exiv2
 import lensfunpy
 import numpy as np
 import rawpy
@@ -133,9 +133,8 @@ def _postprocess_params(
 def _read_exif_metadata(raw_path: str | PathLike[str]) -> ExifData:
     """Read basic EXIF data from a RAW file for lens correction.
 
-    The function opens the file in binary mode and uses ``exifread`` to extract
-    standard EXIF tags for camera make and model, lens make and model, as well
-    as focal length and aperture.
+    The function uses ``exiv2`` to extract standard EXIF tags for camera make
+    and model, lens make and model, as well as focal length and aperture.
 
     Parameters
     ----------
@@ -149,28 +148,38 @@ def _read_exif_metadata(raw_path: str | PathLike[str]) -> ExifData:
         read default to ``""`` for strings and ``0.0`` for numeric values.
 
     """
-    with open(str(raw_path), "rb") as f:
-        tags = exifread.process_file(f, details=True)
+    try:
+        image = exiv2.ImageFactory.open(str(raw_path))
+        image.readMetadata()
+        exif = image.exifData()
+    except Exception:
+        return ExifData(
+            make="",
+            model="",
+            lens_make="",
+            lens_model="",
+            focal_length=0.0,
+            f_number=0.0,
+        )
 
     def _str(key: str) -> str:
-        value = tags.get(key)
-        return str(value).strip() if value is not None else ""
+        if key not in exif:
+            return ""
+
+        return str(exif[key].value()).strip()
 
     def _float(key: str) -> float:
-        value = tags.get(key)
-
-        if value is None:
+        if key not in exif:
             return 0.0
-
-        return float(value.values[0])
+        return exif[key].toFloat()
 
     return ExifData(
-        make=_str("Image Make"),
-        model=_str("Image Model"),
-        lens_make=_str("EXIF LensMake"),
-        lens_model=_str("EXIF LensModel"),
-        focal_length=_float("EXIF FocalLength"),
-        f_number=_float("EXIF FNumber"),
+        make=_str("Exif.Image.Make"),
+        model=_str("Exif.Image.Model"),
+        lens_make=_str("Exif.Photo.LensMake"),
+        lens_model=_str("Exif.Photo.LensModel"),
+        focal_length=_float("Exif.Photo.FocalLength"),
+        f_number=_float("Exif.Photo.FNumber"),
     )
 
 
