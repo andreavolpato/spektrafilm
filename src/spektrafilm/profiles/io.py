@@ -9,7 +9,8 @@ import numpy as np
 
 PROFILE_TYPES = frozenset({'negative', 'positive'})
 PROFILE_SUPPORTS = frozenset({'film', 'paper'})
-PROFILE_USES = frozenset({'filming', 'printing'})
+PROFILE_STAGES = frozenset({'filming', 'printing'})
+PROFILE_USES = frozenset({'photo', 'cine'})
 PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
 
 def _empty_vector() -> np.ndarray:
@@ -30,7 +31,9 @@ class ProfileInfo:
     name: str = ''
     type: str = 'negative'
     support: str = 'film'
-    use: str = 'filming' # filming or printing
+    stage: str = 'filming'
+    use: str = 'photo'
+    target_print: str | None = None
     channel_model: str = 'color'
     densitometer: str = 'status_M'
     log_sensitivity_density_over_min: float = 0.2
@@ -65,11 +68,19 @@ class ProfileInfo:
 
     @property
     def is_filming(self) -> bool:
-        return self.use == 'filming'
+        return self.stage == 'filming'
 
     @property
     def is_printing(self) -> bool:
-        return self.use == 'printing'
+        return self.stage == 'printing'
+
+    @property
+    def is_photo(self) -> bool:
+        return self.use == 'photo'
+
+    @property
+    def is_cine(self) -> bool:
+        return self.use == 'cine'
 
 
 @dataclass
@@ -149,11 +160,19 @@ class Profile:
 
     @property
     def is_filming(self) -> bool:
-        return self.info.use == 'filming'
+        return self.info.stage == 'filming'
 
     @property
     def is_printing(self) -> bool:
-        return self.info.use == 'printing'
+        return self.info.stage == 'printing'
+
+    @property
+    def is_photo(self) -> bool:
+        return self.info.use == 'photo'
+
+    @property
+    def is_cine(self) -> bool:
+        return self.info.use == 'cine'
 
 
 def profile_from_dict(data: Any) -> Profile:
@@ -207,6 +226,8 @@ def _validate_profile_info(info, stock):
         raise ValueError(f"Invalid profile '{stock}': unsupported type={info.type!r}")
     if info.support not in PROFILE_SUPPORTS:
         raise ValueError(f"Invalid profile '{stock}': unsupported support={info.support!r}")
+    if info.stage not in PROFILE_STAGES:
+        raise ValueError(f"Invalid profile '{stock}': unsupported stage={info.stage!r}")
     if info.use not in PROFILE_USES:
         raise ValueError(f"Invalid profile '{stock}': unsupported use={info.use!r}")
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
@@ -268,6 +289,7 @@ __all__ = [
     "ProfileData",
     "ProfileInfo",
     "PROFILE_CHANNEL_MODELS",
+    "PROFILE_STAGES",
     "PROFILE_SUPPORTS",
     "PROFILE_TYPES",
     "PROFILE_USES",

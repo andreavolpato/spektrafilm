@@ -65,13 +65,12 @@ class ScanningStage:
             
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
-        log_xyz = self._lut_service.spectral_compute(
+        log_xyz = self._lut_service.spectral_compute_scanner(
             density_channels,
             spectral_calculation=self.cmy_to_log_xyz,
             data_min=density_min,
             data_max=density_max,
             use_lut=use_lut,
-            use_scanner_lut_memory=True,
         )
         xyz = 10 ** log_xyz
         xyz = self._color_reference_service.black_white_xyz_correction(xyz)
