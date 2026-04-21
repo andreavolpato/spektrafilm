@@ -93,7 +93,7 @@ You can easily run the latest version of spektrafilm directly from the Git repos
 using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git@dev spektrafilm
+uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git spektrafilm
 ```
 
 Or from a local working copy:
@@ -104,7 +104,7 @@ uvx --python 3.13 path/to/local/working_copy
 Alternatively, you can install spektrafilm permanently which will provide you the `spektrafilm` command:
 
 ```bash
-uv tool install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git@dev
+uv tool install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git
 ```
 
 #### Installing uv
