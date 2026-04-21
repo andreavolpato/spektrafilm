@@ -14,7 +14,6 @@ class RawProfileRecipe:
     dye_density_min_mid_donor: str | None = None
     dye_density_reconstruct_model: str = 'dmid_dmin'
     target_film: str | None = None
-    target_print: str | None = None
     data_trustability: float = 1.0
     neutral_log_exposure_correction: bool = False
     stretch_curves: bool = False

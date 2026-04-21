@@ -119,15 +119,19 @@ def test_exposure_controls_behave_consistently(default_params) -> None:
     assert delta_comp < 0.05
 
     default_params.enlarger.normalize_print_exposure = False
-    default_params.enlarger.print_exposure_compensation = True
     default_params.camera.auto_exposure = False
+    default_params.enlarger.print_exposure_compensation = False
+    default_params.camera.exposure_compensation_ev = 0.0
+    baseline = simulate(gray, default_params)
+    default_params.camera.exposure_compensation_ev = +1.0
+    result_without_comp = simulate(gray, default_params)
+
+    default_params.enlarger.print_exposure_compensation = True
     default_params.camera.exposure_compensation_ev = +1.0
     result_with_comp = simulate(gray, default_params)
 
-    default_params.enlarger.print_exposure_compensation = False
-    result_without_comp = simulate(gray, default_params)
-
-    np.testing.assert_allclose(result_with_comp, result_without_comp, atol=1e-6)
+    assert not np.allclose(result_with_comp, result_without_comp, atol=1e-6)
+    assert abs(np.mean(result_with_comp) - np.mean(baseline)) < abs(np.mean(result_without_comp) - np.mean(baseline))
 
 
 def test_pipeline_distinguishes_major_configuration_changes(default_params) -> None:

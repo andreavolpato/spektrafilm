@@ -15,6 +15,7 @@ pytestmark = pytest.mark.integration
         'stock',
         'expected_type',
         'expected_support',
+        'expected_stage',
         'expected_use',
         'expected_target_film',
         'expected_target_print',
@@ -24,12 +25,12 @@ pytestmark = pytest.mark.integration
         'expected_neutral_ramp_refinement',
     ),
     [
-        ('kodak_portra_400', 'negative', 'film', 'filming', None, 'kodak_portra_endura', 1.0, False, False, True),
-        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'kodak_portra_400', None, None, False, None, True),
-        ('kodak_2383', 'negative', 'film', 'printing', 'kodak_vision3_250d', None, None, False, None, True),
-        ('fujifilm_c200', 'negative', 'film', 'filming', None, None, None, False, None, True),
-        ('fujifilm_pro_400h', 'negative', 'film', 'filming', None, None, None, False, None, True),
-        ('kodak_ektachrome_100', 'positive', 'film', 'filming', None, None, None, False, None, True),
+        ('kodak_portra_400', 'negative', 'film', 'filming', 'photo', None, 'kodak_portra_endura', 1.0, False, False, True),
+        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'photo', 'kodak_portra_400', None, None, False, None, True),
+        ('kodak_2383', 'negative', 'film', 'printing', 'cine', 'kodak_vision3_250d', None, None, False, None, True),
+        ('fujifilm_c200', 'negative', 'film', 'filming', 'photo', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
+        ('fujifilm_pro_400h', 'negative', 'film', 'filming', 'photo', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
+        ('kodak_ektachrome_100', 'positive', 'film', 'filming', 'photo', None, None, None, False, None, True),
     ],
     ids=['portra-film', 'portra-paper', 'vision-print-film', 'fuji-c200', 'fuji-pro-400h', 'ektachrome-positive'],
 )
@@ -37,6 +38,7 @@ def test_load_raw_profile_reads_expected_info_and_recipe(
     stock: str,
     expected_type: str,
     expected_support: str,
+    expected_stage: str,
     expected_use: str,
     expected_target_film: str | None,
     expected_target_print: str | None,
@@ -51,19 +53,20 @@ def test_load_raw_profile_reads_expected_info_and_recipe(
     assert isinstance(raw_profile.recipe, RawProfileRecipe)
     assert raw_profile.info.stock == stock
     assert raw_profile.info.support == expected_support
+    assert raw_profile.info.stage == expected_stage
     assert raw_profile.info.use == expected_use
+    assert raw_profile.info.target_print == expected_target_print
     assert raw_profile.info.type == expected_type
     assert raw_profile.info.channel_model == 'color'
     assert raw_profile.recipe.target_film == expected_target_film
     assert raw_profile.recipe.neutral_log_exposure_correction is expected_neutral_log_exposure_correction
     assert raw_profile.recipe.neutral_ramp_refinement is expected_neutral_ramp_refinement
 
-    if expected_use == 'printing':
+    if expected_stage == 'printing':
         assert load_stock_catalog()[stock].endswith('.print.negative')
 
     if expected_target_print is not None:
         assert raw_profile.recipe.dye_density_reconstruct_model == 'dmid_dmin'
-        assert raw_profile.recipe.target_print == expected_target_print
         assert raw_profile.recipe.data_trustability == pytest.approx(expected_data_trustability)
         assert raw_profile.recipe.stretch_curves is expected_stretch_curves
 
@@ -83,7 +86,9 @@ def test_load_raw_profile_reads_reconstruct_model_from_recipe(monkeypatch: pytes
             'profile': {
                 'type': 'negative',
                 'support': 'film',
-                'use': 'filming',
+                'stage': 'filming',
+                'use': 'photo',
+                'target_print': 'kodak_portra_endura',
                 'channel_model': 'color',
             },
             'workflow': {'dye_density_reconstruct_model': 'workflow_model'},
@@ -111,6 +116,7 @@ def test_load_raw_profile_reads_reconstruct_model_from_recipe(monkeypatch: pytes
 
     assert raw_profile.recipe.dye_density_reconstruct_model == 'recipe_model'
     assert raw_profile.recipe.target_film == 'kodak_portra_400'
+    assert raw_profile.info.target_print == 'kodak_portra_endura'
     assert raw_profile.recipe.neutral_log_exposure_correction is True
     assert raw_profile.recipe.neutral_ramp_refinement is True
 
@@ -122,8 +128,7 @@ def test_load_raw_profile_manifest_reads_root_payload(monkeypatch: pytest.Monkey
 
     manifest_payload = {
         'name': 'Test Stock',
-        'profile': {'use': 'filming'},
-        'recipe': {'target_print': 'kodak_portra_endura'},
+        'profile': {'stage': 'filming', 'use': 'photo', 'target_print': 'kodak_portra_endura'},
     }
 
     monkeypatch.setattr(loader_module, 'load_stock_catalog', lambda: {'test_stock': 'fake.package'})

@@ -8,6 +8,7 @@ from spektrafilm.model.color_filters import color_enlarger
 class EnlargerService:
     def __init__(self, enlarger_params):
         self.density_spectral_midgray = None # computed in filming stage
+        self.density_spectral_midgray_comp = None # computed in filming stage
         self.print_exposure_compensation = enlarger_params.print_exposure_compensation
         self._enlarger = enlarger_params
 

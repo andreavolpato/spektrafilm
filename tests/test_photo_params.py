@@ -3,7 +3,6 @@ import spektrafilm.runtime.params_builder as params_builder_module
 from pytest import mark
 
 from spektrafilm.runtime.params_builder import digest_params, init_params
-from spektrafilm.runtime.process import Simulator
 
 
 pytestmark = mark.unit
@@ -94,27 +93,27 @@ class TestSimulatorDebugSwitches:
         params = init_params()
         params.debug.deactivate_spatial_effects = True
 
-        photo = Simulator(digest_params(params))
+        digest_params(params)
 
-        assert photo.film_render.halation.size_um == [0, 0, 0]
-        assert photo.film_render.halation.scattering_size_um == [0, 0, 0]
-        assert photo.film_render.dir_couplers.diffusion_size_um == 0
-        assert photo.film_render.grain.blur == 0.0
-        assert photo.film_render.grain.blur_dye_clouds_um == 0.0
-        assert photo.print_render.glare.blur == 0
-        assert photo.camera.lens_blur_um == 0.0
-        assert photo.enlarger.lens_blur == 0.0
-        assert photo.scanner.lens_blur == 0.0
-        assert photo.scanner.unsharp_mask == (0.0, 0.0)
+        assert params.film_render.halation.size_um == [0, 0, 0]
+        assert params.film_render.halation.scattering_size_um == [0, 0, 0]
+        assert params.film_render.dir_couplers.diffusion_size_um == 0
+        assert params.film_render.grain.blur == 0.0
+        assert params.film_render.grain.blur_dye_clouds_um == 0.0
+        assert params.print_render.glare.blur == 0
+        assert params.camera.lens_blur_um == 0.0
+        assert params.enlarger.lens_blur == 0.0
+        assert params.scanner.lens_blur == 0.0
+        assert params.scanner.unsharp_mask == (0.0, 0.0)
 
     def test_deactivate_stochastic_effects_params(self):
         params = init_params()
         params.debug.deactivate_stochastic_effects = True
 
-        photo = Simulator(digest_params(params))
+        digest_params(params)
 
-        assert photo.film_render.grain.active is False
-        assert photo.print_render.glare.active is False
+        assert params.film_render.grain.active is False
+        assert params.print_render.glare.active is False
 
 
 class TestDigestParamsFilmDefaults:
