@@ -110,7 +110,14 @@ def load_image_oiio(*args, **kwargs):
 
 
 def save_image_oiio(*args, **kwargs):
-    return import_module('spektrafilm.utils.io').save_image_oiio(*args, **kwargs)
+
+
+def read_image_metadata(*args, **kwargs):
+    return import_module("spektrafilm.utils.io").read_image_metadata(*args, **kwargs)
+
+
+def write_image_metadata(*args, **kwargs):
+    return import_module("spektrafilm.utils.io").write_image_metadata(*args, **kwargs)
 
 
 def load_and_process_raw_file(*args, **kwargs):
