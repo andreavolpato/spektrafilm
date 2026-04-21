@@ -1,8 +1,91 @@
-import numpy as np
-import scipy.interpolate
-import json
-import OpenImageIO as oiio
+from __future__ import annotations
+
+import datetime
 import importlib.resources as pkg_resources
+import json
+from dataclasses import dataclass
+
+import exiv2
+import numpy as np
+import OpenImageIO as oiio
+import scipy.interpolate
+
+################################################################################
+# Image metadata
+################################################################################
+
+
+@dataclass(frozen=True, slots=True)
+class ImageMetadata:
+    exif: exiv2.ExifData
+    iptc: exiv2.IptcData
+    xmp: exiv2.XmpData
+
+
+def read_image_metadata(filename: str) -> ImageMetadata | None:
+    """Read content metadata (EXIF, IPTC, XMP) from an image file.
+
+    Uses the Exiv2 library to read metadata from any format including RAW files.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the image file.
+
+    Returns
+    -------
+    ImageMetadata or None
+        The image metadata, or ``None`` if the file cannot be opened.
+    """
+    try:
+        image = exiv2.ImageFactory.open(filename)
+        image.readMetadata()
+    except Exception:
+        return None
+
+    return ImageMetadata(
+        exif=image.exifData(),
+        iptc=image.iptcData(),
+        xmp=image.xmpData(),
+    )
+
+
+def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
+    """Write metadata to an image file after pixel data has been saved.
+
+    Copies all source EXIF, IPTC and XMP tags, then sets overridden tags
+    (Orientation, DateTime, Software, pixel dimensions).
+
+    Parameters
+    ----------
+    filename : str
+        Path to the output image file (must already exist on disk).
+    source_metadata : ImageMetadata
+        Metadata returned by ``read_image_metadata``.
+    """
+    ext = filename.rsplit(".", 1)[-1].lower()
+
+    if ext == "exr":
+        return
+
+    spec = oiio.ImageInput.open(filename).spec()
+
+    destination = exiv2.ImageFactory.open(filename)
+    destination.readMetadata()
+
+    destination.setExifData(source_metadata.exif)
+    destination.setIptcData(source_metadata.iptc)
+    destination.setXmpData(source_metadata.xmp)
+
+    destination_exif = destination.exifData()
+
+    destination_exif["Exif.Image.Orientation"] = 1
+    destination_exif["Exif.Image.DateTime"] = datetime.datetime.now().strftime("%Y:%m:%d %H:%M:%S")
+    destination_exif["Exif.Image.Software"] = "Spektrafilm"
+    destination_exif["Exif.Photo.PixelXDimension"] = spec.width
+    destination_exif["Exif.Photo.PixelYDimension"] = spec.height
+
+    destination.writeMetadata()
 
 
 ################################################################################
