@@ -5,8 +5,10 @@ from spektrafilm_profile_creator.core.balancing import (
 from spektrafilm_profile_creator.core.densitometer import (
     compute_densitometer_crosstalk_matrix,
     densitometer_normalization,
+    forward_status_density,
     unmix_density,
-    unmix_status_density,
+    unmix_status_density_linear_approximation,
+    unmix_status_density_nonlinear,
 )
 from spektrafilm_profile_creator.core.density_curves import (
     compute_density_curves,
@@ -36,10 +38,12 @@ __all__ = [
     'densitometer_normalization',
     'fit_density_curve',
     'fit_density_curves',
+    'forward_status_density',
     'measure_log_exposure_midscale_neutral',
     'preprocess_profile',
     'remove_density_min',
     'replace_fitted_density_curves',
     'unmix_density',
-    'unmix_status_density',
+    'unmix_status_density_linear_approximation',
+    'unmix_status_density_nonlinear',
 ]
