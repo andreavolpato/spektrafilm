@@ -148,9 +148,19 @@ def _read_exif_metadata(raw_path: str | PathLike[str]) -> ExifData:
         read default to ``""`` for strings and ``0.0`` for numeric values.
 
     """
-    image = exiv2.ImageFactory.open(str(raw_path))
-    image.readMetadata()
-    exif = image.exifData()
+    try:
+        image = exiv2.ImageFactory.open(str(raw_path))
+        image.readMetadata()
+        exif = image.exifData()
+    except Exception:
+        return ExifData(
+            make="",
+            model="",
+            lens_make="",
+            lens_model="",
+            focal_length=0.0,
+            f_number=0.0,
+        )
 
     def _str(key: str) -> str:
         if key not in exif:

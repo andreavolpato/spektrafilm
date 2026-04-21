@@ -355,13 +355,20 @@ class GuiController:
             QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
             return
 
+        metadata_write_error = None
         if source_metadata is not None:
             try:
                 write_image_metadata(filepath, source_metadata)
-            except Exception:
-                pass
+            except Exception as exc:
+                metadata_write_error = exc
 
-        set_status(self._viewer, f"Saved output image to {filepath}")
+        if metadata_write_error is not None:
+            set_status(
+                self._viewer,
+                f"Saved output image to {filepath}, but failed to copy metadata: {metadata_write_error}",
+            )
+        else:
+            set_status(self._viewer, f"Saved output image to {filepath}")
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(
