@@ -298,8 +298,8 @@ def test_create_app_syncs_display_transform_availability_before_connecting(monke
         captured['controller_args'] = (viewer, widgets)
         return fake_controller
 
-    def fake_build_main_window_for_app(*, viewer, widgets):
-        captured['window_args'] = (viewer, widgets)
+    def fake_build_main_window_for_app(*, viewer, widgets, controller=None):
+        captured['window_args'] = (viewer, widgets, controller)
         return fake_main_window
 
     monkeypatch.setattr(app_module, 'initialize_controller', fake_initialize_controller)
@@ -313,12 +313,51 @@ def test_create_app_syncs_display_transform_availability_before_connecting(monke
     assert captured['applied'] == (fake_gui_state, fake_widgets)
     assert captured['launch_warmup_state'] is fake_gui_state
     assert captured['controller_args'] == (fake_viewer, fake_widgets)
-    assert captured['window_args'] == (fake_viewer, fake_widgets)
+    assert captured['window_args'] == (fake_viewer, fake_widgets, fake_controller)
     assert captured['warmup_scheduled'] is True
     assert app.viewer is fake_viewer
     assert app.widgets is fake_widgets
     assert app.controller is fake_controller
     assert app.main_window is fake_main_window
+
+
+def test_build_main_window_for_app_passes_rotate_callbacks_when_controller_is_available() -> None:
+    captured: dict[str, object] = {}
+    viewer = object()
+    widgets = SimpleNamespace(display=SimpleNamespace(gray_18_canvas=StubToggle(True)))
+    controller = SimpleNamespace(
+        rotate_input_image_counterclockwise=object(),
+        rotate_input_image_clockwise=object(),
+    )
+    fake_controls_panel = object()
+    fake_main_window = object()
+
+    def fake_build_controls_panel(viewer, widgets):
+        captured['panel_args'] = (viewer, widgets)
+        return fake_controls_panel
+
+    def fake_build_main_window(viewer, controls_panel, **kwargs):
+        captured['window_args'] = (viewer, controls_panel, kwargs)
+        return fake_main_window
+
+    main_window = app_module.build_main_window_for_app(
+        viewer=viewer,
+        widgets=widgets,
+        controller=controller,
+        configure_napari_chrome_fn=lambda viewer, *, gray_18_canvas=False: captured.setdefault('chrome', (viewer, gray_18_canvas)),
+        build_controls_panel_fn=fake_build_controls_panel,
+        build_main_window_fn=fake_build_main_window,
+    )
+
+    assert main_window is fake_main_window
+    assert captured['chrome'] == (viewer, True)
+    assert captured['panel_args'] == (viewer, widgets)
+    assert captured['window_args'][0] is viewer
+    assert captured['window_args'][1] is fake_controls_panel
+    assert captured['window_args'][2] == {
+        'on_rotate_ccw': controller.rotate_input_image_counterclockwise,
+        'on_rotate_cw': controller.rotate_input_image_clockwise,
+    }
 
 
 def test_connect_controller_signals_wires_all_widget_events() -> None:

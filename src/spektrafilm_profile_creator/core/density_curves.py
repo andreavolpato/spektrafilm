@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import scipy.stats
+import scipy.optimize
 
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 
@@ -36,7 +37,7 @@ def distribution_model_norm_cdfs(log_exposure, parameters, number_of_layers=3):
     distribution = np.zeros((log_exposure.shape[0], 3))
     for index, (center, amplitude, sigma) in enumerate(zip(centers, amplitudes, sigmas)):
         if index <= number_of_layers - 1:
-            distribution[:, index] += scipy.stats.norm.pdf((log_exposure - center) / sigma) * amplitude
+            distribution[:, index] += scipy.stats.norm.pdf((log_exposure - center) / sigma) * amplitude / sigma
     return distribution
 
 
@@ -126,6 +127,7 @@ def guess_start_and_bounds_norm_cdfs(log_exposure, data, profile_type, support='
             2,
             2,
         ]
+    x0 = np.clip(x0, x_lb, x_ub).tolist()
     return x0, (x_lb, x_ub)
 
 

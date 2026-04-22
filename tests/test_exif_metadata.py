@@ -69,7 +69,7 @@ def test_write_metadata_carries_source_tags_and_sets_overrides(tmp_path, monkeyp
 
     # Overridden tags
     assert exif["Exif.Image.Orientation"] == "1"
-    assert exif["Exif.Image.Software"] == "Spektrafilm"
+    assert exif["Exif.Image.Software"] == "spektrafilm"
     assert exif["Exif.Image.DateTime"] == "2025:06:15 12:30:45"
     assert exif["Exif.Photo.PixelXDimension"] == "16"
     assert exif["Exif.Photo.PixelYDimension"] == "12"
