@@ -36,7 +36,7 @@ params.scanner.white_level = 0.9
 params.settings.use_fast_stats = True
 params.settings.use_enlarger_lut = True
 params.settings.use_scanner_lut = True
-params.settings.lut_resolution = 32
+params.settings.lut_resolution = 17
 params.debug.print_timings = True
 image = simulate(image, params, print_timings=True)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from time import perf_counter
 
 from PIL.ImageQt import rgb
 import numpy as np
@@ -13,6 +14,7 @@ from spektrafilm.runtime.services import (
     ColorReferenceService,
 )
 from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
+from spektrafilm.utils.timings import format_timings
 
 
 
@@ -34,6 +36,7 @@ class SimulationPipeline:
         self.settings = self._params.settings
 
         self.timings = {}
+        self._last_elapsed_time = None
 
         self._resize_service = ResizingService(self.io, self.camera.film_format_mm)
         if not update_params:
@@ -89,11 +92,31 @@ class SimulationPipeline:
 
     def process(self, image):
         """Process an image through the simulation pipeline."""
-        if self.debug.debug_mode == 'off':
-            image = self._pipeline(image)
-        else:
-            image = self._pipeline_debug(image)
-        return image
+        self.timings.clear()
+        start = perf_counter()
+        try:
+            if self.debug.debug_mode == 'off':
+                image = self._pipeline(image)
+            else:
+                image = self._pipeline_debug(image)
+            return image
+        finally:
+            self._last_elapsed_time = perf_counter() - start
+
+    def get_timings(self):
+        return self.timings
+
+    def get_total_elapsed_time(self):
+        return self._last_elapsed_time
+
+    def format_timings(self):
+        return format_timings(
+            self.get_timings(),
+            total_elapsed_time=self.get_total_elapsed_time(),
+        )
+
+    def print_timings(self):
+        print(self.format_timings())
     
     def update(self, params):
         """Update params and re-initialize stages that depend on them."""

@@ -32,7 +32,19 @@ class Simulator:
         
     def get_timings(self):
         """Get the timings of the different stages of the simulation pipeline."""
-        return self._pipeline.timings
+        return self._pipeline.get_timings()
+
+    def get_total_elapsed_time(self):
+        """Get the total wall-clock time of the last process call."""
+        return self._pipeline.get_total_elapsed_time()
+
+    def format_timings(self):
+        """Format the last recorded timings for display."""
+        return self._pipeline.format_timings()
+
+    def print_timings(self):
+        """Print the formatted timings of the last process call."""
+        self._pipeline.print_timings()
 
 
 ######################################################################################
@@ -50,7 +62,7 @@ def simulate(image, params: RuntimePhotoParams,
     simulator = Simulator(params)
     result = simulator.process(image)
     if print_timings:
-        print("Simulation timings:", simulator.get_timings())
+        simulator.print_timings()
     return result
 
 

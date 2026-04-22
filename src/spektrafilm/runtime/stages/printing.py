@@ -37,7 +37,7 @@ class PrintingStage:
 
     # public methods
 
-    @timeit("_expose_print")
+    @timeit("expose")
     def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
         
         cmy_film_black = np.zeros((1,1,3)) - np.array(self._film_render.grain.density_min)
@@ -61,7 +61,7 @@ class PrintingStage:
                                    intensity=self._enlarger.diffusion_filter[2])
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
-    @timeit("_develop_print")
+    @timeit("develop")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
                 
         return develop_simple(

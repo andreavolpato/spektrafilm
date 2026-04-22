@@ -43,7 +43,7 @@ class ScanningStage:
         
     # public methods
 
-    @timeit("_scan")
+    @timeit("scan")
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
         rgb = self._density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
         rgb = self._apply_blur_and_unsharp(rgb)
