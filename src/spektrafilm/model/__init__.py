@@ -1,1 +1,1 @@
-"""Core simulation engine modules for spectral_film_lab."""
+"""Core simulation engine modules for spektrafilm."""

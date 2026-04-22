@@ -13,25 +13,24 @@ image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif'
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
 params = init_params(print_profile='kodak_portra_endura')
 params.io.input_cctf_decoding = False
-params.print_render.glare.active = False
+params.print_render.glare.active = True
 params.debug.deactivate_stochastic_effects = False
 params.camera.exposure_compensation_ev = 0
 params.camera.auto_exposure = True
-params.io.upscale_factor = 3.0
-params.io.full_image = False
+params.io.upscale_factor = 1.0
 params.io.scan_film = False
 params.film_render.grain.agx_particle_area_um2 = 1
 params.enlarger.preflash_exposure = 0.0
 params.enlarger.print_exposure_compensation = True
 params.enlarger.print_exposure = 1.0
-params.film_render.grain.active = False
+params.film_render.grain.active = True
 params.debug.output_film_density_cmy = False
 params.debug.output_print_density_cmy = False
 
-params.scanner.black_correction = True
-params.scanner.white_correction = True
-params.scanner.black_level = 0.0
-params.scanner.white_level = 0.9
+# params.scanner.black_correction = True
+# params.scanner.white_correction = True
+# params.scanner.black_level = 0.0
+# params.scanner.white_level = 0.9
 
 params.settings.use_fast_stats = True
 params.settings.use_enlarger_lut = True

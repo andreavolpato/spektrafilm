@@ -59,7 +59,6 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.grain.active = False
         params.film_render.grain.agx_particle_area_um2 = 0.0
         params.film_render.grain.blur = 0.0
-        params.film_render.halation.size_um = [0.0, 0.0, 0.0]
         params.film_render.halation.scattering_size_um = [0.0, 0.0, 0.0]
         params.print_render.glare.blur = 0.0
         params.camera.lens_blur_um = 0.0
