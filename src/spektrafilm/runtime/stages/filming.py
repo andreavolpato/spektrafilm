@@ -26,7 +26,7 @@ class FilmingStage:
 
     # public methods
 
-    @timeit("_auto_exposure")
+    @timeit("auto_exposure")
     def auto_exposure(self, image: np.ndarray) -> float:
         if self._camera.auto_exposure:
             small_preview = self._resize_service.small_preview(image)
@@ -39,7 +39,7 @@ class FilmingStage:
             return image * 2 ** autoexposure_ev
         return image
 
-    @timeit("_expose_film")
+    @timeit("expose")
     def expose(self, image: np.ndarray) -> np.ndarray:
         raw = self._rgb_to_film_raw(
             image,
@@ -53,7 +53,7 @@ class FilmingStage:
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
 
-    @timeit("_develop_film")
+    @timeit("develop")
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
         return develop(
             log_raw,

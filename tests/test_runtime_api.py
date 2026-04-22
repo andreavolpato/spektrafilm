@@ -5,6 +5,7 @@ import pytest
 
 from spektrafilm import AgXPhoto, Simulator, photo_params, simulate
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm.runtime import pipeline as pipeline_module
 from spektrafilm.runtime import process as process_module
 
 
@@ -46,19 +47,51 @@ class TestRuntimeApi:
     def test_simulate_prints_pipeline_timings(self, monkeypatch, capsys):
         class FakePipeline:
             def __init__(self, params):
-                self.timings = {'label': params.label}
+                del params
+                self.timings = {'previous': 1.0}
+                self._last_elapsed_time = None
 
             def process(self, image):
-                return image
+                self.timings.clear()
+                start = pipeline_module.perf_counter()
+                try:
+                    self.timings['FilmingStage.expose'] = 0.012345
+                    self.timings['ScanningStage.scan'] = 0.0004567
+                    return image
+                finally:
+                    self._last_elapsed_time = pipeline_module.perf_counter() - start
+
+            def get_timings(self):
+                return self.timings
+
+            def get_total_elapsed_time(self):
+                return self._last_elapsed_time
+
+            def format_timings(self):
+                return pipeline_module.format_timings(
+                    self.get_timings(),
+                    total_elapsed_time=self.get_total_elapsed_time(),
+                )
+
+            def print_timings(self):
+                print(self.format_timings())
 
         monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
+        ticks = iter((10.0, 10.1234))
+        monkeypatch.setattr(pipeline_module, 'perf_counter', lambda: next(ticks))
 
         params = SimpleNamespace(label='timed')
 
         result = process_module.simulate('frame', params, digest_params_first=False, print_timings=True)
 
         assert result == 'frame'
-        assert capsys.readouterr().out.strip() == "Simulation timings: {'label': 'timed'}"
+        assert capsys.readouterr().out.strip() == (
+            "Simulation timings\n"
+            "  Total                 123 ms  100.0%\n"
+            "  -------------------  -------  ------\n"
+            "  FilmingStage.expose  \033[31m12.3 ms\033[0m  \033[31m 10.0%\033[0m\n"
+            "  ScanningStage.scan   \033[31m 457 us\033[0m  \033[31m  0.4%\033[0m"
+        )
 
     def test_art_extlut_compatibility_path_runs(self):
         """reference this https://github.com/artraweditor/ART/blob/master/tools/extlut/spektrafilm_mklut.py"""
