@@ -119,23 +119,108 @@ def apply_density_correction_dir_couplers(
     )
     density_max = np.nanmax(density_curves, axis=0)
     diffusion_size_pixel = dir_couplers.diffusion_size_um / pixel_size_um
-    log_raw_0 = compute_exposure_correction_dir_couplers(
-        log_raw,
-        density_cmy,
-        density_max,
-        couplers_matrix,
-        diffusion_size_pixel,
-        high_exposure_couplers_shift=dir_couplers.high_exposure_shift,
-        positive=positive,
-    )
-    return interpolate_exposure_to_density(log_raw_0, density_curves_0, log_exposure, gamma_factor)
 
-# if __name__=='__main__':
-    # # Test the raw correction coupler inhibitors
-    # log_raw = np.ones((4,4,3))
-    # density_cmy = np.ones((4,4,3))
-    # density_max = 2.2
-    # couplers_amount = [0.9,0.7,0.5]
-    # diffusion_size_pixel = 2
-    # log_raw = raw_correction_dir_couplers(log_raw, density_cmy, density_max, couplers_amount, diffusion_size_pixel)
-    # print(log_raw)
+    # Fixed-point iteration for spatial coupling (see notes/dir_couplers_model.md):
+    #     D_{k+1} = D_0(log E - G_xy * (M @ D_k))
+    # One pass is exact when there is no spatial blur; with blur, a few iterations
+    # resolve the edge under-correction from using a stale density on the RHS.
+    n_iter = 3 if getattr(dir_couplers, 'iterate', True) else 1
+    density = density_cmy
+    for _ in range(n_iter):
+        log_raw_0 = compute_exposure_correction_dir_couplers(
+            log_raw,
+            density,
+            density_max,
+            couplers_matrix,
+            diffusion_size_pixel,
+            high_exposure_couplers_shift=dir_couplers.high_exposure_shift,
+            positive=positive,
+        )
+        density = interpolate_exposure_to_density(
+            log_raw_0, density_curves_0, log_exposure, gamma_factor
+        )
+    return density
+
+if __name__ == '__main__':
+    # Compare 1-iteration vs 3-iteration spatial DIR coupling on a sharp edge.
+    # Plots a 1D cross-section of the edge for the G channel.
+    import matplotlib.pyplot as plt
+
+    # Synthetic pre-coupler H&D curve (shared across RGB), gamma_0 = 1.2.
+    log_exposure = np.linspace(-3.0, 2.0, 512)
+    gamma_0 = 1.2
+    d_max = 2.2
+    base_curve = np.clip(gamma_0 * (log_exposure + 1.5), 0.0, d_max)
+    density_curves_0 = np.tile(base_curve[:, None], (1, 3))
+    density_max = np.nanmax(density_curves_0, axis=0)
+
+    # 1D step edge in log exposure (a few rows so the 2D Gaussian behaves normally).
+    H, N = 16, 256
+    log_raw = np.full((H, N, 3), -0.8)
+    log_raw[:, N // 2 :, :] = 0.6
+
+    amount_rgb = np.array([0.42, 0.42, 0.42])
+    couplers_matrix = compute_dir_couplers_matrix(amount_rgb, layer_diffusion=2)
+    diffusion_size_pixel = 6.0
+
+    # Warm-start: converge the 0-D (no spatial blur) fixed point to tolerance
+    # so that flat regions already satisfy D = D_0(log E - M @ D). This matches
+    # the real pipeline, where the incoming density has already been produced
+    # by the full post-coupler H&D lookup and is therefore 0-D-consistent by
+    # construction. The contraction rate here is ~gamma_0 * amount, so a fixed
+    # iteration budget would leak a flat-field residual into the 1-vs-3 plot
+    # once gamma_0 * amount approaches 1; iterating to tolerance keeps it
+    # bounded regardless of the film stock parameters.
+    density_warm = interpolate_exposure_to_density(
+        log_raw, density_curves_0, log_exposure, 1.0
+    )
+    for _ in range(30):
+        log_raw_0 = compute_exposure_correction_dir_couplers(
+            log_raw, density_warm, density_max, couplers_matrix, 0.0,
+        )
+        density_new = interpolate_exposure_to_density(
+            log_raw_0, density_curves_0, log_exposure, 1.0
+        )
+        if np.max(np.abs(density_new - density_warm)) < 1e-6:
+            density_warm = density_new
+            break
+        density_warm = density_new
+
+    def iterate(n_iter):
+        density = density_warm.copy()
+        for _ in range(n_iter):
+            log_raw_0 = compute_exposure_correction_dir_couplers(
+                log_raw, density, density_max, couplers_matrix, diffusion_size_pixel,
+            )
+            density = interpolate_exposure_to_density(
+                log_raw_0, density_curves_0, log_exposure, 1.0
+            )
+        return density
+
+    d_1 = iterate(1)
+    d_3 = iterate(3)
+    d_ref = iterate(15)  # converged reference
+
+    row = H // 2
+    x = np.arange(N)
+    fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(9, 6), sharex=True)
+
+    ax_top.plot(x, d_1[row, :, 1], '--', label='1 iteration')
+    ax_top.plot(x, d_3[row, :, 1], '-',  label='3 iterations')
+    ax_top.plot(x, d_ref[row, :, 1], ':', label='30 iterations (converged)')
+    ax_top.set_ylabel('density (G channel)')
+    ax_top.set_title(
+        f'DIR couplers edge response — amount={amount_rgb.tolist()}, '
+        f'layer_diffusion=2, sigma_xy={diffusion_size_pixel}px'
+    )
+    ax_top.legend()
+
+    ax_bot.plot(x, d_1[row, :, 1] - d_ref[row, :, 1], '--', label='1 iter - converged')
+    ax_bot.plot(x, d_3[row, :, 1] - d_ref[row, :, 1], '-',  label='3 iter - converged')
+    ax_bot.axhline(0, color='k', lw=0.5)
+    ax_bot.set_xlabel('pixel')
+    ax_bot.set_ylabel('Delta density')
+    ax_bot.legend()
+
+    plt.tight_layout()
+    plt.show()
