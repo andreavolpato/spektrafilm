@@ -327,8 +327,8 @@ class GuiController:
         filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
             dialog_parent(self._viewer),
             'Save output image',
-            'output.png',
-            'Images (*.png *.jpg *.jpeg *.exr)',
+            'output.jpg',
+            'Images (*.jpg *.jpeg *.png *.exr)',
         )
         if not filepath:
             return

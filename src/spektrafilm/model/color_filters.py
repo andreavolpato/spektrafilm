@@ -240,6 +240,33 @@ if __name__=="__main__":
     ax_compare.set_title('Durst Digital Light vs Custom Dichroic Filters')
     ax_compare.legend()
     fig_compare.tight_layout()
-    
+
+
+    band_pass = compute_band_pass_filter()
+    negative_profile_name = 'kodak_portra_400'
+    negative_profile = load_profile(negative_profile_name)
+    negative_profile_label = getattr(negative_profile.info, 'name', negative_profile_name)
+    negative_log_sensitivity = np.asarray(negative_profile.data.log_sensitivity, dtype=float)
+    if negative_log_sensitivity.ndim == 2 and negative_log_sensitivity.shape[0] == 3 and negative_log_sensitivity.shape[1] != 3:
+        negative_log_sensitivity = negative_log_sensitivity.T
+    negative_sensitivity = 10 ** negative_log_sensitivity
+    negative_sensitivity /= np.nanmax(negative_sensitivity, axis=0, keepdims=True)
+
+    fig_bp, ax_bp = plt.subplots()
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, band_pass, color='black', label='Band pass filter')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, negative_sensitivity[:, 0], color='tab:red', linestyle='--', label=f'{negative_profile_label} R sensitivity')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, negative_sensitivity[:, 1], color='tab:green', linestyle='--', label=f'{negative_profile_label} G sensitivity')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, negative_sensitivity[:, 2], color='tab:blue', linestyle='--', label=f'{negative_profile_label} B sensitivity')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, band_pass * negative_sensitivity[:, 0], color='tab:red', alpha=0.5, label=f'{negative_profile_label} R after band pass')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, band_pass * negative_sensitivity[:, 1], color='tab:green', alpha=0.5, label=f'{negative_profile_label} G after band pass')
+    ax_bp.plot(SPECTRAL_SHAPE.wavelengths, band_pass * negative_sensitivity[:, 2], color='tab:blue', alpha=0.5, label=f'{negative_profile_label} B after band pass')
+    ax_bp.set_xlabel('Wavelength (nm)')
+    ax_bp.set_ylabel('Transmittance / normalized sensitivity')
+    ax_bp.set_ylim((0, 1.05))
+    ax_bp.set_xlim(np.min(SPECTRAL_SHAPE.wavelengths), np.max(SPECTRAL_SHAPE.wavelengths))
+    ax_bp.set_title(f'Band Pass Filter and {negative_profile_label} Sensitivities')
+    ax_bp.legend(loc='upper right', fontsize='small')
+    fig_bp.tight_layout()
+
     plt.show()
 
