@@ -1,6 +1,7 @@
 import colour
 import numpy as np
 import scipy
+import scipy.optimize
 
 from colour.models import RGB_COLOURSPACE_sRGB
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
@@ -110,16 +111,8 @@ def reconstruct_metameric_neutral(profile, midgray_value=0.184):
     fit = scipy.optimize.least_squares(residues, [1.0, 1.0, 1.0])
     fitted_density = fit.x
     mid = midscale_neutral(fitted_density)
-    updated_profile = profile.update(
-        info={
-            'fitted_cmy_midscale_neutral_density': fitted_density,
-        },
-        data={
-            # 'channel_density': channel_density * density_scale,
-            'midscale_neutral_density': mid,
-            # 'density_curves': data.density_curves / density_scale,
-        },
-    )
+    updated_profile = profile.update_info(fitted_cmy_midscale_neutral_density=np.array(fitted_density))
+    updated_profile = updated_profile.update_data(midscale_neutral_density=mid)
     log_event(
         'reconstruct_metameric_neutral',
         updated_profile,
@@ -176,7 +169,7 @@ def prelminary_neutral_shift(profile, per_channel_shift=False):
 
     updated_profile = profile.update_data(density_curves=density_curves)
     log_event(
-        'preliminary_match_density_curves_to_midscale_neutral',
+        'prelminary_neutral_shift',
         updated_profile,
         status_density_midscale_neutral=status_density_midscale_neutral,
         log_exposure_correction=log_exposure_correction,

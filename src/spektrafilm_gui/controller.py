@@ -228,6 +228,25 @@ class GuiController:
             hide_output=False,
         )
 
+    def rotate_input_image_clockwise(self) -> None:
+        self._rotate_input_image(quarter_turns=-1)
+
+    def rotate_input_image_counterclockwise(self) -> None:
+        self._rotate_input_image(quarter_turns=1)
+
+    def _rotate_input_image(self, *, quarter_turns: int) -> None:
+        input_image = self._current_input_image
+        if input_image is None:
+            return
+
+        rotated_image = np.rot90(np.asarray(input_image), k=int(quarter_turns))
+        self._update_preview_cache(
+            rotated_image,
+            home_input_stack=True,
+            hide_output=True,
+        )
+        self._request_auto_preview_if_enabled()
+
     def apply_profile_defaults(self, _selected_value: str) -> None:
         state = collect_gui_state(widgets=self._widgets)
         if not state.simulation.film_stock or not state.simulation.print_paper:
