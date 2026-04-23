@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from spektrafilm.profiles.io import Profile
 from spektrafilm_profile_creator.core.balancing import (
-    reconstruct_metameric_neutral, balance_film_sensitivity,
+    reconstruct_metameric_neutral,
+    balance_film_sensitivity,
     balance_print_sensitivity,
     prelminary_neutral_shift
 )
-from spektrafilm_profile_creator.core.densitometer import unmix_density, densitometer_normalization
+from spektrafilm_profile_creator.core.densitometer import (
+    unmix_density,
+    densitometer_normalization,
+    unmix_sensitivity,
+    fill_missing_sensitivity
+)
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import (
     remove_density_min,
@@ -36,12 +42,15 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         # channel density
         profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
         profile = densitometer_normalization(profile)
-        # sensitivity
-        profile = balance_film_sensitivity(profile)
         # density curves
         profile = remove_density_min(profile)
         profile = prelminary_neutral_shift(profile)
         profile = unmix_density(profile)
+        # sensitivity
+        profile = unmix_sensitivity(profile)
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_film_sensitivity(profile)
+        # final refinement
         profile = refine_negative_film(
             profile,
             target_print=raw_profile.info.target_print,
@@ -59,11 +68,14 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
         profile = densitometer_normalization(profile)
-        # sensitivity
-        profile = balance_film_sensitivity(profile)
         # density curves
         profile = prelminary_neutral_shift(profile, per_channel_shift=False)
         profile = unmix_density(profile)
+        # sensitivity
+        # profile = unmix_sensitivity(profile) # not working for now
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_film_sensitivity(profile)
+        # final refinement
         profile = refine_positive_film(
             profile,
             stretch_curves=recipe.stretch_curves,
@@ -80,11 +92,14 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
         profile = densitometer_normalization(profile)
-        # sensitivity
-        profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
         # density curves
         profile = prelminary_neutral_shift(profile, per_channel_shift=recipe.neutral_log_exposure_correction)
         profile = unmix_density(profile)
+        # sensitivity
+        profile = unmix_sensitivity(profile)
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
+        # final refinement
         profile = refine_negative_print(
             profile,
             target_film=recipe.target_film,

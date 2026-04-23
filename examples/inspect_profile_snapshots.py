@@ -13,11 +13,11 @@ def main():
     # launch_process_snapshot_viewer('kodak_vision3_250d')
     # launch_process_snapshot_viewer('kodak_ultra_endura')
     # launch_process_snapshot_viewer('fujifilm_crystal_archive_typeii')
-    launch_process_snapshot_viewer('kodak_2393')
+    # launch_process_snapshot_viewer('kodak_2393')
     # launch_process_snapshot_viewer('fujifilm_c200')
     # launch_process_snapshot_viewer('fujifilm_xtra_400')
     # launch_process_snapshot_viewer('kodak_verita_200d')
-    # launch_process_snapshot_viewer('kodak_portra_endura')
+    launch_process_snapshot_viewer('kodak_portra_endura')
 
 
 

@@ -1,10 +1,11 @@
+import json
 import numpy as np
 import pytest
 import ast
 import inspect
 
 from spektrafilm.model import stocks
-from spektrafilm.profiles.io import Profile, load_profile, profile_to_dict, profile_from_dict
+from spektrafilm.profiles.io import Profile, _json_safe, load_profile, profile_to_dict, profile_from_dict
 
 
 class TestLoadProfile:
@@ -55,6 +56,14 @@ class TestLoadProfile:
         assert profile_rt.info.stock == portra_400_profile.info.stock
         assert np.array(profile_rt.data.log_exposure).shape == portra_400_profile.data.log_exposure.shape
         assert np.array(profile_rt.data.density_curves).shape == portra_400_profile.data.density_curves.shape
+
+    def test_profile_json_payload_converts_nan_to_null(self, portra_400_profile):
+        profile = portra_400_profile.clone()
+        profile.data.log_sensitivity[0, 0] = np.nan
+
+        payload = json.dumps(_json_safe(profile_to_dict(profile)), allow_nan=False)
+
+        assert 'null' in payload
 
     def test_profile_constructor_rejects_dict_payloads(self):
         with pytest.raises(TypeError, match='ProfileInfo'):

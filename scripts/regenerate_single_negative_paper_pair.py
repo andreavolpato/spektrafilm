@@ -10,7 +10,7 @@ from spektrafilm_profile_creator import (
 )
 
 
-FILM_STOCK = 'kodak_gold_200'
+FILM_STOCK = 'kodak_ektachrome_100'
 PRINT_PAPER = 'kodak_portra_endura' 
 ILLUMINANT = Illuminants.lamp.value
 REFERENCE_IMAGE = 'img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif'
