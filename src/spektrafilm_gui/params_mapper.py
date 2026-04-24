@@ -70,6 +70,9 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_halation(params: RuntimePhotoParams, state: GuiState) -> None:
     params.film_render.halation.active = state.halation.active
+    params.film_render.halation.boost_ev = state.halation.boost_ev
+    params.film_render.halation.protect_ev = state.halation.protect_ev
+    params.film_render.halation.boost_range = state.halation.boost_range
     params.film_render.halation.strength = np.array(state.halation.halation_strength) / 100.0
     params.film_render.halation.size_um = np.array(state.halation.halation_size_um)
     params.film_render.halation.scattering_strength = np.array(state.halation.scattering_strength) / 100.0

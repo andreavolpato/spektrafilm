@@ -34,6 +34,9 @@ PROFILE_SYNC_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     'halation': (
         'active',
+        'boost_ev',
+        'protect_ev',
+        'boost_range',
         'scattering_strength',
         'scattering_size_um',
         'halation_strength',

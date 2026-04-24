@@ -62,10 +62,13 @@ class GrainParams:
 @dataclass
 class HalationParams:
     active: bool = True
-    strength: tuple[float, float, float] = (0.03, 0.003, 0.001)
-    size_um: tuple[float, float, float] = (200.0, 200.0, 200.0)
-    scattering_strength: tuple[float, float, float] = (0.01, 0.02, 0.04)
-    scattering_size_um: tuple[float, float, float] = (30.0, 20.0, 15.0)
+    scattering_strength: tuple[float, float, float] = (0.05, 0.05, 0.05)
+    scattering_size_um: tuple[float, float, float] = (40.0, 40.0, 40.0)
+    boost_ev: float = 0.0
+    protect_ev: float = 4.0
+    boost_range: float = 0.3
+    strength: tuple[float, float, float] = (0.1, 0.0, 0.0)
+    size_um: tuple[float, float, float] = (250.0, 250.0, 250.0)
 
 
 @dataclass

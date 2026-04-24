@@ -226,6 +226,22 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "halation": {
+        "boost_ev": WidgetSpec(
+            tooltip="Maximum highlight boost in stops.",
+            min_value=0,
+            step=0.5,
+        ),
+        "protect_ev": WidgetSpec(
+            tooltip="Protected range above midgray for the boost onset in stops.",
+            min_value=0,
+            step=0.5,
+        ),
+        "boost_range": WidgetSpec(
+            tooltip="Controls how quickly the highlight boost ramps in, from 0 to 1.",
+            min_value=0,
+            max_value=1,
+            step=0.05,
+        ),
         "scattering_strength": WidgetSpec(
             tooltip="Fraction of scattered light (0-100, percentage) for each channel [R,G,B]",
             min_value=0,
