@@ -2,6 +2,7 @@ from spektrafilm.utils.fast_stats import warmup_fast_stats
 from spektrafilm.utils.lut import warmup_luts
 from spektrafilm.utils.fast_interp import warmup_fast_interp
 from spektrafilm.utils.fast_gaussian_filter import warmup_fast_gaussian_filter
+from spektrafilm.utils.numba_boost_hightlights import warmup_boost_highlights
 
 # precompile numba functions
 def warmup():
@@ -9,4 +10,4 @@ def warmup():
     warmup_luts()
     warmup_fast_interp()
     warmup_fast_gaussian_filter()
-
+    warmup_boost_highlights()

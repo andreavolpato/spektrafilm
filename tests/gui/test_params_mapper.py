@@ -53,11 +53,17 @@ def test_build_params_maps_scanner_corrections() -> None:
 
 def test_build_params_converts_halation_percentages_to_fractions() -> None:
     state = make_state()
+    state.halation.boost_ev = 1.25
+    state.halation.protect_ev = 2.5
+    state.halation.boost_range = 0.35
     state.halation.halation_strength = (12.0, 6.0, 3.0)
     state.halation.scattering_strength = (8.0, 4.0, 2.0)
 
     params = build_params_from_state(state)
 
+    assert params.film_render.halation.boost_ev == 1.25
+    assert params.film_render.halation.protect_ev == 2.5
+    assert params.film_render.halation.boost_range == 0.35
     np.testing.assert_allclose(params.film_render.halation.strength, np.array([0.12, 0.06, 0.03]))
     np.testing.assert_allclose(params.film_render.halation.scattering_strength, np.array([0.08, 0.04, 0.02]))
 
@@ -109,6 +115,9 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
 
     assert state.grain.blur == 0.65
     assert state.grain.micro_structure == (0.2, 30)
+    assert state.halation.boost_ev == 0.0
+    assert state.halation.protect_ev == 3.0
+    assert state.halation.boost_range == 0.2
     assert state.halation.halation_strength == (3.0, 0.3, 0.1)
     assert state.input_image.crop_size == (0.1, 0.1)
     assert state.simulation.output_color_space == 'sRGB'

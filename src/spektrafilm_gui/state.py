@@ -56,6 +56,9 @@ class PreflashingState:
 @dataclass(slots=True)
 class HalationState:
     active: bool
+    boost_ev: float
+    protect_ev: float
+    boost_range: float
     scattering_strength: tuple[float, float, float]
     scattering_size_um: tuple[float, float, float]
     halation_strength: tuple[float, float, float]
@@ -205,6 +208,9 @@ def gui_state_from_params(
         ),
         halation=HalationState(
             active=params.film_render.halation.active,
+            boost_ev=params.film_render.halation.boost_ev,
+            protect_ev=params.film_render.halation.protect_ev,
+            boost_range=params.film_render.halation.boost_range,
             scattering_strength=tuple(value * 100.0 for value in params.film_render.halation.scattering_strength),
             scattering_size_um=tuple(params.film_render.halation.scattering_size_um),
             halation_strength=tuple(value * 100.0 for value in params.film_render.halation.strength),

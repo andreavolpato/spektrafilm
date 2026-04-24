@@ -2,7 +2,7 @@ import numpy as np
 import scipy.ndimage
 from scipy.interpolate import PchipInterpolator
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
-# from spektrafilm.utils.fft_gaussian_filter import fft_gaussian_filter
+from spektrafilm.utils.numba_boost_hightlights import boost_highlights
 
 def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
     """
@@ -44,6 +44,17 @@ def apply_halation_um(raw, halation, pixel_size_um):
     
     if halation.active:
         # for i in np.arange(3):
+            # if scattering_strength[i]>0:
+            #     raw[:,:,i] += scattering_strength[i]*scipy.ndimage.gaussian_filter(raw[:,:,i], scattering_size_pixel[i], truncate=7)
+            #     raw[:,:,i] /= (1+scattering_strength[i])
+        if np.any(scattering_strength>0):
+            raw += fast_gaussian_filter(raw, scattering_size_pixel)*scattering_strength
+            raw /= (1+scattering_strength)
+
+        # boost hightlights to make halation more visible
+        boost_highlights(raw, halation.boost_ev, halation.boost_range, halation.protect_ev, out=raw)
+        
+        # for i in np.arange(3):
         #     if halation_strength[i]>0:
         #         raw[:,:,i] += halation_strength[i]*scipy.ndimage.gaussian_filter(raw[:,:,i], halation_size_pixel[i], truncate=7)
         #         raw[:,:,i] /= (1+halation_strength[i])
@@ -51,13 +62,6 @@ def apply_halation_um(raw, halation, pixel_size_um):
             raw += fast_gaussian_filter(raw, halation_size_pixel, truncate=7)*halation_strength
             raw /= (1+halation_strength)
                 
-        # for i in np.arange(3):
-            # if scattering_strength[i]>0:
-            #     raw[:,:,i] += scattering_strength[i]*scipy.ndimage.gaussian_filter(raw[:,:,i], scattering_size_pixel[i], truncate=7)
-            #     raw[:,:,i] /= (1+scattering_strength[i])
-        if np.any(scattering_strength>0):
-            raw += fast_gaussian_filter(raw, scattering_size_pixel)*scattering_strength
-            raw /= (1+scattering_strength)
         
     return raw
 
