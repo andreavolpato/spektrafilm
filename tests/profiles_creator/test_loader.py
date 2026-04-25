@@ -25,12 +25,12 @@ pytestmark = pytest.mark.integration
         'expected_neutral_ramp_refinement',
     ),
     [
-        ('kodak_portra_400', 'negative', 'film', 'filming', 'photo', None, 'kodak_portra_endura', 1.0, False, False, True),
-        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'photo', 'kodak_portra_400', None, None, False, None, True),
+        ('kodak_portra_400', 'negative', 'film', 'filming', 'still', None, 'kodak_portra_endura', 1.0, False, False, True),
+        ('kodak_portra_endura', 'negative', 'paper', 'printing', 'still', 'kodak_portra_400', None, None, False, None, True),
         ('kodak_2383', 'negative', 'film', 'printing', 'cine', 'kodak_vision3_250d', None, None, False, None, True),
-        ('fujifilm_c200', 'negative', 'film', 'filming', 'photo', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
-        ('fujifilm_pro_400h', 'negative', 'film', 'filming', 'photo', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
-        ('kodak_ektachrome_100', 'positive', 'film', 'filming', 'photo', None, None, None, False, None, True),
+        ('fujifilm_c200', 'negative', 'film', 'filming', 'still', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
+        ('fujifilm_pro_400h', 'negative', 'film', 'filming', 'still', None, 'fujifilm_crystal_archive_typeii', 0.3, False, False, True),
+        ('kodak_ektachrome_100', 'positive', 'film', 'filming', 'still', None, None, None, False, None, True),
     ],
     ids=['portra-film', 'portra-paper', 'vision-print-film', 'fuji-c200', 'fuji-pro-400h', 'ektachrome-positive'],
 )
@@ -87,7 +87,7 @@ def test_load_raw_profile_reads_reconstruct_model_from_recipe(monkeypatch: pytes
                 'type': 'negative',
                 'support': 'film',
                 'stage': 'filming',
-                'use': 'photo',
+                'use': 'still',
                 'target_print': 'kodak_portra_endura',
                 'channel_model': 'color',
             },
@@ -128,7 +128,7 @@ def test_load_raw_profile_manifest_reads_root_payload(monkeypatch: pytest.Monkey
 
     manifest_payload = {
         'name': 'Test Stock',
-        'profile': {'stage': 'filming', 'use': 'photo', 'target_print': 'kodak_portra_endura'},
+        'profile': {'stage': 'filming', 'use': 'still', 'target_print': 'kodak_portra_endura'},
     }
 
     monkeypatch.setattr(loader_module, 'load_stock_catalog', lambda: {'test_stock': 'fake.package'})

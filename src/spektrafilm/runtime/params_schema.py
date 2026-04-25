@@ -62,22 +62,36 @@ class GrainParams:
 @dataclass
 class HalationParams:
     active: bool = True
-    scattering_strength: tuple[float, float, float] = (0.05, 0.05, 0.05)
-    scattering_size_um: tuple[float, float, float] = (40.0, 40.0, 40.0)
+    # high-level scalars (default 1.0 preserves the physical low-level defaults)
+    scatter_amount: float = 1.0
+    scatter_spatial_scale: float = 1.0
+    halation_amount: float = 1.0
+    halation_spatial_scale: float = 1.0
+    # in-emulsion scatter — energy-preserving mixture: Gaussian core + exponential
+    # tail (scatter_tail_um is the exponential decay constant, internally
+    # dispatched to a Gaussian mixture by fast_exponential_filter)
+    scatter_core_um: tuple[float, float, float] = (2.6, 2.3, 1.8)
+    scatter_tail_um: tuple[float, float, float] = (8.8, 7.0, 6.4)
+    scatter_tail_weight: tuple[float, float, float] = (0.74, 0.64, 0.64)
+    # highlight boost — reconstructs pre-clip irradiance before propagation
     boost_ev: float = 0.0
-    protect_ev: float = 4.0
     boost_range: float = 0.3
-    strength: tuple[float, float, float] = (0.1, 0.0, 0.0)
-    size_um: tuple[float, float, float] = (250.0, 250.0, 250.0)
+    protect_ev: float = 4.0
+    # back-reflection halation — additive sum of N Gaussians with sqrt(k) widths
+    halation_strength: tuple[float, float, float] = (0.05, 0.015, 0.0)
+    halation_first_sigma_um: tuple[float, float, float] = (65.0, 65.0, 65.0)
+    halation_n_bounces: int = 3
+    halation_bounce_decay: float = 0.5
+    halation_renormalize: bool = True
 
 
 @dataclass
 class DirCouplersParams:
     active: bool = True
-    amount: float = 1.0
+    amount: float = 1.7
     ratio_rgb: tuple[float, float, float] = None # set in digest_params
     diffusion_interlayer: float = 2.0
-    diffusion_size_um: float = 10.0
+    diffusion_size_um: float = 20
     high_exposure_shift: float = 0.0
 
 

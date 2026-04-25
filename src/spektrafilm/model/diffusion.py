@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.ndimage
 from scipy.interpolate import PchipInterpolator
-from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
+from spektrafilm.utils.fast_gaussian_filter import fast_exponential_filter, fast_gaussian_filter
 from spektrafilm.utils.numba_boost_hightlights import boost_highlights
 
 def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
@@ -23,46 +23,64 @@ def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
 
 
 def apply_halation_um(raw, halation, pixel_size_um):
+    """Apply highlight boost, in-emulsion scatter, and back-reflection halation.
+
+    Ordering is boost -> scatter -> halation: the boost reconstructs pre-clip
+    irradiance (what actually hit the emulsion), scatter propagates that
+    irradiance through the absorbing emulsion as an energy-preserving
+    two-Gaussian mixture (core + tail), and halation adds back-reflected
+    light as an additive sum of N Gaussians with sqrt(k)-spaced widths.
+
+    See notes/halation_physics_model.md and notes/halation_implementation_plan.md
+    for the physical derivation and parameter priors.
     """
-    Apply a halation effect to an image.
+    if not halation.active:
+        return raw
 
-    Parameters:
-    raw (numpy.ndarray): The input image array with shape (height, width, channels).
-    halation_size (list or tuple): The size of the halation effect for each channel.
-    halation_strength (list or tuple): The strength of the halation effect for each channel.
-    scattering_size (list or tuple, optional): The size of the scattering effect for each channel. Default is [0, 0, 0].
-    scattering_strength (list or tuple, optional): The strength of the scattering effect for each channel. Default is [0, 0, 0].
+    # 1. Highlight boost — before any propagation, since it is reconstructing
+    #    the pre-clip input irradiance.
+    boost_highlights(raw, halation.boost_ev, halation.boost_range, halation.protect_ev, out=raw)
 
-    Returns:
-    numpy.ndarray: The image array with the halation effect applied.
-    """
-    
-    halation_size_pixel = np.array(halation.size_um) / pixel_size_um
-    halation_strength = np.array(halation.strength)
-    scattering_size_pixel = np.array(halation.scattering_size_um) / pixel_size_um
-    scattering_strength = np.array(halation.scattering_strength)
-    
-    if halation.active:
-        # for i in np.arange(3):
-            # if scattering_strength[i]>0:
-            #     raw[:,:,i] += scattering_strength[i]*scipy.ndimage.gaussian_filter(raw[:,:,i], scattering_size_pixel[i], truncate=7)
-            #     raw[:,:,i] /= (1+scattering_strength[i])
-        if np.any(scattering_strength>0):
-            raw += fast_gaussian_filter(raw, scattering_size_pixel)*scattering_strength
-            raw /= (1+scattering_strength)
+    # 2. Scatter pass — energy-preserving mixture of a Gaussian core and an
+    #    exponential tail (matching measured film MTFs), blended with the
+    #    identity by scatter_amount to model the fraction of photons that
+    #    actually scatter:
+    #    E1 = (1 - s) * E0  +  s * [(1 - w_s) * G(sigma_c) * E0 + w_s * Exp(lambda_t) * E0]
+    #    where s = scatter_amount. sigma_c and lambda_t are both scaled by
+    #    scatter_spatial_scale; lambda_t is the decay constant of the
+    #    exponential, dispatched internally to a Gaussian mixture.
+    s_amount = float(halation.scatter_amount)
+    s_scale = float(halation.scatter_spatial_scale)
+    w_s = np.asarray(halation.scatter_tail_weight, dtype=np.float64)
+    sigma_c_px = np.asarray(halation.scatter_core_um, dtype=np.float64) * s_scale / pixel_size_um
+    lambda_t_px = np.asarray(halation.scatter_tail_um, dtype=np.float64) * s_scale / pixel_size_um
+    if s_amount > 0 and (np.any(sigma_c_px > 0) or np.any(lambda_t_px > 0)):
+        core = fast_gaussian_filter(raw, np.maximum(sigma_c_px, 1e-6))
+        tail = fast_exponential_filter(raw, np.maximum(lambda_t_px, 1e-6))
+        scattered = (1.0 - w_s) * core + w_s * tail
+        raw = (1.0 - s_amount) * raw + s_amount * scattered
 
-        # boost hightlights to make halation more visible
-        boost_highlights(raw, halation.boost_ev, halation.boost_range, halation.protect_ev, out=raw)
-        
-        # for i in np.arange(3):
-        #     if halation_strength[i]>0:
-        #         raw[:,:,i] += halation_strength[i]*scipy.ndimage.gaussian_filter(raw[:,:,i], halation_size_pixel[i], truncate=7)
-        #         raw[:,:,i] /= (1+halation_strength[i])
-        if np.any(halation_strength>0):
-            raw += fast_gaussian_filter(raw, halation_size_pixel, truncate=7)*halation_strength
-            raw /= (1+halation_strength)
-                
-        
+    # 3. Halation pass — additive multi-bounce sum scaled by halation_amount:
+    #    E2 = E1 + halation_amount * Σ_{k=1..N} a_k * G(sigma_h * sqrt(k)) * E1
+    #    with a_k = a_tot * ρ^(k-1) / Σ_j ρ^(j-1) and sigmas scaled by
+    #    halation_spatial_scale.
+    h_amount = float(halation.halation_amount)
+    h_scale = float(halation.halation_spatial_scale)
+    a_tot = np.asarray(halation.halation_strength, dtype=np.float64) * h_amount
+    sigma_h_px = np.asarray(halation.halation_first_sigma_um, dtype=np.float64) * h_scale / pixel_size_um
+    N = int(halation.halation_n_bounces)
+    rho = float(halation.halation_bounce_decay)
+    if N >= 1 and np.any(a_tot > 0) and np.any(sigma_h_px > 0):
+        decay = np.array([rho ** (k - 1) for k in range(1, N + 1)], dtype=np.float64)
+        decay /= decay.sum()
+        halation_blur = np.zeros_like(raw)
+        for k, wk in zip(range(1, N + 1), decay):
+            sigma_k_px = np.maximum(sigma_h_px * np.sqrt(k), 1e-6)
+            halation_blur += wk * fast_gaussian_filter(raw, sigma_k_px)
+        raw = raw + a_tot * halation_blur
+        if halation.halation_renormalize:
+            raw = raw / (1.0 + a_tot)
+
     return raw
 
 def apply_gaussian_blur(data, sigma):

@@ -95,8 +95,9 @@ class TestSimulatorDebugSwitches:
 
         digest_params(params)
 
-        assert params.film_render.halation.size_um == [0, 0, 0]
-        assert params.film_render.halation.scattering_size_um == [0, 0, 0]
+        assert params.film_render.halation.scatter_core_um == (0.0, 0.0, 0.0)
+        assert params.film_render.halation.scatter_tail_um == (0.0, 0.0, 0.0)
+        assert params.film_render.halation.halation_first_sigma_um == (0.0, 0.0, 0.0)
         assert params.film_render.dir_couplers.diffusion_size_um == 0
         assert params.film_render.grain.blur == 0.0
         assert params.film_render.grain.blur_dye_clouds_um == 0.0
@@ -124,6 +125,54 @@ class TestDigestParamsFilmDefaults:
         digest_params(params)
 
         assert params.io.scan_film is True
+
+    def test_halation_preset_picks_still_weak_for_kodak_gold_200(self):
+        params = digest_params(init_params(film_profile='kodak_gold_200'))
+        assert params.film.info.use == 'still'
+        assert params.film.info.antihalation == 'weak'
+        assert params.film_render.halation.halation_first_sigma_um == (65.0, 65.0, 65.0)
+        assert params.film_render.halation.halation_strength == (0.08, 0.02, 0.0)
+
+    def test_halation_preset_picks_still_strong_for_kodak_portra_400(self):
+        params = digest_params(init_params(film_profile='kodak_portra_400'))
+        assert params.film.info.use == 'still'
+        assert params.film.info.antihalation == 'strong'
+        assert params.film_render.halation.halation_first_sigma_um == (65.0, 65.0, 65.0)
+        assert params.film_render.halation.halation_strength == (0.015, 0.005, 0.0)
+
+    def test_halation_preset_picks_cine_strong_for_kodak_vision3_250d(self):
+        params = digest_params(init_params(film_profile='kodak_vision3_250d'))
+        assert params.film.info.use == 'cine'
+        assert params.film.info.antihalation == 'strong'
+        assert params.film_render.halation.halation_first_sigma_um == (50.0, 50.0, 50.0)
+        assert params.film_render.halation.halation_strength == (0.015, 0.005, 0.0)
+
+    def test_halation_preset_covers_cine_no_for_cinestill_like_stocks(self):
+        # Cinestill = Vision3 with rem-jet removed. Base is still PET (cine sigma_h),
+        # but the antihalation layer is gone (no strength).
+        params = init_params(film_profile='kodak_vision3_250d')
+        params.film.info.antihalation = 'no'
+        digest_params(params)
+        assert params.film_render.halation.halation_first_sigma_um == (50.0, 50.0, 50.0)
+        assert params.film_render.halation.halation_strength == (0.30, 0.10, 0.015)
+
+    def test_halation_preset_covers_still_no_for_redscale_like_stocks(self):
+        # Redscale reverses the film so the antihalation backing faces the lens,
+        # effectively disabling it. Base is still triacetate (still sigma_h).
+        params = init_params(film_profile='kodak_portra_400')
+        params.film.info.antihalation = 'no'
+        digest_params(params)
+        assert params.film_render.halation.halation_first_sigma_um == (65.0, 65.0, 65.0)
+        assert params.film_render.halation.halation_strength == (0.30, 0.10, 0.015)
+
+    def test_halation_preset_covers_cine_weak_for_older_cine_stocks(self):
+        # Older cine stocks (pre-Vision3 ECN negatives) kept a PET base but had
+        # less effective antihalation than the modern line.
+        params = init_params(film_profile='kodak_vision3_250d')
+        params.film.info.antihalation = 'weak'
+        digest_params(params)
+        assert params.film_render.halation.halation_first_sigma_um == (50.0, 50.0, 50.0)
+        assert params.film_render.halation.halation_strength == (0.08, 0.02, 0.0)
 
     def test_missing_neutral_filter_database_entry_keeps_current_filters(self, monkeypatch):
         params = init_params()

@@ -39,8 +39,8 @@ def _profile_use_text_and_color(profile_name: str) -> tuple[str, str]:
         return '', ACCENT_COLOR_TEXT
     if info.is_cine:
         return 'cine', ACCENT_COLOR_TEXT_SECONDARY
-    if info.is_photo:
-        return 'photo', ACCENT_COLOR_TEXT
+    if info.is_still:
+        return 'still', ACCENT_COLOR_TEXT
     return '', ACCENT_COLOR_TEXT
 
 

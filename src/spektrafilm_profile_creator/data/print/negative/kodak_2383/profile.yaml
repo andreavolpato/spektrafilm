@@ -4,6 +4,7 @@ profile:
   support: film
   stage: printing
   use: cine
+  antihalation: strong
   channel_model: color
   densitometer: status_A
   log_sensitivity_density_over_min: 1.0

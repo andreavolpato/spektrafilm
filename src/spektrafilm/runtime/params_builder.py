@@ -59,7 +59,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.grain.active = False
         params.film_render.grain.agx_particle_area_um2 = 0.0
         params.film_render.grain.blur = 0.0
-        # params.film_render.halation.scattering_size_um = [0.0, 0.0, 0.0]
+        # scatter/halation kernel sigmas are preserved in preview mode
         params.print_render.glare.blur = 0.0
         params.camera.lens_blur_um = 0.0
         params.scanner.lens_blur = 0.0
@@ -71,8 +71,9 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     
     # debug switches
     if params.debug.deactivate_spatial_effects:
-        params.film_render.halation.size_um = [0, 0, 0]
-        params.film_render.halation.scattering_size_um = [0, 0, 0]
+        params.film_render.halation.scatter_core_um = (0.0, 0.0, 0.0)
+        params.film_render.halation.scatter_tail_um = (0.0, 0.0, 0.0)
+        params.film_render.halation.halation_first_sigma_um = (0.0, 0.0, 0.0)
         params.film_render.dir_couplers.diffusion_size_um = 0
         params.film_render.grain.blur = 0.0
         params.film_render.grain.blur_dye_clouds_um = 0.0
@@ -110,16 +111,59 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     # define here all the specifics to stocks that should be applied in params.film_render
     if params.film.is_positive:
         params.film_render.dir_couplers.ratio_rgb = (0.38, 0.26, 0.17)
-        
+
     if params.film.is_negative:
         params.film_render.dir_couplers.ratio_rgb = (0.42, 0.42, 0.42)
+
+    _apply_halation_preset(params)
 
     # stock specifics overrides
     if params.film.info.stock == "fujifilm_velvia_100":
         params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 0.9
     if params.film.info.stock == "fujifilm_provia_100f":
         params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 1.3
+        
+        
+    # if params.film.info.stock == "kodak_portra_400":
+    #     params.film_render.halation.scatter_core_um = (3.5, 2.2, 1.9)
     return params
+
+
+# Halation low-level presets keyed by (use, antihalation). These set the
+# physical baselines from notes/halation_implementation_plan.md §5-§6.1;
+# the user-facing knobs (scatter_amount, scatter_spatial_scale,
+# halation_amount, halation_spatial_scale) remain at 1.0 and let the user
+# push the effect stronger or weaker without editing the low-level
+# parameters.
+#
+# sigma_h is set by the base material:
+#   still -> triacetate, 120-140 um thick -> sigma_h ~= 65 um
+#   cine  -> PET,        95-125 um thick -> sigma_h ~= 50 um
+# halation_strength is set by the antihalation layer, from §5 ranges:
+#   strong -> Vision3, modern colour neg: a1^R ~ 0.005-0.02
+#   weak   -> older / mismatched AH:       a1^R ~ 0.02-0.08
+#   no     -> rem-jet removed / redscale:  a1^R ~ 0.08-0.25
+# Strength values below are a1 midpoints * 1/(1-rho) with rho=0.5 (~2x a1).
+_HALATION_PRESETS: dict[tuple[str, str], dict[str, tuple[float, float, float]]] = {
+    ('still', 'strong'): {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.015, 0.005, 0.0)},
+    ('still', 'weak'):   {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.08,  0.02,  0.0)},
+    ('still', 'no'):     {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.30,  0.10,  0.015)},
+    ('cine',  'strong'): {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.015, 0.005, 0.0)},
+    ('cine',  'weak'):   {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.08,  0.02,  0.0)},
+    ('cine',  'no'):     {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.30,  0.10,  0.015)},
+}
+
+
+def _apply_halation_preset(params: RuntimePhotoParams) -> None:
+    """Seed low-level halation parameters from the profile's use/antihalation tags."""
+    if not params.film.is_film:
+        return
+    info = params.film.info
+    preset = _HALATION_PRESETS.get((info.use, info.antihalation))
+    if preset is None:
+        return
+    params.film_render.halation.halation_first_sigma_um = preset['sigma_h']
+    params.film_render.halation.halation_strength = preset['strength']
 
 def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply print specific settings to the params."""

@@ -56,13 +56,25 @@ class PreflashingState:
 @dataclass(slots=True)
 class HalationState:
     active: bool
+    # high-level knobs (intended for the simplified GUI)
+    scatter_amount: float
+    scatter_spatial_scale: float
+    halation_amount: float
+    halation_spatial_scale: float
+    # highlight boost
     boost_ev: float
     protect_ev: float
     boost_range: float
-    scattering_strength: tuple[float, float, float]
-    scattering_size_um: tuple[float, float, float]
-    halation_strength: tuple[float, float, float]
-    halation_size_um: tuple[float, float, float]
+    # scatter (low-level, developer GUI)
+    scatter_core_um: tuple[float, float, float]
+    scatter_tail_um: tuple[float, float, float]
+    scatter_tail_weight: tuple[float, float, float]  # stored 0-100 percent
+    # halation (low-level, developer GUI)
+    halation_strength: tuple[float, float, float]  # stored 0-100 percent
+    halation_first_sigma_um: tuple[float, float, float]
+    halation_n_bounces: int
+    halation_bounce_decay: float
+    halation_renormalize: bool
 
 
 @dataclass(slots=True)
@@ -208,13 +220,21 @@ def gui_state_from_params(
         ),
         halation=HalationState(
             active=params.film_render.halation.active,
+            scatter_amount=params.film_render.halation.scatter_amount,
+            scatter_spatial_scale=params.film_render.halation.scatter_spatial_scale,
+            halation_amount=params.film_render.halation.halation_amount,
+            halation_spatial_scale=params.film_render.halation.halation_spatial_scale,
             boost_ev=params.film_render.halation.boost_ev,
             protect_ev=params.film_render.halation.protect_ev,
             boost_range=params.film_render.halation.boost_range,
-            scattering_strength=tuple(value * 100.0 for value in params.film_render.halation.scattering_strength),
-            scattering_size_um=tuple(params.film_render.halation.scattering_size_um),
-            halation_strength=tuple(value * 100.0 for value in params.film_render.halation.strength),
-            halation_size_um=tuple(params.film_render.halation.size_um),
+            scatter_core_um=tuple(params.film_render.halation.scatter_core_um),
+            scatter_tail_um=tuple(params.film_render.halation.scatter_tail_um),
+            scatter_tail_weight=tuple(value * 100.0 for value in params.film_render.halation.scatter_tail_weight),
+            halation_strength=tuple(value * 100.0 for value in params.film_render.halation.halation_strength),
+            halation_first_sigma_um=tuple(params.film_render.halation.halation_first_sigma_um),
+            halation_n_bounces=params.film_render.halation.halation_n_bounces,
+            halation_bounce_decay=params.film_render.halation.halation_bounce_decay,
+            halation_renormalize=params.film_render.halation.halation_renormalize,
         ),
         couplers=CouplersState(
             active=params.film_render.dir_couplers.active,

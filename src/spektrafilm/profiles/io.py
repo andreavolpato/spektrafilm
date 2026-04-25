@@ -10,7 +10,8 @@ import numpy as np
 PROFILE_TYPES = frozenset({'negative', 'positive'})
 PROFILE_SUPPORTS = frozenset({'film', 'paper'})
 PROFILE_STAGES = frozenset({'filming', 'printing'})
-PROFILE_USES = frozenset({'photo', 'cine'})
+PROFILE_USES = frozenset({'still', 'cine'})
+PROFILE_ANTIHALATION = frozenset({'strong', 'weak', 'no'})
 PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
 
 def _empty_vector() -> np.ndarray:
@@ -32,7 +33,8 @@ class ProfileInfo:
     type: str = 'negative'
     support: str = 'film'
     stage: str = 'filming'
-    use: str = 'photo'
+    use: str = 'still'
+    antihalation: str = 'weak'
     target_print: str | None = None
     channel_model: str = 'color'
     densitometer: str = 'status_M'
@@ -75,8 +77,8 @@ class ProfileInfo:
         return self.stage == 'printing'
 
     @property
-    def is_photo(self) -> bool:
-        return self.use == 'photo'
+    def is_still(self) -> bool:
+        return self.use == 'still'
 
     @property
     def is_cine(self) -> bool:
@@ -167,8 +169,8 @@ class Profile:
         return self.info.stage == 'printing'
 
     @property
-    def is_photo(self) -> bool:
-        return self.info.use == 'photo'
+    def is_still(self) -> bool:
+        return self.info.use == 'still'
 
     @property
     def is_cine(self) -> bool:
@@ -230,6 +232,8 @@ def _validate_profile_info(info, stock):
         raise ValueError(f"Invalid profile '{stock}': unsupported stage={info.stage!r}")
     if info.use not in PROFILE_USES:
         raise ValueError(f"Invalid profile '{stock}': unsupported use={info.use!r}")
+    if info.antihalation not in PROFILE_ANTIHALATION:
+        raise ValueError(f"Invalid profile '{stock}': unsupported antihalation={info.antihalation!r}")
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
         raise ValueError(f"Invalid profile '{stock}': unsupported channel_model={info.channel_model!r}")
 
@@ -288,6 +292,7 @@ __all__ = [
     "Profile",
     "ProfileData",
     "ProfileInfo",
+    "PROFILE_ANTIHALATION",
     "PROFILE_CHANNEL_MODELS",
     "PROFILE_STAGES",
     "PROFILE_SUPPORTS",

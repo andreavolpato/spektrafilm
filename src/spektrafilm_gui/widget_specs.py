@@ -226,6 +226,26 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "halation": {
+        "scatter_amount": WidgetSpec(
+            tooltip="High-level scatter strength. 1.0 = full physical scatter, 0.0 = no scatter. Scales the fraction of light that undergoes in-emulsion scattering.",
+            min_value=0,
+            step=0.05,
+        ),
+        "scatter_spatial_scale": WidgetSpec(
+            tooltip="High-level scatter size multiplier (1.0 = physical defaults). Scales both core and tail sigmas.",
+            min_value=0,
+            step=0.1,
+        ),
+        "halation_amount": WidgetSpec(
+            tooltip="High-level halation strength multiplier (1.0 = physical defaults). Scales the per-channel halation amplitudes.",
+            min_value=0,
+            step=0.05,
+        ),
+        "halation_spatial_scale": WidgetSpec(
+            tooltip="High-level halation size multiplier (1.0 = physical defaults). Scales the first-bounce sigma.",
+            min_value=0,
+            step=0.1,
+        ),
         "boost_ev": WidgetSpec(
             tooltip="Maximum highlight boost in stops.",
             min_value=0,
@@ -242,27 +262,47 @@ GUI_WIDGET_SPECS = {
             max_value=1,
             step=0.05,
         ),
-        "scattering_strength": WidgetSpec(
-            tooltip="Fraction of scattered light (0-100, percentage) for each channel [R,G,B]",
+        "scatter_core_um": WidgetSpec(
+            tooltip="Sigma of the scatter core Gaussian per channel [R,G,B], in micrometers. Controls fine-scale sharpness loss in the emulsion.",
+            min_value=0,
+            step=0.5,
+        ),
+        "scatter_tail_um": WidgetSpec(
+            tooltip="Decay constant of the scatter exponential tail per channel [R,G,B], in micrometers (internally approximated by a sum of Gaussians). Controls extended low-level spread within the emulsion.",
+            min_value=0,
+            step=1.0,
+        ),
+        "scatter_tail_weight": WidgetSpec(
+            tooltip="Weight of the scatter tail Gaussian per channel [R,G,B] (0-100, percentage). Tail weight + core weight = 100. Higher values put more scattered light into the long tail.",
             min_value=0,
             max_value=100,
             step=1,
-        ),
-        "scattering_size_um": WidgetSpec(
-            tooltip="Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
-            min_value=0,
-            step=0.1,
         ),
         "halation_strength": WidgetSpec(
-            tooltip="Fraction of halation light (0-100, percentage) for each channel [R,G,B]",
+            tooltip="Total back-reflection halation amplitude per channel [R,G,B] (0-100, percentage). Typical red channel: weak AH 2-8, no AH 8-25. The blue channel is usually near zero.",
             min_value=0,
             max_value=100,
+            step=0.5,
+        ),
+        "halation_first_sigma_um": WidgetSpec(
+            tooltip="Sigma of the first halation bounce per channel [R,G,B], in micrometers. Set by the base thickness (40-80 um for typical cine/still bases).",
+            min_value=0,
+            step=1.0,
+        ),
+        "halation_n_bounces": WidgetSpec(
+            tooltip="Number of multi-bounce Gaussians summed in the halation pass. Subsequent bounces use sqrt(k)-spaced widths. Typical: 2-3.",
+            min_value=1,
+            max_value=5,
             step=1,
         ),
-        "halation_size_um": WidgetSpec(
-            tooltip="Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
+        "halation_bounce_decay": WidgetSpec(
+            tooltip="Per-bounce amplitude decay ratio (rho). Physical range 0.3-0.7. Controls how fast the halation energy falls off between bounces.",
             min_value=0,
-            step=0.1,
+            max_value=1,
+            step=0.05,
+        ),
+        "halation_renormalize": WidgetSpec(
+            tooltip="If enabled, divide by (1 + sum of bounce amplitudes) so mid-grey is preserved. If disabled, halation is purely additive and subtly lifts shadows as well as highlights.",
         ),
     },
     "couplers": {

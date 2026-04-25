@@ -7,7 +7,16 @@ import scipy.interpolate
 import yaml
 
 from spektrafilm.config import LOG_EXPOSURE, SPECTRAL_SHAPE
-from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_STAGES, PROFILE_SUPPORTS, PROFILE_TYPES, PROFILE_USES, ProfileData, ProfileInfo
+from spektrafilm.profiles.io import (
+    PROFILE_ANTIHALATION,
+    PROFILE_CHANNEL_MODELS,
+    PROFILE_STAGES,
+    PROFILE_SUPPORTS,
+    PROFILE_TYPES,
+    PROFILE_USES,
+    ProfileData,
+    ProfileInfo,
+)
 from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
 
 
@@ -126,6 +135,8 @@ def _validate_profile_info(info: ProfileInfo, stock: str) -> None:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported stage={info.stage!r}')
     if info.use not in PROFILE_USES:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported use={info.use!r}')
+    if info.antihalation not in PROFILE_ANTIHALATION:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported antihalation={info.antihalation!r}')
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported channel_model={info.channel_model!r}')
 
@@ -149,6 +160,7 @@ def load_raw_profile(stock):
         support=profile_payload.get('support', 'film'),
         stage=profile_payload['stage'],
         use=profile_payload['use'],
+        antihalation=profile_payload.get('antihalation', 'weak'),
         target_print=profile_payload.get('target_print'),
         channel_model=profile_payload.get('channel_model', 'color'),
         densitometer=profile_payload.get('densitometer', 'status_M'),

@@ -91,7 +91,7 @@ def test_process_raw_profile_routes_print_film_to_optional_neutral_ramp_refineme
 
 
 def test_process_raw_profile_defaults_negative_film_to_no_neutral_ramp_refinement(monkeypatch) -> None:
-    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_portra_400', support='film', stage='filming', use='photo', type='negative'))
+    raw_profile = RawProfile(info=ProfileInfo(stock='kodak_portra_400', support='film', stage='filming', use='still', type='negative'))
     captured_neutral_ramp_refinement: list[bool] = []
 
     def record_step(_name: str):
@@ -125,7 +125,7 @@ def test_process_raw_profile_defaults_negative_film_to_no_neutral_ramp_refinemen
 
 def test_process_raw_profile_can_disable_positive_film_stage_two_refinement(monkeypatch) -> None:
     raw_profile = RawProfile(
-        info=ProfileInfo(stock='kodak_ektachrome_100', support='film', stage='filming', use='photo', type='positive'),
+        info=ProfileInfo(stock='kodak_ektachrome_100', support='film', stage='filming', use='still', type='positive'),
         recipe=RawProfileRecipe(neutral_ramp_refinement=False),
     )
     captured_neutral_ramp_refinement: list[bool] = []

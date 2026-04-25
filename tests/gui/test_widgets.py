@@ -405,6 +405,6 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert isinstance(section.print_paper, widget_editors_module.ProfileEnumEditor)
     assert section.film_stock.currentText() == list(state_module.FilmStocks)[0].value
     assert section.print_paper.currentText() == list(state_module.PrintPapers)[0].value
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'photo / kodak_portra_400'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'still / kodak_portra_400'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / kodak_vision3_50d'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'
