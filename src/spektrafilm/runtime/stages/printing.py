@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from opt_einsum import contract
 
-from spektrafilm.model.diffusion import apply_promist_filter
+from spektrafilm.model.diffusion import apply_diffusion_filter_um
 from spektrafilm.model.emulsion import compute_density_spectral, develop_simple
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.timings import timeit
@@ -55,10 +55,11 @@ class PrintingStage:
         raw = 10**log_raw_print
         raw *= self._enlarger.print_exposure
         raw *= self._color_reference_service.black_white_printing_exposure_correction()
-        raw = apply_promist_filter(raw, self._enlarger.diffusion_filter[0],
-                                   pixel_size_um=self._resize_service.pixel_size_um,
-                                   spatial_scale=self._enlarger.diffusion_filter[1],
-                                   intensity=self._enlarger.diffusion_filter[2])
+        raw = apply_diffusion_filter_um(
+            raw,
+            self._enlarger.diffusion_filter,
+            pixel_size_um=self._resize_service.pixel_size_um,
+        )
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
     @timeit("develop")

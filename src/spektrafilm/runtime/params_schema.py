@@ -5,6 +5,41 @@ from dataclasses import dataclass, field
 from spektrafilm.profiles.io import Profile
 
 
+
+@dataclass
+class DiffusionFilterParams:
+    active: bool = False
+    # filter_family selects PSF shape and absorption regime. Allowed values
+    # are the keys of `_DIFFUSION_FILTER_SHAPES` in spektrafilm.model.diffusion.
+    filter_family: str = "black_pro_mist"
+    # commercial filter stops: 0, 1/8, 1/4, 1/2, 1, 2 (interpolated in between)
+    strength: float = 0.5
+    # multiplier on image-plane PSF widths (all per-group lambdas)
+    spatial_scale: float = 1.0
+    # additive bias to the family's halo warmth axis. The halo is energy-
+    # conservingly redistributed across its sub-components per channel:
+    # warmth > 0 pushes warm light (R + slight G) toward the OUTER halo
+    # and cool light (B) toward the inner halo (and vice versa for
+    # warmth < 0). 0 = use family default. Effective warmth is soft-
+    # clamped to [-1.5, +1.5].
+    halo_warmth: float = 0.0
+    # Per-group fine-tune multipliers (advanced). Default 1.0 = use the
+    # family preset unchanged. `*_intensity` scales the corresponding
+    # group weight (w_c / w_h / w_b); the three weights are then
+    # renormalized so they still sum to 1, i.e. the kernel stays
+    # unit-normalised and the strength → p_s mapping is unchanged. So
+    # these knobs reshuffle the relative split of energy between core,
+    # halo and bloom, not the total deflected fraction. `*_size` scales
+    # each group's lambda_um uniformly (all sub-components in that group
+    # stretched by the same factor).
+    core_intensity: float = 1.0
+    core_size: float = 1.0
+    halo_intensity: float = 1.0
+    halo_size: float = 1.0
+    bloom_intensity: float = 1.0
+    bloom_size: float = 1.0
+
+
 @dataclass
 class CameraParams:
     exposure_compensation_ev: float = 0.0
@@ -14,6 +49,7 @@ class CameraParams:
     film_format_mm: float = 35.0
     filter_uv: tuple[float, float, float] = (1.0, 410.0, 8.0)
     filter_ir: tuple[float, float, float] = (1.0, 675.0, 15.0)
+    diffusion: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
 
 
 @dataclass
@@ -28,7 +64,7 @@ class EnlargerParams:
     m_filter_neutral: float = 65 # kodak cc values
     c_filter_neutral: float = 0 # kodak cc values
     lens_blur: float = 0.0
-    diffusion_filter: tuple[float, float, float] = (0.0, 1.0, 1.0) # (strength, spatial_scale, intensity)
+    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
     preflash_m_filter_shift: float = 0.0

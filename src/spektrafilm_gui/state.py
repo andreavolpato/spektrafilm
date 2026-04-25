@@ -117,9 +117,17 @@ class SimulationState:
     print_exposure_compensation: bool
     print_y_filter_shift: float
     print_m_filter_shift: float
-    diffusion_strength: float
-    diffusion_spatial_scale: float
-    diffusion_intensity: float
+    diffusion_filter_active: bool
+    diffusion_filter_family: str
+    diffusion_filter_strength: float
+    diffusion_filter_spatial_scale: float
+    diffusion_filter_halo_warmth: float
+    diffusion_filter_core_intensity: float
+    diffusion_filter_core_size: float
+    diffusion_filter_halo_intensity: float
+    diffusion_filter_halo_size: float
+    diffusion_filter_bloom_intensity: float
+    diffusion_filter_bloom_size: float
     scan_lens_blur: float
     scan_white_correction: bool
     scan_white_level: float
@@ -269,9 +277,17 @@ def gui_state_from_params(
             print_exposure_compensation=params.enlarger.print_exposure_compensation,
             print_y_filter_shift=params.enlarger.y_filter_shift,
             print_m_filter_shift=params.enlarger.m_filter_shift,
-            diffusion_strength=float(params.enlarger.diffusion_filter[0]),
-            diffusion_spatial_scale=float(params.enlarger.diffusion_filter[1]),
-            diffusion_intensity=float(params.enlarger.diffusion_filter[2]),
+            diffusion_filter_active=bool(params.enlarger.diffusion_filter.active),
+            diffusion_filter_family=params.enlarger.diffusion_filter.filter_family,
+            diffusion_filter_strength=float(params.enlarger.diffusion_filter.strength),
+            diffusion_filter_spatial_scale=float(params.enlarger.diffusion_filter.spatial_scale),
+            diffusion_filter_halo_warmth=float(params.enlarger.diffusion_filter.halo_warmth),
+            diffusion_filter_core_intensity=float(params.enlarger.diffusion_filter.core_intensity),
+            diffusion_filter_core_size=float(params.enlarger.diffusion_filter.core_size),
+            diffusion_filter_halo_intensity=float(params.enlarger.diffusion_filter.halo_intensity),
+            diffusion_filter_halo_size=float(params.enlarger.diffusion_filter.halo_size),
+            diffusion_filter_bloom_intensity=float(params.enlarger.diffusion_filter.bloom_intensity),
+            diffusion_filter_bloom_size=float(params.enlarger.diffusion_filter.bloom_size),
             scan_lens_blur=params.scanner.lens_blur,
             scan_white_correction=params.scanner.white_correction,
             scan_white_level=params.scanner.white_level,
