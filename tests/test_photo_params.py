@@ -165,6 +165,23 @@ class TestDigestParamsFilmDefaults:
         assert params.film_render.halation.halation_first_sigma_um == (65.0, 65.0, 65.0)
         assert params.film_render.halation.halation_strength == (0.30, 0.10, 0.015)
 
+    def test_diffusion_filter_default_is_inactive(self):
+        params = init_params()
+        assert params.enlarger.diffusion_filter.active is False
+        assert params.enlarger.diffusion_filter.filter_family == 'black_pro_mist'
+        assert params.enlarger.diffusion_filter.strength == 0.0
+        assert params.enlarger.diffusion_filter.spatial_scale == 1.0
+
+    def test_deactivate_spatial_effects_disables_diffusion_filter(self):
+        params = init_params()
+        params.enlarger.diffusion_filter.active = True
+        params.enlarger.diffusion_filter.strength = 0.5
+        params.debug.deactivate_spatial_effects = True
+
+        digest_params(params)
+
+        assert params.enlarger.diffusion_filter.active is False
+
     def test_halation_preset_covers_cine_weak_for_older_cine_stocks(self):
         # Older cine stocks (pre-Vision3 ECN negatives) kept a PET base but had
         # less effective antihalation than the modern line.

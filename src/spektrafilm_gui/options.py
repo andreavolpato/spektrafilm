@@ -38,3 +38,10 @@ class NapariInterpolationModes(Enum):
     spline36 = "spline36"
     lanczos = "lanczos"
     blackman = "blackman"
+
+
+class DiffusionFilterFamilies(Enum):
+    glimmerglass = "glimmerglass"
+    black_pro_mist = "black_pro_mist"
+    pro_mist = "pro_mist"
+    cinebloom = "cinebloom"

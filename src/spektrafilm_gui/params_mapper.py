@@ -115,11 +115,17 @@ def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
     params.enlarger.print_exposure_compensation = state.simulation.print_exposure_compensation
     params.enlarger.y_filter_shift = state.simulation.print_y_filter_shift
     params.enlarger.m_filter_shift = state.simulation.print_m_filter_shift
-    params.enlarger.diffusion_filter = (
-        state.simulation.diffusion_strength,
-        state.simulation.diffusion_spatial_scale,
-        state.simulation.diffusion_intensity,
-    )
+    params.enlarger.diffusion_filter.active = bool(state.simulation.diffusion_filter_active)
+    params.enlarger.diffusion_filter.filter_family = state.simulation.diffusion_filter_family
+    params.enlarger.diffusion_filter.strength = float(state.simulation.diffusion_filter_strength)
+    params.enlarger.diffusion_filter.spatial_scale = float(state.simulation.diffusion_filter_spatial_scale)
+    params.enlarger.diffusion_filter.halo_warmth = float(state.simulation.diffusion_filter_halo_warmth)
+    params.enlarger.diffusion_filter.core_intensity = float(state.simulation.diffusion_filter_core_intensity)
+    params.enlarger.diffusion_filter.core_size = float(state.simulation.diffusion_filter_core_size)
+    params.enlarger.diffusion_filter.halo_intensity = float(state.simulation.diffusion_filter_halo_intensity)
+    params.enlarger.diffusion_filter.halo_size = float(state.simulation.diffusion_filter_halo_size)
+    params.enlarger.diffusion_filter.bloom_intensity = float(state.simulation.diffusion_filter_bloom_intensity)
+    params.enlarger.diffusion_filter.bloom_size = float(state.simulation.diffusion_filter_bloom_size)
     params.enlarger.preflash_exposure = state.preflashing.exposure
     params.enlarger.preflash_y_filter_shift = state.preflashing.y_filter_shift
     params.enlarger.preflash_m_filter_shift = state.preflashing.m_filter_shift

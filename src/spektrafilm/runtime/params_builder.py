@@ -80,7 +80,8 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.print_render.glare.blur = 0
         params.camera.lens_blur_um = 0.0
         params.enlarger.lens_blur = 0.0
-        params.enlarger.diffusion_filter = (0.0, 1.0, 1.0)
+        params.enlarger.diffusion_filter.active = False
+        params.camera.diffusion_filter.active = False
         params.scanner.lens_blur = 0.0
         params.scanner.unsharp_mask = (0.0, 0.0)
 

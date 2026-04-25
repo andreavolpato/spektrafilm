@@ -55,9 +55,11 @@ def _make_state() -> GuiState:
     state.glare.blur = 0.8
     state.special.print_gamma_factor = 1.15
     state.simulation.print_exposure = 1.3
-    state.simulation.diffusion_strength = 0.5
-    state.simulation.diffusion_spatial_scale = 1.6
-    state.simulation.diffusion_intensity = 0.7
+    state.simulation.diffusion_filter_active = True
+    state.simulation.diffusion_filter_family = 'pro_mist'
+    state.simulation.diffusion_filter_strength = 0.5
+    state.simulation.diffusion_filter_spatial_scale = 1.6
+    state.simulation.diffusion_filter_halo_warmth = 0.2
     state.simulation.saving_cctf_encoding = False
     state.simulation.scan_film = True
     state.display.use_display_transform = False

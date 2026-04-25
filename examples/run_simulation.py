@@ -30,7 +30,10 @@ def run_simulation():
     # params.enlarger.y_filter_shift = 7
     # params.enlarger.m_filter_shift = -2
     
-    params.enlarger.diffusion_filter = (0.25, 1.0, 1.0) # (strength, spatial_scale, intensity)
+    params.enlarger.diffusion_filter.active = True
+    params.enlarger.diffusion_filter.filter_family = "black_pro_mist"
+    params.enlarger.diffusion_filter.strength = 0.25
+    params.enlarger.diffusion_filter.spatial_scale = 1.0
     params.camera.film_format_mm = 35
     params.film_render.grain.agx_particle_area_um2 = 1.2
     params.io.upscale_factor = 0.5

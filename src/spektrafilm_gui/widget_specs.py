@@ -3,7 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from spektrafilm_gui.options import AutoExposureMethods, NapariInterpolationModes, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
+from spektrafilm_gui.options import (
+    AutoExposureMethods,
+    DiffusionFilterFamilies,
+    NapariInterpolationModes,
+    RGBColorSpaces,
+    RGBtoRAWMethod,
+    RawWhiteBalance,
+)
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
@@ -43,6 +50,7 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
         "print_illuminant": Illuminants,
         "output_color_space": RGBColorSpaces,
         "saving_color_space": RGBColorSpaces,
+        "diffusion_filter_family": DiffusionFilterFamilies,
     },
 }
 
@@ -93,24 +101,75 @@ GUI_WIDGET_SPECS = {
             tooltip="M filter shift of the color enlarger from a neutral position, in Kodak CC units",
             step=1,
         ),
-        "diffusion_strength": WidgetSpec(
+        "diffusion_filter_active": WidgetSpec(
+            label="Diffusion active",
+            tooltip="Toggle the diffusion filter (Pro-Mist family) on the print stage.",
+        ),
+        "diffusion_filter_family": WidgetSpec(
+            label="Diffusion family",
+            tooltip="PSF family. pro_mist / classic_soft / glimmerglass are transparent (energy-preserving); black_pro_mist absorbs a fraction of the deflected light, lifting shadows by reducing local contrast.",
+        ),
+        "diffusion_filter_strength": WidgetSpec(
             label="Diffusion strength",
-            tooltip="strength of the diffusion filter 1/8=0.125, 1/4=0.25, 1/2=0.5, ..",
+            tooltip="Commercial filter stop: 0, 1/8=0.125, 1/4=0.25, 1/2=0.5, 1, 2. Maps internally to the (p_s, p_a) deflected/absorbed photon fractions.",
             min_value=0,
-            max_value=1,
+            max_value=2,
             step=0.125,
         ),
-        "diffusion_spatial_scale": WidgetSpec(
+        "diffusion_filter_spatial_scale": WidgetSpec(
             label="Spatial scale",
-            tooltip="scale spatially the filter blooming",
+            tooltip="Multiplier on the image-plane PSF widths (all per-group lambdas). Adjust for image-format / print-size differences.",
             min_value=0,
             step=0.1,
         ),
-        "diffusion_intensity": WidgetSpec(
-            label="Intensity",
-            tooltip="tune the intensity of the filter",
+        "diffusion_filter_halo_warmth": WidgetSpec(
+            label="Halo warmth",
+            tooltip="Additive offset on the family's halo warmth axis. Positive = warm outer halo / cool inner halo (the look reference images show on mist and bloom filters). Negative inverts. Energy-preserving per channel. 0 = use family default.",
+            min_value=-1.5,
+            max_value=1.5,
+            step=0.05,
+        ),
+        "diffusion_filter_core_intensity": WidgetSpec(
+            label="Core intensity",
+            tooltip="Advanced. Multiplier on the family's core weight. The three group weights (core, halo, bloom) are renormalized to sum to 1, so this reshuffles the relative split of energy between groups, not the total deflected fraction. 1.0 = use family default.",
             min_value=0,
-            step=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_core_size": WidgetSpec(
+            label="Core size",
+            tooltip="Advanced. Multiplier on the family's core lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_halo_intensity": WidgetSpec(
+            label="Halo intensity",
+            tooltip="Advanced. Multiplier on the family's halo weight. The three group weights (core, halo, bloom) are renormalized to sum to 1. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_halo_size": WidgetSpec(
+            label="Halo size",
+            tooltip="Advanced. Multiplier on the family's halo lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_bloom_intensity": WidgetSpec(
+            label="Bloom intensity",
+            tooltip="Advanced. Multiplier on the family's bloom weight. The three group weights (core, halo, bloom) are renormalized to sum to 1. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_bloom_size": WidgetSpec(
+            label="Bloom size",
+            tooltip="Advanced. Multiplier on the family's bloom lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
         ),
         "scan_lens_blur": WidgetSpec(
             label="Scan lens blur",
