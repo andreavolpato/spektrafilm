@@ -108,6 +108,17 @@ class SimulationState:
     film_stock: str
     film_format_mm: float
     camera_lens_blur_um: float
+    camera_diffusion_filter_active: bool
+    camera_diffusion_filter_family: str
+    camera_diffusion_filter_strength: float
+    camera_diffusion_filter_spatial_scale: float
+    camera_diffusion_filter_halo_warmth: float
+    camera_diffusion_filter_core_intensity: float
+    camera_diffusion_filter_core_size: float
+    camera_diffusion_filter_halo_intensity: float
+    camera_diffusion_filter_halo_size: float
+    camera_diffusion_filter_bloom_intensity: float
+    camera_diffusion_filter_bloom_size: float
     exposure_compensation_ev: float
     auto_exposure: bool
     auto_exposure_method: str
@@ -268,6 +279,17 @@ def gui_state_from_params(
             film_stock=film_stock,
             film_format_mm=params.camera.film_format_mm,
             camera_lens_blur_um=params.camera.lens_blur_um,
+            camera_diffusion_filter_active=bool(params.camera.diffusion_filter.active),
+            camera_diffusion_filter_family=params.camera.diffusion_filter.filter_family,
+            camera_diffusion_filter_strength=float(params.camera.diffusion_filter.strength),
+            camera_diffusion_filter_spatial_scale=float(params.camera.diffusion_filter.spatial_scale),
+            camera_diffusion_filter_halo_warmth=float(params.camera.diffusion_filter.halo_warmth),
+            camera_diffusion_filter_core_intensity=float(params.camera.diffusion_filter.core_intensity),
+            camera_diffusion_filter_core_size=float(params.camera.diffusion_filter.core_size),
+            camera_diffusion_filter_halo_intensity=float(params.camera.diffusion_filter.halo_intensity),
+            camera_diffusion_filter_halo_size=float(params.camera.diffusion_filter.halo_size),
+            camera_diffusion_filter_bloom_intensity=float(params.camera.diffusion_filter.bloom_intensity),
+            camera_diffusion_filter_bloom_size=float(params.camera.diffusion_filter.bloom_size),
             exposure_compensation_ev=params.camera.exposure_compensation_ev,
             auto_exposure=params.camera.auto_exposure,
             auto_exposure_method=params.camera.auto_exposure_method,

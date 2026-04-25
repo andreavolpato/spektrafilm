@@ -55,6 +55,11 @@ def _make_state() -> GuiState:
     state.glare.blur = 0.8
     state.special.print_gamma_factor = 1.15
     state.simulation.print_exposure = 1.3
+    state.simulation.camera_diffusion_filter_active = True
+    state.simulation.camera_diffusion_filter_family = 'glimmerglass'
+    state.simulation.camera_diffusion_filter_strength = 0.25
+    state.simulation.camera_diffusion_filter_spatial_scale = 1.2
+    state.simulation.camera_diffusion_filter_halo_warmth = -0.15
     state.simulation.diffusion_filter_active = True
     state.simulation.diffusion_filter_family = 'pro_mist'
     state.simulation.diffusion_filter_strength = 0.5
@@ -79,6 +84,7 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
         grain=StubSection(clone_state_section(state.grain)),
         preflashing=StubSection(clone_state_section(state.preflashing)),
         diffusion=object(),
+        camera_diffusion=object(),
         halation=StubSection(clone_state_section(state.halation)),
         couplers=StubSection(clone_state_section(state.couplers)),
         glare=StubSection(clone_state_section(state.glare)),

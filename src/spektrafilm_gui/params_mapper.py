@@ -46,6 +46,17 @@ def _apply_glare(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
     params.camera.lens_blur_um = state.simulation.camera_lens_blur_um
+    params.camera.diffusion_filter.active = bool(state.simulation.camera_diffusion_filter_active)
+    params.camera.diffusion_filter.filter_family = state.simulation.camera_diffusion_filter_family
+    params.camera.diffusion_filter.strength = float(state.simulation.camera_diffusion_filter_strength)
+    params.camera.diffusion_filter.spatial_scale = float(state.simulation.camera_diffusion_filter_spatial_scale)
+    params.camera.diffusion_filter.halo_warmth = float(state.simulation.camera_diffusion_filter_halo_warmth)
+    params.camera.diffusion_filter.core_intensity = float(state.simulation.camera_diffusion_filter_core_intensity)
+    params.camera.diffusion_filter.core_size = float(state.simulation.camera_diffusion_filter_core_size)
+    params.camera.diffusion_filter.halo_intensity = float(state.simulation.camera_diffusion_filter_halo_intensity)
+    params.camera.diffusion_filter.halo_size = float(state.simulation.camera_diffusion_filter_halo_size)
+    params.camera.diffusion_filter.bloom_intensity = float(state.simulation.camera_diffusion_filter_bloom_intensity)
+    params.camera.diffusion_filter.bloom_size = float(state.simulation.camera_diffusion_filter_bloom_size)
     params.camera.exposure_compensation_ev = state.simulation.exposure_compensation_ev
     params.camera.auto_exposure = state.simulation.auto_exposure
     params.camera.auto_exposure_method = state.simulation.auto_exposure_method

@@ -594,6 +594,17 @@ class SimulationSection(DataclassSection):
             hidden_fields={
                 'film_format_mm',
                 'camera_lens_blur_um',
+                'camera_diffusion_filter_active',
+                'camera_diffusion_filter_family',
+                'camera_diffusion_filter_strength',
+                'camera_diffusion_filter_spatial_scale',
+                'camera_diffusion_filter_halo_warmth',
+                'camera_diffusion_filter_core_intensity',
+                'camera_diffusion_filter_core_size',
+                'camera_diffusion_filter_halo_intensity',
+                'camera_diffusion_filter_halo_size',
+                'camera_diffusion_filter_bloom_intensity',
+                'camera_diffusion_filter_bloom_size',
                 'exposure_compensation_ev',
                 'auto_exposure',
                 'auto_exposure_method',
@@ -809,6 +820,30 @@ class DiffusionSection(QWidget):
                     _spec_row('simulation', 'diffusion_filter_halo_size', simulation_section.diffusion_filter_halo_size),
                     _spec_row('simulation', 'diffusion_filter_bloom_intensity', simulation_section.diffusion_filter_bloom_intensity),
                     _spec_row('simulation', 'diffusion_filter_bloom_size', simulation_section.diffusion_filter_bloom_size),
+                ],
+                expanded=False,
+            ),
+        )
+
+
+class CameraDiffusionSection(QWidget):
+    def __init__(self, simulation_section: SimulationSection):
+        super().__init__()
+        self.setLayout(
+            _build_linked_form_section(
+                'Diffusion',
+                [
+                    _spec_row('simulation', 'camera_diffusion_filter_active', simulation_section.camera_diffusion_filter_active),
+                    _spec_row('simulation', 'camera_diffusion_filter_family', simulation_section.camera_diffusion_filter_family),
+                    _spec_row('simulation', 'camera_diffusion_filter_strength', simulation_section.camera_diffusion_filter_strength),
+                    _spec_row('simulation', 'camera_diffusion_filter_spatial_scale', simulation_section.camera_diffusion_filter_spatial_scale),
+                    _spec_row('simulation', 'camera_diffusion_filter_halo_warmth', simulation_section.camera_diffusion_filter_halo_warmth),
+                    _spec_row('simulation', 'camera_diffusion_filter_core_intensity', simulation_section.camera_diffusion_filter_core_intensity),
+                    _spec_row('simulation', 'camera_diffusion_filter_core_size', simulation_section.camera_diffusion_filter_core_size),
+                    _spec_row('simulation', 'camera_diffusion_filter_halo_intensity', simulation_section.camera_diffusion_filter_halo_intensity),
+                    _spec_row('simulation', 'camera_diffusion_filter_halo_size', simulation_section.camera_diffusion_filter_halo_size),
+                    _spec_row('simulation', 'camera_diffusion_filter_bloom_intensity', simulation_section.camera_diffusion_filter_bloom_intensity),
+                    _spec_row('simulation', 'camera_diffusion_filter_bloom_size', simulation_section.camera_diffusion_filter_bloom_size),
                 ],
                 expanded=False,
             ),
