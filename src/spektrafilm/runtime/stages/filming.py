@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from spektrafilm.model.color_filters import compute_band_pass_filter
-from spektrafilm.model.diffusion import apply_diffusion_filter_um, apply_gaussian_blur_um, apply_halation_um
+from spektrafilm.model.diffusion import apply_diffusion_filter_um, apply_gaussian_blur_um, apply_halation_um, boost_highlights
 from spektrafilm.model.emulsion import compute_density_spectral, develop, develop_simple
 from spektrafilm.utils.autoexposure import measure_autoexposure_ev
 from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_mallett2019
@@ -47,6 +47,9 @@ class FilmingStage:
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
         raw *= 2 ** self._camera.exposure_compensation_ev
+        boost_highlights(raw, self._film_render.halation.boost_ev,
+                         self._film_render.halation.boost_range,
+                         self._film_render.halation.protect_ev, out=raw)
         raw = apply_diffusion_filter_um(
             raw,
             self._camera.diffusion_filter,

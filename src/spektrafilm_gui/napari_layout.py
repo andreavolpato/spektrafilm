@@ -418,7 +418,10 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
         ),
         'MAIN',
     )
-    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain)), 'FILM')
+    panel.addTab(
+        _wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain, widgets.camera_diffusion)),
+        'FILM',
+    )
     panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.glare, widgets.preflashing, widgets.diffusion)), 'PRINT')
     panel.addTab(
         _wrap_scrollable(_build_controls_tab(widgets.spectral_upsampling, widgets.tune, widgets.special)),

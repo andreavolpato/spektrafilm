@@ -36,11 +36,7 @@ def apply_halation_um(raw, halation, pixel_size_um):
     if not halation.active:
         return raw
 
-    # 1. Highlight boost — before any propagation, since it is reconstructing
-    #    the pre-clip input irradiance.
-    boost_highlights(raw, halation.boost_ev, halation.boost_range, halation.protect_ev, out=raw)
-
-    # 2. Scatter pass — energy-preserving mixture of a Gaussian core and an
+    # 1. Scatter pass — energy-preserving mixture of a Gaussian core and an
     #    exponential tail (matching measured film MTFs), blended with the
     #    identity by scatter_amount to model the fraction of photons that
     #    actually scatter:
@@ -59,7 +55,7 @@ def apply_halation_um(raw, halation, pixel_size_um):
         scattered = (1.0 - w_s) * core + w_s * tail
         raw = (1.0 - s_amount) * raw + s_amount * scattered
 
-    # 3. Halation pass — additive multi-bounce sum scaled by halation_amount:
+    # 2. Halation pass — additive multi-bounce sum scaled by halation_amount:
     #    E2 = E1 + halation_amount * Σ_{k=1..N} a_k * G(sigma_h * sqrt(k)) * E1
     #    with a_k = a_tot * ρ^(k-1) / Σ_j ρ^(j-1) and sigmas scaled by
     #    halation_spatial_scale.

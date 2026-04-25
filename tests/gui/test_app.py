@@ -453,6 +453,17 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 'print_gamma_factor',
                 'film_format_mm',
                 'camera_lens_blur_um',
+                'camera_diffusion_filter_active',
+                'camera_diffusion_filter_family',
+                'camera_diffusion_filter_strength',
+                'camera_diffusion_filter_spatial_scale',
+                'camera_diffusion_filter_halo_warmth',
+                'camera_diffusion_filter_core_intensity',
+                'camera_diffusion_filter_core_size',
+                'camera_diffusion_filter_halo_intensity',
+                'camera_diffusion_filter_halo_size',
+                'camera_diffusion_filter_bloom_intensity',
+                'camera_diffusion_filter_bloom_size',
                 'exposure_compensation_ev',
                 'auto_exposure',
                 'auto_exposure_method',
@@ -499,6 +510,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     assert widgets.input_image.crop_size._editors[0].valueChanged.connected == [controller.request_auto_preview]
     assert widgets.special.film_gamma_factor.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.print_y_filter_shift.valueChanged.connected == [controller.request_auto_preview]
+    assert widgets.simulation.camera_diffusion_filter_strength.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.diffusion_filter_strength.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.exposure_compensation_ev.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.scan_lens_blur.valueChanged.connected == [controller.request_auto_preview]

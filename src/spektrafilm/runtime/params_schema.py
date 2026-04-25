@@ -49,7 +49,7 @@ class CameraParams:
     film_format_mm: float = 35.0
     filter_uv: tuple[float, float, float] = (1.0, 410.0, 8.0)
     filter_ir: tuple[float, float, float] = (1.0, 675.0, 15.0)
-    diffusion: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
+    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
 
 
 @dataclass
