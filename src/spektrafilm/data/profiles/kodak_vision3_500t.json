@@ -6,6 +6,7 @@
         "support": "film",
         "stage": "filming",
         "use": "cine",
+        "antihalation": "strong",
         "target_print": "kodak_2383",
         "channel_model": "color",
         "densitometer": "status_M",

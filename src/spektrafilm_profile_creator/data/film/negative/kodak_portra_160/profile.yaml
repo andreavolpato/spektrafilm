@@ -3,7 +3,8 @@ profile:
   type: negative
   support: film
   stage: filming
-  use: photo
+  use: still
+  antihalation: strong
   channel_model: color
   densitometer: status_M
   log_sensitivity_density_over_min: 0.2

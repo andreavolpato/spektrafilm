@@ -292,6 +292,54 @@ def fast_gaussian_filter_large(image, sigma):
     return _apply_per_channel(image, sigma, 0.0, lambda img, s, _t: _gaussian_filter_2d_large(img, s))
 
 
+# Gaussian-mixture approximations of a 2D isotropic exponential PSF
+# exp(-r/lambda) / (2*pi*lambda**2). Each row is (a_k, sigma_k / lambda);
+# amplitudes sum to 1 so total energy is preserved. Placeholder fits, to be
+# refined with a least-squares fit against measured film MTFs.
+_EXPONENTIAL_GAUSSIAN_FITS: dict[int, np.ndarray] = {
+    2: np.array([
+        [0.6235, 0.9401],
+        [0.3765, 2.5177],
+    ], dtype=np.float64),
+    3: np.array([
+        [0.1633, 0.5360],
+        [0.6496, 1.5236],
+        [0.1870, 2.7684],
+    ], dtype=np.float64),
+}
+
+
+def fast_exponential_filter(image, decay_constant, *, n_gaussians=3, truncate=3.0):
+    """Per-channel 2D exponential filter via a Gaussian-mixture surrogate.
+
+    Approximates convolution with an isotropic 2D exponential PSF
+    exp(-r / decay_constant) / (2*pi*decay_constant**2) by dispatching to a
+    pre-fit sum of N separable Gaussians of fixed amplitude and sigma-to-
+    decay ratio. The decay constant is scaled per channel just like the
+    sigma in `fast_gaussian_filter`.
+
+    n_gaussians selects the Gaussian-mixture fidelity: 2 is the fast path,
+    3 gives a visibly smoother tail at the cost of one extra blur pass.
+    """
+    if n_gaussians not in _EXPONENTIAL_GAUSSIAN_FITS:
+        raise ValueError(
+            f"No hardcoded fit for n_gaussians={n_gaussians}; "
+            f"available: {sorted(_EXPONENTIAL_GAUSSIAN_FITS)}"
+        )
+    fit = _EXPONENTIAL_GAUSSIAN_FITS[n_gaussians]
+    decay_constant = np.asarray(decay_constant, dtype=np.float64)
+
+    result = None
+    for amplitude, sigma_ratio in fit:
+        sigma_k = sigma_ratio * decay_constant
+        component = fast_gaussian_filter(image, sigma_k, truncate=truncate)
+        if result is None:
+            result = amplitude * component
+        else:
+            result += amplitude * component
+    return result
+
+
 def warmup_fast_gaussian_filter():
     dummy2d = np.random.rand(64, 64).astype(np.float64)
     dummy3d = np.random.rand(64, 64, 3).astype(np.float64)
@@ -300,6 +348,8 @@ def warmup_fast_gaussian_filter():
     fast_gaussian_filter(dummy3d, 1.0)
     fast_gaussian_filter(dummy3d, 5.0)
     fast_gaussian_filter(dummy3d, np.array([0.5, 1.0, 1.5]))
+    fast_exponential_filter(dummy3d, 5.0)
+    fast_exponential_filter(dummy3d, np.array([3.0, 5.0, 7.0]))
 
 
 if __name__ == '__main__':

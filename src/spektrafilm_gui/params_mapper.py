@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import numpy as np
-
 from spektrafilm_gui.state import GuiState
 from spektrafilm.runtime.api import init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
@@ -69,14 +67,24 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
 
 
 def _apply_halation(params: RuntimePhotoParams, state: GuiState) -> None:
-    params.film_render.halation.active = state.halation.active
-    params.film_render.halation.boost_ev = state.halation.boost_ev
-    params.film_render.halation.protect_ev = state.halation.protect_ev
-    params.film_render.halation.boost_range = state.halation.boost_range
-    params.film_render.halation.strength = np.array(state.halation.halation_strength) / 100.0
-    params.film_render.halation.size_um = np.array(state.halation.halation_size_um)
-    params.film_render.halation.scattering_strength = np.array(state.halation.scattering_strength) / 100.0
-    params.film_render.halation.scattering_size_um = np.array(state.halation.scattering_size_um)
+    h = state.halation
+    p = params.film_render.halation
+    p.active = h.active
+    p.scatter_amount = h.scatter_amount
+    p.scatter_spatial_scale = h.scatter_spatial_scale
+    p.halation_amount = h.halation_amount
+    p.halation_spatial_scale = h.halation_spatial_scale
+    p.boost_ev = h.boost_ev
+    p.protect_ev = h.protect_ev
+    p.boost_range = h.boost_range
+    p.scatter_core_um = tuple(h.scatter_core_um)
+    p.scatter_tail_um = tuple(h.scatter_tail_um)
+    p.scatter_tail_weight = tuple(float(value) / 100.0 for value in h.scatter_tail_weight)
+    p.halation_strength = tuple(float(value) / 100.0 for value in h.halation_strength)
+    p.halation_first_sigma_um = tuple(h.halation_first_sigma_um)
+    p.halation_n_bounces = int(h.halation_n_bounces)
+    p.halation_bounce_decay = float(h.halation_bounce_decay)
+    p.halation_renormalize = bool(h.halation_renormalize)
 
 
 def _apply_grain(params: RuntimePhotoParams, state: GuiState) -> None:

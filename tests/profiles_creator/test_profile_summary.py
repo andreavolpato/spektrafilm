@@ -26,7 +26,7 @@ def _make_raw_profile(
     support: str = 'film',
     profile_type: str = 'negative',
     stage: str = 'filming',
-    use: str = 'photo',
+    use: str = 'still',
     target_print: str | None = None,
     densitometer: str = 'status_M',
     reference_illuminant: str = 'D55',
@@ -61,7 +61,7 @@ def test_build_profile_summary_rows_extracts_effective_values_and_flags(monkeypa
     manifests = {
         'stock_alpha': {
             'name': 'Stock Alpha',
-            'profile': {'stage': 'filming', 'use': 'photo', 'target_print': 'kodak_portra_endura'},
+            'profile': {'stage': 'filming', 'use': 'still', 'target_print': 'kodak_portra_endura'},
             'donors': {
                 'log_sensitivity': 'stock_alpha',
                 'density_curves': 'missing_stock',
@@ -188,7 +188,7 @@ def test_main_prints_table_and_writes_csv(tmp_path: Path, capsys: pytest.Capture
             'support': 'film',
             'type': 'negative',
             'stage': 'filming',
-            'use': 'photo',
+            'use': 'still',
             'channel_model': 'color',
             'densitometer': 'status_M',
             'log_sensitivity_density_over_min': 0.2,
