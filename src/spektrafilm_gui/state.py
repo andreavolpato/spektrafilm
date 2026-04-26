@@ -80,11 +80,14 @@ class HalationState:
 @dataclass(slots=True)
 class CouplersState:
     active: bool
-    dir_couplers_amount: float
-    dir_couplers_ratio: tuple[float, float, float]
-    dir_couplers_diffusion_um: float
-    diffusion_interlayer: float
-    high_exposure_shift: float
+    inhibition_strength: float
+    inhibition_samelayer: float
+    inhibition_interlayer: float
+    gamma_samelayer_rgb: tuple[float, float, float]
+    gamma_interlayer_r_to_gb: tuple[float, float]
+    gamma_interlayer_g_to_rb: tuple[float, float]
+    gamma_interlayer_b_to_rg: tuple[float, float]
+    diffusion_size_um: float
 
 
 @dataclass(slots=True)
@@ -257,11 +260,14 @@ def gui_state_from_params(
         ),
         couplers=CouplersState(
             active=params.film_render.dir_couplers.active,
-            dir_couplers_amount=params.film_render.dir_couplers.amount,
-            dir_couplers_ratio=tuple(params.film_render.dir_couplers.ratio_rgb),
-            dir_couplers_diffusion_um=params.film_render.dir_couplers.diffusion_size_um,
-            diffusion_interlayer=params.film_render.dir_couplers.diffusion_interlayer,
-            high_exposure_shift=params.film_render.dir_couplers.high_exposure_shift,
+            inhibition_strength=params.film_render.dir_couplers.inhibition_strength,
+            inhibition_samelayer=params.film_render.dir_couplers.inhibition_samelayer,
+            inhibition_interlayer=params.film_render.dir_couplers.inhibition_interlayer,
+            gamma_samelayer_rgb=tuple(params.film_render.dir_couplers.gamma_samelayer_rgb),
+            gamma_interlayer_r_to_gb=tuple(params.film_render.dir_couplers.gamma_interlayer_r_to_gb),
+            gamma_interlayer_g_to_rb=tuple(params.film_render.dir_couplers.gamma_interlayer_g_to_rb),
+            gamma_interlayer_b_to_rg=tuple(params.film_render.dir_couplers.gamma_interlayer_b_to_rg),
+            diffusion_size_um=params.film_render.dir_couplers.diffusion_size_um,
         ),
         glare=GlareState(
             active=params.print_render.glare.active,

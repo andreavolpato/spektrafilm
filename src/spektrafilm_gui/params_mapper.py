@@ -113,11 +113,14 @@ def _apply_grain(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_couplers(params: RuntimePhotoParams, state: GuiState) -> None:
     params.film_render.dir_couplers.active = state.couplers.active
-    params.film_render.dir_couplers.amount = state.couplers.dir_couplers_amount
-    params.film_render.dir_couplers.ratio_rgb = state.couplers.dir_couplers_ratio
-    params.film_render.dir_couplers.diffusion_size_um = state.couplers.dir_couplers_diffusion_um
-    params.film_render.dir_couplers.diffusion_interlayer = state.couplers.diffusion_interlayer
-    params.film_render.dir_couplers.high_exposure_shift = state.couplers.high_exposure_shift
+    params.film_render.dir_couplers.inhibition_strength = state.couplers.inhibition_strength
+    params.film_render.dir_couplers.inhibition_samelayer = state.couplers.inhibition_samelayer
+    params.film_render.dir_couplers.inhibition_interlayer = state.couplers.inhibition_interlayer
+    params.film_render.dir_couplers.gamma_samelayer_rgb = tuple(state.couplers.gamma_samelayer_rgb)
+    params.film_render.dir_couplers.gamma_interlayer_r_to_gb = tuple(state.couplers.gamma_interlayer_r_to_gb)
+    params.film_render.dir_couplers.gamma_interlayer_g_to_rb = tuple(state.couplers.gamma_interlayer_g_to_rb)
+    params.film_render.dir_couplers.gamma_interlayer_b_to_rg = tuple(state.couplers.gamma_interlayer_b_to_rg)
+    params.film_render.dir_couplers.diffusion_size_um = state.couplers.diffusion_size_um
 
 
 def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:

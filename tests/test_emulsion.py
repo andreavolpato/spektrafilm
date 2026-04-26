@@ -57,11 +57,14 @@ def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
         ),
         dir_couplers=DirCouplersParams(
             active=True,
-            amount=0.65,
-            ratio_rgb=(1.0, 0.85, 0.7),
-            diffusion_interlayer=1.1,
+            inhibition_strength=0.65,
+            inhibition_samelayer=0.95,
+            inhibition_interlayer=1.05,
+            gamma_samelayer_rgb=(0.5, 0.4, 0.3),
+            gamma_interlayer_r_to_gb=(0.3, 0.25),
+            gamma_interlayer_g_to_rb=(0.2, 0.25),
+            gamma_interlayer_b_to_rg=(0.15, 0.2),
             diffusion_size_um=5.0,
-            high_exposure_shift=0.1,
         ),
     )
     log_raw = np.full((5, 5, 3), -0.9, dtype=float)

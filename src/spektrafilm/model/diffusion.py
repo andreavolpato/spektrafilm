@@ -30,8 +30,8 @@ def apply_halation_um(raw, halation, pixel_size_um):
     two-Gaussian mixture (core + tail), and halation adds back-reflected
     light as an additive sum of N Gaussians with sqrt(k)-spaced widths.
 
-    See notes/halation_physics_model.md and notes/halation_implementation_plan.md
-    for the physical derivation and parameter priors.
+    See the private halation notes for the physical derivation and parameter
+    priors.
     """
     if not halation.active:
         return raw
@@ -159,8 +159,8 @@ from scipy.signal import fftconvolve
 # Energy distributes across scales continuously and the radial profile
 # loses its visible knees.
 #
-# Per-family values are distilled from
-# notes/empirical_characterization_of_diffusion_filters.md:
+# Per-family values are distilled from the private diffusion-filter
+# characterization notes:
 #
 #     resolution preservation  : glimmerglass > BPM > pro_mist > cinebloom
 #     halo prominence/radius   : cinebloom >= pro_mist >= BPM > glimmerglass

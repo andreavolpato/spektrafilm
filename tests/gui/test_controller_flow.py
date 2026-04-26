@@ -429,25 +429,25 @@ def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
     original_fields = dict(PROFILE_SYNC_FIELDS)
     try:
         controller_module.PROFILE_SYNC_FIELDS = {
-            'couplers': ('dir_couplers_ratio',),
+            'couplers': ('gamma_samelayer_rgb',),
             'simulation': ('scan_film',),
         }
         captured: dict[str, object] = {}
         controller = GuiController(
             viewer=object(),
             widgets=SimpleNamespace(
-                couplers=SimpleNamespace(dir_couplers_ratio=SimpleNamespace(value=(0.0, 0.0, 0.0))),
+                couplers=SimpleNamespace(gamma_samelayer_rgb=SimpleNamespace(value=(0.0, 0.0, 0.0))),
                 simulation=SimpleNamespace(set_scan_film_value=lambda value: captured.setdefault('scan_film', []).append(value)),
             ),
         )
         synced_state = SimpleNamespace(
-            couplers=SimpleNamespace(dir_couplers_ratio=(0.35, 0.2275, 0.1225)),
+            couplers=SimpleNamespace(gamma_samelayer_rgb=(0.35, 0.2275, 0.1225)),
             simulation=SimpleNamespace(scan_film=True),
         )
 
         controller._apply_profile_sync_state(synced_state)
 
-        assert controller._widgets.couplers.dir_couplers_ratio.value == (0.35, 0.2275, 0.1225)
+        assert controller._widgets.couplers.gamma_samelayer_rgb.value == (0.35, 0.2275, 0.1225)
         assert captured['scan_film'] == [True]
     finally:
         controller_module.PROFILE_SYNC_FIELDS = original_fields

@@ -60,8 +60,10 @@ class TestInitParamsDefaults:
         assert params.film_render.grain.active is True
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
-        assert params.film_render.dir_couplers.amount == 1.0
-        assert params.film_render.dir_couplers.ratio_rgb is None
+        assert params.film_render.dir_couplers.inhibition_strength == 1.0
+        assert params.film_render.dir_couplers.inhibition_samelayer == 1.0
+        assert params.film_render.dir_couplers.inhibition_interlayer == 1.0
+        assert params.film_render.dir_couplers.gamma_samelayer_rgb == (0.4, 0.35, 0.25)
 
         assert params.print_render.density_curve_gamma == 1.0
         assert params.print_render.glare.active is True
@@ -169,7 +171,7 @@ class TestDigestParamsFilmDefaults:
         params = init_params()
         assert params.enlarger.diffusion_filter.active is False
         assert params.enlarger.diffusion_filter.filter_family == 'black_pro_mist'
-        assert params.enlarger.diffusion_filter.strength == 0.0
+        assert params.enlarger.diffusion_filter.strength == 0.5
         assert params.enlarger.diffusion_filter.spatial_scale == 1.0
 
     def test_deactivate_spatial_effects_disables_diffusion_filter(self):

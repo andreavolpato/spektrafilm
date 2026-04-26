@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import lru_cache
-import numpy as np
 
 from spektrafilm.profiles.io import load_profile
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
@@ -111,18 +110,46 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     # film overrides
     # define here all the specifics to stocks that should be applied in params.film_render
     if params.film.is_positive:
-        params.film_render.dir_couplers.ratio_rgb = (0.38, 0.26, 0.17)
-
+        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.12, 0.08, 0.06)
+        params.film_render.dir_couplers.gamma_inter_r_to_gb = (0.12, 0.06)
+        params.film_render.dir_couplers.gamma_inter_g_to_rb = (0.08, 0.06)
+        params.film_render.dir_couplers.gamma_inter_b_to_rg = (0.06, 0.06) # just eyeballed, optimize!
+        
     if params.film.is_negative:
-        params.film_render.dir_couplers.ratio_rgb = (0.42, 0.42, 0.42)
+        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.336, 0.319, 0.273)
+        params.film_render.dir_couplers.gamma_interlayer_r_to_gb = (0.353, 0.302)
+        params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.154, 0.353)
+        params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.168, 0.226) # just eyeballed, optimize!
+
+# skin - forest colors - cc blue optimization
+# 0.42 alpha 
+# [[0.336423, 0.353654, 0.302163],
+#  [0.154796, 0.319218, 0.353513],
+#  [0.168943, 0.226796, 0.273107]]
+# 0.5 alpha high saturation
+# [[0.341559, 0.355603, 0.305212],
+#  [0.154542, 0.324590, 0.358254],
+#  [0.171108, 0.225493, 0.273080]]
+# reference matrix cc loss
+# [[0.344306, 0.324515, 0.305428],
+#  [0.142589, 0.345450, 0.360369],
+#  [0.161963, 0.241596, 0.263818]]
+# gamma 1.2 sigma 1.55 loss 1.37
+#  [[0.53402457 0.43368797 0.23228746]
+#  [0.37136105 0.4572779  0.37136105]
+#  [0.23228746 0.43368797 0.53402457]]
+# gamma 1.0 sigma 1.3
+# [[0.48777655 0.36285359 0.14936985]
+#  [0.29901809 0.40196381 0.29901809]
+#  [0.14936985 0.36285359 0.48777655]]
 
     _apply_halation_preset(params)
 
     # stock specifics overrides
     if params.film.info.stock == "fujifilm_velvia_100":
-        params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 0.9
+        params.film_render.dir_couplers.inhibition_strength *= 0.9
     if params.film.info.stock == "fujifilm_provia_100f":
-        params.film_render.dir_couplers.ratio_rgb *= np.ones(3) * 1.3
+        params.film_render.dir_couplers.inhibition_strength *= 1.3
         
         
     # if params.film.info.stock == "kodak_portra_400":
@@ -131,7 +158,7 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
 
 
 # Halation low-level presets keyed by (use, antihalation). These set the
-# physical baselines from notes/halation_implementation_plan.md §5-§6.1;
+# physical baselines from the private halation implementation notes §5-§6.1;
 # the user-facing knobs (scatter_amount, scatter_spatial_scale,
 # halation_amount, halation_spatial_scale) remain at 1.0 and let the user
 # push the effect stronger or weaker without editing the low-level

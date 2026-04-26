@@ -436,25 +436,45 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "couplers": {
-        "dir_couplers_amount": WidgetSpec(
-            tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
+        "inhibition_strength": WidgetSpec(
+            tooltip="Global multiplier on the DIR coupler inhibition matrix. 1.0 leaves the per-channel gammas as-is.",
             min_value=0,
             step=0.05,
         ),
-        "dir_couplers_ratio": WidgetSpec(
-            tooltip="relative amount of coupler in RGB layers, if dir coupler amount is 1.0 they are effectevile gamma values of the log exposure correction.",
+        "inhibition_samelayer": WidgetSpec(
+            tooltip="Multiplier on the same-layer (diagonal) inhibition. Controls overall contrast / gamma reduction within each RGB layer.",
+            min_value=0,
+            step=0.05,
+        ),
+        "inhibition_interlayer": WidgetSpec(
+            tooltip="Multiplier on the cross-layer (off-diagonal) inhibition. Controls saturation enhancement from interlayer DIR effects.",
+            min_value=0,
+            step=0.05,
+        ),
+        "gamma_samelayer_rgb": WidgetSpec(
+            tooltip="Per-channel same-layer DIR gamma (R, G, B). Effective gamma reduction of each layer's density curve.",
             min_value=0,
             step=0.02,
         ),
-        "dir_couplers_diffusion_um": WidgetSpec(
+        "gamma_interlayer_r_to_gb": WidgetSpec(
+            tooltip="DIR inhibition from the R layer onto the G and B layers respectively (g_R->G, g_R->B).",
+            min_value=0,
+            step=0.02,
+        ),
+        "gamma_interlayer_g_to_rb": WidgetSpec(
+            tooltip="DIR inhibition from the G layer onto the R and B layers respectively (g_G->R, g_G->B).",
+            min_value=0,
+            step=0.02,
+        ),
+        "gamma_interlayer_b_to_rg": WidgetSpec(
+            tooltip="DIR inhibition from the B layer onto the R and G layers respectively (g_B->R, g_B->G).",
+            min_value=0,
+            step=0.02,
+        ),
+        "diffusion_size_um": WidgetSpec(
             tooltip="Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
             min_value=0,
             step=5,
-        ),
-        "diffusion_interlayer": WidgetSpec(
-            tooltip="Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.",
-            min_value=0,
-            step=0.5,
         ),
     },
     "grain": {

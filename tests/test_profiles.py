@@ -69,12 +69,15 @@ class TestLoadProfile:
 
         assert 'null' in payload
 
-    def test_profile_json_round_trip_preserves_empty_bandpass_shape(self, portra_400_profile):
+    def test_profile_json_round_trip_preserves_bandpass_hanatos2025(self, portra_400_profile):
         payload = json.dumps(_json_safe(profile_to_dict(portra_400_profile)), allow_nan=False)
 
         profile_rt = profile_from_dict(json.loads(payload))
 
-        assert profile_rt.data.bandpass_hanatos2025.shape == (0, 3)
+        np.testing.assert_allclose(
+            profile_rt.data.bandpass_hanatos2025,
+            portra_400_profile.data.bandpass_hanatos2025,
+        )
 
     def test_profile_constructor_rejects_dict_payloads(self):
         with pytest.raises(TypeError, match='ProfileInfo'):

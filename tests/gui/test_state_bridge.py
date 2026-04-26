@@ -51,7 +51,7 @@ def _make_state() -> GuiState:
     state.load_raw.tint = 0.85
     state.grain.active = False
     state.halation.halation_strength = (7.0, 5.0, 3.0)
-    state.couplers.diffusion_interlayer = 1.75
+    state.couplers.inhibition_interlayer = 1.75
     state.glare.blur = 0.8
     state.special.print_gamma_factor = 1.15
     state.simulation.print_exposure = 1.3

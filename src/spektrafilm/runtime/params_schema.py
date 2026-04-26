@@ -124,12 +124,14 @@ class HalationParams:
 @dataclass
 class DirCouplersParams:
     active: bool = True
-    amount: float = 1.7
-    ratio_rgb: tuple[float, float, float] = None # set in digest_params
-    diffusion_interlayer: float = 2.0
+    inhibition_strength: float = 1.0
+    inhibition_samelayer: float = 1.0
+    inhibition_interlayer: float = 1.0
+    gamma_samelayer_rgb: tuple[float, float, float] = (0.341, 0.324, 0.273)
+    gamma_interlayer_r_to_gb: tuple[float, float] = (0.355, 0.305)
+    gamma_interlayer_g_to_rb: tuple[float, float] = (0.154, 0.358)
+    gamma_interlayer_b_to_rg: tuple[float, float] = (0.171, 0.225)
     diffusion_size_um: float = 20
-    high_exposure_shift: float = 0.0
-
 
 @dataclass
 class GlareParams:
