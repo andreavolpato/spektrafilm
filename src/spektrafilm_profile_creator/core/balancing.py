@@ -5,7 +5,7 @@ import scipy.optimize
 
 from colour.models import RGB_COLOURSPACE_sRGB
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
-from spektrafilm.model.color_filters import compute_band_pass_filter, color_enlarger
+from spektrafilm.model.color_filters import color_enlarger
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm_profile_creator.diagnostics.messages import log_event
 from spektrafilm_profile_creator.data.loader import load_densitometer_data, load_raw_profile
@@ -13,7 +13,7 @@ from spektrafilm.utils.spectral_upsampling import rgb_to_smooth_spectrum
 from spektrafilm_profile_creator.neutral_print_filters import DEFAULT_NEUTRAL_PRINT_FILTERS
 
 
-def balance_film_sensitivity(profile, band_pass_filter=False):
+def balance_film_sensitivity(profile):
     data = profile.data
     info = profile.info
     log_sensitivity = data.log_sensitivity
@@ -21,14 +21,8 @@ def balance_film_sensitivity(profile, band_pass_filter=False):
     illuminant = rgb_to_smooth_spectrum(midgray, color_space='ProPhoto RGB',
                                         apply_cctf_decoding=False,
                                         reference_illuminant=info.reference_illuminant)
-    # illuminant = standard_illuminant(type=info.reference_illuminant)
+    
     sensitivity = 10 ** log_sensitivity
-
-    if band_pass_filter:
-        filter_uv = (1, 410, 8)
-        filter_ir = (1, 675, 15)
-        band_pass = compute_band_pass_filter(filter_uv, filter_ir)
-        illuminant *= band_pass
 
     neutral_exposures = np.nansum(illuminant[:, None] * sensitivity, axis=0)
     correction = 1 / neutral_exposures

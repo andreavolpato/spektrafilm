@@ -5,12 +5,10 @@ import scipy
 import importlib.resources
 from opt_einsum import contract
 import scipy.interpolate
-from spektrafilm.model.color_filters import compute_band_pass_filter as _compute_band_pass_filter
+
 from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 from spektrafilm.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
 from spektrafilm.model.illuminants import standard_illuminant
-
-compute_band_pass_filter = _compute_band_pass_filter
 
 ################################################################################
 # LUT generatation of irradiance spectra for any xy chromaticity

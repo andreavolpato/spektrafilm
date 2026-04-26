@@ -56,6 +56,7 @@ def test_fit_neutral_filters_returns_bounded_solution_and_reduces_midgray_error(
     fit_result = fit_neutral_filters(
         params,
         iterations=1,
+        normalize_print_exposure=False,
     )
 
     # Printing filters are stored in Kodak CC units, so fitted values are expected in the tens.

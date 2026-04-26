@@ -14,6 +14,7 @@ class TestLoadProfile:
         assert hasattr(p, 'info')
         assert hasattr(p, 'data')
         assert hasattr(p.data, 'log_sensitivity')
+        assert hasattr(p.data, 'bandpass_hanatos2025')
         assert hasattr(p.data, 'density_curves')
         assert hasattr(p.data, 'channel_density')
         assert hasattr(p.data, 'base_density')
@@ -39,6 +40,8 @@ class TestLoadProfile:
 
         assert profile.data.log_sensitivity.ndim == 2
         assert profile.data.log_sensitivity.shape[1] == 3
+        assert profile.data.bandpass_hanatos2025.ndim == 2
+        assert profile.data.bandpass_hanatos2025.size == 0 or profile.data.bandpass_hanatos2025.shape == profile.data.log_sensitivity.shape
 
         assert profile.data.wavelengths.ndim == 1
         assert profile.data.channel_density.ndim == 2
@@ -56,6 +59,7 @@ class TestLoadProfile:
         assert profile_rt.info.stock == portra_400_profile.info.stock
         assert np.array(profile_rt.data.log_exposure).shape == portra_400_profile.data.log_exposure.shape
         assert np.array(profile_rt.data.density_curves).shape == portra_400_profile.data.density_curves.shape
+        assert np.array(profile_rt.data.bandpass_hanatos2025).shape == portra_400_profile.data.bandpass_hanatos2025.shape
 
     def test_profile_json_payload_converts_nan_to_null(self, portra_400_profile):
         profile = portra_400_profile.clone()
@@ -64,6 +68,13 @@ class TestLoadProfile:
         payload = json.dumps(_json_safe(profile_to_dict(profile)), allow_nan=False)
 
         assert 'null' in payload
+
+    def test_profile_json_round_trip_preserves_empty_bandpass_shape(self, portra_400_profile):
+        payload = json.dumps(_json_safe(profile_to_dict(portra_400_profile)), allow_nan=False)
+
+        profile_rt = profile_from_dict(json.loads(payload))
+
+        assert profile_rt.data.bandpass_hanatos2025.shape == (0, 3)
 
     def test_profile_constructor_rejects_dict_payloads(self):
         with pytest.raises(TypeError, match='ProfileInfo'):

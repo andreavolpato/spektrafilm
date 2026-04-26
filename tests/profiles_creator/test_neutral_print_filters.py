@@ -88,6 +88,7 @@ def test_fit_neutral_filters_returns_bounded_solution_and_reduces_midgray_error(
     fit_result = fit_neutral_filters(
         params,
         iterations=1,
+        normalize_print_exposure=False,
     )
 
     # Printing filters are stored in Kodak CC units, so fitted values are expected in the tens.
@@ -123,7 +124,7 @@ def test_fit_neutral_filters_skips_positive_film_on_negative_print(monkeypatch):
     assert fit_result.c_filter == pytest.approx(33.0)
     assert fit_result.y_filter == pytest.approx(11.0)
     assert fit_result.m_filter == pytest.approx(22.0)
-    assert fit_result.print_exposure == pytest.approx(1.0)
+    assert fit_result.print_exposure == pytest.approx(1.0, abs=1e-3)
     np.testing.assert_array_equal(fit_result.residual, np.zeros(3, dtype=np.float64))
 
 
@@ -223,15 +224,56 @@ def test_fit_once_uses_prepared_params_without_redigest(monkeypatch):
         start_filters=(0.0, 0.0, 0.0),
         fit_input=print_filters_module.MIDGRAY_RGB,
         injected_film_density_cmy=False,
-        normalize_print_exposure=True,
+        normalize_print_exposure=False,
     )
 
     assert fit_result.c_filter == pytest.approx(0.0)
     assert fit_result.m_filter == pytest.approx(10.0, abs=1e-3)
     assert fit_result.y_filter == pytest.approx(20.0, abs=1e-3)
+    assert fit_result.print_exposure == pytest.approx(1.5, abs=1e-3)
     assert fit_result.total_residual < 1e-6
     assert simulate_digest_flags
     assert set(simulate_digest_flags) == {False}
+
+
+@pytest.mark.unit
+def test_fit_once_still_optimizes_print_exposure_when_normalized(monkeypatch):
+    params = _make_runtime_like_filter_params(y_filter=0.0, m_filter=0.0, c_filter=0.0)
+    fit_once = vars(print_filters_module)['_fit_once']
+    seen_exposures = []
+
+    monkeypatch.setattr(print_filters_module, 'digest_params', lambda profile: profile)
+
+    def fake_simulate(_image, profile, digest_params_first=True, print_timings=False):
+        del digest_params_first
+        del print_timings
+        seen_exposures.append(profile.enlarger.print_exposure)
+        residual = np.asarray(
+            [
+                profile.enlarger.m_filter_neutral - 10.0,
+                profile.enlarger.y_filter_neutral - 20.0,
+                profile.enlarger.print_exposure - 1.0,
+            ],
+            dtype=np.float64,
+        ) * 1e-2
+        return print_filters_module.MIDGRAY_RGB + np.reshape(residual, (1, 1, 3))
+
+    monkeypatch.setattr(print_filters_module, 'simulate', fake_simulate)
+
+    fit_result = fit_once(
+        params,
+        start_filters=(0.0, 0.0, 0.0),
+        fit_input=print_filters_module.MIDGRAY_RGB,
+        injected_film_density_cmy=False,
+        normalize_print_exposure=True,
+    )
+
+    assert seen_exposures
+    assert any(exposure != pytest.approx(1.0) for exposure in seen_exposures)
+    assert fit_result.print_exposure == pytest.approx(1.0, abs=1e-3)
+    assert fit_result.m_filter == pytest.approx(10.0, abs=1e-3)
+    assert fit_result.y_filter == pytest.approx(20.0, abs=1e-3)
+    assert fit_result.total_residual < 1e-6
 
 
 @pytest.mark.unit
@@ -274,7 +316,7 @@ def test_fit_neutral_filter_database_skips_resolved_entries_and_does_not_mutate_
         created_params.append((film_profile, print_profile, params))
         return params
 
-    def fake_fit(params, iterations=10, rng=None):
+    def fake_fit(params, iterations=10, rng=None, normalize_print_exposure=True):
         del rng
         fit_calls.append(
             (
@@ -283,6 +325,7 @@ def test_fit_neutral_filter_database_skips_resolved_entries_and_does_not_mutate_
                 params.enlarger.y_filter_neutral,
                 params.enlarger.m_filter_neutral,
                 params.enlarger.c_filter_neutral,
+                normalize_print_exposure,
             )
         )
         return NeutralPrintFilterFitResult(
@@ -328,7 +371,7 @@ def test_fit_neutral_filter_database_skips_resolved_entries_and_does_not_mutate_
 
     assert len(created_params) == 1
     assert created_params[0][0:2] == ('film_b', 'paper_a')
-    assert fit_calls == [(7, 'light_a', 40.0, 50.0, 0.0)]
+    assert fit_calls == [(7, 'light_a', 40.0, 50.0, 0.0, True)]
     assert result[0]['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
     assert result[0]['paper_a']['light_a']['film_b'] == pytest.approx([1.0, 60.0, 45.0])
     assert result[1]['paper_a']['light_a']['film_b'] == pytest.approx(2e-4)
@@ -349,9 +392,9 @@ def test_fit_neutral_filter_database_skips_positive_film_on_negative_print(monke
         params.print.info.is_negative = True
         return params
 
-    def fake_fit(params, iterations=10, rng=None):
+    def fake_fit(params, iterations=10, rng=None, normalize_print_exposure=True):
         del params, rng
-        fit_calls.append(iterations)
+        fit_calls.append((iterations, normalize_print_exposure))
         return NeutralPrintFilterFitResult(
             c_filter=15.0,
             m_filter=45.0,
@@ -378,7 +421,7 @@ def test_fit_neutral_filter_database_skips_positive_film_on_negative_print(monke
         },
     )
 
-    assert fit_calls == [7]
+    assert fit_calls == [(7, True)]
     assert result[0]['paper_a']['light_a']['film_b'] == [60.0, 50.0, 40.0]
     assert result[1]['paper_a']['light_a']['film_b'] == pytest.approx(0.0)
 
@@ -393,7 +436,7 @@ def test_fit_neutral_filter_entry_updates_only_requested_combination(monkeypatch
         created_params.append((film_profile, print_profile, params))
         return params
 
-    def fake_fit(params, iterations=10, rng=None):
+    def fake_fit(params, iterations=10, rng=None, normalize_print_exposure=True):
         del rng
         fit_calls.append(
             (
@@ -402,6 +445,7 @@ def test_fit_neutral_filter_entry_updates_only_requested_combination(monkeypatch
                 params.enlarger.y_filter_neutral,
                 params.enlarger.m_filter_neutral,
                 params.enlarger.c_filter_neutral,
+                normalize_print_exposure,
             )
         )
         return NeutralPrintFilterFitResult(
@@ -450,7 +494,7 @@ def test_fit_neutral_filter_entry_updates_only_requested_combination(monkeypatch
 
     assert len(created_params) == 1
     assert created_params[0][0:2] == ('film_b', 'paper_a')
-    assert fit_calls == [(7, 'light_a', 60.0, 50.0, 0.0)]
+    assert fit_calls == [(7, 'light_a', 60.0, 50.0, 0.0, True)]
     assert result[0]['paper_a']['light_a']['film_a'] == [30.0, 20.0, 10.0]
     assert result[0]['paper_a']['light_a']['film_b'] == pytest.approx([3.0, 54.0, 62.0])
     assert result[1]['paper_a']['light_a']['film_a'] == pytest.approx(1.0)
@@ -468,9 +512,10 @@ def test_fit_neutral_filter_entry_creates_missing_nodes(monkeypatch):
         created_params.append((film_profile, print_profile, params))
         return params
 
-    def fake_fit(params, iterations=10, rng=None):
+    def fake_fit(params, iterations=10, rng=None, normalize_print_exposure=True):
         del rng
         assert iterations == 5
+        assert normalize_print_exposure is True
         assert params.enlarger.illuminant == 'light_a'
         assert params.enlarger.c_filter_neutral == pytest.approx(1.0)
         assert params.enlarger.m_filter_neutral == pytest.approx(2.0)

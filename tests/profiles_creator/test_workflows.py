@@ -73,12 +73,14 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
         [
             'reconstruct_dye_density',
             'densitometer_normalization',
-            'balance_film_sensitivity',
             'remove_density_min',
             'prelminary_neutral_shift',
             'unmix_density',
+            'fill_missing_sensitivity',
+            'balance_film_sensitivity',
             'refine_negative_film',
             'replace_fitted_density_curves',
+            'sensitivity_bandpass_hanatos2025',
         ],
         captured_steps,
     )
@@ -90,10 +92,12 @@ def test_process_raw_profile_accepts_loaded_raw_profile(monkeypatch) -> None:
     assert captured_steps == [
         'reconstruct_dye_density',
         'densitometer_normalization',
-        'balance_film_sensitivity',
         'remove_density_min',
         'prelminary_neutral_shift',
         'unmix_density',
+        'fill_missing_sensitivity',
+        'balance_film_sensitivity',
         'refine_negative_film',
         'replace_fitted_density_curves',
+        'sensitivity_bandpass_hanatos2025',
     ]

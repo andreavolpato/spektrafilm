@@ -92,6 +92,16 @@ class FilmingStage:
             band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
             sensitivity *= band_pass_filter[:, None]
 
+        if self._settings.bandpass_hanatos2025 and self._settings.rgb_to_raw_method == "hanatos2025":
+            bandpass_hanatos2025 = np.asarray(self._film.data.bandpass_hanatos2025, dtype=float)
+            if bandpass_hanatos2025.size:
+                if bandpass_hanatos2025.shape != sensitivity.shape:
+                    raise ValueError(
+                        "film.data.bandpass_hanatos2025 must match film.data.log_sensitivity shape "
+                        f"{sensitivity.shape}, got {bandpass_hanatos2025.shape}."
+                    )
+                sensitivity *= bandpass_hanatos2025
+
         if self._settings.rgb_to_raw_method == "hanatos2025":
             raw = rgb_to_raw_hanatos2025(rgb, sensitivity,
                             color_space=color_space, 

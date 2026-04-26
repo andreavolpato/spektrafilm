@@ -10,7 +10,6 @@ from spektrafilm_profile_creator.core.balancing import (
 from spektrafilm_profile_creator.core.densitometer import (
     unmix_density,
     densitometer_normalization,
-    unmix_sensitivity,
     fill_missing_sensitivity
 )
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
@@ -28,6 +27,7 @@ from spektrafilm_profile_creator.refinement import (
     refine_negative_print,
     refine_positive_film,
 )
+from spektrafilm_profile_creator.spectral_containment import sensitivity_bandpass_hanatos2025
 
 
 def process_raw_profile(raw_profile: RawProfile) -> Profile:
@@ -47,7 +47,6 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = prelminary_neutral_shift(profile)
         profile = unmix_density(profile)
         # sensitivity
-        profile = unmix_sensitivity(profile)
         profile = fill_missing_sensitivity(profile)
         profile = balance_film_sensitivity(profile)
         # final refinement
@@ -58,6 +57,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
+        profile = sensitivity_bandpass_hanatos2025(profile)
         return profile
 
     ##########################################################################################################
@@ -72,7 +72,6 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = prelminary_neutral_shift(profile, per_channel_shift=False)
         profile = unmix_density(profile)
         # sensitivity
-        # profile = unmix_sensitivity(profile) # not working for now
         profile = fill_missing_sensitivity(profile)
         profile = balance_film_sensitivity(profile)
         # final refinement
@@ -82,6 +81,7 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
+        profile = sensitivity_bandpass_hanatos2025(profile)
         return profile
 
     ##########################################################################################################
@@ -96,7 +96,6 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
         profile = prelminary_neutral_shift(profile, per_channel_shift=recipe.neutral_log_exposure_correction)
         profile = unmix_density(profile)
         # sensitivity
-        profile = unmix_sensitivity(profile)
         profile = fill_missing_sensitivity(profile)
         profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
         # final refinement

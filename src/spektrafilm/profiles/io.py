@@ -89,6 +89,7 @@ class ProfileInfo:
 class ProfileData:
     wavelengths: np.ndarray = field(default_factory=_empty_vector)
     log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
+    bandpass_hanatos2025: np.ndarray = field(default_factory=_empty_matrix)
     channel_density: np.ndarray = field(default_factory=_empty_matrix)
     base_density: np.ndarray = field(default_factory=_empty_vector)
     midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
@@ -99,6 +100,9 @@ class ProfileData:
     def __post_init__(self):
         self.wavelengths = np.asarray(self.wavelengths, dtype=float)
         self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
+        self.bandpass_hanatos2025 = np.asarray(self.bandpass_hanatos2025, dtype=float)
+        if self.bandpass_hanatos2025.size == 0:
+            self.bandpass_hanatos2025 = _empty_matrix()
         self.channel_density = np.asarray(self.channel_density, dtype=float)
         self.base_density = np.asarray(self.base_density, dtype=float)
         self.midscale_neutral_density = np.asarray(self.midscale_neutral_density, dtype=float)
@@ -249,6 +253,8 @@ def _validate_profile(profile, stock):
             and data.density_curves.shape[0] == data.log_exposure.shape[0]
             and data.log_sensitivity.ndim == 2
             and data.log_sensitivity.shape[1] == 3
+            and data.bandpass_hanatos2025.ndim == 2
+            and (data.bandpass_hanatos2025.size == 0 or data.bandpass_hanatos2025.shape == data.log_sensitivity.shape)
             and data.wavelengths.ndim == 1
             and data.channel_density.ndim == 2
             and data.channel_density.shape[1] == 3
