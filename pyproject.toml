@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spektrafilm"
-version = "0.3.0"
+version = "0.3.1"
 description = "Spectral simulation of analog film photography"
 readme = "README.md"
 requires-python = "~=3.13"
@@ -28,7 +28,7 @@ dependencies = [
     "OpenImageIO~=3.1.11",
     "pyfftw~=0.15.0",
     "rawpy~=0.26.1",
-    "exifread~=3.5.1",
+    "exiv2~=0.18.1",
     "lensfunpy~=1.18.0",
     "PyYAML~=6.0",
     "pyconify~=0.2.1",

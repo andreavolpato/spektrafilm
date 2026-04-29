@@ -9,7 +9,9 @@ import numpy as np
 
 PROFILE_TYPES = frozenset({'negative', 'positive'})
 PROFILE_SUPPORTS = frozenset({'film', 'paper'})
-PROFILE_USES = frozenset({'filming', 'printing'})
+PROFILE_STAGES = frozenset({'filming', 'printing'})
+PROFILE_USES = frozenset({'still', 'cine'})
+PROFILE_ANTIHALATION = frozenset({'strong', 'weak', 'no'})
 PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
 
 def _empty_vector() -> np.ndarray:
@@ -30,7 +32,10 @@ class ProfileInfo:
     name: str = ''
     type: str = 'negative'
     support: str = 'film'
-    use: str = 'filming' # filming or printing
+    stage: str = 'filming'
+    use: str = 'still'
+    antihalation: str = 'weak'
+    target_print: str | None = None
     channel_model: str = 'color'
     densitometer: str = 'status_M'
     log_sensitivity_density_over_min: float = 0.2
@@ -65,17 +70,26 @@ class ProfileInfo:
 
     @property
     def is_filming(self) -> bool:
-        return self.use == 'filming'
+        return self.stage == 'filming'
 
     @property
     def is_printing(self) -> bool:
-        return self.use == 'printing'
+        return self.stage == 'printing'
+
+    @property
+    def is_still(self) -> bool:
+        return self.use == 'still'
+
+    @property
+    def is_cine(self) -> bool:
+        return self.use == 'cine'
 
 
 @dataclass
 class ProfileData:
     wavelengths: np.ndarray = field(default_factory=_empty_vector)
     log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
+    bandpass_hanatos2025: np.ndarray = field(default_factory=_empty_matrix)
     channel_density: np.ndarray = field(default_factory=_empty_matrix)
     base_density: np.ndarray = field(default_factory=_empty_vector)
     midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
@@ -86,6 +100,9 @@ class ProfileData:
     def __post_init__(self):
         self.wavelengths = np.asarray(self.wavelengths, dtype=float)
         self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
+        self.bandpass_hanatos2025 = np.asarray(self.bandpass_hanatos2025, dtype=float)
+        if self.bandpass_hanatos2025.size == 0:
+            self.bandpass_hanatos2025 = _empty_matrix()
         self.channel_density = np.asarray(self.channel_density, dtype=float)
         self.base_density = np.asarray(self.base_density, dtype=float)
         self.midscale_neutral_density = np.asarray(self.midscale_neutral_density, dtype=float)
@@ -149,11 +166,19 @@ class Profile:
 
     @property
     def is_filming(self) -> bool:
-        return self.info.use == 'filming'
+        return self.info.stage == 'filming'
 
     @property
     def is_printing(self) -> bool:
-        return self.info.use == 'printing'
+        return self.info.stage == 'printing'
+
+    @property
+    def is_still(self) -> bool:
+        return self.info.use == 'still'
+
+    @property
+    def is_cine(self) -> bool:
+        return self.info.use == 'cine'
 
 
 def profile_from_dict(data: Any) -> Profile:
@@ -207,8 +232,12 @@ def _validate_profile_info(info, stock):
         raise ValueError(f"Invalid profile '{stock}': unsupported type={info.type!r}")
     if info.support not in PROFILE_SUPPORTS:
         raise ValueError(f"Invalid profile '{stock}': unsupported support={info.support!r}")
+    if info.stage not in PROFILE_STAGES:
+        raise ValueError(f"Invalid profile '{stock}': unsupported stage={info.stage!r}")
     if info.use not in PROFILE_USES:
         raise ValueError(f"Invalid profile '{stock}': unsupported use={info.use!r}")
+    if info.antihalation not in PROFILE_ANTIHALATION:
+        raise ValueError(f"Invalid profile '{stock}': unsupported antihalation={info.antihalation!r}")
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
         raise ValueError(f"Invalid profile '{stock}': unsupported channel_model={info.channel_model!r}")
 
@@ -224,6 +253,8 @@ def _validate_profile(profile, stock):
             and data.density_curves.shape[0] == data.log_exposure.shape[0]
             and data.log_sensitivity.ndim == 2
             and data.log_sensitivity.shape[1] == 3
+            and data.bandpass_hanatos2025.ndim == 2
+            and (data.bandpass_hanatos2025.size == 0 or data.bandpass_hanatos2025.shape == data.log_sensitivity.shape)
             and data.wavelengths.ndim == 1
             and data.channel_density.ndim == 2
             and data.channel_density.shape[1] == 3
@@ -267,7 +298,9 @@ __all__ = [
     "Profile",
     "ProfileData",
     "ProfileInfo",
+    "PROFILE_ANTIHALATION",
     "PROFILE_CHANNEL_MODELS",
+    "PROFILE_STAGES",
     "PROFILE_SUPPORTS",
     "PROFILE_TYPES",
     "PROFILE_USES",

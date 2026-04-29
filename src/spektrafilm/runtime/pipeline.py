@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
+from time import perf_counter
 
-from PIL.ImageQt import rgb
 import numpy as np
 
 from spektrafilm.runtime.services import (
@@ -12,6 +12,7 @@ from spektrafilm.runtime.services import (
     ColorReferenceService,
 )
 from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
+from spektrafilm.utils.timings import format_timings
 
 
 
@@ -33,6 +34,7 @@ class SimulationPipeline:
         self.settings = self._params.settings
 
         self.timings = {}
+        self._last_elapsed_time = None
 
         self._resize_service = ResizingService(self.io, self.camera.film_format_mm)
         if not update_params:
@@ -88,16 +90,67 @@ class SimulationPipeline:
 
     def process(self, image):
         """Process an image through the simulation pipeline."""
-        if self.debug.debug_mode == 'off':
-            image = self._pipeline(image)
-        else:
-            image = self._pipeline_debug(image)
-        return image
+        self.timings.clear()
+        start = perf_counter()
+        try:
+            if self.debug.debug_mode == 'off':
+                image = self._pipeline(image)
+            else:
+                image = self._pipeline_debug(image)
+            return image
+        finally:
+            self._last_elapsed_time = perf_counter() - start
+
+    def get_timings(self):
+        return self.timings
+
+    def get_total_elapsed_time(self):
+        return self._last_elapsed_time
+
+    def format_timings(self):
+        return format_timings(
+            self.get_timings(),
+            total_elapsed_time=self.get_total_elapsed_time(),
+        )
+
+    def print_timings(self):
+        print(self.format_timings())
     
     def update(self, params):
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
-
+        
+    def soft_update(self,
+                    exposure_compensation_ev=None,
+                    print_exposure=None,
+                    c_filter_neutral=None,
+                    m_filter_neutral=None,
+                    y_filter_neutral=None,
+                    film_density_curves=None,
+                    print_density_curves=None,):
+        invalidates_print_balance_reference = False
+        if exposure_compensation_ev is not None:
+            self.camera.exposure_compensation_ev = exposure_compensation_ev
+            invalidates_print_balance_reference = True
+        if print_exposure is not None:
+            self.enlarger.print_exposure = print_exposure
+        if c_filter_neutral is not None:
+            self.enlarger.c_filter_neutral = c_filter_neutral
+        if m_filter_neutral is not None:
+            self.enlarger.m_filter_neutral = m_filter_neutral
+        if y_filter_neutral is not None:
+            self.enlarger.y_filter_neutral = y_filter_neutral
+        if film_density_curves is not None:
+            self.film.data.density_curves = film_density_curves
+            invalidates_print_balance_reference = True
+        if print_density_curves is not None:
+            self.print.data.density_curves = print_density_curves
+        if invalidates_print_balance_reference:
+            (
+                self._enlarger_service.density_spectral_midgray,
+                self._enlarger_service.density_spectral_midgray_comp,
+            ) = self._filming_stage._compute_density_spectral_midgray_to_balance_print()
+        
     # private methods
     
     def _pipeline(self, image):

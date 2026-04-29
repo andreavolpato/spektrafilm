@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import numpy as np
-
 from spektrafilm_gui.state import GuiState
 from spektrafilm.runtime.api import init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
@@ -48,6 +46,17 @@ def _apply_glare(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
     params.camera.lens_blur_um = state.simulation.camera_lens_blur_um
+    params.camera.diffusion_filter.active = bool(state.simulation.camera_diffusion_filter_active)
+    params.camera.diffusion_filter.filter_family = state.simulation.camera_diffusion_filter_family
+    params.camera.diffusion_filter.strength = float(state.simulation.camera_diffusion_filter_strength)
+    params.camera.diffusion_filter.spatial_scale = float(state.simulation.camera_diffusion_filter_spatial_scale)
+    params.camera.diffusion_filter.halo_warmth = float(state.simulation.camera_diffusion_filter_halo_warmth)
+    params.camera.diffusion_filter.core_intensity = float(state.simulation.camera_diffusion_filter_core_intensity)
+    params.camera.diffusion_filter.core_size = float(state.simulation.camera_diffusion_filter_core_size)
+    params.camera.diffusion_filter.halo_intensity = float(state.simulation.camera_diffusion_filter_halo_intensity)
+    params.camera.diffusion_filter.halo_size = float(state.simulation.camera_diffusion_filter_halo_size)
+    params.camera.diffusion_filter.bloom_intensity = float(state.simulation.camera_diffusion_filter_bloom_intensity)
+    params.camera.diffusion_filter.bloom_size = float(state.simulation.camera_diffusion_filter_bloom_size)
     params.camera.exposure_compensation_ev = state.simulation.exposure_compensation_ev
     params.camera.auto_exposure = state.simulation.auto_exposure
     params.camera.auto_exposure_method = state.simulation.auto_exposure_method
@@ -69,11 +78,24 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
 
 
 def _apply_halation(params: RuntimePhotoParams, state: GuiState) -> None:
-    params.film_render.halation.active = state.halation.active
-    params.film_render.halation.strength = np.array(state.halation.halation_strength) / 100.0
-    params.film_render.halation.size_um = np.array(state.halation.halation_size_um)
-    params.film_render.halation.scattering_strength = np.array(state.halation.scattering_strength) / 100.0
-    params.film_render.halation.scattering_size_um = np.array(state.halation.scattering_size_um)
+    h = state.halation
+    p = params.film_render.halation
+    p.active = h.active
+    p.scatter_amount = h.scatter_amount
+    p.scatter_spatial_scale = h.scatter_spatial_scale
+    p.halation_amount = h.halation_amount
+    p.halation_spatial_scale = h.halation_spatial_scale
+    p.boost_ev = h.boost_ev
+    p.protect_ev = h.protect_ev
+    p.boost_range = h.boost_range
+    p.scatter_core_um = tuple(h.scatter_core_um)
+    p.scatter_tail_um = tuple(h.scatter_tail_um)
+    p.scatter_tail_weight = tuple(float(value) / 100.0 for value in h.scatter_tail_weight)
+    p.halation_strength = tuple(float(value) / 100.0 for value in h.halation_strength)
+    p.halation_first_sigma_um = tuple(h.halation_first_sigma_um)
+    p.halation_n_bounces = int(h.halation_n_bounces)
+    p.halation_bounce_decay = float(h.halation_bounce_decay)
+    p.halation_renormalize = bool(h.halation_renormalize)
 
 
 def _apply_grain(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -91,11 +113,14 @@ def _apply_grain(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_couplers(params: RuntimePhotoParams, state: GuiState) -> None:
     params.film_render.dir_couplers.active = state.couplers.active
-    params.film_render.dir_couplers.amount = state.couplers.dir_couplers_amount
-    params.film_render.dir_couplers.ratio_rgb = state.couplers.dir_couplers_ratio
-    params.film_render.dir_couplers.diffusion_size_um = state.couplers.dir_couplers_diffusion_um
-    params.film_render.dir_couplers.diffusion_interlayer = state.couplers.diffusion_interlayer
-    params.film_render.dir_couplers.high_exposure_shift = state.couplers.high_exposure_shift
+    params.film_render.dir_couplers.amount = state.couplers.amount
+    params.film_render.dir_couplers.inhibition_samelayer = state.couplers.inhibition_samelayer
+    params.film_render.dir_couplers.inhibition_interlayer = state.couplers.inhibition_interlayer
+    params.film_render.dir_couplers.gamma_samelayer_rgb = tuple(state.couplers.gamma_samelayer_rgb)
+    params.film_render.dir_couplers.gamma_interlayer_r_to_gb = tuple(state.couplers.gamma_interlayer_r_to_gb)
+    params.film_render.dir_couplers.gamma_interlayer_g_to_rb = tuple(state.couplers.gamma_interlayer_g_to_rb)
+    params.film_render.dir_couplers.gamma_interlayer_b_to_rg = tuple(state.couplers.gamma_interlayer_b_to_rg)
+    params.film_render.dir_couplers.diffusion_size_um = state.couplers.diffusion_size_um
 
 
 def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -104,11 +129,17 @@ def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
     params.enlarger.print_exposure_compensation = state.simulation.print_exposure_compensation
     params.enlarger.y_filter_shift = state.simulation.print_y_filter_shift
     params.enlarger.m_filter_shift = state.simulation.print_m_filter_shift
-    params.enlarger.diffusion_filter = (
-        state.simulation.diffusion_strength,
-        state.simulation.diffusion_spatial_scale,
-        state.simulation.diffusion_intensity,
-    )
+    params.enlarger.diffusion_filter.active = bool(state.simulation.diffusion_filter_active)
+    params.enlarger.diffusion_filter.filter_family = state.simulation.diffusion_filter_family
+    params.enlarger.diffusion_filter.strength = float(state.simulation.diffusion_filter_strength)
+    params.enlarger.diffusion_filter.spatial_scale = float(state.simulation.diffusion_filter_spatial_scale)
+    params.enlarger.diffusion_filter.halo_warmth = float(state.simulation.diffusion_filter_halo_warmth)
+    params.enlarger.diffusion_filter.core_intensity = float(state.simulation.diffusion_filter_core_intensity)
+    params.enlarger.diffusion_filter.core_size = float(state.simulation.diffusion_filter_core_size)
+    params.enlarger.diffusion_filter.halo_intensity = float(state.simulation.diffusion_filter_halo_intensity)
+    params.enlarger.diffusion_filter.halo_size = float(state.simulation.diffusion_filter_halo_size)
+    params.enlarger.diffusion_filter.bloom_intensity = float(state.simulation.diffusion_filter_bloom_intensity)
+    params.enlarger.diffusion_filter.bloom_size = float(state.simulation.diffusion_filter_bloom_size)
     params.enlarger.preflash_exposure = state.preflashing.exposure
     params.enlarger.preflash_y_filter_shift = state.preflashing.y_filter_shift
     params.enlarger.preflash_m_filter_shift = state.preflashing.m_filter_shift

@@ -3,7 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from spektrafilm_gui.options import AutoExposureMethods, NapariInterpolationModes, RGBColorSpaces, RGBtoRAWMethod, RawWhiteBalance
+from spektrafilm_gui.options import (
+    AutoExposureMethods,
+    DiffusionFilterFamilies,
+    NapariInterpolationModes,
+    RGBColorSpaces,
+    RGBtoRAWMethod,
+    RawWhiteBalance,
+)
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 
@@ -39,10 +46,12 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
     "simulation": {
         "film_stock": FilmStocks,
         "auto_exposure_method": AutoExposureMethods,
+        "camera_diffusion_filter_family": DiffusionFilterFamilies,
         "print_paper": PrintPapers,
         "print_illuminant": Illuminants,
         "output_color_space": RGBColorSpaces,
         "saving_color_space": RGBColorSpaces,
+        "diffusion_filter_family": DiffusionFilterFamilies,
     },
 }
 
@@ -71,6 +80,76 @@ GUI_WIDGET_SPECS = {
             step=0.05,
             min_value=0,
         ),
+        "camera_diffusion_filter_active": WidgetSpec(
+            label="Diffusion active",
+            tooltip="Toggle the diffusion filter on the camera stage before film exposure.",
+        ),
+        "camera_diffusion_filter_family": WidgetSpec(
+            label="Diffusion family",
+            tooltip="PSF family used on the camera stage before film exposure.",
+        ),
+        "camera_diffusion_filter_strength": WidgetSpec(
+            label="Diffusion strength",
+            tooltip="Commercial filter stop: 0, 1/8=0.125, 1/4=0.25, 1/2=0.5, 1, 2.",
+            min_value=0,
+            max_value=2,
+            step=0.125,
+        ),
+        "camera_diffusion_filter_spatial_scale": WidgetSpec(
+            label="Spatial scale",
+            tooltip="Multiplier on the camera-stage image-plane PSF widths.",
+            min_value=0,
+            step=0.1,
+        ),
+        "camera_diffusion_filter_halo_warmth": WidgetSpec(
+            label="Halo warmth",
+            tooltip="Additive offset on the camera-stage halo warmth axis. Positive = warm outer halo / cool inner halo. Negative inverts. 0 = use family default.",
+            min_value=-1.5,
+            max_value=1.5,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_core_intensity": WidgetSpec(
+            label="Core intensity",
+            tooltip="Advanced. Multiplier on the camera-stage core weight. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_core_size": WidgetSpec(
+            label="Core size",
+            tooltip="Advanced. Multiplier on the camera-stage core lambda. 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_halo_intensity": WidgetSpec(
+            label="Halo intensity",
+            tooltip="Advanced. Multiplier on the camera-stage halo weight. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_halo_size": WidgetSpec(
+            label="Halo size",
+            tooltip="Advanced. Multiplier on the camera-stage halo lambda. 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_bloom_intensity": WidgetSpec(
+            label="Bloom intensity",
+            tooltip="Advanced. Multiplier on the camera-stage bloom weight. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "camera_diffusion_filter_bloom_size": WidgetSpec(
+            label="Bloom size",
+            tooltip="Advanced. Multiplier on the camera-stage bloom lambda. 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
         "print_paper": WidgetSpec(label="Print profile", tooltip="Print paper to simulate"),
         "print_illuminant": WidgetSpec(label="Print illuminant", tooltip="Print illuminant to simulate"),
         "print_exposure": WidgetSpec(
@@ -93,24 +172,75 @@ GUI_WIDGET_SPECS = {
             tooltip="M filter shift of the color enlarger from a neutral position, in Kodak CC units",
             step=1,
         ),
-        "diffusion_strength": WidgetSpec(
+        "diffusion_filter_active": WidgetSpec(
+            label="Diffusion active",
+            tooltip="Toggle the diffusion filter (Pro-Mist family) on the print stage.",
+        ),
+        "diffusion_filter_family": WidgetSpec(
+            label="Diffusion family",
+            tooltip="PSF family. pro_mist / classic_soft / glimmerglass are transparent (energy-preserving); black_pro_mist absorbs a fraction of the deflected light, lifting shadows by reducing local contrast.",
+        ),
+        "diffusion_filter_strength": WidgetSpec(
             label="Diffusion strength",
-            tooltip="strength of the diffusion filter 1/8=0.125, 1/4=0.25, 1/2=0.5, ..",
+            tooltip="Commercial filter stop: 0, 1/8=0.125, 1/4=0.25, 1/2=0.5, 1, 2. Maps internally to the (p_s, p_a) deflected/absorbed photon fractions.",
             min_value=0,
-            max_value=1,
+            max_value=2,
             step=0.125,
         ),
-        "diffusion_spatial_scale": WidgetSpec(
+        "diffusion_filter_spatial_scale": WidgetSpec(
             label="Spatial scale",
-            tooltip="scale spatially the filter blooming",
+            tooltip="Multiplier on the image-plane PSF widths (all per-group lambdas). Adjust for image-format / print-size differences.",
             min_value=0,
             step=0.1,
         ),
-        "diffusion_intensity": WidgetSpec(
-            label="Intensity",
-            tooltip="tune the intensity of the filter",
+        "diffusion_filter_halo_warmth": WidgetSpec(
+            label="Halo warmth",
+            tooltip="Additive offset on the family's halo warmth axis. Positive = warm outer halo / cool inner halo (the look reference images show on mist and bloom filters). Negative inverts. Energy-preserving per channel. 0 = use family default.",
+            min_value=-1.5,
+            max_value=1.5,
+            step=0.05,
+        ),
+        "diffusion_filter_core_intensity": WidgetSpec(
+            label="Core intensity",
+            tooltip="Advanced. Multiplier on the family's core weight. The three group weights (core, halo, bloom) are renormalized to sum to 1, so this reshuffles the relative split of energy between groups, not the total deflected fraction. 1.0 = use family default.",
             min_value=0,
-            step=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_core_size": WidgetSpec(
+            label="Core size",
+            tooltip="Advanced. Multiplier on the family's core lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_halo_intensity": WidgetSpec(
+            label="Halo intensity",
+            tooltip="Advanced. Multiplier on the family's halo weight. The three group weights (core, halo, bloom) are renormalized to sum to 1. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_halo_size": WidgetSpec(
+            label="Halo size",
+            tooltip="Advanced. Multiplier on the family's halo lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_bloom_intensity": WidgetSpec(
+            label="Bloom intensity",
+            tooltip="Advanced. Multiplier on the family's bloom weight. The three group weights (core, halo, bloom) are renormalized to sum to 1. 1.0 = use family default.",
+            min_value=0,
+            max_value=4,
+            step=0.05,
+        ),
+        "diffusion_filter_bloom_size": WidgetSpec(
+            label="Bloom size",
+            tooltip="Advanced. Multiplier on the family's bloom lambda (all sub-components stretched together). 1.0 = use family default.",
+            min_value=0.1,
+            max_value=4,
+            step=0.05,
         ),
         "scan_lens_blur": WidgetSpec(
             label="Scan lens blur",
@@ -226,49 +356,125 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "halation": {
-        "scattering_strength": WidgetSpec(
-            tooltip="Fraction of scattered light (0-100, percentage) for each channel [R,G,B]",
-            min_value=0,
-            max_value=100,
-            step=1,
-        ),
-        "scattering_size_um": WidgetSpec(
-            tooltip="Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
-            min_value=0,
-            step=0.1,
-        ),
-        "halation_strength": WidgetSpec(
-            tooltip="Fraction of halation light (0-100, percentage) for each channel [R,G,B]",
-            min_value=0,
-            max_value=100,
-            step=1,
-        ),
-        "halation_size_um": WidgetSpec(
-            tooltip="Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter.",
-            min_value=0,
-            step=0.1,
-        ),
-    },
-    "couplers": {
-        "dir_couplers_amount": WidgetSpec(
-            tooltip="Gamma value of coupler inhibitors, control saturation, typical values (0.15-0.35).",
+        "scatter_amount": WidgetSpec(
+            tooltip="High-level scatter strength. 1.0 = full physical scatter, 0.0 = no scatter. Scales the fraction of light that undergoes in-emulsion scattering.",
             min_value=0,
             step=0.05,
         ),
-        "dir_couplers_ratio": WidgetSpec(
-            tooltip="relative amount of coupler in RGB layers, if dir coupler amount is 1.0 they are effectevile gamma values of the log exposure correction.",
+        "scatter_spatial_scale": WidgetSpec(
+            tooltip="High-level scatter size multiplier (1.0 = physical defaults). Scales both core and tail sigmas.",
+            min_value=0,
+            step=0.1,
+        ),
+        "halation_amount": WidgetSpec(
+            tooltip="High-level halation strength multiplier (1.0 = physical defaults). Scales the per-channel halation amplitudes.",
+            min_value=0,
+            step=0.05,
+        ),
+        "halation_spatial_scale": WidgetSpec(
+            tooltip="High-level halation size multiplier (1.0 = physical defaults). Scales the first-bounce sigma.",
+            min_value=0,
+            step=0.1,
+        ),
+        "boost_ev": WidgetSpec(
+            tooltip="Maximum highlight boost in stops.",
+            min_value=0,
+            step=0.5,
+        ),
+        "protect_ev": WidgetSpec(
+            tooltip="Protected range above midgray for the boost onset in stops.",
+            min_value=0,
+            step=0.5,
+        ),
+        "boost_range": WidgetSpec(
+            tooltip="Controls how quickly the highlight boost ramps in, from 0 to 1.",
+            min_value=0,
+            max_value=1,
+            step=0.05,
+        ),
+        "scatter_core_um": WidgetSpec(
+            tooltip="Sigma of the scatter core Gaussian per channel [R,G,B], in micrometers. Controls fine-scale sharpness loss in the emulsion.",
+            min_value=0,
+            step=0.5,
+        ),
+        "scatter_tail_um": WidgetSpec(
+            tooltip="Decay constant of the scatter exponential tail per channel [R,G,B], in micrometers (internally approximated by a sum of Gaussians). Controls extended low-level spread within the emulsion.",
+            min_value=0,
+            step=1.0,
+        ),
+        "scatter_tail_weight": WidgetSpec(
+            tooltip="Weight of the scatter tail Gaussian per channel [R,G,B] (0-100, percentage). Tail weight + core weight = 100. Higher values put more scattered light into the long tail.",
+            min_value=0,
+            max_value=100,
+            step=1,
+        ),
+        "halation_strength": WidgetSpec(
+            tooltip="Total back-reflection halation amplitude per channel [R,G,B] (0-100, percentage). Typical red channel: weak AH 2-8, no AH 8-25. The blue channel is usually near zero.",
+            min_value=0,
+            max_value=100,
+            step=0.5,
+        ),
+        "halation_first_sigma_um": WidgetSpec(
+            tooltip="Sigma of the first halation bounce per channel [R,G,B], in micrometers. Set by the base thickness (40-80 um for typical cine/still bases).",
+            min_value=0,
+            step=1.0,
+        ),
+        "halation_n_bounces": WidgetSpec(
+            tooltip="Number of multi-bounce Gaussians summed in the halation pass. Subsequent bounces use sqrt(k)-spaced widths. Typical: 2-3.",
+            min_value=1,
+            max_value=5,
+            step=1,
+        ),
+        "halation_bounce_decay": WidgetSpec(
+            tooltip="Per-bounce amplitude decay ratio (rho). Physical range 0.3-0.7. Controls how fast the halation energy falls off between bounces.",
+            min_value=0,
+            max_value=1,
+            step=0.05,
+        ),
+        "halation_renormalize": WidgetSpec(
+            tooltip="If enabled, divide by (1 + sum of bounce amplitudes) so mid-grey is preserved. If disabled, halation is purely additive and subtly lifts shadows as well as highlights.",
+        ),
+    },
+    "couplers": {
+        "amount": WidgetSpec(
+            tooltip="Global multiplier on the DIR coupler inhibition matrix. 1.0 leaves the per-channel gammas as-is.",
+            min_value=0,
+            step=0.05,
+        ),
+        "inhibition_samelayer": WidgetSpec(
+            tooltip="Multiplier on the same-layer (diagonal) inhibition. Controls overall contrast / gamma reduction within each RGB layer.",
+            min_value=0,
+            step=0.05,
+        ),
+        "inhibition_interlayer": WidgetSpec(
+            tooltip="Multiplier on the cross-layer (off-diagonal) inhibition. Controls saturation enhancement from interlayer DIR effects.",
+            min_value=0,
+            step=0.05,
+        ),
+        "gamma_samelayer_rgb": WidgetSpec(
+            tooltip="Per-channel same-layer DIR gamma (R, G, B). Effective gamma reduction of each layer's density curve.",
             min_value=0,
             step=0.02,
         ),
-        "dir_couplers_diffusion_um": WidgetSpec(
+        "gamma_interlayer_r_to_gb": WidgetSpec(
+            tooltip="DIR inhibition from the R layer onto the G and B layers respectively (g_R->G, g_R->B).",
+            min_value=0,
+            step=0.02,
+        ),
+        "gamma_interlayer_g_to_rb": WidgetSpec(
+            tooltip="DIR inhibition from the G layer onto the R and B layers respectively (g_G->R, g_G->B).",
+            min_value=0,
+            step=0.02,
+        ),
+        "gamma_interlayer_b_to_rg": WidgetSpec(
+            tooltip="DIR inhibition from the B layer onto the R and G layers respectively (g_B->R, g_B->G).",
+            min_value=0,
+            step=0.02,
+        ),
+        "diffusion_size_um": WidgetSpec(
             tooltip="Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
             min_value=0,
             step=5,
-        ),
-        "diffusion_interlayer": WidgetSpec(
-            tooltip="Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation.",
-            min_value=0,
-            step=0.5,
         ),
     },
     "grain": {
@@ -342,7 +548,7 @@ GUI_WIDGET_SPECS = {
             tooltip="Apply the inverse cctf transfer function of the color space",
         ),
         "upscale_factor": WidgetSpec(label="Upscale factor", tooltip="Scale image size up to increase resolution",
-                                     min_value=1,
+                                     min_value=0.0,
                                      step=0.5,
                                      ),
         "spectral_upsampling_method": WidgetSpec(

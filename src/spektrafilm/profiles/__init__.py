@@ -1,4 +1,4 @@
-"""Processed profile storage helpers for spectral_film_lab."""
+"""Processed profile storage helpers for spektrafilm."""
 
 from .io import load_processed_profile, save_processed_profile
 

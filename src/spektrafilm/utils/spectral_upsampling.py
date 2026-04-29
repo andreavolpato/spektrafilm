@@ -5,12 +5,10 @@ import scipy
 import importlib.resources
 from opt_einsum import contract
 import scipy.interpolate
-from spektrafilm.model.color_filters import compute_band_pass_filter as _compute_band_pass_filter
+
 from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 from spektrafilm.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
 from spektrafilm.model.illuminants import standard_illuminant
-
-compute_band_pass_filter = _compute_band_pass_filter
 
 ################################################################################
 # LUT generatation of irradiance spectra for any xy chromaticity
@@ -180,43 +178,23 @@ def rgb_to_raw_mallett2019(RGB, sensitivity,
 HANATOS2025_SPECTRA_LUT = _load_hanatos2025_spectra_lut()
 
 def compute_hanatos2025_tc_lut(sensitivity, spectra_lut=HANATOS2025_SPECTRA_LUT):
-    return contract('ijl,lm->ijm', HANATOS2025_SPECTRA_LUT, sensitivity)
-
-def _normalize_raw_to_midgray(raw, midgray_spectrum, sensitivity):
-    raw_midgray = np.einsum('k,km->m', midgray_spectrum, sensitivity)
-    return raw / raw_midgray[1]
+    raw_lut = contract('ijl,lm->ijm', spectra_lut, sensitivity)
+    return raw_lut
 
 def rgb_to_raw_hanatos2025(rgb, sensitivity,
                            color_space, apply_cctf_decoding, reference_illuminant, tc_lut=None):
-    if rgb.shape[1] == 1: # if a single pixel is provided, compute the spectrum directly
-        spectrum = rgb_to_smooth_spectrum(
-            rgb,
-            color_space=color_space,
-            apply_cctf_decoding=apply_cctf_decoding,
-            reference_illuminant=reference_illuminant,
-        )
-        raw = np.einsum('l,lm->m', spectrum, sensitivity)
-        raw = np.array([[raw]])
-    else:
-        tc_raw, b = _rgb_to_tc_b(
-            rgb,
-            color_space=color_space,
-            apply_cctf_decoding=apply_cctf_decoding,
-            reference_illuminant=reference_illuminant,
-        )
-        if tc_lut is None:
-            tc_lut  = compute_hanatos2025_tc_lut(sensitivity)
-        raw = apply_lut_cubic_2d(tc_lut, tc_raw)
-        raw *= b[...,None] # scale the raw back with the scale factor
-
-    midgray_rgb = np.array([[[0.184]*3]])
-    midgray_spectrum = rgb_to_smooth_spectrum(
-        midgray_rgb,
+    tc_raw, b = _rgb_to_tc_b(
+        rgb,
         color_space=color_space,
-        apply_cctf_decoding=False,
+        apply_cctf_decoding=apply_cctf_decoding,
         reference_illuminant=reference_illuminant,
     )
-    return _normalize_raw_to_midgray(raw, midgray_spectrum, sensitivity)
+    if tc_lut is None:
+        tc_lut  = compute_hanatos2025_tc_lut(sensitivity)
+    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
+    raw *= b[...,None] # scale the raw back with the scale factor
+    # note that sensitivities are already normalized in balancing such that raw_midgray is 1, so no need to normalize here
+    return raw
 
 def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illuminant):
     # direct interpolation of the spectra lut, to be used only for smooth spectra close to white
@@ -231,34 +209,9 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
     spectrum_w *= b_w
     return spectrum_w.flatten()
 
-################################################################################
-# 
-
-def rgb_to_raw(rgb, sensitivity, 
-               color_space, apply_cctf_decoding, reference_illuminant, method='hanatos2025'):
-        if method == "hanatos2025":
-            return rgb_to_raw_hanatos2025(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=reference_illuminant,
-            )
-        elif method == "mallett2019":
-            return rgb_to_raw_mallett2019(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=reference_illuminant,
-            )
-        else:
-            raise ValueError(f"Unsupported rgb_to_raw method: {method}")
-
 
 if __name__=='__main__':
     lut_coeffs = _load_coeffs_lut()
     coeffs = _fetch_coeffs(np.array([[1,1]]) ,lut_coeffs)
     spectra = _compute_spectra_from_coeffs(coeffs)
     lut_spectra = compute_lut_spectra(lut_size=128)
-    

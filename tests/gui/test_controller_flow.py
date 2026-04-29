@@ -177,6 +177,62 @@ def test_load_input_image_requests_auto_preview_once_when_enabled(monkeypatch) -
     assert captured['preview_requests'] == 1
 
 
+def test_rotate_input_image_clockwise_rebuilds_preview_hides_output_and_requests_auto_preview(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: True)))
+    controller._current_input_image = np.arange(2 * 3 * 3, dtype=np.float32).reshape(2, 3, 3)
+    captured: dict[str, object] = {}
+
+    def fake_update_preview_cache(image, *, home_input_stack, hide_output) -> None:
+        captured['image'] = np.asarray(image)
+        captured['home_input_stack'] = home_input_stack
+        captured['hide_output'] = hide_output
+        controller._current_preview_image = np.asarray(image)
+
+    monkeypatch.setattr(controller, '_update_preview_cache', fake_update_preview_cache)
+
+    def fake_request_auto_preview() -> None:
+        captured['preview_requests'] = captured.get('preview_requests', 0) + 1
+
+    monkeypatch.setattr(controller, 'request_auto_preview', fake_request_auto_preview)
+
+    controller.rotate_input_image_clockwise()
+
+    np.testing.assert_allclose(captured['image'], np.rot90(controller._current_input_image, k=-1))
+    assert captured['home_input_stack'] is True
+    assert captured['hide_output'] is True
+    assert captured['preview_requests'] == 1
+
+
+def test_rotate_input_image_counterclockwise_rebuilds_preview_without_auto_preview_when_disabled(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: False)))
+    controller._current_input_image = np.arange(2 * 3 * 3, dtype=np.float32).reshape(2, 3, 3)
+    captured: dict[str, object] = {}
+
+    def fake_update_preview_cache(image, *, home_input_stack, hide_output) -> None:
+        captured['image'] = np.asarray(image)
+        captured['home_input_stack'] = home_input_stack
+        captured['hide_output'] = hide_output
+
+    monkeypatch.setattr(controller, '_update_preview_cache', fake_update_preview_cache)
+    monkeypatch.setattr(controller, 'request_auto_preview', lambda: (_ for _ in ()).throw(AssertionError('auto preview should stay disabled')))
+
+    controller.rotate_input_image_counterclockwise()
+
+    np.testing.assert_allclose(captured['image'], np.rot90(controller._current_input_image, k=1))
+    assert captured['home_input_stack'] is True
+    assert captured['hide_output'] is True
+
+
+def test_rotate_input_image_noops_without_loaded_input(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: True)))
+
+    monkeypatch.setattr(controller, '_update_preview_cache', lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('should not update preview without input image')))
+    monkeypatch.setattr(controller, 'request_auto_preview', lambda: (_ for _ in ()).throw(AssertionError('should not request auto preview without input image')))
+
+    controller.rotate_input_image_clockwise()
+    controller.rotate_input_image_counterclockwise()
+
+
 def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(monkeypatch) -> None:
     viewer = FakeViewer([FakeLayer(np.zeros((2, 2, 3), dtype=np.float32), name='older')])
     controller = GuiController(viewer=viewer, widgets=object())
@@ -373,25 +429,25 @@ def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
     original_fields = dict(PROFILE_SYNC_FIELDS)
     try:
         controller_module.PROFILE_SYNC_FIELDS = {
-            'couplers': ('dir_couplers_ratio',),
+            'couplers': ('gamma_samelayer_rgb',),
             'simulation': ('scan_film',),
         }
         captured: dict[str, object] = {}
         controller = GuiController(
             viewer=object(),
             widgets=SimpleNamespace(
-                couplers=SimpleNamespace(dir_couplers_ratio=SimpleNamespace(value=(0.0, 0.0, 0.0))),
+                couplers=SimpleNamespace(gamma_samelayer_rgb=SimpleNamespace(value=(0.0, 0.0, 0.0))),
                 simulation=SimpleNamespace(set_scan_film_value=lambda value: captured.setdefault('scan_film', []).append(value)),
             ),
         )
         synced_state = SimpleNamespace(
-            couplers=SimpleNamespace(dir_couplers_ratio=(0.35, 0.2275, 0.1225)),
+            couplers=SimpleNamespace(gamma_samelayer_rgb=(0.35, 0.2275, 0.1225)),
             simulation=SimpleNamespace(scan_film=True),
         )
 
         controller._apply_profile_sync_state(synced_state)
 
-        assert controller._widgets.couplers.dir_couplers_ratio.value == (0.35, 0.2275, 0.1225)
+        assert controller._widgets.couplers.gamma_samelayer_rgb.value == (0.35, 0.2275, 0.1225)
         assert captured['scan_film'] == [True]
     finally:
         controller_module.PROFILE_SYNC_FIELDS = original_fields

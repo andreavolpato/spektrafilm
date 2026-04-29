@@ -56,20 +56,38 @@ class PreflashingState:
 @dataclass(slots=True)
 class HalationState:
     active: bool
-    scattering_strength: tuple[float, float, float]
-    scattering_size_um: tuple[float, float, float]
-    halation_strength: tuple[float, float, float]
-    halation_size_um: tuple[float, float, float]
+    # high-level knobs (intended for the simplified GUI)
+    scatter_amount: float
+    scatter_spatial_scale: float
+    halation_amount: float
+    halation_spatial_scale: float
+    # highlight boost
+    boost_ev: float
+    protect_ev: float
+    boost_range: float
+    # scatter (low-level, developer GUI)
+    scatter_core_um: tuple[float, float, float]
+    scatter_tail_um: tuple[float, float, float]
+    scatter_tail_weight: tuple[float, float, float]  # stored 0-100 percent
+    # halation (low-level, developer GUI)
+    halation_strength: tuple[float, float, float]  # stored 0-100 percent
+    halation_first_sigma_um: tuple[float, float, float]
+    halation_n_bounces: int
+    halation_bounce_decay: float
+    halation_renormalize: bool
 
 
 @dataclass(slots=True)
 class CouplersState:
     active: bool
-    dir_couplers_amount: float
-    dir_couplers_ratio: tuple[float, float, float]
-    dir_couplers_diffusion_um: float
-    diffusion_interlayer: float
-    high_exposure_shift: float
+    amount: float
+    inhibition_samelayer: float
+    inhibition_interlayer: float
+    gamma_samelayer_rgb: tuple[float, float, float]
+    gamma_interlayer_r_to_gb: tuple[float, float]
+    gamma_interlayer_g_to_rb: tuple[float, float]
+    gamma_interlayer_b_to_rg: tuple[float, float]
+    diffusion_size_um: float
 
 
 @dataclass(slots=True)
@@ -93,6 +111,17 @@ class SimulationState:
     film_stock: str
     film_format_mm: float
     camera_lens_blur_um: float
+    camera_diffusion_filter_active: bool
+    camera_diffusion_filter_family: str
+    camera_diffusion_filter_strength: float
+    camera_diffusion_filter_spatial_scale: float
+    camera_diffusion_filter_halo_warmth: float
+    camera_diffusion_filter_core_intensity: float
+    camera_diffusion_filter_core_size: float
+    camera_diffusion_filter_halo_intensity: float
+    camera_diffusion_filter_halo_size: float
+    camera_diffusion_filter_bloom_intensity: float
+    camera_diffusion_filter_bloom_size: float
     exposure_compensation_ev: float
     auto_exposure: bool
     auto_exposure_method: str
@@ -102,9 +131,17 @@ class SimulationState:
     print_exposure_compensation: bool
     print_y_filter_shift: float
     print_m_filter_shift: float
-    diffusion_strength: float
-    diffusion_spatial_scale: float
-    diffusion_intensity: float
+    diffusion_filter_active: bool
+    diffusion_filter_family: str
+    diffusion_filter_strength: float
+    diffusion_filter_spatial_scale: float
+    diffusion_filter_halo_warmth: float
+    diffusion_filter_core_intensity: float
+    diffusion_filter_core_size: float
+    diffusion_filter_halo_intensity: float
+    diffusion_filter_halo_size: float
+    diffusion_filter_bloom_intensity: float
+    diffusion_filter_bloom_size: float
     scan_lens_blur: float
     scan_white_correction: bool
     scan_white_level: float
@@ -205,18 +242,32 @@ def gui_state_from_params(
         ),
         halation=HalationState(
             active=params.film_render.halation.active,
-            scattering_strength=tuple(value * 100.0 for value in params.film_render.halation.scattering_strength),
-            scattering_size_um=tuple(params.film_render.halation.scattering_size_um),
-            halation_strength=tuple(value * 100.0 for value in params.film_render.halation.strength),
-            halation_size_um=tuple(params.film_render.halation.size_um),
+            scatter_amount=params.film_render.halation.scatter_amount,
+            scatter_spatial_scale=params.film_render.halation.scatter_spatial_scale,
+            halation_amount=params.film_render.halation.halation_amount,
+            halation_spatial_scale=params.film_render.halation.halation_spatial_scale,
+            boost_ev=params.film_render.halation.boost_ev,
+            protect_ev=params.film_render.halation.protect_ev,
+            boost_range=params.film_render.halation.boost_range,
+            scatter_core_um=tuple(params.film_render.halation.scatter_core_um),
+            scatter_tail_um=tuple(params.film_render.halation.scatter_tail_um),
+            scatter_tail_weight=tuple(value * 100.0 for value in params.film_render.halation.scatter_tail_weight),
+            halation_strength=tuple(value * 100.0 for value in params.film_render.halation.halation_strength),
+            halation_first_sigma_um=tuple(params.film_render.halation.halation_first_sigma_um),
+            halation_n_bounces=params.film_render.halation.halation_n_bounces,
+            halation_bounce_decay=params.film_render.halation.halation_bounce_decay,
+            halation_renormalize=params.film_render.halation.halation_renormalize,
         ),
         couplers=CouplersState(
             active=params.film_render.dir_couplers.active,
-            dir_couplers_amount=params.film_render.dir_couplers.amount,
-            dir_couplers_ratio=tuple(params.film_render.dir_couplers.ratio_rgb),
-            dir_couplers_diffusion_um=params.film_render.dir_couplers.diffusion_size_um,
-            diffusion_interlayer=params.film_render.dir_couplers.diffusion_interlayer,
-            high_exposure_shift=params.film_render.dir_couplers.high_exposure_shift,
+            amount=params.film_render.dir_couplers.amount,
+            inhibition_samelayer=params.film_render.dir_couplers.inhibition_samelayer,
+            inhibition_interlayer=params.film_render.dir_couplers.inhibition_interlayer,
+            gamma_samelayer_rgb=tuple(params.film_render.dir_couplers.gamma_samelayer_rgb),
+            gamma_interlayer_r_to_gb=tuple(params.film_render.dir_couplers.gamma_interlayer_r_to_gb),
+            gamma_interlayer_g_to_rb=tuple(params.film_render.dir_couplers.gamma_interlayer_g_to_rb),
+            gamma_interlayer_b_to_rg=tuple(params.film_render.dir_couplers.gamma_interlayer_b_to_rg),
+            diffusion_size_um=params.film_render.dir_couplers.diffusion_size_um,
         ),
         glare=GlareState(
             active=params.print_render.glare.active,
@@ -234,6 +285,17 @@ def gui_state_from_params(
             film_stock=film_stock,
             film_format_mm=params.camera.film_format_mm,
             camera_lens_blur_um=params.camera.lens_blur_um,
+            camera_diffusion_filter_active=bool(params.camera.diffusion_filter.active),
+            camera_diffusion_filter_family=params.camera.diffusion_filter.filter_family,
+            camera_diffusion_filter_strength=float(params.camera.diffusion_filter.strength),
+            camera_diffusion_filter_spatial_scale=float(params.camera.diffusion_filter.spatial_scale),
+            camera_diffusion_filter_halo_warmth=float(params.camera.diffusion_filter.halo_warmth),
+            camera_diffusion_filter_core_intensity=float(params.camera.diffusion_filter.core_intensity),
+            camera_diffusion_filter_core_size=float(params.camera.diffusion_filter.core_size),
+            camera_diffusion_filter_halo_intensity=float(params.camera.diffusion_filter.halo_intensity),
+            camera_diffusion_filter_halo_size=float(params.camera.diffusion_filter.halo_size),
+            camera_diffusion_filter_bloom_intensity=float(params.camera.diffusion_filter.bloom_intensity),
+            camera_diffusion_filter_bloom_size=float(params.camera.diffusion_filter.bloom_size),
             exposure_compensation_ev=params.camera.exposure_compensation_ev,
             auto_exposure=params.camera.auto_exposure,
             auto_exposure_method=params.camera.auto_exposure_method,
@@ -243,9 +305,17 @@ def gui_state_from_params(
             print_exposure_compensation=params.enlarger.print_exposure_compensation,
             print_y_filter_shift=params.enlarger.y_filter_shift,
             print_m_filter_shift=params.enlarger.m_filter_shift,
-            diffusion_strength=float(params.enlarger.diffusion_filter[0]),
-            diffusion_spatial_scale=float(params.enlarger.diffusion_filter[1]),
-            diffusion_intensity=float(params.enlarger.diffusion_filter[2]),
+            diffusion_filter_active=bool(params.enlarger.diffusion_filter.active),
+            diffusion_filter_family=params.enlarger.diffusion_filter.filter_family,
+            diffusion_filter_strength=float(params.enlarger.diffusion_filter.strength),
+            diffusion_filter_spatial_scale=float(params.enlarger.diffusion_filter.spatial_scale),
+            diffusion_filter_halo_warmth=float(params.enlarger.diffusion_filter.halo_warmth),
+            diffusion_filter_core_intensity=float(params.enlarger.diffusion_filter.core_intensity),
+            diffusion_filter_core_size=float(params.enlarger.diffusion_filter.core_size),
+            diffusion_filter_halo_intensity=float(params.enlarger.diffusion_filter.halo_intensity),
+            diffusion_filter_halo_size=float(params.enlarger.diffusion_filter.halo_size),
+            diffusion_filter_bloom_intensity=float(params.enlarger.diffusion_filter.bloom_intensity),
+            diffusion_filter_bloom_size=float(params.enlarger.diffusion_filter.bloom_size),
             scan_lens_blur=params.scanner.lens_blur,
             scan_white_correction=params.scanner.white_correction,
             scan_white_level=params.scanner.white_level,

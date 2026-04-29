@@ -4,7 +4,7 @@ import scipy.ndimage
 from spektrafilm.model.density_curves import interp_density_cmy_layers
 from spektrafilm.runtime.params_schema import GrainParams
 from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson, fast_lognormal_from_mean_std
-# from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
+from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
 
 ################################################################################
 # Grain (very simple model)
@@ -46,8 +46,8 @@ def layer_particle_model(density,
         grain = np.double(grain)*od_particle*saturation
     
     if blur_particle>0:
-        grain = scipy.ndimage.gaussian_filter(grain, blur_particle*np.sqrt(od_particle))
-        # grain = fast_gaussian_filter(grain, blur_particle*np.sqrt(od_particle))
+        # grain = scipy.ndimage.gaussian_filter(grain, blur_particle*np.sqrt(od_particle))
+        grain = fast_gaussian_filter(grain, blur_particle*np.sqrt(od_particle))
     return grain
 
 def add_micro_structure(density_cmy_out, micro_structure, pixel_size_um):
@@ -57,8 +57,9 @@ def add_micro_structure(density_cmy_out, micro_structure, pixel_size_um):
         clumping = fast_lognormal_from_mean_std(np.ones_like(density_cmy_out),
                                                 np.ones_like(density_cmy_out)*grain_micro_structure_sigma)
         if grain_micro_structure_blur_pixel>0.4:
-            clumping = scipy.ndimage.gaussian_filter(clumping, (grain_micro_structure_blur_pixel,
-                                                                grain_micro_structure_blur_pixel, 0))
+            # clumping = scipy.ndimage.gaussian_filter(clumping, (grain_micro_structure_blur_pixel,
+            #                                                     grain_micro_structure_blur_pixel, 0))
+            clumping = fast_gaussian_filter(clumping, grain_micro_structure_blur_pixel)
         density_cmy_out *= clumping
     return density_cmy_out
 
@@ -101,7 +102,8 @@ def apply_grain_to_density(density_cmy,
     density_cmy_out -= density_min
     
     if sigma_blur_pixel>0.4:
-        density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (sigma_blur_pixel, sigma_blur_pixel, 0))
+        # density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (sigma_blur_pixel, sigma_blur_pixel, 0))
+        density_cmy_out = fast_gaussian_filter(density_cmy_out, sigma_blur_pixel)
         
     return density_cmy_out
 
@@ -156,8 +158,8 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
     # final
     density_cmy_out -= density_min
     if grain_blur>0:
-        density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (grain_blur, grain_blur, 0))
-        # density_cmy_out = fast_gaussian_filter(density_cmy_out, grain_blur)
+        # density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (grain_blur, grain_blur, 0))
+        density_cmy_out = fast_gaussian_filter(density_cmy_out, grain_blur)
     return density_cmy_out
 
 

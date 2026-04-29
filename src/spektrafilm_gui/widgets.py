@@ -4,6 +4,7 @@ from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, 
 from spektrafilm_gui.widget_primitives import CollapsibleSection, platform_default_font
 from spektrafilm_gui.widget_sections import (
     CameraSection,
+    CameraDiffusionSection,
     CouplersSection,
     DataclassSection,
     DisplaySection,
@@ -51,6 +52,7 @@ class WidgetBundle:
     grain: GrainSection
     preflashing: PreflashingSection
     diffusion: DiffusionSection
+    camera_diffusion: CameraDiffusionSection
     halation: HalationSection
     couplers: CouplersSection
     glare: GlareSection
@@ -84,6 +86,7 @@ def create_widget_bundle() -> WidgetBundle:
         grain=GrainSection(),
         preflashing=PreflashingSection(),
         diffusion=DiffusionSection(simulation),
+        camera_diffusion=CameraDiffusionSection(simulation),
         halation=HalationSection(),
         couplers=CouplersSection(),
         glare=glare,

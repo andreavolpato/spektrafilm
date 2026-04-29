@@ -9,6 +9,7 @@ from spektrafilm.utils.io import read_neutral_print_filters
 import spektrafilm_profile_creator.neutral_print_filters as print_filters_module
 from spektrafilm_profile_creator.neutral_print_filters import (
     DEFAULT_NEUTRAL_PRINT_FILTERS,
+    NeutralPrintFilterFitResult,
     NeutralPrintFilterRegenerationConfig,
     fit_neutral_filter_database,
     fit_neutral_filters,
@@ -21,6 +22,7 @@ def _make_fake_filter_params(y_filter: float = 0.0, m_filter: float = 0.0, c_fil
         print=SimpleNamespace(info=SimpleNamespace(is_negative=True)),
         enlarger=SimpleNamespace(
             illuminant=None,
+            print_exposure=1.0,
             y_filter_neutral=y_filter,
             m_filter_neutral=m_filter,
             c_filter_neutral=c_filter,
@@ -51,20 +53,21 @@ def test_fit_neutral_filters_returns_bounded_solution_and_reduces_midgray_error(
     start_m = float(params.enlarger.m_filter_neutral)
     start_y = float(params.enlarger.y_filter_neutral)
 
-    fitted_c, fitted_m, fitted_y, residuals = fit_neutral_filters(
+    fit_result = fit_neutral_filters(
         params,
         iterations=1,
+        normalize_print_exposure=False,
     )
 
     # Printing filters are stored in Kodak CC units, so fitted values are expected in the tens.
-    assert 0.0 <= fitted_c <= 230.0
-    assert 0.0 <= fitted_y <= 230.0
-    assert 0.0 <= fitted_m <= 230.0
-    assert fitted_y >= 10.0
-    assert fitted_m >= 10.0
-    assert residuals.shape == (3,)
-    assert np.isfinite(residuals).all()
-    assert np.sum(np.abs(residuals)) < 1e-3
+    assert 0.0 <= fit_result.c_filter <= 230.0
+    assert 0.0 <= fit_result.y_filter <= 230.0
+    assert 0.0 <= fit_result.m_filter <= 230.0
+    assert fit_result.y_filter >= 10.0
+    assert fit_result.m_filter >= 10.0
+    assert fit_result.residual.shape == (3,)
+    assert np.isfinite(fit_result.residual).all()
+    assert fit_result.total_residual < 1e-3
 
     # fit_neutral_filters currently returns values without mutating the input params.
     assert float(params.enlarger.c_filter_neutral) == start_c
@@ -84,12 +87,13 @@ def test_fit_neutral_filters_skips_positive_film_on_negative_print(monkeypatch):
         lambda *args, **kwargs: pytest.fail('positive film on negative print should be skipped'),
     )
 
-    fitted_c, fitted_m, fitted_y, residuals = fit_neutral_filters(params, iterations=3)
+    fit_result = fit_neutral_filters(params, iterations=3)
 
-    assert fitted_c == pytest.approx(33.0)
-    assert fitted_y == pytest.approx(11.0)
-    assert fitted_m == pytest.approx(22.0)
-    np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
+    assert fit_result.c_filter == pytest.approx(33.0)
+    assert fit_result.y_filter == pytest.approx(11.0)
+    assert fit_result.m_filter == pytest.approx(22.0)
+    assert fit_result.print_exposure == pytest.approx(1.0)
+    np.testing.assert_array_equal(fit_result.residual, np.zeros(3, dtype=np.float64))
 
 
 @pytest.mark.unit
@@ -97,22 +101,38 @@ def test_fit_neutral_filters_uses_default_cyan_start(monkeypatch):
     params = _make_fake_filter_params(y_filter=11.0, m_filter=22.0, c_filter=0.0)
     captured_start_filters = []
 
-    def fake_solve_once(profile, start_filters):
+    def fake_solve_once(
+        profile,
+        start_filters,
+        *,
+        fit_input,
+        injected_film_density_cmy,
+        normalize_print_exposure,
+    ):
         del profile
+        del fit_input
+        del injected_film_density_cmy
+        del normalize_print_exposure
         captured_start_filters.append(tuple(start_filters))
-        return float(start_filters[0]), float(start_filters[1]), float(start_filters[2]), np.zeros(3, dtype=np.float64)
+        return NeutralPrintFilterFitResult(
+            c_filter=float(start_filters[0]),
+            m_filter=float(start_filters[1]),
+            y_filter=float(start_filters[2]),
+            print_exposure=1.0,
+            residual=np.zeros(3, dtype=np.float64),
+        )
 
     monkeypatch.setattr(print_filters_module, '_fit_once', fake_solve_once)
 
-    fitted_c, fitted_m, fitted_y, residuals = fit_neutral_filters(params, iterations=1)
+    fit_result = fit_neutral_filters(params, iterations=1)
 
     assert captured_start_filters == [
         (float(DEFAULT_NEUTRAL_PRINT_FILTERS[0]), 22.0, 11.0)
     ]
-    assert fitted_c == pytest.approx(0.0)
-    assert fitted_y == pytest.approx(11.0)
-    assert fitted_m == pytest.approx(22.0)
-    np.testing.assert_array_equal(residuals, np.zeros(3, dtype=np.float64))
+    assert fit_result.c_filter == pytest.approx(0.0)
+    assert fit_result.y_filter == pytest.approx(11.0)
+    assert fit_result.m_filter == pytest.approx(22.0)
+    np.testing.assert_array_equal(fit_result.residual, np.zeros(3, dtype=np.float64))
 
 
 @pytest.mark.unit
@@ -166,11 +186,12 @@ def test_fit_neutral_filter_database_skips_resolved_entries_and_does_not_mutate_
                 params.enlarger.c_filter_neutral,
             )
         )
-        return (
-            params.enlarger.c_filter_neutral + 1.0,
-            params.enlarger.m_filter_neutral + 10.0,
-            params.enlarger.y_filter_neutral + 5.0,
-            np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
+        return NeutralPrintFilterFitResult(
+            c_filter=params.enlarger.c_filter_neutral + 1.0,
+            m_filter=params.enlarger.m_filter_neutral + 10.0,
+            y_filter=params.enlarger.y_filter_neutral + 5.0,
+            print_exposure=1.0,
+            residual=np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
         )
 
     monkeypatch.setattr(print_filters_module, 'init_params', fake_init_params)
@@ -232,7 +253,13 @@ def test_fit_neutral_filter_database_skips_positive_film_on_negative_print(monke
     def fake_fit(params, iterations=10, rng=None):
         del params, rng
         fit_calls.append(iterations)
-        return (15.0, 45.0, 60.0, np.array([0.0, 1e-4, -1e-4], dtype=np.float64))
+        return NeutralPrintFilterFitResult(
+            c_filter=15.0,
+            m_filter=45.0,
+            y_filter=60.0,
+            print_exposure=1.0,
+            residual=np.array([0.0, 1e-4, -1e-4], dtype=np.float64),
+        )
 
     monkeypatch.setattr(print_filters_module, 'init_params', fake_init_params)
     monkeypatch.setattr(print_filters_module, 'fit_neutral_filters', fake_fit)

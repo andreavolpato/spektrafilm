@@ -2,16 +2,18 @@ name: Kodak Ektar 100
 profile:
   type: negative
   support: film
-  use: filming
+  stage: filming
+  use: still
+  antihalation: strong
   channel_model: color
   densitometer: status_M
   log_sensitivity_density_over_min: 0.2
   reference_illuminant: D55
   viewing_illuminant: D50
+  target_print: kodak_portra_endura
 donors:
   dye_density_cmy: generic_a
 recipe:
   dye_density_reconstruct_model: dmid_dmin
-  target_print: kodak_portra_endura
   data_trustability: 1.0
   neutral_ramp_refinement: true

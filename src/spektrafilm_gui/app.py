@@ -271,13 +271,21 @@ def build_main_window_for_app(
     *,
     viewer: Any,
     widgets: WidgetBundle,
+    controller: GuiController | None = None,
     configure_napari_chrome_fn: Callable[..., None] = configure_napari_chrome,
     build_controls_panel_fn: Callable[[Any, WidgetBundle], Any] = build_controls_panel,
     build_main_window_fn: Callable[[Any, Any], Any] = build_main_window,
 ) -> Any:
     configure_napari_chrome_fn(viewer, gray_18_canvas=gray_18_canvas_enabled(widgets))
     controls_panel = build_controls_panel_fn(viewer, widgets)
-    return build_main_window_fn(viewer, controls_panel)
+    if controller is None:
+        return build_main_window_fn(viewer, controls_panel)
+    return build_main_window_fn(
+        viewer,
+        controls_panel,
+        on_rotate_ccw=controller.rotate_input_image_counterclockwise,
+        on_rotate_cw=controller.rotate_input_image_clockwise,
+    )
 
 
 def create_app() -> GuiApp:
@@ -288,7 +296,7 @@ def create_app() -> GuiApp:
     apply_gui_state(gui_state, widgets=widgets)
     _warmup_launch_input_path(gui_state)
     controller = initialize_controller(viewer=viewer, widgets=widgets)
-    main_window = build_main_window_for_app(viewer=viewer, widgets=widgets)
+    main_window = build_main_window_for_app(viewer=viewer, widgets=widgets, controller=controller)
     _schedule_background_warmup()
     return GuiApp(
         viewer=viewer,

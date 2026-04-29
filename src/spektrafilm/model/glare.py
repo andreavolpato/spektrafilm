@@ -19,7 +19,7 @@ def add_glare(xyz: np.ndarray, illuminant_xyz: np.ndarray, glare) -> np.ndarray:
 def compute_random_glare_amount(amount, roughness, blur, shape):
     random_glare = fast_lognormal_from_mean_std(amount*np.ones(shape),
                                                 roughness*amount*np.ones(shape))
-    random_glare = gaussian_filter(random_glare, blur)
-    # random_glare = fast_gaussian_filter(random_glare, blur)
+    # random_glare = gaussian_filter(random_glare, blur)
+    random_glare = fast_gaussian_filter(random_glare, blur)
     random_glare /= 100
     return random_glare

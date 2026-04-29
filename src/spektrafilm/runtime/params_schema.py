@@ -5,6 +5,41 @@ from dataclasses import dataclass, field
 from spektrafilm.profiles.io import Profile
 
 
+
+@dataclass
+class DiffusionFilterParams:
+    active: bool = False
+    # filter_family selects PSF shape and absorption regime. Allowed values
+    # are the keys of `_DIFFUSION_FILTER_SHAPES` in spektrafilm.model.diffusion.
+    filter_family: str = "black_pro_mist"
+    # commercial filter stops: 0, 1/8, 1/4, 1/2, 1, 2 (interpolated in between)
+    strength: float = 0.5
+    # multiplier on image-plane PSF widths (all per-group lambdas)
+    spatial_scale: float = 1.0
+    # additive bias to the family's halo warmth axis. The halo is energy-
+    # conservingly redistributed across its sub-components per channel:
+    # warmth > 0 pushes warm light (R + slight G) toward the OUTER halo
+    # and cool light (B) toward the inner halo (and vice versa for
+    # warmth < 0). 0 = use family default. Effective warmth is soft-
+    # clamped to [-1.5, +1.5].
+    halo_warmth: float = 0.0
+    # Per-group fine-tune multipliers (advanced). Default 1.0 = use the
+    # family preset unchanged. `*_intensity` scales the corresponding
+    # group weight (w_c / w_h / w_b); the three weights are then
+    # renormalized so they still sum to 1, i.e. the kernel stays
+    # unit-normalised and the strength → p_s mapping is unchanged. So
+    # these knobs reshuffle the relative split of energy between core,
+    # halo and bloom, not the total deflected fraction. `*_size` scales
+    # each group's lambda_um uniformly (all sub-components in that group
+    # stretched by the same factor).
+    core_intensity: float = 1.0
+    core_size: float = 1.0
+    halo_intensity: float = 1.0
+    halo_size: float = 1.0
+    bloom_intensity: float = 1.0
+    bloom_size: float = 1.0
+
+
 @dataclass
 class CameraParams:
     exposure_compensation_ev: float = 0.0
@@ -12,8 +47,9 @@ class CameraParams:
     auto_exposure_method: str = "center_weighted"
     lens_blur_um: float = 0.0
     film_format_mm: float = 35.0
-    filter_uv: tuple[float, float, float] = (1.0, 410.0, 8.0)
-    filter_ir: tuple[float, float, float] = (1.0, 675.0, 15.0)
+    filter_uv: tuple[float, float, float] = (0.0, 410.0, 8.0)
+    filter_ir: tuple[float, float, float] = (0.0, 675.0, 15.0)
+    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
 
 
 @dataclass
@@ -28,7 +64,7 @@ class EnlargerParams:
     m_filter_neutral: float = 65 # kodak cc values
     c_filter_neutral: float = 0 # kodak cc values
     lens_blur: float = 0.0
-    diffusion_filter: tuple[float, float, float] = (0.0, 1.0, 1.0) # (strength, spatial_scale, intensity)
+    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
     preflash_m_filter_shift: float = 0.0
@@ -62,21 +98,40 @@ class GrainParams:
 @dataclass
 class HalationParams:
     active: bool = True
-    strength: tuple[float, float, float] = (0.03, 0.003, 0.001)
-    size_um: tuple[float, float, float] = (200.0, 200.0, 200.0)
-    scattering_strength: tuple[float, float, float] = (0.01, 0.02, 0.04)
-    scattering_size_um: tuple[float, float, float] = (30.0, 20.0, 15.0)
+    # high-level scalars (default 1.0 preserves the physical low-level defaults)
+    scatter_amount: float = 1.0
+    scatter_spatial_scale: float = 1.0
+    halation_amount: float = 1.0
+    halation_spatial_scale: float = 1.0
+    # in-emulsion scatter — energy-preserving mixture: Gaussian core + exponential
+    # tail (scatter_tail_um is the exponential decay constant, internally
+    # dispatched to a Gaussian mixture by fast_exponential_filter)
+    scatter_core_um: tuple[float, float, float] = (2.6, 2.3, 1.8)
+    scatter_tail_um: tuple[float, float, float] = (8.8, 7.0, 6.4)
+    scatter_tail_weight: tuple[float, float, float] = (0.74, 0.64, 0.64)
+    # highlight boost — reconstructs pre-clip irradiance before propagation
+    boost_ev: float = 0.0
+    boost_range: float = 0.3
+    protect_ev: float = 4.0
+    # back-reflection halation — additive sum of N Gaussians with sqrt(k) widths
+    halation_strength: tuple[float, float, float] = (0.05, 0.015, 0.0)
+    halation_first_sigma_um: tuple[float, float, float] = (65.0, 65.0, 65.0)
+    halation_n_bounces: int = 3
+    halation_bounce_decay: float = 0.5
+    halation_renormalize: bool = True
 
 
 @dataclass
 class DirCouplersParams:
     active: bool = True
     amount: float = 1.0
-    ratio_rgb: tuple[float, float, float] = None # set in digest_params
-    diffusion_interlayer: float = 2.0
-    diffusion_size_um: float = 10.0
-    high_exposure_shift: float = 0.0
-
+    inhibition_samelayer: float = 1.0
+    inhibition_interlayer: float = 1.0
+    gamma_samelayer_rgb: tuple[float, float, float] = (0.341, 0.324, 0.273)
+    gamma_interlayer_r_to_gb: tuple[float, float] = (0.355, 0.305)
+    gamma_interlayer_g_to_rb: tuple[float, float] = (0.154, 0.358)
+    gamma_interlayer_b_to_rg: tuple[float, float] = (0.171, 0.225)
+    diffusion_size_um: float = 20
 
 @dataclass
 class GlareParams:
@@ -138,6 +193,7 @@ class DebugParams:
 @dataclass
 class SettingsParams:
     rgb_to_raw_method: str = "hanatos2025"
+    bandpass_hanatos2025: bool = True
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
     lut_resolution: int = 17

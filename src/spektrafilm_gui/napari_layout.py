@@ -319,6 +319,8 @@ def _build_viewer_panel(
     viewer_widget: QWidget,
     status_bar: QStatusBar,
     *,
+    on_rotate_ccw: Callable[[], None] | None = None,
+    on_rotate_cw: Callable[[], None] | None = None,
     on_zoom_100: Callable[[], None] | None = None,
     on_zoom_200: Callable[[], None] | None = None,
     on_zoom_400: Callable[[], None] | None = None,
@@ -335,6 +337,16 @@ def _build_viewer_panel(
     status_bar.setContentsMargins(0, 0, 0, 0)
     status_bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
     status_layout.addWidget(status_bar, 1)
+
+    rotate_ccw_button = QPushButton('ccw rotate')
+    rotate_ccw_button.setObjectName('rotateCcwButton')
+    if on_rotate_ccw is not None:
+        rotate_ccw_button.clicked.connect(on_rotate_ccw)
+
+    rotate_cw_button = QPushButton('cw rotate')
+    rotate_cw_button.setObjectName('rotateCwButton')
+    if on_rotate_cw is not None:
+        rotate_cw_button.clicked.connect(on_rotate_cw)
 
     zoom_100_button = QPushButton('100%')
     zoom_100_button.setObjectName('zoom100Button')
@@ -359,12 +371,16 @@ def _build_viewer_panel(
     if on_home_view is not None:
         home_button.clicked.connect(on_home_view)
     row_height = int(SIZE_FOOTER_MIN_HEIGHT.removesuffix('px'))
+    rotate_ccw_button.setFixedHeight(row_height)
+    rotate_cw_button.setFixedHeight(row_height)
     zoom_100_button.setFixedHeight(row_height)
     zoom_200_button.setFixedHeight(row_height)
     zoom_400_button.setFixedHeight(row_height)
     home_button.setFixedHeight(row_height)
     status_bar.setFixedHeight(row_height)
     status_container.setFixedHeight(row_height)
+    status_layout.addWidget(rotate_ccw_button)
+    status_layout.addWidget(rotate_cw_button)
     status_layout.addWidget(zoom_100_button)
     status_layout.addWidget(zoom_200_button)
     status_layout.addWidget(zoom_400_button)
@@ -402,7 +418,10 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
         ),
         'MAIN',
     )
-    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain)), 'FILM')
+    panel.addTab(
+        _wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain, widgets.camera_diffusion)),
+        'FILM',
+    )
     panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.glare, widgets.preflashing, widgets.diffusion)), 'PRINT')
     panel.addTab(
         _wrap_scrollable(_build_controls_tab(widgets.spectral_upsampling, widgets.tune, widgets.special)),
@@ -439,7 +458,13 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
     return container
 
 
-def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWindow:
+def build_main_window(
+    viewer: napari.Viewer,
+    controls_panel: QWidget,
+    *,
+    on_rotate_ccw: Callable[[], None] | None = None,
+    on_rotate_cw: Callable[[], None] | None = None,
+) -> QMainWindow:
     viewer_widget = take_viewer_widget(viewer)
     status_bar = QtWidgets.QStatusBar()
     status_bar.setSizeGripEnabled(False)
@@ -459,6 +484,8 @@ def build_main_window(viewer: napari.Viewer, controls_panel: QWidget) -> QMainWi
         _build_viewer_panel(
             viewer_widget,
             status_bar,
+            on_rotate_ccw=on_rotate_ccw,
+            on_rotate_cw=on_rotate_cw,
             on_zoom_100=lambda: set_viewer_zoom_percent(viewer, 100.0),
             on_zoom_200=lambda: set_viewer_zoom_percent(viewer, 200.0),
             on_zoom_400=lambda: set_viewer_zoom_percent(viewer, 400.0),

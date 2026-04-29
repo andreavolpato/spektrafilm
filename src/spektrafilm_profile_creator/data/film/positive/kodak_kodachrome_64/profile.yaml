@@ -2,7 +2,9 @@ name: Kodak Kodachrome 64
 profile:
   type: positive
   support: film
-  use: filming
+  stage: filming
+  use: still
+  antihalation: weak
   channel_model: color
   densitometer: status_A
   log_sensitivity_density_over_min: 0.2

@@ -16,12 +16,11 @@ from spektrafilm_profile_creator.diagnostics.messages import log_event
 
 MIDGRAY_RGB = np.array([[[0.184, 0.184, 0.184]]], dtype=np.float64)
 DEFAULT_NEUTRAL_PRINT_FILTERS = (0, 50, 50)  # kodak cc values in CMY order
-DEFAULT_INITIAL_PRINT_EXPOSURE = 1.2
-DEFAULT_INITIAL_PRINT_FILTERS = (0, 70, 70)  # kodak cc values in CMY order
+DEFAULT_INITIAL_PRINT_EXPOSURE = 2.0
 DEFAULT_RESIDUE_THRESHOLD = 5e-4
 
-NeutralPrintFilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
-NeutralPrintFilterResidueDatabase = dict[str, dict[str, dict[str, float]]]
+_NeutralPrintFilterDatabase = dict[str, dict[str, dict[str, list[float]]]]
+_ResidueDatabase = dict[str, dict[str, dict[str, float]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,20 +40,60 @@ class NeutralPrintFilterRegenerationConfig:
             raise ValueError('residue_threshold must be >= 0.0')
 
 
+@dataclass(frozen=True, slots=True)
+class NeutralPrintFilterFitResult:
+    c_filter: float
+    m_filter: float
+    y_filter: float
+    print_exposure: float
+    residual: np.ndarray
+
+    @property
+    def filters(self) -> tuple[float, float, float]:
+        return (self.c_filter, self.m_filter, self.y_filter)
+
+    @property
+    def total_residual(self) -> float:
+        return float(np.sum(np.abs(self.residual)))
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def fit_neutral_filters(profile, iterations=10, rng=None):
+def fit_neutral_filters(
+    profile,
+    iterations=10,
+    rng=None,
+    *,
+    film_density_cmy=None,
+    normalize_print_exposure=True,
+):
     if iterations < 1:
         raise ValueError('iterations must be >= 1')
 
-    log_event('fit_neutral_filters', stock=profile.film.info.stock)
+    if film_density_cmy is None:
+        fit_input = MIDGRAY_RGB
+    else:
+        fit_input = np.asarray(film_density_cmy, dtype=np.float64)
+        if fit_input.size != 3:
+            raise ValueError('film_density_cmy must contain exactly three CMY density values')
+        fit_input = fit_input.reshape((1, 1, 3))
+    injected_film_density_cmy = film_density_cmy is not None
+    fit_mode = 'inject_film_density_cmy' if injected_film_density_cmy else 'midgray_rgb'
 
-    if _should_skip_filter_fit(profile):
-        return (
-            float(profile.enlarger.c_filter_neutral),
-            float(profile.enlarger.m_filter_neutral),
-            float(profile.enlarger.y_filter_neutral),
-            np.zeros(3, dtype=np.float64),
+    log_event(
+        'fit_neutral_filters',
+        stock=profile.film.info.stock,
+        fit_mode=fit_mode,
+        normalize_print_exposure=normalize_print_exposure,
+    )
+
+    if profile.film.info.is_positive and profile.print.info.is_negative:
+        return NeutralPrintFilterFitResult(
+            c_filter=float(profile.enlarger.c_filter_neutral),
+            m_filter=float(profile.enlarger.m_filter_neutral),
+            y_filter=float(profile.enlarger.y_filter_neutral),
+            print_exposure=float(profile.enlarger.print_exposure),
+            residual=np.zeros(3, dtype=np.float64),
         )
 
     if rng is None:
@@ -65,23 +104,37 @@ def fit_neutral_filters(profile, iterations=10, rng=None):
         float(profile.enlarger.m_filter_neutral),
         float(profile.enlarger.y_filter_neutral),
     )
-    fitted_c, fitted_m, fitted_y, residues = _fit_once(profile, start_filters=start_filters)
+    fit_result = _fit_once(
+        profile,
+        start_filters=start_filters,
+        fit_input=fit_input,
+        injected_film_density_cmy=injected_film_density_cmy,
+        normalize_print_exposure=normalize_print_exposure,
+    )
     for _ in range(1, iterations):
-        if _total_residue(residues) < DEFAULT_RESIDUE_THRESHOLD:
+        if fit_result.total_residual < DEFAULT_RESIDUE_THRESHOLD:
             break
         start_filters = (
-            float(fitted_c),
-            0.5 * float(fitted_m) + float(rng.uniform(0.0, 1.0)) * 50.0,
-            0.5 * float(fitted_y) + float(rng.uniform(0.0, 1.0)) * 50.0,
+            float(fit_result.c_filter),
+            0.5 * float(fit_result.m_filter) + float(rng.uniform(0.0, 1.0)) * 50.0,
+            0.5 * float(fit_result.y_filter) + float(rng.uniform(0.0, 1.0)) * 50.0,
         )
-        fitted_c, fitted_m, fitted_y, residues = _fit_once(profile, start_filters=start_filters)
+        fit_result = _fit_once(
+            profile,
+            start_filters=start_filters,
+            fit_input=fit_input,
+            injected_film_density_cmy=injected_film_density_cmy,
+            normalize_print_exposure=normalize_print_exposure,
+        )
 
     log_event(
         'fit_neutral_filters_result',
-        fitted_filters=(fitted_c, fitted_m, fitted_y),
-        residual=residues,
+        fitted_filters=fit_result.filters,
+        print_exposure=fit_result.print_exposure,
+        residual=fit_result.residual,
+        fit_mode=fit_mode,
     )
-    return float(fitted_c), float(fitted_m), float(fitted_y), residues
+    return fit_result
 
 
 def fit_neutral_filter_entry(
@@ -90,15 +143,21 @@ def fit_neutral_filter_entry(
     paper: str,
     illuminant: str = Illuminants.lamp.value,
     config: NeutralPrintFilterRegenerationConfig | None = None,
-    neutral_print_filters: NeutralPrintFilterDatabase | None = None,
-    residues: NeutralPrintFilterResidueDatabase | None = None,
-) -> tuple[NeutralPrintFilterDatabase, NeutralPrintFilterResidueDatabase]:
+    neutral_print_filters: _NeutralPrintFilterDatabase | None = None,
+    residues: _ResidueDatabase | None = None,
+) -> tuple[_NeutralPrintFilterDatabase, _ResidueDatabase]:
     config = config or NeutralPrintFilterRegenerationConfig()
     rng = np.random.default_rng(config.rng_seed)
-    working_filters = copy.deepcopy(neutral_print_filters) if neutral_print_filters is not None else read_neutral_print_filters()
-    working_residues = copy.deepcopy(residues) if residues is not None else _new_residue_database()
+    if neutral_print_filters is not None:
+        working_filters = copy.deepcopy(neutral_print_filters)
+    else:
+        try:
+            working_filters = read_neutral_print_filters()
+        except FileNotFoundError:
+            working_filters = {}
+    working_residues = copy.deepcopy(residues) if residues is not None else {}
 
-    _fit_entry(
+    _fit_database_entry(
         stock=stock,
         paper=paper,
         illuminant=illuminant,
@@ -110,22 +169,84 @@ def fit_neutral_filter_entry(
     return working_filters, working_residues
 
 
+def regenerate_neutral_filter_entry(
+    *,
+    stock: str,
+    paper: str,
+    illuminant: str = Illuminants.lamp.value,
+    config: NeutralPrintFilterRegenerationConfig | None = None,
+    neutral_print_filters: _NeutralPrintFilterDatabase | None = None,
+    residues: _ResidueDatabase | None = None,
+) -> tuple[tuple[float, float, float], float]:
+    working_filters, working_residues = fit_neutral_filter_entry(
+        stock=stock,
+        paper=paper,
+        illuminant=illuminant,
+        config=config,
+        neutral_print_filters=neutral_print_filters,
+        residues=residues,
+    )
+    save_neutral_print_filters(working_filters)
+
+    fitted_filters = (
+        working_filters.get(paper, {})
+        .get(illuminant, {})
+        .get(stock)
+    )
+    if fitted_filters is None:
+        raise RuntimeError('Failed to load fitted neutral print filter entry after regeneration.')
+
+    fitted_filters = tuple(float(value) for value in fitted_filters)
+    fitted_residue = float(working_residues[paper][illuminant][stock])
+    log_event(
+        'regenerate_neutral_filter_entry_complete',
+        stock=stock,
+        paper=paper,
+        illuminant=illuminant,
+        fitted_filters=fitted_filters,
+        residue=fitted_residue,
+    )
+    return fitted_filters, fitted_residue
+
+
 def fit_neutral_filter_database(
     config: NeutralPrintFilterRegenerationConfig | None = None,
-    neutral_print_filters: NeutralPrintFilterDatabase | None = None,
-    residues: NeutralPrintFilterResidueDatabase | None = None,
-) -> tuple[NeutralPrintFilterDatabase, NeutralPrintFilterResidueDatabase]:
+    neutral_print_filters: _NeutralPrintFilterDatabase | None = None,
+    residues: _ResidueDatabase | None = None,
+) -> tuple[_NeutralPrintFilterDatabase, _ResidueDatabase]:
     config = config or NeutralPrintFilterRegenerationConfig()
     rng = np.random.default_rng(config.rng_seed)
     working_filters = (
         copy.deepcopy(neutral_print_filters)
         if neutral_print_filters is not None
-        else _new_filter_database(config.initial_filters)
+        else {
+            paper.value: {
+                light.value: {
+                    film.value: [
+                        float(config.initial_filters[0]),
+                        float(config.initial_filters[1]),
+                        float(config.initial_filters[2]),
+                    ]
+                    for film in FilmStocks
+                }
+                for light in Illuminants
+            }
+            for paper in PrintPapers
+        }
     )
     working_residues = (
         copy.deepcopy(residues)
         if residues is not None
-        else _new_residue_database()
+        else {
+            paper.value: {
+                light.value: {
+                    film.value: float('inf')
+                    for film in FilmStocks
+                }
+                for light in Illuminants
+            }
+            for paper in PrintPapers
+        }
     )
     fit_count = 0
     skip_count = 0
@@ -145,7 +266,7 @@ def fit_neutral_filter_database(
                 illuminant=light.value,
             )
             for stock in FilmStocks:
-                did_fit = _fit_entry(
+                did_fit = _fit_database_entry(
                     stock=stock.value,
                     paper=paper.value,
                     illuminant=light.value,
@@ -169,7 +290,7 @@ def fit_neutral_filter_database(
 
 def regenerate_neutral_filter_database(
     config: NeutralPrintFilterRegenerationConfig | None = None,
-) -> tuple[NeutralPrintFilterDatabase, NeutralPrintFilterResidueDatabase]:
+) -> tuple[_NeutralPrintFilterDatabase, _ResidueDatabase]:
     filters, residues = fit_neutral_filter_database(config=config)
     save_neutral_print_filters(filters)
     log_event(
@@ -181,9 +302,6 @@ def regenerate_neutral_filter_database(
 
 # ── Private helpers ────────────────────────────────────────────────────────────
 
-def _should_skip_filter_fit(profile) -> bool:
-    return profile.film.info.is_positive and profile.print.info.is_negative
-
 
 def _set_neutral_filters(params, *, c_filter: float, m_filter: float, y_filter: float) -> None:
     params.enlarger.c_filter_neutral = float(c_filter)
@@ -191,36 +309,55 @@ def _set_neutral_filters(params, *, c_filter: float, m_filter: float, y_filter: 
     params.enlarger.y_filter_neutral = float(y_filter)
 
 
-def _prepare_profile_for_fitting(params):
+def _prepare_profile_for_fitting(
+    params,
+    *,
+    injected_film_density_cmy: bool,
+    normalize_print_exposure: bool,
+):
     params.debug.deactivate_spatial_effects = True
     params.debug.deactivate_stochastic_effects = True
+    params.debug.debug_mode = 'off'
+    params.debug.inject_film_density_cmy = False
     params.settings.neutral_print_filters_from_database = False
     params.io.input_cctf_decoding = False
     params.io.input_color_space = 'sRGB'
+    params.io.output_cctf_encoding = False
     params.io.upscale_factor = 1.0
     params.camera.auto_exposure = False
     params.enlarger.print_exposure_compensation = False
-    params.enlarger.normalize_print_exposure = True # makes sure print exposure 1.0 is midgray out for midgray in
+    params.enlarger.normalize_print_exposure = bool(normalize_print_exposure)
+    params.print_render.glare.active = False
+    if injected_film_density_cmy:
+        params.debug.debug_mode = 'inject'
+        params.debug.inject_film_density_cmy = True
     return digest_params(params)
 
 
-def _total_residue(residues: np.ndarray) -> float:
-    return float(np.sum(np.abs(residues)))
-
-
-def _midgray_residues(working_profile, c_filter: float, values) -> np.ndarray:
+def _fit_residues(working_profile, fit_input, c_filter: float, values) -> np.ndarray:
     m_filter, y_filter, print_exposure = values
     _set_neutral_filters(working_profile, c_filter=c_filter, m_filter=m_filter, y_filter=y_filter)
     working_profile.enlarger.print_exposure = float(print_exposure)
-    rendered_midgray = simulate(MIDGRAY_RGB, working_profile, digest_params_first=False)
+    rendered_midgray = simulate(fit_input, working_profile, digest_params_first=False)
     return (rendered_midgray - MIDGRAY_RGB).reshape(-1)
 
 
-def _fit_once(profile, start_filters):
-    working_profile = _prepare_profile_for_fitting(copy.deepcopy(profile))
+def _fit_once(
+    profile,
+    start_filters,
+    *,
+    fit_input,
+    injected_film_density_cmy: bool,
+    normalize_print_exposure: bool,
+):
+    working_profile = _prepare_profile_for_fitting(
+        copy.deepcopy(profile),
+        injected_film_density_cmy=injected_film_density_cmy,
+        normalize_print_exposure=normalize_print_exposure,
+    )
     c_filter, m_filter, y_filter = (float(v) for v in start_filters)
     x0 = np.array([m_filter, y_filter, DEFAULT_INITIAL_PRINT_EXPOSURE], dtype=np.float64)
-    evaluate_residues = functools.partial(_midgray_residues, working_profile, c_filter)
+    evaluate_residues = functools.partial(_fit_residues, working_profile, fit_input, c_filter)
     initial_residual = evaluate_residues(x0)
     fit = optimize.least_squares(
         evaluate_residues,
@@ -231,48 +368,51 @@ def _fit_once(profile, start_filters):
         gtol=1e-6,
         method='trf',
     )
-    log_event(
-        'fit_neutral_filters_iter',
-        total_residual=_total_residue(fit.fun),
-        initial_residual=initial_residual,
+    fit_result = NeutralPrintFilterFitResult(
+        c_filter=c_filter,
+        m_filter=float(fit.x[0]),
+        y_filter=float(fit.x[1]),
+        print_exposure=float(fit.x[2]),
+        residual=np.asarray(fit.fun, dtype=np.float64),
     )
-    return c_filter, float(fit.x[0]), float(fit.x[1]), fit.fun
+    return fit_result
 
 
-def _new_filter_database(initial_filters=DEFAULT_INITIAL_PRINT_FILTERS) -> NeutralPrintFilterDatabase:
-    return {
-        paper.value: {
-            light.value: {
-                film.value: [float(initial_filters[0]), float(initial_filters[1]), float(initial_filters[2])]
-                for film in FilmStocks
-            }
-            for light in Illuminants
-        }
-        for paper in PrintPapers
-    }
+def _fit_database_entry(
+    *,
+    stock: str,
+    paper: str,
+    illuminant: str,
+    config: NeutralPrintFilterRegenerationConfig,
+    working_filters: _NeutralPrintFilterDatabase,
+    working_residues: _ResidueDatabase,
+    rng,
+) -> bool:
+    existing_filters = (
+        working_filters
+        .setdefault(paper, {})
+        .setdefault(illuminant, {})
+        .setdefault(
+            stock,
+            [
+                float(config.initial_filters[0]),
+                float(config.initial_filters[1]),
+                float(config.initial_filters[2]),
+            ],
+        )
+    )
+    residue_by_stock = working_residues.setdefault(paper, {}).setdefault(illuminant, {})
+    residue_by_stock.setdefault(stock, float('inf'))
 
+    if float(residue_by_stock[stock]) <= config.residue_threshold:
+        return False
 
-def _new_residue_database(initial_value=float('inf')) -> NeutralPrintFilterResidueDatabase:
-    return {
-        paper.value: {
-            light.value: {
-                film.value: float(initial_value)
-                for film in FilmStocks
-            }
-            for light in Illuminants
-        }
-        for paper in PrintPapers
-    }
-
-
-def _perturb_start_filters(filters, randomness, rng, initial_filters=DEFAULT_INITIAL_PRINT_FILTERS):
-    _, m_filter, y_filter = filters
-    randomized_m = np.clip(m_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
-    randomized_y = np.clip(y_filter, 0.0, 230.0) * (1.0 - randomness) + rng.uniform(0.0, 1.0) * randomness * 50.0
-    return [float(initial_filters[0]), float(randomized_m), float(randomized_y)]
-
-
-def _make_fit_params(stock, paper, illuminant, start_filters):
+    _, m_filter, y_filter = (float(value) for value in existing_filters)
+    start_filters = [
+        float(config.initial_filters[0]),
+        float(np.clip(m_filter, 0.0, 230.0) * (1.0 - config.restart_randomness) + rng.uniform(0.0, 1.0) * config.restart_randomness * 50.0),
+        float(np.clip(y_filter, 0.0, 230.0) * (1.0 - config.restart_randomness) + rng.uniform(0.0, 1.0) * config.restart_randomness * 50.0),
+    ]
     params = init_params(film_profile=stock, print_profile=paper)
     params.enlarger.illuminant = illuminant
     _set_neutral_filters(
@@ -281,47 +421,30 @@ def _make_fit_params(stock, paper, illuminant, start_filters):
         m_filter=start_filters[1],
         y_filter=start_filters[2],
     )
-    return params
-
-
-def _fit_entry(
-    *,
-    stock: str,
-    paper: str,
-    illuminant: str,
-    config: NeutralPrintFilterRegenerationConfig,
-    working_filters: NeutralPrintFilterDatabase,
-    working_residues: NeutralPrintFilterResidueDatabase,
-    rng,
-) -> bool:
-    if float(working_residues[paper][illuminant][stock]) <= config.residue_threshold:
+    if params.film.info.is_positive and params.print.info.is_negative:
+        residue_by_stock[stock] = 0.0
         return False
 
-    start_filters = _perturb_start_filters(
-        working_filters[paper][illuminant][stock],
-        config.restart_randomness,
-        rng,
-        initial_filters=config.initial_filters,
-    )
-    params = _make_fit_params(stock, paper, illuminant, start_filters)
-    if _should_skip_filter_fit(params):
-        working_residues[paper][illuminant][stock] = 0.0
-        return False
-
-    fitted_c, fitted_m, fitted_y, fit_residues = fit_neutral_filters(
+    fit_result = fit_neutral_filters(
         params,
         iterations=config.iterations,
         rng=rng,
     )
-    working_filters[paper][illuminant][stock] = [float(fitted_c), float(fitted_m), float(fitted_y)]
-    working_residues[paper][illuminant][stock] = _total_residue(fit_residues)
+    working_filters[paper][illuminant][stock] = [
+        float(fit_result.c_filter),
+        float(fit_result.m_filter),
+        float(fit_result.y_filter),
+    ]
+    residue_by_stock[stock] = fit_result.total_residual
     return True
 
 
 __all__ = [
+    'NeutralPrintFilterFitResult',
     'NeutralPrintFilterRegenerationConfig',
     'fit_neutral_filter_database',
     'fit_neutral_filter_entry',
     'fit_neutral_filters',
+    'regenerate_neutral_filter_entry',
     'regenerate_neutral_filter_database',
 ]

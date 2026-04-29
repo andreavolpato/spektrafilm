@@ -2,7 +2,9 @@ name: Kodak Professional Ultra Endura
 profile:
   type: negative
   support: paper
-  use: printing
+  stage: printing
+  use: still
+  antihalation: strong
   channel_model: color
   densitometer: status_A
   log_sensitivity_density_over_min: 1.0

@@ -68,6 +68,26 @@ def _prepare_profile_plot_axes(figure=None, axes=None):
     return fig, axs
 
 
+def _set_log_sensitivity_ylim(axis, log_sensitivity, original_log_sensitivity=None, max_span=4.0):
+    series = [np.asarray(log_sensitivity, dtype=float)]
+    if original_log_sensitivity is not None:
+        series.append(np.asarray(original_log_sensitivity, dtype=float))
+
+    finite_values = np.concatenate([
+        values[np.isfinite(values)]
+        for values in series
+        if np.isfinite(values).any()
+    ])
+    if finite_values.size == 0:
+        return
+
+    upper = float(np.nanmax(finite_values))
+    lower = float(np.nanmin(finite_values))
+    if upper - lower > max_span:
+        lower = upper - max_span
+    axis.set_ylim((lower, upper))
+
+
 def plot_profile(profile, unmixed=False, original=None, figure=None, axes=None):
     wavelengths, log_exposure, density_curves, log_sensitivity, dye_density = _normalize_plot_payload(profile)
     original_log_sensitivity, original_dye_density = _normalize_original_payload(original)
@@ -84,6 +104,7 @@ def plot_profile(profile, unmixed=False, original=None, figure=None, axes=None):
         axs[0].plot(wavelengths, original_log_sensitivity[:, 2], alpha=0.5, color='tab:blue', linestyle='--')
     axs[0].set_ylabel('Log sensitivity')
     axs[0].set_xlim((350, 750))
+    _set_log_sensitivity_ylim(axs[0], log_sensitivity, original_log_sensitivity)
 
     density_limit = np.nanmax(density_curves) * 1.05
     axs[1].plot(log_exposure, density_curves[:, 0], color='tab:red', label='R')

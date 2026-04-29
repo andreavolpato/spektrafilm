@@ -110,7 +110,15 @@ def load_image_oiio(*args, **kwargs):
 
 
 def save_image_oiio(*args, **kwargs):
-    return import_module('spektrafilm.utils.io').save_image_oiio(*args, **kwargs)
+    return import_module("spektrafilm.utils.io").save_image_oiio(*args, **kwargs)
+
+
+def read_image_metadata(*args, **kwargs):
+    return import_module("spektrafilm.utils.io").read_image_metadata(*args, **kwargs)
+
+
+def write_image_metadata(*args, **kwargs):
+    return import_module("spektrafilm.utils.io").write_image_metadata(*args, **kwargs)
 
 
 def load_and_process_raw_file(*args, **kwargs):
@@ -143,6 +151,7 @@ class GuiController:
         self._runtime_simulator = None
         self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
+        self._current_input_path: str | None = None
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
@@ -170,6 +179,7 @@ class GuiController:
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
+        self._current_input_path = path
         self._set_or_add_input_stack(image)
         self._request_auto_preview_if_enabled()
 
@@ -193,6 +203,7 @@ class GuiController:
             set_status(self._viewer, 'Load raw failed')
             return
 
+        self._current_input_path = path
         self._set_or_add_input_stack(image)
 
         lens_summary = lens_info.get('summary')
@@ -216,6 +227,25 @@ class GuiController:
             home_input_stack=False,
             hide_output=False,
         )
+
+    def rotate_input_image_clockwise(self) -> None:
+        self._rotate_input_image(quarter_turns=-1)
+
+    def rotate_input_image_counterclockwise(self) -> None:
+        self._rotate_input_image(quarter_turns=1)
+
+    def _rotate_input_image(self, *, quarter_turns: int) -> None:
+        input_image = self._current_input_image
+        if input_image is None:
+            return
+
+        rotated_image = np.rot90(np.asarray(input_image), k=int(quarter_turns))
+        self._update_preview_cache(
+            rotated_image,
+            home_input_stack=True,
+            hide_output=True,
+        )
+        self._request_auto_preview_if_enabled()
 
     def apply_profile_defaults(self, _selected_value: str) -> None:
         state = collect_gui_state(widgets=self._widgets)
@@ -297,8 +327,8 @@ class GuiController:
         filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
             dialog_parent(self._viewer),
             'Save output image',
-            'output.png',
-            'Images (*.png *.jpg *.jpeg *.exr)',
+            'output.jpg',
+            'Images (*.jpg *.jpeg *.png *.exr)',
         )
         if not filepath:
             return
@@ -332,13 +362,32 @@ class GuiController:
                 apply_cctf_decoding=source_cctf_encoding,
                 apply_cctf_encoding=saving_cctf_encoding,
             )
+
+        source_metadata = None
+
+        if self._current_input_path is not None:
+            source_metadata = read_image_metadata(self._current_input_path)
+
         try:
             save_image_oiio(filepath, image_data)
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
             return
 
-        set_status(self._viewer, f'Saved output image to {filepath}')
+        metadata_write_error = None
+        if source_metadata is not None:
+            try:
+                write_image_metadata(filepath, source_metadata)
+            except Exception as exc:
+                metadata_write_error = exc
+
+        if metadata_write_error is not None:
+            set_status(
+                self._viewer,
+                f"Saved output image to {filepath}, but failed to copy metadata: {metadata_write_error}",
+            )
+        else:
+            set_status(self._viewer, f"Saved output image to {filepath}")
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(

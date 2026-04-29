@@ -1,0 +1,1433 @@
+{
+  "method": "hanatos2025",
+  "loss": "log_mse",
+  "window_model": "perchan6",
+  "regularization": null,
+  "targets": [
+    {
+      "stock": "fujifilm_c200",
+      "name": "Fujifilm C200",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 429.8085729157409,
+        "sigma_uv": 1.0026294094901977,
+        "c_ir": 643.8916369113413,
+        "sigma_ir": 50.0,
+        "c_uv_b": 404.86420644303684,
+        "c_ir_r": 626.788713513435
+      },
+      "loss_value": 0.0029215238340438085,
+      "n_evals": 1204,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.08569078982666661,
+        "p95": 0.29541517451623267,
+        "max": 0.9569437785198065
+      },
+      "corrected": {
+        "median": 0.06204516649394664,
+        "p95": 0.1600362280859295,
+        "max": 0.45110569584806365
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3140,
+        "s_easy_count": 535,
+        "all_median_uncorrected": 0.08569078982666661,
+        "all_p95_uncorrected": 0.29541517451623267,
+        "all_median_corrected": 0.06204516649394664,
+        "all_p95_corrected": 0.1600362280859295,
+        "all_median_tauphot": 1.7594016868724058,
+        "all_p95_tauphot": 4.538113531898609,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.6022247454994925,
+          "delta_median_tauphot": 0.9886149099505447,
+          "delta_p95_tauphot": 3.8982787877286356,
+          "win_rate": 0.7343949044585987,
+          "hard_median_uncorrected": 0.09959143958405764,
+          "hard_median_corrected": 0.06472801007620133,
+          "hard_p95_uncorrected": 0.30544717820364226,
+          "hard_p95_corrected": 0.1679746736419342
+        }
+      }
+    },
+    {
+      "stock": "fujifilm_pro_400h",
+      "name": "Fujifilm Pro 400H",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 13.701304007923524,
+        "c_ir": 651.097304511672,
+        "sigma_ir": 50.0,
+        "c_uv_b": 412.1831640777331,
+        "c_ir_r": 635.9514961521643
+      },
+      "loss_value": 0.0021777993083413926,
+      "n_evals": 959,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.046635230042407716,
+        "p95": 0.1750675512130005,
+        "max": 0.41721534065208016
+      },
+      "corrected": {
+        "median": 0.044165677128880386,
+        "p95": 0.11275069758332107,
+        "max": 0.3488739812556779
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 2810,
+        "s_easy_count": 865,
+        "all_median_uncorrected": 0.046635230042407716,
+        "all_p95_uncorrected": 0.1750675512130005,
+        "all_median_corrected": 0.044165677128880386,
+        "all_p95_corrected": 0.11275069758332107,
+        "all_median_tauphot": 1.252396781786304,
+        "all_p95_tauphot": 3.1972477266781074,
+        "all_median_quality": "decent",
+        "all_p95_quality": "decent",
+        "quality_grade": "decent",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.7837265678821139,
+          "delta_median_tauphot": 0.2706248725831678,
+          "delta_p95_tauphot": 1.828499258064982,
+          "win_rate": 0.6935943060498221,
+          "hard_median_uncorrected": 0.05718512676902801,
+          "hard_median_corrected": 0.047641561247800085,
+          "hard_p95_uncorrected": 0.19490817741783373,
+          "hard_p95_corrected": 0.13042629033815673
+        }
+      }
+    },
+    {
+      "stock": "fujifilm_provia_100f",
+      "name": "Fujifilm Provia 100F",
+      "type": "positive",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 380.0,
+        "sigma_uv": 0.6477041349340164,
+        "c_ir": 623.2889459139935,
+        "sigma_ir": 41.110160876271316,
+        "c_uv_b": 414.73522736030395,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.0037695719515209248,
+      "n_evals": 1211,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.11974351778375927,
+        "p95": 0.357266283759787,
+        "max": 0.6175590723908625
+      },
+      "corrected": {
+        "median": 0.03913329083338968,
+        "p95": 0.16961339683374976,
+        "max": 0.39470670881061154
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3355,
+        "s_easy_count": 320,
+        "all_median_uncorrected": 0.11974351778375927,
+        "all_p95_uncorrected": 0.357266283759787,
+        "all_median_corrected": 0.03913329083338968,
+        "all_p95_corrected": 0.16961339683374976,
+        "all_median_tauphot": 1.1096944660766062,
+        "all_p95_tauphot": 4.809691284083715,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.31671065528291764,
+          "delta_median_tauphot": 2.4926131109018836,
+          "delta_p95_tauphot": 5.41358356633052,
+          "win_rate": 0.8977645305514158,
+          "hard_median_uncorrected": 0.12912541707590633,
+          "hard_median_corrected": 0.041223605553932154,
+          "hard_p95_uncorrected": 0.36738225156588317,
+          "hard_p95_corrected": 0.17647263939030414
+        }
+      }
+    },
+    {
+      "stock": "fujifilm_velvia_100",
+      "name": "Fujifilm Velvia 100",
+      "type": "positive",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 380.0,
+        "sigma_uv": 12.927945989375349,
+        "c_ir": 619.6047884594936,
+        "sigma_ir": 45.327372917850305,
+        "c_uv_b": 415.7563913434603,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.0037620259841611744,
+      "n_evals": 1001,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.12599193067560333,
+        "p95": 0.3379901391344908,
+        "max": 0.5934780604036674
+      },
+      "corrected": {
+        "median": 0.034008754449235026,
+        "p95": 0.1634210100644825,
+        "max": 0.39244254788578864
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3447,
+        "s_easy_count": 228,
+        "all_median_uncorrected": 0.12599193067560333,
+        "all_p95_uncorrected": 0.3379901391344908,
+        "all_median_corrected": 0.034008754449235026,
+        "all_p95_corrected": 0.1634210100644825,
+        "all_median_tauphot": 0.9643790697580169,
+        "all_p95_tauphot": 4.634095079846305,
+        "all_median_quality": "good",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.2985205949465981,
+          "delta_median_tauphot": 2.732444143549151,
+          "delta_p95_tauphot": 5.04065226245938,
+          "win_rate": 0.8851174934725848,
+          "hard_median_uncorrected": 0.13233570518254847,
+          "hard_median_corrected": 0.035976270559469475,
+          "hard_p95_uncorrected": 0.3464408514639158,
+          "hard_p95_corrected": 0.16868263331741815
+        }
+      }
+    },
+    {
+      "stock": "fujifilm_xtra_400",
+      "name": "Fujifilm X-Tra 400",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 404.717508378907,
+        "sigma_uv": 1.2150929359616283,
+        "c_ir": 645.1341986345909,
+        "sigma_ir": 50.0,
+        "c_uv_b": 405.95389180756075,
+        "c_ir_r": 640.6469259964448
+      },
+      "loss_value": 0.0019176928235198642,
+      "n_evals": 1547,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.04041897152949718,
+        "p95": 0.15939755577474546,
+        "max": 0.3991617536085076
+      },
+      "corrected": {
+        "median": 0.04262254654417577,
+        "p95": 0.10925313618926699,
+        "max": 0.3189905790517398
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 2230,
+        "s_easy_count": 1445,
+        "all_median_uncorrected": 0.04041897152949718,
+        "all_p95_uncorrected": 0.15939755577474546,
+        "all_median_corrected": 0.04262254654417577,
+        "all_p95_corrected": 0.10925313618926699,
+        "all_median_tauphot": 1.208638553592032,
+        "all_p95_tauphot": 3.0980681166558037,
+        "all_median_quality": "decent",
+        "all_p95_quality": "decent",
+        "quality_grade": "decent",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.7371281994214389,
+          "delta_median_tauphot": 0.18025402428919274,
+          "delta_p95_tauphot": 1.8339481530854365,
+          "win_rate": 0.7336322869955157,
+          "hard_median_uncorrected": 0.059126289877607235,
+          "hard_median_corrected": 0.05276964543894703,
+          "hard_p95_uncorrected": 0.2022028582815641,
+          "hard_p95_corrected": 0.1375288163339711
+        }
+      }
+    },
+    {
+      "stock": "kodak_ektachrome_100",
+      "name": "Kodak Ektachrome 100",
+      "type": "positive",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 380.0,
+        "sigma_uv": 15.361595083638338,
+        "c_ir": 613.9102071783365,
+        "sigma_ir": 35.24910481893922,
+        "c_uv_b": 428.6379737026973,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.00593100452922083,
+      "n_evals": 1813,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.14294142142018446,
+        "p95": 0.3725881624780906,
+        "max": 0.6403524268635445
+      },
+      "corrected": {
+        "median": 0.0598846541281682,
+        "p95": 0.20891080782006538,
+        "max": 0.4389660754311491
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3595,
+        "s_easy_count": 80,
+        "all_median_uncorrected": 0.14294142142018446,
+        "all_p95_uncorrected": 0.3725881624780906,
+        "all_median_corrected": 0.0598846541281682,
+        "all_p95_corrected": 0.20891080782006538,
+        "all_median_tauphot": 1.6981364938580532,
+        "all_p95_tauphot": 5.924039670686682,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.4369921646056366,
+          "delta_median_tauphot": 2.3888833830675607,
+          "delta_p95_tauphot": 4.5159266572324395,
+          "win_rate": 0.9477051460361613,
+          "hard_median_uncorrected": 0.1449010379830377,
+          "hard_median_corrected": 0.06065724741322773,
+          "hard_p95_uncorrected": 0.3735770920065353,
+          "hard_p95_corrected": 0.2143232823659865
+        }
+      }
+    },
+    {
+      "stock": "kodak_ektar_100",
+      "name": "Kodak Ektar 100",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 422.74315757991263,
+        "sigma_uv": 13.211162180809312,
+        "c_ir": 599.5099398057329,
+        "sigma_ir": 49.85005124608533,
+        "c_uv_b": 417.5059472592182,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.004268427953301234,
+      "n_evals": 1218,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.15568962454349072,
+        "p95": 0.35663267110584806,
+        "max": 0.7648347648569944
+      },
+      "corrected": {
+        "median": 0.04968654856616892,
+        "p95": 0.1969267919941483,
+        "max": 0.4527899118270725
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3610,
+        "s_easy_count": 65,
+        "all_median_uncorrected": 0.15568962454349072,
+        "all_p95_uncorrected": 0.35663267110584806,
+        "all_median_corrected": 0.04968654856616892,
+        "all_p95_corrected": 0.1969267919941483,
+        "all_median_tauphot": 1.4089509675296656,
+        "all_p95_tauphot": 5.5842114640578675,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.3594498676016763,
+          "delta_median_tauphot": 3.050643314375634,
+          "delta_p95_tauphot": 4.57267152395051,
+          "win_rate": 0.9490304709141274,
+          "hard_median_uncorrected": 0.15770247741641225,
+          "hard_median_corrected": 0.05012177326774783,
+          "hard_p95_uncorrected": 0.35966657013477044,
+          "hard_p95_corrected": 0.19841165709101974
+        }
+      }
+    },
+    {
+      "stock": "kodak_gold_200",
+      "name": "Kodak Gold 200",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 412.7605271094157,
+        "sigma_uv": 1.9308214749194383,
+        "c_ir": 625.0795356190133,
+        "sigma_ir": 50.0,
+        "c_uv_b": 410.33617434502344,
+        "c_ir_r": 607.7638650783774
+      },
+      "loss_value": 0.0035992738111022974,
+      "n_evals": 1610,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.17042435805340875,
+        "p95": 0.35195006446969984,
+        "max": 0.6498445816168271
+      },
+      "corrected": {
+        "median": 0.04626623129727569,
+        "p95": 0.15563696039134986,
+        "max": 0.4468746355890351
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3602,
+        "s_easy_count": 73,
+        "all_median_uncorrected": 0.17042435805340875,
+        "all_p95_uncorrected": 0.35195006446969984,
+        "all_median_corrected": 0.04626623129727569,
+        "all_p95_corrected": 0.15563696039134986,
+        "all_median_tauphot": 1.3119617528562442,
+        "all_p95_tauphot": 4.413364426686653,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.3074029034211252,
+          "delta_median_tauphot": 3.5639260602438783,
+          "delta_p95_tauphot": 5.5478692256969975,
+          "win_rate": 0.9347584675180455,
+          "hard_median_uncorrected": 0.17237059805093685,
+          "hard_median_corrected": 0.04668901696013564,
+          "hard_p95_uncorrected": 0.35314759303018123,
+          "hard_p95_corrected": 0.1575024073040542
+        }
+      }
+    },
+    {
+      "stock": "kodak_kodachrome_64",
+      "name": "Kodak Kodachrome 64",
+      "type": "positive",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 11.698268847524993,
+        "c_ir": 634.0495041602651,
+        "sigma_ir": 42.17402791639539,
+        "c_uv_b": 426.85184451425647,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.006394493601773316,
+      "n_evals": 1281,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.17868955639349152,
+        "p95": 0.4291379775611045,
+        "max": 1.0201724271685166
+      },
+      "corrected": {
+        "median": 0.06389704968330785,
+        "p95": 0.21195207584964812,
+        "max": 0.46338942578562176
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3629,
+        "s_easy_count": 46,
+        "all_median_uncorrected": 0.17868955639349152,
+        "all_p95_uncorrected": 0.4291379775611045,
+        "all_median_corrected": 0.06389704968330785,
+        "all_p95_corrected": 0.21195207584964812,
+        "all_median_tauphot": 1.8119151474909805,
+        "all_p95_tauphot": 6.010280266108423,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.3805875356656926,
+          "delta_median_tauphot": 3.2735348611673993,
+          "delta_p95_tauphot": 6.186211485366545,
+          "win_rate": 0.956461835216313,
+          "hard_median_uncorrected": 0.17998017557986662,
+          "hard_median_corrected": 0.06453921800870374,
+          "hard_p95_uncorrected": 0.4306852634329055,
+          "hard_p95_corrected": 0.21252898653479896
+        }
+      }
+    },
+    {
+      "stock": "kodak_portra_160",
+      "name": "Kodak Portra 160",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 414.18496257248285,
+        "sigma_uv": 11.940771774542846,
+        "c_ir": 617.5189039852445,
+        "sigma_ir": 50.0,
+        "c_uv_b": 415.7616599288412,
+        "c_ir_r": 638.7163737175118
+      },
+      "loss_value": 0.002441781344596255,
+      "n_evals": 1099,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.08072124240617493,
+        "p95": 0.2615293361997112,
+        "max": 0.7895510233230416
+      },
+      "corrected": {
+        "median": 0.042780841556751804,
+        "p95": 0.1518431939127043,
+        "max": 0.4638836797896344
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3289,
+        "s_easy_count": 386,
+        "all_median_uncorrected": 0.08072124240617493,
+        "all_p95_uncorrected": 0.2615293361997112,
+        "all_median_corrected": 0.042780841556751804,
+        "all_p95_corrected": 0.1518431939127043,
+        "all_median_tauphot": 1.2131272918433338,
+        "all_p95_tauphot": 4.305785391617415,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.5219679084594407,
+          "delta_median_tauphot": 1.2191161509439263,
+          "delta_p95_tauphot": 3.1563752969910857,
+          "win_rate": 0.8814229249011858,
+          "hard_median_uncorrected": 0.08694024153929274,
+          "hard_median_corrected": 0.0439482033224618,
+          "hard_p95_uncorrected": 0.26821671486567994,
+          "hard_p95_corrected": 0.15690738040248375
+        }
+      }
+    },
+    {
+      "stock": "kodak_portra_400",
+      "name": "Kodak Portra 400",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 410.0774039282243,
+        "sigma_uv": 13.938004173116648,
+        "c_ir": 626.3406291728113,
+        "sigma_ir": 50.0,
+        "c_uv_b": 423.32296605911637,
+        "c_ir_r": 621.368073947654
+      },
+      "loss_value": 0.0047198593489997335,
+      "n_evals": 1379,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.14804413476089534,
+        "p95": 0.4164969904504118,
+        "max": 1.3485049985332356
+      },
+      "corrected": {
+        "median": 0.06064383799820933,
+        "p95": 0.2207323910811946,
+        "max": 0.5954799924728503
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3594,
+        "s_easy_count": 81,
+        "all_median_uncorrected": 0.14804413476089534,
+        "all_p95_uncorrected": 0.4164969904504118,
+        "all_median_corrected": 0.06064383799820933,
+        "all_p95_corrected": 0.2207323910811946,
+        "all_median_tauphot": 1.719664510576761,
+        "all_p95_tauphot": 6.259261811369673,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.43754984367598493,
+          "delta_median_tauphot": 2.524772965851881,
+          "delta_p95_tauphot": 5.633425192046289,
+          "win_rate": 0.8820255982192543,
+          "hard_median_uncorrected": 0.15007854774767898,
+          "hard_median_corrected": 0.06104262139014339,
+          "hard_p95_uncorrected": 0.4197980843299754,
+          "hard_p95_corrected": 0.22113577396636513
+        }
+      }
+    },
+    {
+      "stock": "kodak_portra_800",
+      "name": "Kodak Portra 800",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 11.529640932588398,
+        "c_ir": 619.1774788472035,
+        "sigma_ir": 48.29498159499869,
+        "c_uv_b": 416.59455994135647,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.005031246426339297,
+      "n_evals": 1260,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.16786203488153548,
+        "p95": 0.38891266247565603,
+        "max": 0.906973249358089
+      },
+      "corrected": {
+        "median": 0.06435197332646675,
+        "p95": 0.20827755906333534,
+        "max": 0.4763564201235174
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3623,
+        "s_easy_count": 52,
+        "all_median_uncorrected": 0.16786203488153548,
+        "all_p95_uncorrected": 0.38891266247565603,
+        "all_median_corrected": 0.06435197332646675,
+        "all_p95_corrected": 0.20827755906333534,
+        "all_median_tauphot": 1.8248153211934717,
+        "all_p95_tauphot": 5.9060827693878615,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.4029677335643885,
+          "delta_median_tauphot": 2.9643558661068976,
+          "delta_p95_tauphot": 5.152925831850816,
+          "win_rate": 0.9547336461495998,
+          "hard_median_uncorrected": 0.16930797738309564,
+          "hard_median_corrected": 0.06477019352609502,
+          "hard_p95_uncorrected": 0.3909576632286509,
+          "hard_p95_corrected": 0.20924012620816462
+        }
+      }
+    },
+    {
+      "stock": "kodak_portra_800_push1",
+      "name": "Kodak Portra 800 (Push 1)",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 11.529640932588398,
+        "c_ir": 619.1774788472035,
+        "sigma_ir": 48.29498159499869,
+        "c_uv_b": 416.59455994135647,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.005031246426339297,
+      "n_evals": 1260,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.16786203488153548,
+        "p95": 0.38891266247565603,
+        "max": 0.906973249358089
+      },
+      "corrected": {
+        "median": 0.06435197332646675,
+        "p95": 0.20827755906333534,
+        "max": 0.4763564201235174
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3623,
+        "s_easy_count": 52,
+        "all_median_uncorrected": 0.16786203488153548,
+        "all_p95_uncorrected": 0.38891266247565603,
+        "all_median_corrected": 0.06435197332646675,
+        "all_p95_corrected": 0.20827755906333534,
+        "all_median_tauphot": 1.8248153211934717,
+        "all_p95_tauphot": 5.9060827693878615,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.4029677335643885,
+          "delta_median_tauphot": 2.9643558661068976,
+          "delta_p95_tauphot": 5.152925831850816,
+          "win_rate": 0.9547336461495998,
+          "hard_median_uncorrected": 0.16930797738309564,
+          "hard_median_corrected": 0.06477019352609502,
+          "hard_p95_uncorrected": 0.3909576632286509,
+          "hard_p95_corrected": 0.20924012620816462
+        }
+      }
+    },
+    {
+      "stock": "kodak_portra_800_push2",
+      "name": "Kodak Portra 800 (Push 2)",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 11.529640932588398,
+        "c_ir": 619.1774788472035,
+        "sigma_ir": 48.29498159499869,
+        "c_uv_b": 416.59455994135647,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.005031246426339297,
+      "n_evals": 1260,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.16786203488153548,
+        "p95": 0.38891266247565603,
+        "max": 0.906973249358089
+      },
+      "corrected": {
+        "median": 0.06435197332646675,
+        "p95": 0.20827755906333534,
+        "max": 0.4763564201235174
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3623,
+        "s_easy_count": 52,
+        "all_median_uncorrected": 0.16786203488153548,
+        "all_p95_uncorrected": 0.38891266247565603,
+        "all_median_corrected": 0.06435197332646675,
+        "all_p95_corrected": 0.20827755906333534,
+        "all_median_tauphot": 1.8248153211934717,
+        "all_p95_tauphot": 5.9060827693878615,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.4029677335643885,
+          "delta_median_tauphot": 2.9643558661068976,
+          "delta_p95_tauphot": 5.152925831850816,
+          "win_rate": 0.9547336461495998,
+          "hard_median_uncorrected": 0.16930797738309564,
+          "hard_median_corrected": 0.06477019352609502,
+          "hard_p95_uncorrected": 0.3909576632286509,
+          "hard_p95_corrected": 0.20924012620816462
+        }
+      }
+    },
+    {
+      "stock": "kodak_ultramax_400",
+      "name": "Kodak Ultramax 400",
+      "type": "negative",
+      "use": "still",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 12.28412979829629,
+        "c_ir": 621.5195356548236,
+        "sigma_ir": 50.0,
+        "c_uv_b": 417.550284130505,
+        "c_ir_r": 600.2970654686976
+      },
+      "loss_value": 0.004750238246693107,
+      "n_evals": 1309,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.1721618480985445,
+        "p95": 0.3819476219115128,
+        "max": 0.8596144971044669
+      },
+      "corrected": {
+        "median": 0.05791488297717755,
+        "p95": 0.19492611809367857,
+        "max": 0.46325796562376
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3624,
+        "s_easy_count": 51,
+        "all_median_uncorrected": 0.1721618480985445,
+        "all_p95_uncorrected": 0.3819476219115128,
+        "all_median_corrected": 0.05791488297717755,
+        "all_p95_corrected": 0.19492611809367857,
+        "all_median_tauphot": 1.642280109200859,
+        "all_p95_tauphot": 5.527478776658093,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.3573274919122075,
+          "delta_median_tauphot": 3.266358657829116,
+          "delta_p95_tauphot": 5.3764268366161785,
+          "win_rate": 0.9597130242825607,
+          "hard_median_uncorrected": 0.17364397725211617,
+          "hard_median_corrected": 0.05845608794514809,
+          "hard_p95_uncorrected": 0.3855053465073259,
+          "hard_p95_corrected": 0.19590606357531776
+        }
+      }
+    },
+    {
+      "stock": "kodak_verita_200d",
+      "name": "Kodak Verita 200D",
+      "type": "negative",
+      "use": "cine",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 419.2936031980967,
+        "sigma_uv": 12.350959868638599,
+        "c_ir": 627.1087097728235,
+        "sigma_ir": 50.0,
+        "c_uv_b": 418.1410523296775,
+        "c_ir_r": 605.95245612218
+      },
+      "loss_value": 0.004271443959716956,
+      "n_evals": 1393,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.11730904854298196,
+        "p95": 0.3577953409024963,
+        "max": 0.9962330220311169
+      },
+      "corrected": {
+        "median": 0.06020644270423456,
+        "p95": 0.19575594472288604,
+        "max": 0.5080619108880635
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3581,
+        "s_easy_count": 94,
+        "all_median_uncorrected": 0.11730904854298196,
+        "all_p95_uncorrected": 0.3577953409024963,
+        "all_median_corrected": 0.06020644270423456,
+        "all_p95_corrected": 0.19575594472288604,
+        "all_median_tauphot": 1.70726138457138,
+        "all_p95_tauphot": 5.551009995183902,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.5345530376349392,
+          "delta_median_tauphot": 1.6827986112711275,
+          "delta_p95_tauphot": 4.6273961837013164,
+          "win_rate": 0.9036581960346272,
+          "hard_median_uncorrected": 0.12010393895250278,
+          "hard_median_corrected": 0.06076017408565051,
+          "hard_p95_uncorrected": 0.35994028955900753,
+          "hard_p95_corrected": 0.19675551555689935
+        }
+      }
+    },
+    {
+      "stock": "kodak_vision3_200t",
+      "name": "Kodak Vision3 200T",
+      "type": "negative",
+      "use": "cine",
+      "illuminant": "T",
+      "illuminant_family": "tungsten",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3ac1cda2d15f72b7",
+      "theta_star": {
+        "c_uv": 411.4847198872564,
+        "sigma_uv": 1.1271795648079361,
+        "c_ir": 630.6051426796156,
+        "sigma_ir": 50.0,
+        "c_uv_b": 419.08430287428945,
+        "c_ir_r": 600.9027364194494
+      },
+      "loss_value": 0.0030906587164667857,
+      "n_evals": 1743,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.09220573998467194,
+        "p95": 0.3383977922286715,
+        "max": 0.8414382005831856
+      },
+      "corrected": {
+        "median": 0.05021322631493513,
+        "p95": 0.15963719920995473,
+        "max": 0.36588812213344485
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3468,
+        "s_easy_count": 207,
+        "all_median_uncorrected": 0.09220573998467194,
+        "all_p95_uncorrected": 0.3383977922286715,
+        "all_median_corrected": 0.05021322631493513,
+        "all_p95_corrected": 0.15963719920995473,
+        "all_median_tauphot": 1.42388585725565,
+        "all_p95_tauphot": 4.526798354308276,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.5374790296276213,
+          "delta_median_tauphot": 1.2833072781013277,
+          "delta_p95_tauphot": 5.139119301629386,
+          "win_rate": 0.8927335640138409,
+          "hard_median_uncorrected": 0.09635631951494072,
+          "hard_median_corrected": 0.05110058608761184,
+          "hard_p95_uncorrected": 0.3449751218241602,
+          "hard_p95_corrected": 0.16374447104044632
+        }
+      }
+    },
+    {
+      "stock": "kodak_vision3_250d",
+      "name": "Kodak Vision3 250D",
+      "type": "negative",
+      "use": "cine",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 430.0,
+        "sigma_uv": 12.063676234996784,
+        "c_ir": 616.9465819021393,
+        "sigma_ir": 40.776506436576206,
+        "c_uv_b": 417.2006771509513,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.005816326052664448,
+      "n_evals": 1645,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.18639171048414513,
+        "p95": 0.43276242665783504,
+        "max": 1.1200372013619593
+      },
+      "corrected": {
+        "median": 0.06325746555699208,
+        "p95": 0.23221886143853843,
+        "max": 0.5275729596734913
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3636,
+        "s_easy_count": 39,
+        "all_median_uncorrected": 0.18639171048414513,
+        "all_p95_uncorrected": 0.43276242665783504,
+        "all_median_corrected": 0.06325746555699208,
+        "all_p95_corrected": 0.23221886143853843,
+        "all_median_tauphot": 1.7937785954543832,
+        "all_p95_tauphot": 6.5849812261913305,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.3639370698094394,
+          "delta_median_tauphot": 3.526898009947014,
+          "delta_p95_tauphot": 5.702666024867131,
+          "win_rate": 0.9537953795379538,
+          "hard_median_uncorrected": 0.1878962184006546,
+          "hard_median_corrected": 0.063520428683567,
+          "hard_p95_uncorrected": 0.4337899883092486,
+          "hard_p95_corrected": 0.23268590524949775
+        }
+      }
+    },
+    {
+      "stock": "kodak_vision3_500t",
+      "name": "Kodak Vision3 500T",
+      "type": "negative",
+      "use": "cine",
+      "illuminant": "T",
+      "illuminant_family": "tungsten",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3ac1cda2d15f72b7",
+      "theta_star": {
+        "c_uv": 397.73191109259733,
+        "sigma_uv": 0.5044936686795728,
+        "c_ir": 584.8194371346432,
+        "sigma_ir": 1.2778792767218385,
+        "c_uv_b": 415.5589922990063,
+        "c_ir_r": 645.0743537980962
+      },
+      "loss_value": 0.0035555508731529104,
+      "n_evals": 1820,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.16676125246502094,
+        "p95": 0.4339976483859265,
+        "max": 1.2382877505157759
+      },
+      "corrected": {
+        "median": 0.06541945599890324,
+        "p95": 0.1660287965454879,
+        "max": 0.43801007030935646
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3621,
+        "s_easy_count": 54,
+        "all_median_uncorrected": 0.16676125246502094,
+        "all_p95_uncorrected": 0.4339976483859265,
+        "all_median_corrected": 0.06541945599890324,
+        "all_p95_corrected": 0.1660287965454879,
+        "all_median_tauphot": 1.85508570196157,
+        "all_p95_tauphot": 4.708043530514603,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.38733448401833837,
+          "delta_median_tauphot": 2.918950940935744,
+          "delta_p95_tauphot": 7.630027543196702,
+          "win_rate": 0.9345484672742337,
+          "hard_median_uncorrected": 0.16856276617661975,
+          "hard_median_corrected": 0.0656261835478033,
+          "hard_p95_uncorrected": 0.43590549213871344,
+          "hard_p95_corrected": 0.16683315192026843
+        }
+      }
+    },
+    {
+      "stock": "kodak_vision3_50d",
+      "name": "Kodak Vision3 50D",
+      "type": "negative",
+      "use": "cine",
+      "illuminant": "D55",
+      "illuminant_family": "daylight",
+      "loss": "log_mse",
+      "window_model": "perchan6",
+      "corpus_size": 3675,
+      "corpus_hash": "3cab88db60a471c3",
+      "theta_star": {
+        "c_uv": 409.56273081664125,
+        "sigma_uv": 2.152992716182049,
+        "c_ir": 621.1228096568625,
+        "sigma_ir": 43.71131847007261,
+        "c_uv_b": 410.9638062720076,
+        "c_ir_r": 600.0
+      },
+      "loss_value": 0.004542969250438894,
+      "n_evals": 1218,
+      "converged": true,
+      "uncorrected": {
+        "median": 0.12562405093206483,
+        "p95": 0.3473653048157458,
+        "max": 0.6795361913738587
+      },
+      "corrected": {
+        "median": 0.057397749526600976,
+        "p95": 0.20708286411218224,
+        "max": 0.42365212279688363
+      },
+      "gate": {
+        "tau_phot": 0.03526492384137758,
+        "n_total": 3675,
+        "s_hard_count": 3563,
+        "s_easy_count": 112,
+        "all_median_uncorrected": 0.12562405093206483,
+        "all_p95_uncorrected": 0.3473653048157458,
+        "all_median_corrected": 0.057397749526600976,
+        "all_p95_corrected": 0.20708286411218224,
+        "all_median_tauphot": 1.6276158651235813,
+        "all_p95_tauphot": 5.872205056890116,
+        "all_median_quality": "decent",
+        "all_p95_quality": "passable",
+        "quality_grade": "passable",
+        "quality_acceptable": true,
+        "quality_thresholds_tauphot": {
+          "all_median": {
+            "good_le": 1.0,
+            "decent_le": 2.0,
+            "passable_le": 4.0
+          },
+          "all_p95": {
+            "good_le": 2.0,
+            "decent_le": 4.0,
+            "passable_le": 8.0
+          }
+        },
+        "relative_gain": {
+          "r_geo": 0.4686708755284499,
+          "delta_median_tauphot": 1.9948385950553384,
+          "delta_p95_tauphot": 3.967859892316243,
+          "win_rate": 0.9267471232107775,
+          "hard_median_uncorrected": 0.12853091887536022,
+          "hard_median_corrected": 0.05818308774489306,
+          "hard_p95_uncorrected": 0.35024189739524625,
+          "hard_p95_corrected": 0.2103156204794573
+        }
+      }
+    }
+  ],
+  "failures": [],
+  "corpus_hash_by_illuminant": {
+    "D55": "3cab88db60a471c3",
+    "T": "3ac1cda2d15f72b7"
+  }
+}

@@ -1,10 +1,11 @@
 import numpy as np
-from scipy.ndimage import gaussian_filter
-# from spectral_film_lab.utils.fast_gaussian_filter import fast_gaussian_filter
 from opt_einsum import contract
+
+from spektrafilm.runtime.params_schema import DirCouplersParams
+from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
 
-def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, high_exposure_couplers_shift=0.0, positive=False):
+def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, positive=False):
     """
     DIR couplers affect the same layer by increasing contrast.
     I suppose that in the design of a film this is taken into account, and the final film has well behaved density curves.
@@ -14,10 +15,9 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
         density_curves (numpy.array): Characteristic density curves of the film after the application of DIR couplers
         log_exposure (numpy.array): The image as log_exposure
         dir_couplers_matrix (_type_): DIR couplers matrix computed with compute_dir_couplers_matrix()
-        high_exposure_couplers_shift (float, optional): Related to increased inhibition at high exposures, defaults to 0.0.
 
     Returns:
-        _type_: _description_
+        numpy.array: Corrected density curves before the effect of DIR couplers
     """
     
     if positive:
@@ -27,8 +27,7 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     else:
         density_curves_silver = np.copy(density_curves)
     
-    dc_norm_shift = density_curves_silver + high_exposure_couplers_shift*density_curves_silver**2
-    couplers_amount_curves = contract('jk, km->jm', dc_norm_shift, dir_couplers_matrix)
+    couplers_amount_curves = contract('jk, km->jm', density_curves_silver, dir_couplers_matrix)
     log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
     for i in np.arange(3):
@@ -39,7 +38,7 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     return density_curves_corrected
 
 
-def compute_dir_couplers_matrix(amount_rgb=[0.7,0.7,0.5], layer_diffusion=1):
+def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplersParams()):
     """
     Compute the inhibitors matrix using a simple diffusion model across layers.
 
@@ -48,13 +47,23 @@ def compute_dir_couplers_matrix(amount_rgb=[0.7,0.7,0.5], layer_diffusion=1):
     layer_diffusion (float): Sigma for gaussian diffusion distance of dir couplers. Default is 1.
 
     Returns:
-    numpy.ndarray: The computed inhibitors matrix. Fisrt index is the input layer, second index is the output layer.
+    numpy.ndarray: The computed inhibitors matrix.
+    Row index is the donor/source layer that releases inhibitor.
+    Column index is the receiving/affected layer whose exposure is reduced.
     """
-    M = np.eye(3)
-    M_diffused = gaussian_filter(M, layer_diffusion, mode='constant', cval=0, axes=1)
-    M_diffused /= np.sum(M_diffused, axis=1)[:, None]
-    M = M_diffused *np.array(amount_rgb)[:, None]
-    return M
+    
+    M_self = np.array(couplers_params.gamma_samelayer_rgb)*couplers_params.inhibition_samelayer
+    M_self = np.diag(M_self)
+    M_inter = np.zeros((3,3))
+    # Off-diagonal terms follow the same convention: donor row, receiver column.
+    M_inter[0,1] = couplers_params.gamma_interlayer_r_to_gb[0]
+    M_inter[0,2] = couplers_params.gamma_interlayer_r_to_gb[1]
+    M_inter[1,0] = couplers_params.gamma_interlayer_g_to_rb[0]
+    M_inter[1,2] = couplers_params.gamma_interlayer_g_to_rb[1]
+    M_inter[2,0] = couplers_params.gamma_interlayer_b_to_rg[0]
+    M_inter[2,1] = couplers_params.gamma_interlayer_b_to_rg[1]
+    M_inter *= couplers_params.inhibition_interlayer
+    return M_self + M_inter
 
 def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
                                              dir_couplers_matrix, diffusion_size_pixel,
@@ -83,10 +92,12 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
     else:
         density_silver = np.copy(density_cmy)
     density_silver += high_exposure_couplers_shift*density_silver**2
+    # density_silver[..., k] generated in donor layer k contributes to receiver m
+    # through dir_couplers_matrix[k, m].
     log_raw_correction = contract('ijk, km->ijm', density_silver, dir_couplers_matrix)
     if diffusion_size_pixel>0:
-        log_raw_correction = gaussian_filter(log_raw_correction, (diffusion_size_pixel, diffusion_size_pixel, 0))
-        # log_raw_correction = fast_gaussian_filter(log_raw_correction, diffusion_size_pixel)
+        # log_raw_correction = gaussian_filter(log_raw_correction, (diffusion_size_pixel, diffusion_size_pixel, 0))
+        log_raw_correction = fast_gaussian_filter(log_raw_correction, diffusion_size_pixel)
     log_raw_corrected = log_raw - log_raw_correction
     return log_raw_corrected
 
@@ -105,16 +116,14 @@ def apply_density_correction_dir_couplers(
         return density_cmy
 
     positive = profile_type == 'positive'
-    dir_couplers_amount_rgb = dir_couplers.amount * np.array(dir_couplers.ratio_rgb)
-    couplers_matrix = compute_dir_couplers_matrix(
-        dir_couplers_amount_rgb,
-        dir_couplers.diffusion_interlayer,
-    )
+    
+    couplers_matrix = compute_dir_couplers_matrix(dir_couplers)
+    couplers_matrix *= dir_couplers.amount
+    
     density_curves_0 = compute_density_curves_before_dir_couplers(
         density_curves,
         log_exposure,
         couplers_matrix,
-        dir_couplers.high_exposure_shift,
         positive=positive,
     )
     density_max = np.nanmax(density_curves, axis=0)
@@ -125,12 +134,11 @@ def apply_density_correction_dir_couplers(
         density_max,
         couplers_matrix,
         diffusion_size_pixel,
-        high_exposure_couplers_shift=dir_couplers.high_exposure_shift,
         positive=positive,
     )
     return interpolate_exposure_to_density(log_raw_0, density_curves_0, log_exposure, gamma_factor)
 
-# if __name__=='__main__':
+if __name__=='__main__':
     # # Test the raw correction coupler inhibitors
     # log_raw = np.ones((4,4,3))
     # density_cmy = np.ones((4,4,3))
@@ -139,3 +147,7 @@ def apply_density_correction_dir_couplers(
     # diffusion_size_pixel = 2
     # log_raw = raw_correction_dir_couplers(log_raw, density_cmy, density_max, couplers_amount, diffusion_size_pixel)
     # print(log_raw)
+
+    couplers_params = DirCouplersParams()
+    M = compute_dir_couplers_matrix(couplers_params)
+    print(M)

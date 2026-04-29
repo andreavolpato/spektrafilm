@@ -14,21 +14,26 @@ pytestmark = pytest.mark.unit
 
 
 class TestDirCouplers:
-    def test_no_diffusion_is_diagonal(self):
-        """With zero diffusion, the matrix should be diagonal (no cross-layer effect)."""
-        matrix = compute_dir_couplers_matrix([0.7, 0.7, 0.5], layer_diffusion=0)
+    def test_no_interlayer_inhibition_is_diagonal(self):
+        """With zero interlayer inhibition, the matrix should be diagonal (no cross-layer effect)."""
+        params = DirCouplersParams(inhibition_interlayer=0.0)
+        matrix = compute_dir_couplers_matrix(params)
         off_diagonal = matrix - np.diag(np.diag(matrix))
         np.testing.assert_allclose(off_diagonal, 0, atol=1e-10)
 
     def test_zero_couplers_returns_original_curves(self):
-        """With zero coupler amounts, density curves should be unchanged."""
+        """With zero coupler inhibition, density curves should be unchanged."""
         log_exposure = np.linspace(-3, 1, 100)
         density_curves = np.column_stack([
             np.clip(log_exposure + 1.5, 0, 2.5),
             np.clip(log_exposure + 1.5, 0, 2.5),
             np.clip(log_exposure + 1.5, 0, 2.0),
         ])
-        matrix = compute_dir_couplers_matrix([0, 0, 0])
+        params = DirCouplersParams(
+            inhibition_samelayer=0.0,
+            inhibition_interlayer=0.0,
+        )
+        matrix = compute_dir_couplers_matrix(params)
         result = compute_density_curves_before_dir_couplers(
             density_curves, log_exposure, matrix
         )
@@ -39,7 +44,7 @@ class TestDirCouplers:
         log_raw = np.ones((8, 8, 3)) * (-1.0)
         density_cmy = np.zeros((8, 8, 3))
         density_max = np.array([2.5, 2.5, 2.0])
-        matrix = compute_dir_couplers_matrix([0.7, 0.7, 0.5])
+        matrix = compute_dir_couplers_matrix(DirCouplersParams())
         result = compute_exposure_correction_dir_couplers(
             log_raw, density_cmy, density_max, matrix, diffusion_size_pixel=0
         )
@@ -59,10 +64,13 @@ class TestDirCouplers:
         dir_couplers = DirCouplersParams(
             active=True,
             amount=0.7,
-            ratio_rgb=(1.0, 0.8, 0.6),
-            diffusion_interlayer=1.2,
+            inhibition_samelayer=0.9,
+            inhibition_interlayer=1.1,
+            gamma_samelayer_rgb=(0.5, 0.4, 0.3),
+            gamma_interlayer_r_to_gb=(0.3, 0.25),
+            gamma_interlayer_g_to_rb=(0.2, 0.25),
+            gamma_interlayer_b_to_rg=(0.15, 0.2),
             diffusion_size_um=6.0,
-            high_exposure_shift=0.15,
         )
         pixel_size_um = 2.0
         gamma_factor = 1.1
@@ -79,13 +87,11 @@ class TestDirCouplers:
             gamma_factor=gamma_factor,
         )
 
-        dir_couplers_amount_rgb = dir_couplers.amount * np.array(dir_couplers.ratio_rgb)
-        matrix = compute_dir_couplers_matrix(dir_couplers_amount_rgb, dir_couplers.diffusion_interlayer)
+        matrix = compute_dir_couplers_matrix(dir_couplers) * dir_couplers.amount
         density_curves_0 = compute_density_curves_before_dir_couplers(
             density_curves,
             log_exposure,
             matrix,
-            dir_couplers.high_exposure_shift,
             positive=positive,
         )
         density_max = np.nanmax(density_curves, axis=0)
@@ -95,7 +101,6 @@ class TestDirCouplers:
             density_max,
             matrix,
             dir_couplers.diffusion_size_um / pixel_size_um,
-            high_exposure_couplers_shift=dir_couplers.high_exposure_shift,
             positive=positive,
         )
         expected = interpolate_exposure_to_density(
@@ -106,4 +111,3 @@ class TestDirCouplers:
         )
 
         np.testing.assert_allclose(result, expected, atol=1e-10)
-

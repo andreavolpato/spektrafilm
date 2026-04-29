@@ -7,7 +7,16 @@ import scipy.interpolate
 import yaml
 
 from spektrafilm.config import LOG_EXPOSURE, SPECTRAL_SHAPE
-from spektrafilm.profiles.io import PROFILE_CHANNEL_MODELS, PROFILE_SUPPORTS, PROFILE_TYPES, PROFILE_USES, ProfileData, ProfileInfo
+from spektrafilm.profiles.io import (
+    PROFILE_ANTIHALATION,
+    PROFILE_CHANNEL_MODELS,
+    PROFILE_STAGES,
+    PROFILE_SUPPORTS,
+    PROFILE_TYPES,
+    PROFILE_USES,
+    ProfileData,
+    ProfileInfo,
+)
 from spektrafilm_profile_creator.raw_profile import RawProfile, RawProfileRecipe
 
 
@@ -122,8 +131,12 @@ def _validate_profile_info(info: ProfileInfo, stock: str) -> None:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported type={info.type!r}')
     if info.support not in PROFILE_SUPPORTS:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported support={info.support!r}')
+    if info.stage not in PROFILE_STAGES:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported stage={info.stage!r}')
     if info.use not in PROFILE_USES:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported use={info.use!r}')
+    if info.antihalation not in PROFILE_ANTIHALATION:
+        raise ValueError(f'Invalid raw profile {stock!r}: unsupported antihalation={info.antihalation!r}')
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
         raise ValueError(f'Invalid raw profile {stock!r}: unsupported channel_model={info.channel_model!r}')
 
@@ -145,7 +158,10 @@ def load_raw_profile(stock):
         name=root_payload.get('name', stock),
         type=profile_payload.get('type', 'negative'),
         support=profile_payload.get('support', 'film'),
+        stage=profile_payload['stage'],
         use=profile_payload['use'],
+        antihalation=profile_payload.get('antihalation', 'weak'),
+        target_print=profile_payload.get('target_print'),
         channel_model=profile_payload.get('channel_model', 'color'),
         densitometer=profile_payload.get('densitometer', 'status_M'),
         log_sensitivity_density_over_min=profile_payload.get('log_sensitivity_density_over_min', 0.2),
@@ -160,7 +176,6 @@ def load_raw_profile(stock):
         dye_density_min_mid_donor=donors_payload.get('dye_density_min_mid'),
         dye_density_reconstruct_model=recipe_payload.get('dye_density_reconstruct_model', 'dmid_dmin'),
         target_film=recipe_payload.get('target_film'),
-        target_print=recipe_payload.get('target_print'),
         data_trustability=recipe_payload.get('data_trustability', 1.0),
         neutral_log_exposure_correction=recipe_payload.get('neutral_log_exposure_correction', False),
         stretch_curves=recipe_payload.get('stretch_curves', workflow_payload.get('stretch_curves', False)),
@@ -176,7 +191,7 @@ def load_raw_profile(stock):
         dye_density_min_mid_donor=recipe.dye_density_min_mid_donor,
         profile_type=info.type,
         support=info.support,
-        use=info.use,
+        stage=info.stage,
         channel_model=info.channel_model,
     )
     data = ProfileData(
@@ -204,7 +219,7 @@ def load_stock_data(stock='kodak_portra_400',
                            dye_density_min_mid_donor=None,
                            profile_type='negative',
                            support='film',
-                           use='filming',
+                           stage='filming',
                            channel_model='color',
                            data_package=None,
                            spectral_shape=SPECTRAL_SHAPE,
@@ -267,7 +282,7 @@ def load_stock_data(stock='kodak_portra_400',
         datapkg = maindatapkg + '.' + dye_density_min_mid_donor
     else:
         datapkg = maindatapkg + '.' + stock
-    if support == 'film' and profile_type == 'negative' and use == 'filming':
+    if support == 'film' and profile_type == 'negative' and stage == 'filming':
         channels = ['min', 'mid']
         for i, channel in enumerate(channels):
             data = load_csv(datapkg, rootname + channel + '.csv')

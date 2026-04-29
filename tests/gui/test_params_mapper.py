@@ -53,13 +53,40 @@ def test_build_params_maps_scanner_corrections() -> None:
 
 def test_build_params_converts_halation_percentages_to_fractions() -> None:
     state = make_state()
+    state.halation.boost_ev = 1.25
+    state.halation.protect_ev = 2.5
+    state.halation.boost_range = 0.35
     state.halation.halation_strength = (12.0, 6.0, 3.0)
-    state.halation.scattering_strength = (8.0, 4.0, 2.0)
+    state.halation.scatter_tail_weight = (30.0, 25.0, 20.0)
 
     params = build_params_from_state(state)
 
-    np.testing.assert_allclose(params.film_render.halation.strength, np.array([0.12, 0.06, 0.03]))
-    np.testing.assert_allclose(params.film_render.halation.scattering_strength, np.array([0.08, 0.04, 0.02]))
+    assert params.film_render.halation.boost_ev == 1.25
+    assert params.film_render.halation.protect_ev == 2.5
+    assert params.film_render.halation.boost_range == 0.35
+    np.testing.assert_allclose(params.film_render.halation.halation_strength, np.array([0.12, 0.06, 0.03]))
+    np.testing.assert_allclose(params.film_render.halation.scatter_tail_weight, np.array([0.30, 0.25, 0.20]))
+
+
+def test_build_params_propagates_halation_high_level_knobs() -> None:
+    state = make_state()
+    state.halation.scatter_amount = 0.5
+    state.halation.scatter_spatial_scale = 1.5
+    state.halation.halation_amount = 2.0
+    state.halation.halation_spatial_scale = 0.75
+    state.halation.halation_n_bounces = 2
+    state.halation.halation_bounce_decay = 0.4
+    state.halation.halation_renormalize = False
+
+    params = build_params_from_state(state)
+
+    assert params.film_render.halation.scatter_amount == 0.5
+    assert params.film_render.halation.scatter_spatial_scale == 1.5
+    assert params.film_render.halation.halation_amount == 2.0
+    assert params.film_render.halation.halation_spatial_scale == 0.75
+    assert params.film_render.halation.halation_n_bounces == 2
+    assert params.film_render.halation.halation_bounce_decay == 0.4
+    assert params.film_render.halation.halation_renormalize is False
 
 
 def test_build_params_maps_runtime_strings() -> None:
@@ -83,13 +110,36 @@ def test_build_params_maps_runtime_strings() -> None:
 
 def test_build_params_maps_enlarger_diffusion_filter() -> None:
     state = make_state()
-    state.simulation.diffusion_strength = 0.5
-    state.simulation.diffusion_spatial_scale = 1.6
-    state.simulation.diffusion_intensity = 0.7
+    state.simulation.diffusion_filter_active = True
+    state.simulation.diffusion_filter_family = 'pro_mist'
+    state.simulation.diffusion_filter_strength = 0.5
+    state.simulation.diffusion_filter_spatial_scale = 1.6
+    state.simulation.diffusion_filter_halo_warmth = 0.3
 
     params = build_params_from_state(state)
 
-    assert params.enlarger.diffusion_filter == (0.5, 1.6, 0.7)
+    assert params.enlarger.diffusion_filter.active is True
+    assert params.enlarger.diffusion_filter.filter_family == 'pro_mist'
+    assert params.enlarger.diffusion_filter.strength == 0.5
+    assert params.enlarger.diffusion_filter.spatial_scale == 1.6
+    assert params.enlarger.diffusion_filter.halo_warmth == 0.3
+
+
+def test_build_params_maps_camera_diffusion_filter() -> None:
+    state = make_state()
+    state.simulation.camera_diffusion_filter_active = True
+    state.simulation.camera_diffusion_filter_family = 'glimmerglass'
+    state.simulation.camera_diffusion_filter_strength = 0.25
+    state.simulation.camera_diffusion_filter_spatial_scale = 1.2
+    state.simulation.camera_diffusion_filter_halo_warmth = -0.15
+
+    params = build_params_from_state(state)
+
+    assert params.camera.diffusion_filter.active is True
+    assert params.camera.diffusion_filter.filter_family == 'glimmerglass'
+    assert params.camera.diffusion_filter.strength == 0.25
+    assert params.camera.diffusion_filter.spatial_scale == 1.2
+    assert params.camera.diffusion_filter.halo_warmth == -0.15
 
 
 def test_build_params_uses_preview_tuned_lut_settings() -> None:
@@ -109,14 +159,33 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
 
     assert state.grain.blur == 0.65
     assert state.grain.micro_structure == (0.2, 30)
-    assert state.halation.halation_strength == (3.0, 0.3, 0.1)
+    assert state.halation.boost_ev == 0.0
+    assert state.halation.protect_ev == 4.0
+    assert state.halation.boost_range == 0.3
+    assert state.halation.scatter_amount == 1.0
+    assert state.halation.scatter_spatial_scale == 1.0
+    assert state.halation.halation_amount == 1.0
+    assert state.halation.halation_spatial_scale == 1.0
+    # kodak_gold_200 is (use=still, antihalation=weak), so _apply_halation_preset
+    # seeds halation_strength from the weak-AH row of §5: (0.08, 0.02, 0.0) -> percent
+    assert state.halation.halation_strength == (8.0, 2.0, 0.0)
+    assert state.halation.halation_n_bounces == 3
+    assert state.halation.halation_bounce_decay == 0.5
+    assert state.halation.halation_renormalize is True
     assert state.input_image.crop_size == (0.1, 0.1)
     assert state.simulation.output_color_space == 'sRGB'
     assert state.simulation.saving_color_space == 'sRGB'
     assert state.simulation.saving_cctf_encoding is True
-    assert state.simulation.diffusion_strength == 0.0
-    assert state.simulation.diffusion_spatial_scale == 1.0
-    assert state.simulation.diffusion_intensity == 1.0
+    assert state.simulation.camera_diffusion_filter_active is False
+    assert state.simulation.camera_diffusion_filter_family == 'black_pro_mist'
+    assert state.simulation.camera_diffusion_filter_strength == 0.5
+    assert state.simulation.camera_diffusion_filter_spatial_scale == 1.0
+    assert state.simulation.camera_diffusion_filter_halo_warmth == 0.0
+    assert state.simulation.diffusion_filter_active is False
+    assert state.simulation.diffusion_filter_family == 'black_pro_mist'
+    assert state.simulation.diffusion_filter_strength == 0.5
+    assert state.simulation.diffusion_filter_spatial_scale == 1.0
+    assert state.simulation.diffusion_filter_halo_warmth == 0.0
     assert state.simulation.scan_white_correction is False
     assert state.simulation.scan_white_level == 0.98
     assert state.simulation.scan_black_correction is False

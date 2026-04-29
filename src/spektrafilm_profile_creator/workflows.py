@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from spektrafilm.profiles.io import Profile
 from spektrafilm_profile_creator.core.balancing import (
-    reconstruct_metameric_neutral, balance_film_sensitivity,
+    reconstruct_metameric_neutral,
+    balance_film_sensitivity,
     balance_print_sensitivity,
     prelminary_neutral_shift
 )
-from spektrafilm_profile_creator.core.densitometer import unmix_density, densitometer_normalization
+from spektrafilm_profile_creator.core.densitometer import (
+    unmix_density,
+    densitometer_normalization,
+    fill_missing_sensitivity
+)
 from spektrafilm_profile_creator.core.density_curves import replace_fitted_density_curves
 from spektrafilm_profile_creator.core.profile_transforms import (
     remove_density_min,
@@ -22,6 +27,7 @@ from spektrafilm_profile_creator.refinement import (
     refine_negative_print,
     refine_positive_film,
 )
+from spektrafilm_profile_creator.spectral_containment import sensitivity_bandpass_hanatos2025
 
 
 def process_raw_profile(raw_profile: RawProfile) -> Profile:
@@ -32,70 +38,76 @@ def process_raw_profile(raw_profile: RawProfile) -> Profile:
     #########################################################################################################
     # negative film workflow
     #########################################################################################################
-    if raw_profile.info.use == 'filming' and raw_profile.info.type == 'negative':
+    if raw_profile.info.stage == 'filming' and raw_profile.info.type == 'negative':
         # channel density
         profile = reconstruct_dye_density(profile, model=recipe.dye_density_reconstruct_model)
         profile = densitometer_normalization(profile)
-        # sensitivity
-        profile = balance_film_sensitivity(profile)
         # density curves
         profile = remove_density_min(profile)
         profile = prelminary_neutral_shift(profile)
         profile = unmix_density(profile)
+        # sensitivity
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_film_sensitivity(profile)
+        # final refinement
         profile = refine_negative_film(
             profile,
-            target_print=recipe.target_print,
-            data_trustability=recipe.data_trustability,
+            target_print=raw_profile.info.target_print,
             stretch_curves=recipe.stretch_curves,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
+        profile = sensitivity_bandpass_hanatos2025(profile)
         return profile
 
     ##########################################################################################################
     # positive film workflow
     ##########################################################################################################
-    if raw_profile.info.use == 'filming' and raw_profile.info.type == 'positive':
+    if raw_profile.info.stage == 'filming' and raw_profile.info.type == 'positive':
         # channel density
-        profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
-        # sensitivity
-        profile = balance_film_sensitivity(profile)
+        profile = densitometer_normalization(profile)
         # density curves
         profile = prelminary_neutral_shift(profile, per_channel_shift=False)
         profile = unmix_density(profile)
+        # sensitivity
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_film_sensitivity(profile)
+        # final refinement
         profile = refine_positive_film(
             profile,
-            data_trustability=recipe.data_trustability,
+            stretch_curves=recipe.stretch_curves,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
+        profile = sensitivity_bandpass_hanatos2025(profile)
         return profile
 
     ##########################################################################################################
     # negative paper workflow
     ##########################################################################################################
-    if raw_profile.info.use == 'printing' and raw_profile.info.type == 'negative':
+    if raw_profile.info.stage == 'printing' and raw_profile.info.type == 'negative':
         # channel density
-        profile = densitometer_normalization(profile)
         profile = remove_density_min(profile, reconstruct_base_density=True) # affect also density curves
         profile = reconstruct_metameric_neutral(profile)
-        # sensitivity
-        profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
+        profile = densitometer_normalization(profile)
         # density curves
         profile = prelminary_neutral_shift(profile, per_channel_shift=recipe.neutral_log_exposure_correction)
         profile = unmix_density(profile)
+        # sensitivity
+        profile = fill_missing_sensitivity(profile)
+        profile = balance_print_sensitivity(profile, target_film=recipe.target_film)
+        # final refinement
         profile = refine_negative_print(
             profile,
             target_film=recipe.target_film,
-            data_trustability=recipe.data_trustability,
             neutral_ramp_refinement=recipe.neutral_ramp_refinement,
         )
         profile = replace_fitted_density_curves(profile)
         return profile
     
-    raise NotImplementedError(f"Workflow not implemented for profile type '{raw_profile.info.type}' and use '{raw_profile.info.use}' combination.")
+    raise NotImplementedError(f"Workflow not implemented for profile type '{raw_profile.info.type}' and stage '{raw_profile.info.stage}' combination.")
 
 def process_profile(stock: str) -> Profile:
     raw_profile = load_raw_profile(stock)

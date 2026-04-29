@@ -73,7 +73,7 @@ class CalibrationTarget:
             
     def dir_couplers_ramp(self, values=[0.0, 0.5, 1.0, 1.5, 2.0]):
         self.clean_params(steps=np.size(values))
-        self.title = 'DIR Couplers Amount'
+        self.title = 'DIR Couplers Inhibition Strength'
         for p, v in zip(self.params, values):
             p.film_render.dir_couplers.amount = v
             p.label = f'{v:.2f}'
