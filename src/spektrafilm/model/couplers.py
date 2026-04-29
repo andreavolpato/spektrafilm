@@ -118,7 +118,7 @@ def apply_density_correction_dir_couplers(
     positive = profile_type == 'positive'
     
     couplers_matrix = compute_dir_couplers_matrix(dir_couplers)
-    couplers_matrix *= dir_couplers.inhibition_strength
+    couplers_matrix *= dir_couplers.amount
     
     density_curves_0 = compute_density_curves_before_dir_couplers(
         density_curves,

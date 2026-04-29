@@ -80,7 +80,7 @@ class HalationState:
 @dataclass(slots=True)
 class CouplersState:
     active: bool
-    inhibition_strength: float
+    amount: float
     inhibition_samelayer: float
     inhibition_interlayer: float
     gamma_samelayer_rgb: tuple[float, float, float]
@@ -260,7 +260,7 @@ def gui_state_from_params(
         ),
         couplers=CouplersState(
             active=params.film_render.dir_couplers.active,
-            inhibition_strength=params.film_render.dir_couplers.inhibition_strength,
+            amount=params.film_render.dir_couplers.amount,
             inhibition_samelayer=params.film_render.dir_couplers.inhibition_samelayer,
             inhibition_interlayer=params.film_render.dir_couplers.inhibition_interlayer,
             gamma_samelayer_rgb=tuple(params.film_render.dir_couplers.gamma_samelayer_rgb),

@@ -139,6 +139,7 @@ class TestRuntimeApi:
         )
 
     def test_art_extlut_compatibility_path_runs(self):
+        # make sure ART is compatible
         """reference this https://github.com/artraweditor/ART/blob/master/tools/extlut/spektrafilm_mklut.py"""
         def make_art_params():
             params = photo_params(
@@ -173,7 +174,7 @@ class TestRuntimeApi:
             params.film_render.halation.active = False
             params.film_render.density_curve_gamma = 1.0
             params.film_render.dir_couplers.active = True
-            params.film_render.dir_couplers.inhibition_strength = 1.0
+            params.film_render.dir_couplers.amount = 1.0
             params.print_render.glare.active = False
             params.print_render.density_curve_gamma = 1.0
             return params

@@ -124,7 +124,7 @@ class HalationParams:
 @dataclass
 class DirCouplersParams:
     active: bool = True
-    inhibition_strength: float = 1.0
+    amount: float = 1.0
     inhibition_samelayer: float = 1.0
     inhibition_interlayer: float = 1.0
     gamma_samelayer_rgb: tuple[float, float, float] = (0.341, 0.324, 0.273)

@@ -60,10 +60,10 @@ class TestInitParamsDefaults:
         assert params.film_render.grain.active is True
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
-        assert params.film_render.dir_couplers.inhibition_strength == 1.0
+        assert params.film_render.dir_couplers.amount == 1.0
         assert params.film_render.dir_couplers.inhibition_samelayer == 1.0
         assert params.film_render.dir_couplers.inhibition_interlayer == 1.0
-        assert params.film_render.dir_couplers.gamma_samelayer_rgb == (0.4, 0.35, 0.25)
+        assert params.film_render.dir_couplers.gamma_samelayer_rgb == (0.341, 0.324, 0.273)
 
         assert params.print_render.density_curve_gamma == 1.0
         assert params.print_render.glare.active is True

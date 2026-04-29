@@ -436,7 +436,7 @@ GUI_WIDGET_SPECS = {
         ),
     },
     "couplers": {
-        "inhibition_strength": WidgetSpec(
+        "amount": WidgetSpec(
             tooltip="Global multiplier on the DIR coupler inhibition matrix. 1.0 leaves the per-channel gammas as-is.",
             min_value=0,
             step=0.05,

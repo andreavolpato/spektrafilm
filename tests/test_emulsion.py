@@ -57,7 +57,7 @@ def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
         ),
         dir_couplers=DirCouplersParams(
             active=True,
-            inhibition_strength=0.65,
+            amount=0.65,
             inhibition_samelayer=0.95,
             inhibition_interlayer=1.05,
             gamma_samelayer_rgb=(0.5, 0.4, 0.3),

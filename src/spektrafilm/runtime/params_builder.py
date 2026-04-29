@@ -147,9 +147,9 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
 
     # stock specifics overrides
     if params.film.info.stock == "fujifilm_velvia_100":
-        params.film_render.dir_couplers.inhibition_strength *= 0.9
+        params.film_render.dir_couplers.amount *= 0.9
     if params.film.info.stock == "fujifilm_provia_100f":
-        params.film_render.dir_couplers.inhibition_strength *= 1.3
+        params.film_render.dir_couplers.amount *= 1.3
         
         
     # if params.film.info.stock == "kodak_portra_400":

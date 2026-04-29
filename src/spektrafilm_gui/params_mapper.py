@@ -113,7 +113,7 @@ def _apply_grain(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_couplers(params: RuntimePhotoParams, state: GuiState) -> None:
     params.film_render.dir_couplers.active = state.couplers.active
-    params.film_render.dir_couplers.inhibition_strength = state.couplers.inhibition_strength
+    params.film_render.dir_couplers.amount = state.couplers.amount
     params.film_render.dir_couplers.inhibition_samelayer = state.couplers.inhibition_samelayer
     params.film_render.dir_couplers.inhibition_interlayer = state.couplers.inhibition_interlayer
     params.film_render.dir_couplers.gamma_samelayer_rgb = tuple(state.couplers.gamma_samelayer_rgb)

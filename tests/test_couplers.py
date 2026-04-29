@@ -63,7 +63,7 @@ class TestDirCouplers:
         density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, 1.1)
         dir_couplers = DirCouplersParams(
             active=True,
-            inhibition_strength=0.7,
+            amount=0.7,
             inhibition_samelayer=0.9,
             inhibition_interlayer=1.1,
             gamma_samelayer_rgb=(0.5, 0.4, 0.3),
@@ -87,7 +87,7 @@ class TestDirCouplers:
             gamma_factor=gamma_factor,
         )
 
-        matrix = compute_dir_couplers_matrix(dir_couplers) * dir_couplers.inhibition_strength
+        matrix = compute_dir_couplers_matrix(dir_couplers) * dir_couplers.amount
         density_curves_0 = compute_density_curves_before_dir_couplers(
             density_curves,
             log_exposure,

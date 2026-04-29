@@ -75,7 +75,7 @@ class CalibrationTarget:
         self.clean_params(steps=np.size(values))
         self.title = 'DIR Couplers Inhibition Strength'
         for p, v in zip(self.params, values):
-            p.film_render.dir_couplers.inhibition_strength = v
+            p.film_render.dir_couplers.amount = v
             p.label = f'{v:.2f}'
     
     def glare_ramp(self, values=[0.02, 0.05, 0.1, 0.2, 0.4]):

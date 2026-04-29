@@ -52,7 +52,7 @@ PROFILE_SYNC_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     'couplers': (
         'active',
-        'inhibition_strength',
+        'amount',
         'inhibition_samelayer',
         'inhibition_interlayer',
         'gamma_samelayer_rgb',
