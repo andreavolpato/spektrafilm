@@ -30,7 +30,7 @@ def run_simulation():
     # params.enlarger.y_filter_shift = 7
     # params.enlarger.m_filter_shift = -2
     
-    params.enlarger.diffusion_filter.active = True
+    params.enlarger.diffusion_filter.active = False
     params.enlarger.diffusion_filter.filter_family = "black_pro_mist"
     params.enlarger.diffusion_filter.strength = 0.25
     params.enlarger.diffusion_filter.spatial_scale = 1.0
