@@ -226,26 +226,55 @@ def load_image_oiio(filename):
 def save_image_oiio(
     filename,
     image_data,
-    bit_depth=32,
+    bit_depth=16,
     *,
     color_space: str | None = None,
     cctf_encoding: bool = True,
 ):
-    """
-    Save a floating-point (double) image with 3 channels as a 16-bit image file.
-    For PNG files, the image data is scaled to the [0,65535] range and saved as uint16.
-    For JPEG files, the image data is scaled to the [0,255] range and saved as uint8.
-    For EXR files, the image data is converted to 16-bit half floats.
+    """Save a 3-channel image to disk via OpenImageIO.
 
-    When ``color_space`` is given and a matching ICC profile exists in
-    ``spektrafilm/data/icc/`` it is embedded into the file (PNG iCCP chunk,
-    JPEG APP2 marker). Missing ICC files are skipped silently.
+    Pixel format per extension:
 
-    Parameters:
-            filename (str): The output file name (e.g., "saved_image.png", "saved_image.jpg", or "saved_image.exr")
-      image_data (np.ndarray): The input image data as a NumPy array with shape (height, width, 3).
-      color_space (str, optional): Name of the color space the pixels are in (e.g. "sRGB", "Display P3").
-      cctf_encoding (bool): Whether the pixels carry the color space's encoding TRC (default True).
+    - ``.jpg`` / ``.jpeg``: clipped to [0, 1] and written as uint8.
+      ``bit_depth`` is ignored.
+    - ``.png``: clipped to [0, 1] and written as uint8. ``bit_depth`` is
+      ignored.
+    - ``.tif`` / ``.tiff``: ``bit_depth`` selects the encoding —
+      8 → uint8 (clipped, scaled to [0, 255]),
+      16 → uint16 (clipped, scaled to [0, 65535]),
+      32 → float32 (raw, no clip/scale). Written with ZIP/deflate
+      compression.
+    - ``.exr``: ``bit_depth`` selects the encoding —
+      16 → half (float16), 32 → float32. Always raw, no clip/scale.
+
+    With the default ``bit_depth=16`` this gives half EXR and uint16 TIFF —
+    the idiomatic precision for each format. Pass ``bit_depth=32`` for
+    float32 in either, or ``bit_depth=8`` for uint8 TIFF.
+
+    When ``color_space`` is provided and a matching ICC profile exists in
+    ``spektrafilm/data/icc/`` (see the table in ``_ICC_FILENAMES``), the
+    profile bytes are embedded into the file's native ICC slot:
+    JPEG APP2 marker, PNG iCCP chunk, or TIFF ICCProfile tag. EXR carries
+    its own color metadata so ICC embedding is skipped there. Missing
+    profiles fall back to no embedding — the EXIF/XMP color-space tagging
+    written by ``write_image_metadata`` still labels the file.
+
+    Parameters
+    ----------
+    filename : str
+        Output path; the extension selects the file format.
+    image_data : np.ndarray
+        Image data with shape ``(height, width, 3)``. Floating-point input
+        is assumed to be in [0, 1] for integer-encoded formats.
+    bit_depth : int, default 16
+        Precision selector for TIFF and EXR (see above). Ignored for JPEG
+        and PNG.
+    color_space : str, optional
+        Name of the color space the pixels are encoded in (e.g. ``"sRGB"``,
+        ``"Display P3"``). Used to look up the ICC profile to embed.
+    cctf_encoding : bool, default True
+        Whether the pixels carry the color space's encoding transfer
+        function. Affects which ICC variant is embedded (encoded vs linear).
     """
     # Extract image dimensions and number of channels
     height, width, nchannels = image_data.shape
@@ -255,11 +284,11 @@ def save_image_oiio(
     
     # Create an ImageSpec with the proper data type
     if ext == "png":
-        # Assume image_data is in [0, 1]: scale to 16-bit unsigned integers.
-        img_uint16 = np.clip(image_data, 0, 1) * 255.0
-        img_uint16 = img_uint16.astype(np.uint8)
+        # Assume image_data is in [0, 1]: scale to 8-bit unsigned integers.
+        img_uint8 = np.clip(image_data, 0, 1) * 255.0
+        img_uint8 = img_uint8.astype(np.uint8)
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint8"))
-        data_to_write = img_uint16
+        data_to_write = img_uint8
     elif ext in {"jpg", "jpeg"}:
         img_uint8 = np.clip(image_data, 0, 1) * 255.0
         img_uint8 = img_uint8.astype(np.uint8)
@@ -272,11 +301,27 @@ def save_image_oiio(
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("half"))
         data_to_write = img_half
     elif ext=='exr' and bit_depth==32:
-        # Convert the image data to 16-bit half precision.
-        # Note: numpy's float16 is used here; OpenImageIO accepts "half" for 16-bit floats.
+        # Convert the image data to 32-bit float precision.
+        # Note: numpy's float32 is used here; OpenImageIO accepts "float" for 32-bit floats.
         img_float = image_data.astype(np.float32)
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("float"))
         data_to_write = img_float
+    elif ext in {"tif", "tiff"}:
+        if bit_depth == 8:
+            img = (np.clip(image_data, 0, 1) * 255.0).astype(np.uint8)
+            spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint8"))
+        elif bit_depth == 16:
+            img = (np.clip(image_data, 0, 1) * 65535.0).astype(np.uint16)
+            spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint16"))
+        elif bit_depth == 32:
+            img = image_data.astype(np.float32)
+            spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("float"))
+        else:
+            raise ValueError(f"Unsupported bit_depth for TIFF: {bit_depth}")
+        # ZIP/deflate is lossless and works for all bit depths (LZW is faster but
+        # integer-only); a TIFF of a 4K float image is ~100 MB uncompressed.
+        spec.attribute("Compression", "zip")
+        data_to_write = img
     else:
         raise ValueError("Unsupported file extension: " + ext)
 

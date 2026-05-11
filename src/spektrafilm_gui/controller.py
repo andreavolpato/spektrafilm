@@ -328,7 +328,7 @@ class GuiController:
             dialog_parent(self._viewer),
             'Save output image',
             'output.jpg',
-            'Images (*.jpg *.jpeg *.png *.exr)',
+            'Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
         )
         if not filepath:
             return

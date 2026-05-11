@@ -127,7 +127,35 @@ def test_write_metadata_records_saving_color_space(
     assert xmp["Xmp.photoshop.ICCProfile"] == expected_profile_name
 
 
-@pytest.mark.parametrize("ext", ["jpg", "png"])
+@pytest.mark.parametrize(
+    ("bit_depth", "expected_format"),
+    [
+        (8, "uint8"),
+        (16, "uint16"),
+        (32, "float"),
+    ],
+)
+def test_save_image_oiio_tiff_bit_depths_roundtrip(tmp_path, bit_depth, expected_format):
+    import OpenImageIO as oiio
+
+    destination_path = tmp_path / f"out_{bit_depth}.tif"
+    image_data = np.random.rand(8, 8, 3).astype(np.float32)
+
+    save_image_oiio(str(destination_path), image_data, bit_depth=bit_depth)
+
+    in_img = oiio.ImageInput.open(str(destination_path))
+    try:
+        spec = in_img.spec()
+        assert str(spec.format) == expected_format
+        assert spec.width == 8
+        assert spec.height == 8
+        assert spec.nchannels == 3
+        assert spec.getattribute("Compression") == "zip"
+    finally:
+        in_img.close()
+
+
+@pytest.mark.parametrize("ext", ["jpg", "png", "tif"])
 def test_save_image_oiio_embeds_icc_profile_when_available(tmp_path, monkeypatch, ext):
     import OpenImageIO as oiio
     from PIL import ImageCms
