@@ -50,8 +50,6 @@ include = [
     "spektrafilm.*",
     "spektrafilm_gui",
     "spektrafilm_gui.*",
-    "spektrafilm_profile_creator",
-    "spektrafilm_profile_creator.*",
 ]
 
 [tool.setuptools.package-data]
@@ -60,8 +58,5 @@ spektrafilm = [
 ]
 spektrafilm_gui = [
     "assets/*",
-]
-spektrafilm_profile_creator = [
-    "data/**/*",
 ]
 
