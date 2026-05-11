@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 
 from spektrafilm.utils.lut import compute_with_lut
-from spektrafilm.utils.spectral_upsampling import compute_hanatos2025_tc_lut
+from spektrafilm.utils.spectral_upsampling import compute_hanatos2025_tc_lut, compute_hanatos2025_adaptation_tc_lut
 from spektrafilm.utils.timings import timeit
 
 
@@ -99,7 +99,11 @@ class SpectralLUTService:
         return data_out
 
     @timeit("get_filming_tc_lut")
-    def get_filming_tc_lut(self, sensitivity):
+    def get_filming_tc_lut(self, sensitivity,
+                           sensitivity_adaptation,
+                           bandpass_params,
+                           surface_params,
+                           reference_illuminant):
         sensitivity = np.asarray(sensitivity)
         if (
             self.filming_tc_lut_memory is not None
@@ -109,5 +113,11 @@ class SpectralLUTService:
             return self.filming_tc_lut_memory
 
         self._film_sensitivity = np.array(sensitivity, copy=True)
-        self.filming_tc_lut_memory = compute_hanatos2025_tc_lut(sensitivity)
+        if sensitivity_adaptation:
+            self.filming_tc_lut_memory = compute_hanatos2025_adaptation_tc_lut(sensitivity,
+                                                                    bandpass_params,
+                                                                    surface_params,
+                                                                    reference_illuminant)
+        else:
+            self.filming_tc_lut_memory = compute_hanatos2025_tc_lut(sensitivity)
         return self.filming_tc_lut_memory

@@ -90,6 +90,8 @@ class ProfileData:
     wavelengths: np.ndarray = field(default_factory=_empty_vector)
     log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
     bandpass_hanatos2025: np.ndarray = field(default_factory=_empty_matrix)
+    hanatos2025_adaptation_bandpass_params: np.ndarray = field(default_factory=_empty_vector)
+    hanatos2025_adaptation_surface_params: np.ndarray = field(default_factory=_empty_vector)
     channel_density: np.ndarray = field(default_factory=_empty_matrix)
     base_density: np.ndarray = field(default_factory=_empty_vector)
     midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
@@ -100,6 +102,12 @@ class ProfileData:
     def __post_init__(self):
         self.wavelengths = np.asarray(self.wavelengths, dtype=float)
         self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
+        self.hanatos2025_adaptation_bandpass_params = np.asarray(self.hanatos2025_adaptation_bandpass_params, dtype=float)
+        if self.hanatos2025_adaptation_bandpass_params.size == 0:
+            self.hanatos2025_adaptation_bandpass_params = _empty_matrix()
+        self.hanatos2025_adaptation_surface_params = np.asarray(self.hanatos2025_adaptation_surface_params, dtype=float)
+        if self.hanatos2025_adaptation_surface_params.size == 0:
+            self.hanatos2025_adaptation_surface_params = _empty_matrix()
         self.bandpass_hanatos2025 = np.asarray(self.bandpass_hanatos2025, dtype=float)
         if self.bandpass_hanatos2025.size == 0:
             self.bandpass_hanatos2025 = _empty_matrix()

@@ -103,11 +103,24 @@ class FilmingStage:
                 sensitivity *= bandpass_hanatos2025
 
         if self._settings.rgb_to_raw_method == "hanatos2025":
-            raw = rgb_to_raw_hanatos2025(rgb, sensitivity,
-                            color_space=color_space, 
-                            apply_cctf_decoding=apply_cctf_decoding, 
-                            reference_illuminant=self._film.info.reference_illuminant,
-                            tc_lut=self._lut_service.get_filming_tc_lut(sensitivity))
+            try:
+                tc_lut = self._lut_service.get_filming_tc_lut(
+                    sensitivity,
+                    sensitivity_adaptation=False,
+                    bandpass_params=None,
+                    surface_params=None,
+                    reference_illuminant=self._film.info.reference_illuminant,
+                )
+            except TypeError:
+                tc_lut = self._lut_service.get_filming_tc_lut(sensitivity)
+            raw = rgb_to_raw_hanatos2025(
+                rgb,
+                sensitivity,
+                color_space=color_space,
+                apply_cctf_decoding=apply_cctf_decoding,
+                reference_illuminant=self._film.info.reference_illuminant,
+                tc_lut=tc_lut,
+            )
         elif self._settings.rgb_to_raw_method == "mallett2019":
             raw = rgb_to_raw_mallett2019(rgb, sensitivity,
                             color_space=color_space,

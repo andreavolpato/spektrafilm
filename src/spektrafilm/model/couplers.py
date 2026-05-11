@@ -68,7 +68,7 @@ def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplers
 def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
                                              dir_couplers_matrix,
                                              diffusion_size_pixel,
-                                             diffusion_tail_size_pixel,
+                                             diffusion_tail_size_pixel=0.0,
                                              diffusion_exp_tail_weight=0.0,
                                              high_exposure_couplers_shift=0.0,
                                              positive=False):
