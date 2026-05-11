@@ -50,18 +50,35 @@ def read_image_metadata(filename: str) -> ImageMetadata | None:
     )
 
 
-def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
+def write_image_metadata(
+    filename: str,
+    source_metadata: ImageMetadata | None = None,
+    *,
+    saving_color_space: str | None = None,
+    saving_cctf_encoding: bool = True,
+) -> None:
     """Write metadata to an image file after pixel data has been saved.
 
-    Copies all source EXIF, IPTC and XMP tags, then sets overridden tags
-    (Orientation, DateTime, Software, pixel dimensions).
+    Copies any source EXIF, IPTC and XMP tags, then sets overridden tags
+    (Orientation, DateTime, Software, pixel dimensions). When
+    ``saving_color_space`` is given, also tags the file with the EXIF
+    ColorSpace / Interoperability fields that match the saved color space and
+    records the human-readable profile name in ``Xmp.photoshop.ICCProfile``.
 
     Parameters
     ----------
     filename : str
         Path to the output image file (must already exist on disk).
-    source_metadata : ImageMetadata
-        Metadata returned by ``read_image_metadata``.
+    source_metadata : ImageMetadata, optional
+        Metadata returned by ``read_image_metadata`` to copy from the original
+        file. Pass ``None`` when there is no source file.
+    saving_color_space : str, optional
+        Human-readable name of the color space the pixels were encoded in
+        (e.g. ``"sRGB"``, ``"Adobe RGB (1998)"``, ``"Display P3"``).
+    saving_cctf_encoding : bool, default True
+        Whether the saved pixels carry the color space's encoding transfer
+        function. ``False`` (linear data) is appended to the recorded profile
+        name so downstream tools can flag it.
     """
     ext = filename.rsplit(".", 1)[-1].lower()
 
@@ -79,9 +96,10 @@ def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
     destination = exiv2.ImageFactory.open(filename)
     destination.readMetadata()
 
-    destination.setExifData(source_metadata.exif)
-    destination.setIptcData(source_metadata.iptc)
-    destination.setXmpData(source_metadata.xmp)
+    if source_metadata is not None:
+        destination.setExifData(source_metadata.exif)
+        destination.setIptcData(source_metadata.iptc)
+        destination.setXmpData(source_metadata.xmp)
 
     destination_exif = destination.exifData()
 
@@ -91,7 +109,39 @@ def write_image_metadata(filename: str, source_metadata: ImageMetadata) -> None:
     destination_exif["Exif.Photo.PixelXDimension"] = spec.width
     destination_exif["Exif.Photo.PixelYDimension"] = spec.height
 
+    if saving_color_space is not None:
+        _set_color_space_tags(
+            destination_exif,
+            destination.xmpData(),
+            saving_color_space,
+            saving_cctf_encoding,
+        )
+
     destination.writeMetadata()
+
+
+# EXIF Photo.ColorSpace values per EXIF 2.32 spec.
+_EXIF_COLORSPACE_SRGB = 1
+_EXIF_COLORSPACE_UNCALIBRATED = 65535
+
+
+def _set_color_space_tags(
+    exif_data: "exiv2.ExifData",
+    xmp_data: "exiv2.XmpData",
+    saving_color_space: str,
+    saving_cctf_encoding: bool,
+) -> None:
+    if saving_color_space == "sRGB" and saving_cctf_encoding:
+        exif_data["Exif.Photo.ColorSpace"] = _EXIF_COLORSPACE_SRGB
+        exif_data["Exif.Iop.InteroperabilityIndex"] = "R98"
+    elif saving_color_space == "Adobe RGB (1998)" and saving_cctf_encoding:
+        exif_data["Exif.Photo.ColorSpace"] = _EXIF_COLORSPACE_UNCALIBRATED
+        exif_data["Exif.Iop.InteroperabilityIndex"] = "R03"
+    else:
+        exif_data["Exif.Photo.ColorSpace"] = _EXIF_COLORSPACE_UNCALIBRATED
+
+    profile_name = saving_color_space if saving_cctf_encoding else f"{saving_color_space} (linear)"
+    xmp_data["Xmp.photoshop.ICCProfile"] = profile_name
 
 
 ################################################################################
