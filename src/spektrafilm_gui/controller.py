@@ -369,7 +369,12 @@ class GuiController:
             source_metadata = read_image_metadata(self._current_input_path)
 
         try:
-            save_image_oiio(filepath, image_data)
+            save_image_oiio(
+                filepath,
+                image_data,
+                color_space=saving_color_space,
+                cctf_encoding=saving_cctf_encoding,
+            )
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
             return

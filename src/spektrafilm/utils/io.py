@@ -125,6 +125,40 @@ _EXIF_COLORSPACE_SRGB = 1
 _EXIF_COLORSPACE_UNCALIBRATED = 65535
 
 
+# Maps (color_space_name, cctf_encoded) -> path inside spektrafilm/data/icc/.
+# Filenames preserve the upstream names so they stay traceable to the source
+# repos (see data/icc/README.md). Missing entries / files are silently skipped.
+_ICC_FILENAMES: dict[tuple[str, bool], str] = {
+    # Elle Stone — established RGB working spaces, V2 for broad compatibility.
+    ("sRGB", True): "ellelstone/sRGB-elle-V2-srgbtrc.icc",
+    ("sRGB", False): "ellelstone/sRGB-elle-V2-g10.icc",
+    ("Adobe RGB (1998)", True): "ellelstone/ClayRGB-elle-V2-g22.icc",
+    ("Adobe RGB (1998)", False): "ellelstone/ClayRGB-elle-V2-g10.icc",
+    ("ProPhoto RGB", True): "ellelstone/LargeRGB-elle-V2-g18.icc",
+    ("ProPhoto RGB", False): "ellelstone/LargeRGB-elle-V2-g10.icc",
+    ("ITU-R BT.2020", True): "ellelstone/Rec2020-elle-V2-rec709.icc",
+    ("ITU-R BT.2020", False): "ellelstone/Rec2020-elle-V2-g10.icc",
+    # ACES2065-1 is scene-linear; both flags map to the linear ACES (AP0) file.
+    ("ACES2065-1", True): "ellelstone/ACES-elle-V2-g10.icc",
+    ("ACES2065-1", False): "ellelstone/ACES-elle-V2-g10.icc",
+    # Saucecontrol — P3 variants Elle Stone's set doesn't cover.
+    # No compact linear P3 ICC ships upstream; linear variants fall through.
+    ("Display P3", True): "saucecontrol/DisplayP3-v2-micro.icc",
+    ("DCI-P3", True): "saucecontrol/DCI-P3-v4.icc",
+}
+
+
+def _load_icc_profile(color_space: str, cctf_encoding: bool) -> bytes | None:
+    relative_path = _ICC_FILENAMES.get((color_space, cctf_encoding))
+    if relative_path is None:
+        return None
+    resource = pkg_resources.files("spektrafilm.data.icc").joinpath(*relative_path.split("/"))
+    try:
+        return resource.read_bytes()
+    except (FileNotFoundError, OSError):
+        return None
+
+
 def _set_color_space_tags(
     exif_data: "exiv2.ExifData",
     xmp_data: "exiv2.XmpData",
@@ -189,16 +223,29 @@ def load_image_oiio(filename):
     finally:
         in_img.close()
 
-def save_image_oiio(filename, image_data, bit_depth=32):
+def save_image_oiio(
+    filename,
+    image_data,
+    bit_depth=32,
+    *,
+    color_space: str | None = None,
+    cctf_encoding: bool = True,
+):
     """
     Save a floating-point (double) image with 3 channels as a 16-bit image file.
     For PNG files, the image data is scaled to the [0,65535] range and saved as uint16.
     For JPEG files, the image data is scaled to the [0,255] range and saved as uint8.
     For EXR files, the image data is converted to 16-bit half floats.
-    
+
+    When ``color_space`` is given and a matching ICC profile exists in
+    ``spektrafilm/data/icc/`` it is embedded into the file (PNG iCCP chunk,
+    JPEG APP2 marker). Missing ICC files are skipped silently.
+
     Parameters:
             filename (str): The output file name (e.g., "saved_image.png", "saved_image.jpg", or "saved_image.exr")
       image_data (np.ndarray): The input image data as a NumPy array with shape (height, width, 3).
+      color_space (str, optional): Name of the color space the pixels are in (e.g. "sRGB", "Display P3").
+      cctf_encoding (bool): Whether the pixels carry the color space's encoding TRC (default True).
     """
     # Extract image dimensions and number of channels
     height, width, nchannels = image_data.shape
@@ -232,7 +279,17 @@ def save_image_oiio(filename, image_data, bit_depth=32):
         data_to_write = img_float
     else:
         raise ValueError("Unsupported file extension: " + ext)
-    
+
+    if color_space is not None and ext != "exr":
+        icc_bytes = _load_icc_profile(color_space, cctf_encoding)
+        if icc_bytes is not None:
+            icc_array = np.frombuffer(icc_bytes, dtype=np.uint8)
+            spec.attribute(
+                "ICCProfile",
+                oiio.TypeDesc(f"uint8[{icc_array.size}]"),
+                icc_array,
+            )
+
     # Create an ImageOutput for writing the file
     out = oiio.ImageOutput.create(filename)
     if not out:

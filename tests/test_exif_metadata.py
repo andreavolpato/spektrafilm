@@ -127,6 +127,59 @@ def test_write_metadata_records_saving_color_space(
     assert xmp["Xmp.photoshop.ICCProfile"] == expected_profile_name
 
 
+@pytest.mark.parametrize("ext", ["jpg", "png"])
+def test_save_image_oiio_embeds_icc_profile_when_available(tmp_path, monkeypatch, ext):
+    import OpenImageIO as oiio
+    from PIL import ImageCms
+
+    # A real (small) ICC profile so libpng's validation accepts it.
+    real_icc_bytes = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    monkeypatch.setattr(
+        io_module,
+        "_load_icc_profile",
+        lambda color_space, cctf_encoding: real_icc_bytes,
+    )
+
+    destination_path = tmp_path / f"with_icc.{ext}"
+    save_image_oiio(
+        str(destination_path),
+        np.random.rand(8, 8, 3),
+        color_space="Display P3",
+        cctf_encoding=True,
+    )
+
+    in_img = oiio.ImageInput.open(str(destination_path))
+    try:
+        embedded = in_img.spec().getattribute("ICCProfile")
+    finally:
+        in_img.close()
+
+    assert embedded is not None
+    assert bytes(embedded) == real_icc_bytes
+
+
+def test_save_image_oiio_skips_icc_when_profile_missing(tmp_path, monkeypatch):
+    import OpenImageIO as oiio
+
+    monkeypatch.setattr(io_module, "_load_icc_profile", lambda color_space, cctf_encoding: None)
+
+    destination_path = tmp_path / "no_icc.jpg"
+    save_image_oiio(
+        str(destination_path),
+        np.random.rand(8, 8, 3),
+        color_space="ProPhoto RGB",
+        cctf_encoding=True,
+    )
+
+    in_img = oiio.ImageInput.open(str(destination_path))
+    try:
+        embedded = in_img.spec().getattribute("ICCProfile")
+    finally:
+        in_img.close()
+
+    assert embedded is None
+
+
 def test_write_metadata_without_source_still_writes_overrides(tmp_path):
     destination_path = tmp_path / "no_source.jpg"
 

@@ -53,8 +53,9 @@ def _configure_save_output(monkeypatch, controller: GuiController, output_layer:
 
 
 def _capture_saved_output(monkeypatch, captured: dict[str, object]) -> None:
-    def fake_save_image_oiio(filepath, image_data) -> None:
+    def fake_save_image_oiio(filepath, image_data, **kwargs) -> None:
         captured.setdefault('saved', (filepath, image_data.copy()))
+        captured.setdefault('saved_kwargs', kwargs)
 
     def fake_write_image_metadata(filepath, source_metadata=None, **kwargs) -> None:
         captured.setdefault('metadata', {
@@ -241,6 +242,10 @@ def test_save_output_layer_respects_recorded_render_metadata(
     assert metadata_call['filepath'] == 'output.png'
     assert metadata_call['saving_color_space'] == saving_color_space
     assert metadata_call['saving_cctf_encoding'] is saving_cctf_encoding
+
+    saved_kwargs = captured['saved_kwargs']
+    assert saved_kwargs['color_space'] == saving_color_space
+    assert saved_kwargs['cctf_encoding'] is saving_cctf_encoding
 
 
 @pytest.mark.parametrize(
