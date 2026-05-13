@@ -33,7 +33,7 @@ from spektrafilm_gui.state import (
 )
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, SliderFloatEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 from spektrafilm_gui.widget_specs import GUI_SECTION_ENUMS, get_auxiliary_spec, get_button_spec, get_widget_spec
 
@@ -637,6 +637,11 @@ class SimulationSection(DataclassSection):
                 'saving_cctf_encoding',
             },
         )
+
+    def _build_editor(self, field_name: str, annotation: Any) -> QWidget:
+        if field_name == 'film_format_mm':
+            return SliderFloatEditor(minimum=8.0, maximum=120.0, step=1.0, decimals=0, suffix=' mm')
+        return super()._build_editor(field_name, annotation)
 
     def _init_extra_widgets(self) -> None:
         self._glare_section = None
