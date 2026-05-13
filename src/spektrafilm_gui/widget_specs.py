@@ -72,7 +72,10 @@ GUI_WIDGET_SPECS = {
         ),
         "film_format_mm": WidgetSpec(
             label="Film format mm",
-            tooltip="Long edge of the film format in millimeters, e.g. 35mm or 60mm",
+            tooltip="Long edge of the film format in millimeters, e.g. 8mm Super8, 16mm, 35mm, 60mm, 120mm",
+            min_value=8.0,
+            max_value=120.0,
+            step=1.0,
         ),
         "camera_lens_blur_um": WidgetSpec(
             label="Camera lens blur um",
