@@ -334,6 +334,9 @@ class InputImageSection(SimpleDataclassSection):
         'crop_center',
         'crop_size',
         'spectral_upsampling_method',
+        'apply_hanatos2025_adaptation_window',
+        'apply_hanatos2025_adaptation_surface',
+        'spectral_gaussian_blur',
         'filter_uv',
         'filter_ir',
     }
@@ -466,6 +469,9 @@ class SpectralUpsamplingSection(QWidget):
                 'Spectral upsampling',
                 [
                     _spec_row('input_image', 'spectral_upsampling_method', input_image_section.spectral_upsampling_method),
+                    _spec_row('input_image', 'apply_hanatos2025_adaptation_window', input_image_section.apply_hanatos2025_adaptation_window),
+                    _spec_row('input_image', 'apply_hanatos2025_adaptation_surface', input_image_section.apply_hanatos2025_adaptation_surface),
+                    _spec_row('input_image', 'spectral_gaussian_blur', input_image_section.spectral_gaussian_blur),
                     _spec_row('input_image', 'filter_uv', input_image_section.filter_uv),
                     _spec_row('input_image', 'filter_ir', input_image_section.filter_ir),
                 ],

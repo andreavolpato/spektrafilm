@@ -555,6 +555,20 @@ GUI_WIDGET_SPECS = {
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
         ),
+        "apply_hanatos2025_adaptation_window": WidgetSpec(
+            label="hanatos2025 adaptation window",
+            tooltip="Apply the hanatos2025 bandpass adaptation window when reconstructing spectra.",
+        ),
+        "apply_hanatos2025_adaptation_surface": WidgetSpec(
+            label="hanatos2025 adaptation surface",
+            tooltip="Apply the hanatos2025 surface adaptation polynomial when reconstructing spectra.",
+        ),
+        "spectral_gaussian_blur": WidgetSpec(
+            label="Spectral gaussian blur",
+            tooltip="Sigma in nm for Gaussian blur applied to reconstructed spectra.",
+            min_value=0,
+            step=0.1,
+        ),
         "filter_uv": WidgetSpec(
             label="UV filter",
             tooltip="Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.",

@@ -3,18 +3,33 @@
 # Spectral film simulations of analog photography
 
 > [!IMPORTANT]
-> At this stage, this project is very experimental and a work in progress. Things might change fast, and it is really just a playground for exploring the simulation model.
-
+> This project is in rapid development, some ares are still being build and will change fast. The core functionality of the tech demo is maturing. LUT export and easy integration in third party software will follow.
+> 
 
 An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
 
 An high-level writeup and discussion on this project is avalable on [discuss.pixls.us](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/48209).
 
-In practice, spektrafilm is both a research playground and a half usable experimentation tool (maybe fully usable in the near future when it will stabilize and be gpu accellerated :)). It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that stays connected to the structure and behaviour of real photographic materials.
+In practice, spektrafilm is both a research playground and a half usable experimentation tool (maybe fully usable in the near future :)). It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that is grounded in measurements and predicts real-world behaviors of photographic materials.
 
 ![Example of GUI interface with color test image.](img/readme/gui_screenshot.png)
 
-The desktop GUI makes that workflow accessible without writing code, letting you import RAW files or prepared linear images, explore different film and paper profiles, adjust the simulation interactively, and move quickly between fast(-ish) previews and more detailed final scans.
+The desktop GUI exposes the Python tech-demo functionality without writing code, letting you import RAW files or prepared linear images, explore different film and paper profiles, adjust the simulation interactively, and move quickly between fast(-ish) previews and more detailed final scans. Full resolution export is very slow at the moment.
+
+> [!IMPORTANT]
+>   spektrafilm (all lower caps) is open for research, integration, and production use.
+>
+> If you find it useful:
+>  * Acknowledge spektrafilm in plugin descriptions, marketing, or credits
+>    (e.g. "film modeling powered by `spektrafilm`" or "film modeling inspired by `spektrafilm`", see `CITATION.cff`).
+>  * Consider starring the repo or sharing your results.
+>  * Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
+>
+>  *The project is GPLv3 licensed*, so any derivative work must also be open source under the same license. Derivatve work includes any software, plugin, or tool that incorporates spektrafilm code or is directly inspired by its methods.
+>  
+>  *If GPLv3 is not compatible with your project*, please reach out to discuss alternative options. I am very open to collaboration and integration, but I want to ensure that spektrafilm remains open source and grows with the community. 
+>
+>  This helps sustain open color science. Thanks!
 
 ## Introduction
 
@@ -52,11 +67,10 @@ A more detailed description of colour couplers can be found in Chapter 15 of Hun
 
 ## Package layout
 
-The codebase is organized as three packages under [src/spektrafilm](src/spektrafilm), [src/spektrafilm_gui](src/spektrafilm_gui), and [src/spektrafilm_profile_creator](src/spektrafilm_profile_creator):
+The codebase is organized as three packages under [src/spektrafilm](src/spektrafilm), [src/spektrafilm_gui](src/spektrafilm_gui):
 
 1. [src/spektrafilm](src/spektrafilm): runtime simulation pipeline and processed profile consumption.
 2. [src/spektrafilm_gui](src/spektrafilm_gui): desktop GUI built on top of the runtime package.
-3. [src/spektrafilm_profile_creator](src/spektrafilm_profile_creator): raw-curve processing and profile generation/fitting workflows.
 
 Canonical import surfaces:
 
@@ -84,7 +98,7 @@ Dependency direction:
 ## Installation
 
 > [!NOTE]
-> Since agx-emulsion is not compatible with the latest Python version, an older
+> Since spektrafilm is not compatible with the latest Python version, an older
 > version like 3.13 must be used.
 
 ### Using `uv`

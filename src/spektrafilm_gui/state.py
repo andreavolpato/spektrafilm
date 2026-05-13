@@ -20,6 +20,9 @@ class InputImageState:
     input_color_space: str
     apply_cctf_decoding: bool
     spectral_upsampling_method: str
+    apply_hanatos2025_adaptation_window: bool
+    apply_hanatos2025_adaptation_surface: bool
+    spectral_gaussian_blur: float
     filter_uv: tuple[float, float, float]
     filter_ir: tuple[float, float, float]
 
@@ -214,6 +217,9 @@ def gui_state_from_params(
             input_color_space=params.io.input_color_space,
             apply_cctf_decoding=params.io.input_cctf_decoding,
             spectral_upsampling_method=params.settings.rgb_to_raw_method,
+            apply_hanatos2025_adaptation_window=params.settings.apply_hanatos2025_adaptation_window,
+            apply_hanatos2025_adaptation_surface=params.settings.apply_hanatos2025_adaptation_surface,
+            spectral_gaussian_blur=params.settings.spectral_gaussian_blur,
             filter_uv=tuple(params.camera.filter_uv),
             filter_ir=tuple(params.camera.filter_ir),
         ),
