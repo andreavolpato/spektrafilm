@@ -324,10 +324,15 @@ class GuiController:
             QMessageBox.warning(dialog_parent(self._viewer), 'Save output', 'Run a simulation before saving the output layer.')
             return
 
+        if self._current_input_path is not None:
+            default_name = Path(self._current_input_path).stem + '.jpg'
+        else:
+            default_name = 'output.jpg'
+
         filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
             dialog_parent(self._viewer),
             'Save output image',
-            'output.jpg',
+            default_name,
             'Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
         )
         if not filepath:
