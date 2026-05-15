@@ -26,15 +26,13 @@ class RawWhiteBalance(Enum):
 
 
 class AutoExposureMethods(Enum):
-    average = "average"
-    median = "median"
     center_weighted = "center_weighted"
-    partial = "partial"
-    spot = "spot"
     matrix = "matrix"
     multi_zone = "multi_zone"
+    partial = "partial"
     highlight_weighted = "highlight_weighted"
-    hybrid = "hybrid"
+    median = "median"
+    average = "average"
 
 
 class NapariInterpolationModes(Enum):

@@ -42,15 +42,6 @@ def measure_autoexposure_ev(image, color_space='sRGB', apply_cctf_decoding=True,
             mask = np.ones_like(radius, dtype=bool)
         exposure = np.mean(image_Y[mask]) / 0.184
 
-    elif method == 'spot':
-        # Hard circular region covering ~5% radius; single small spot.
-        x, y = _normalized_coords(image)
-        radius = np.sqrt(x ** 2 + y[:, None] ** 2)
-        mask = radius < 0.05
-        if mask.sum() == 0:
-            mask = np.ones_like(radius, dtype=bool)
-        exposure = np.mean(image_Y[mask]) / 0.184
-
     elif method == 'matrix':
         # Divide into a 5×5 grid; weight each cell by a raised-cosine distance
         # from center so corner zones contribute less.
@@ -100,22 +91,6 @@ def measure_autoexposure_ev(image, color_space='sRGB', apply_cctf_decoding=True,
             weights = np.ones_like(image_Y)
             total = weights.sum()
         exposure = float(np.sum(image_Y * weights) / total) / 0.184
-
-    elif method == 'hybrid':
-        # Equal blend of spot (center 5%) and center_weighted Gaussian.
-        x, y = _normalized_coords(image)
-        radius = np.sqrt(x ** 2 + y[:, None] ** 2)
-        spot_mask = radius < 0.05
-        if spot_mask.sum() == 0:
-            spot_mask = np.ones_like(radius, dtype=bool)
-        spot_val = np.mean(image_Y[spot_mask])
-
-        sigma = 0.2
-        cw_mask = np.exp(-(x ** 2 + y[:, None] ** 2) / (2 * sigma ** 2))
-        cw_mask /= cw_mask.sum()
-        cw_val = float(np.sum(image_Y * cw_mask))
-
-        exposure = (0.5 * spot_val + 0.5 * cw_val) / 0.184
 
     else:
         exposure = 1.0
