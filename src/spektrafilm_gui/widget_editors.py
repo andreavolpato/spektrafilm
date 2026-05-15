@@ -313,3 +313,74 @@ class FloatTupleEditor(TupleEditor):
 class IntTupleEditor(TupleEditor):
     def __init__(self, length: int, *, minimum: int = -1_000_000, maximum: int = 1_000_000):
         super().__init__([IntEditor(minimum=minimum, maximum=maximum) for _ in range(length)])
+
+
+class SliderFloatEditor(QtWidgets.QWidget):
+    valueChanged = QtCore.Signal(float)
+
+    def __init__(self, *, minimum: float = 0.0, maximum: float = 100.0, step: float = 1.0, decimals: int = 0, suffix: str = ''):
+        super().__init__()
+        self._minimum = minimum
+        self._maximum = maximum
+        self._step = step
+        self._decimals = decimals
+        self._suffix = suffix
+
+        self._slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self._slider.setRange(0, self._n_steps())
+        self._slider.setFixedHeight(24)
+
+        self._label = QtWidgets.QLabel()
+        self._label.setFixedWidth(52)
+        self._label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(self._slider, 1)
+        layout.addWidget(self._label)
+
+        self._slider.valueChanged.connect(self._on_slider_changed)
+        self._update_label()
+
+    def _n_steps(self) -> int:
+        if self._step <= 0:
+            return 0
+        return int(round((self._maximum - self._minimum) / self._step))
+
+    def _on_slider_changed(self, _tick: int) -> None:
+        self._update_label()
+        self.valueChanged.emit(self.value)
+
+    def _update_label(self) -> None:
+        self._label.setText(f'{self.value:.{self._decimals}f}{self._suffix}')
+
+    @property
+    def value(self) -> float:
+        return self._minimum + self._slider.value() * self._step
+
+    @value.setter
+    def value(self, v: float) -> None:
+        tick = int(round((v - self._minimum) / self._step))
+        tick = max(0, min(self._slider.maximum(), tick))
+        was_blocked = self._slider.blockSignals(True)
+        self._slider.setValue(tick)
+        self._slider.blockSignals(was_blocked)
+        self._update_label()
+
+    def setMinimum(self, v: float) -> None:
+        self._minimum = v
+        self._slider.setRange(0, self._n_steps())
+
+    def setMaximum(self, v: float) -> None:
+        self._maximum = v
+        self._slider.setRange(0, self._n_steps())
+
+    def setSingleStep(self, v: float) -> None:
+        self._step = v
+        self._slider.setRange(0, self._n_steps())
+
+    def setToolTip(self, text: str) -> None:
+        super().setToolTip(text)
+        self._slider.setToolTip(text)
+        self._label.setToolTip(text)
