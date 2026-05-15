@@ -7,7 +7,7 @@ name = "spektrafilm"
 version = "0.3.2"
 description = "Spectral simulation of analog film photography"
 readme = "README.md"
-requires-python = ">=3.13.0,<4.0.0"
+requires-python = "~=3.13"
 license = { text = "GPLv3" }
 authors = [
     { name = "Andrea Volpato", email = "volpedellenevi@gmail.com" },
