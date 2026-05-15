@@ -26,8 +26,13 @@ class RawWhiteBalance(Enum):
 
 
 class AutoExposureMethods(Enum):
-    median = "median"
     center_weighted = "center_weighted"
+    matrix = "matrix"
+    multi_zone = "multi_zone"
+    partial = "partial"
+    highlight_weighted = "highlight_weighted"
+    median = "median"
+    average = "average"
 
 
 class NapariInterpolationModes(Enum):
@@ -45,3 +50,13 @@ class DiffusionFilterFamilies(Enum):
     black_pro_mist = "black_pro_mist"
     pro_mist = "pro_mist"
     cinebloom = "cinebloom"
+
+
+class FilmFormats(Enum):
+    f8mm = "8 mm"
+    f16mm = "16 mm"
+    f35mm = "35 mm"
+    f60mm = "60 mm"
+    f70mm = "70 mm"
+    f90mm = "90 mm"
+    f120mm = "120 mm"
