@@ -34,12 +34,12 @@ def _profile_use_text_and_color(profile_name: str) -> tuple[str, str]:
     if not profile_name:
         return '', ACCENT_COLOR_TEXT
     try:
-        info = load_profile(profile_name).info
+        profile = load_profile(profile_name)
     except (FileNotFoundError, TypeError, ValueError):
         return '', ACCENT_COLOR_TEXT
-    if info.is_cine:
+    if profile.is_cine:
         return 'cine', ACCENT_COLOR_TEXT_SECONDARY
-    if info.is_still:
+    if profile.is_still:
         return 'still', ACCENT_COLOR_TEXT
     return '', ACCENT_COLOR_TEXT
 

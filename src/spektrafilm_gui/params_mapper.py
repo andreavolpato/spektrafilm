@@ -60,7 +60,7 @@ def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
     params.camera.exposure_compensation_ev = state.simulation.exposure_compensation_ev
     params.camera.auto_exposure = state.simulation.auto_exposure
     params.camera.auto_exposure_method = state.simulation.auto_exposure_method
-    params.camera.film_format_mm = state.simulation.film_format_mm
+    params.camera.film_format_mm = float(state.simulation.film_format_mm.split()[0])
     params.camera.filter_uv = state.input_image.filter_uv
     params.camera.filter_ir = state.input_image.filter_ir
 
@@ -156,6 +156,9 @@ def _apply_scanner(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_settings(params: RuntimePhotoParams, state: GuiState) -> None:
     params.settings.rgb_to_raw_method = state.input_image.spectral_upsampling_method
+    params.settings.apply_hanatos2025_adaptation_window = bool(state.input_image.apply_hanatos2025_adaptation_window)
+    params.settings.apply_hanatos2025_adaptation_surface = bool(state.input_image.apply_hanatos2025_adaptation_surface)
+    params.settings.spectral_gaussian_blur = float(state.input_image.spectral_gaussian_blur)
     params.settings.preview_max_size = state.display.preview_max_size
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True

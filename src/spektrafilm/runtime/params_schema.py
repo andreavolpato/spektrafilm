@@ -106,9 +106,9 @@ class HalationParams:
     # in-emulsion scatter — energy-preserving mixture: Gaussian core + exponential
     # tail (scatter_tail_um is the exponential decay constant, internally
     # dispatched to a Gaussian mixture by fast_exponential_filter)
-    scatter_core_um: tuple[float, float, float] = (2.6, 2.3, 1.8)
-    scatter_tail_um: tuple[float, float, float] = (8.8, 7.0, 6.4)
-    scatter_tail_weight: tuple[float, float, float] = (0.74, 0.64, 0.64)
+    scatter_core_um: tuple[float, float, float] = (2.2, 2.0, 1.6)
+    scatter_tail_um: tuple[float, float, float] = (9.3, 9.7, 9.1)
+    scatter_tail_weight: tuple[float, float, float] = (0.78, 0.65, 0.67)
     # highlight boost — reconstructs pre-clip irradiance before propagation
     boost_ev: float = 0.0
     boost_range: float = 0.3
@@ -131,7 +131,9 @@ class DirCouplersParams:
     gamma_interlayer_r_to_gb: tuple[float, float] = (0.355, 0.305)
     gamma_interlayer_g_to_rb: tuple[float, float] = (0.154, 0.358)
     gamma_interlayer_b_to_rg: tuple[float, float] = (0.171, 0.225)
-    diffusion_size_um: float = 20
+    diffusion_size_um: float = 20.0
+    diffusion_tail_um: float = 200.0 # exponential tail for Lévy-like processes or environmental heterogeneity
+    diffusion_tail_weight: float = 0.06
 
 @dataclass
 class GlareParams:
@@ -168,15 +170,6 @@ class IOParams:
     upscale_factor: float = 1.0
     scan_film: bool = False
 
-    # Temporary compatibility shim while the GUI still carries compute_full_image.
-    @property
-    def full_image(self) -> bool:
-        return True
-
-    @full_image.setter
-    def full_image(self, _value: bool) -> None:
-        return None
-
 
 @dataclass
 class DebugParams:
@@ -193,7 +186,9 @@ class DebugParams:
 @dataclass
 class SettingsParams:
     rgb_to_raw_method: str = "hanatos2025"
-    bandpass_hanatos2025: bool = True
+    apply_hanatos2025_adaptation_window: bool = True
+    apply_hanatos2025_adaptation_surface: bool = False
+    spectral_gaussian_blur: float = 0.0
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
     lut_resolution: int = 17
@@ -201,7 +196,7 @@ class SettingsParams:
     preview_max_size: int = 640
     preview_mode: bool = False
     neutral_print_filters_from_database: bool = True
-
+    
 
 @dataclass
 class RuntimePhotoParams:

@@ -6,6 +6,7 @@ from enum import Enum
 from spektrafilm_gui.options import (
     AutoExposureMethods,
     DiffusionFilterFamilies,
+    FilmFormats,
     NapariInterpolationModes,
     RGBColorSpaces,
     RGBtoRAWMethod,
@@ -45,6 +46,7 @@ GUI_SECTION_ENUMS: dict[str, dict[str, type[Enum]]] = {
     },
     "simulation": {
         "film_stock": FilmStocks,
+        "film_format_mm": FilmFormats,
         "auto_exposure_method": AutoExposureMethods,
         "camera_diffusion_filter_family": DiffusionFilterFamilies,
         "print_paper": PrintPapers,
@@ -557,6 +559,20 @@ GUI_WIDGET_SPECS = {
         "spectral_upsampling_method": WidgetSpec(
             label="Spectral upsampling",
             tooltip="Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input).",
+        ),
+        "apply_hanatos2025_adaptation_window": WidgetSpec(
+            label="hanatos2025 adaptation window",
+            tooltip="Apply the hanatos2025 bandpass adaptation window when reconstructing spectra.",
+        ),
+        "apply_hanatos2025_adaptation_surface": WidgetSpec(
+            label="hanatos2025 adaptation surface",
+            tooltip="Apply the hanatos2025 surface adaptation polynomial when reconstructing spectra.",
+        ),
+        "spectral_gaussian_blur": WidgetSpec(
+            label="Spectral gaussian blur",
+            tooltip="Sigma in nm for Gaussian blur applied to reconstructed spectra.",
+            min_value=0,
+            step=0.1,
         ),
         "filter_uv": WidgetSpec(
             label="UV filter",
