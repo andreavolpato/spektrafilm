@@ -60,7 +60,7 @@ def _apply_camera(params: RuntimePhotoParams, state: GuiState) -> None:
     params.camera.exposure_compensation_ev = state.simulation.exposure_compensation_ev
     params.camera.auto_exposure = state.simulation.auto_exposure
     params.camera.auto_exposure_method = state.simulation.auto_exposure_method
-    params.camera.film_format_mm = state.simulation.film_format_mm
+    params.camera.film_format_mm = float(state.simulation.film_format_mm.split()[0])
     params.camera.filter_uv = state.input_image.filter_uv
     params.camera.filter_ir = state.input_image.filter_ir
 
