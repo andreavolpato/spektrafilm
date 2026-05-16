@@ -228,6 +228,10 @@ The simulation expects linear scene-referred files as input, with or without a t
 - The simulation is quite slow for full-resolution images. On my laptop it takes roughly 10 seconds to process 6 MP images. I usually adjust most values with `PREVIEW`. When a final image is needed, use `SCAN`, which bypasses image scaling.
 - Based on my experience building the profiles, Fujifilm data are less self-consistent than Kodak data.
 
+## Support
+
+spektrafilm is developed in my free time, often during late nights after my research work at KTH. If you'd like to support continued development and help fuel the next all-nighter coding session, consider [buying me a coffee](https://buymeacoffee.com/andreavolpato). Your contributions help me dedicate more time to the project and giving back to the [pixls.us](https://discuss.pixls.us/) community.
+
 ## References
 
 [^1]: Giorgianni, Madden, Digital Color Management, 2nd edition, 2008 Wiley
