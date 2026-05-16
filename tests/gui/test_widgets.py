@@ -408,3 +408,18 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'still / kodak_portra_400'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / kodak_vision3_50d'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'
+
+
+def test_simulation_section_round_trips_string_film_format_with_slider() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    section = widgets_module.SimulationSection()
+    state = state_module.clone_state_section(state_module.PROJECT_DEFAULT_GUI_STATE.simulation)
+    state.film_format_mm = '35 mm'
+
+    section.set_state(state)
+
+    assert section.film_format_mm.value == '35 mm'
+    assert section.get_state().film_format_mm == '35 mm'
