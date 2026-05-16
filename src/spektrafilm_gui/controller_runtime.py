@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
 from qtpy import QtCore
+
+from spektrafilm.color_management import ColorEncoding
+from spektrafilm.utils.io import resolve_icc_profile_bytes
 
 
 DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
@@ -19,8 +23,9 @@ class SimulationRequest:
     mode_label: str
     image: np.ndarray
     params: object
-    output_color_space: str
     use_display_transform: bool
+    output_encoding: ColorEncoding | None = None
+    output_color_space: str | None = None
 
 
 @dataclass(slots=True)
@@ -28,9 +33,10 @@ class SimulationResult:
     mode_label: str
     display_image: np.ndarray
     float_image: np.ndarray
-    output_color_space: str
     use_display_transform: bool
     status_message: str
+    output_encoding: ColorEncoding | None = None
+    output_color_space: str | None = None
 
 
 class SimulationWorkerSignals(QObject):
@@ -158,33 +164,95 @@ def prepare_input_color_preview_image(
 def apply_display_transform(
     image_data: np.ndarray,
     *,
-    output_color_space: str,
+    output_encoding: ColorEncoding | None = None,
+    output_color_space: str | None = None,
     colour_module: Any,
     imagecms_module: Any,
     pil_image_module: Any,
 ) -> tuple[np.ndarray, str]:
+    output_encoding = _resolve_output_encoding(output_encoding, output_color_space)
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
+        fallback_pixels = _encode_pixels_for_output_profile(
+            image_data,
+            output_encoding=output_encoding,
+            colour_module=colour_module,
+        )
+        return np.uint8(np.clip(fallback_pixels, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
 
-    srgb_preview = colour_module.RGB_to_RGB(
+    source_profile = _imagecms_profile_for_color_space(output_encoding.color_space, imagecms_module=imagecms_module)
+    fallback_status = None
+    if source_profile is None:
+        source_pixels = colour_module.RGB_to_RGB(
+            image_data,
+            output_encoding.color_space,
+            DISPLAY_PREVIEW_COLOR_SPACE,
+            apply_cctf_decoding=output_encoding.is_cctf_encoded,
+            apply_cctf_encoding=True,
+        )
+        source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
+        if output_encoding.is_linear:
+            fallback_status = (
+                f'Display transform: active ({profile_name}); {output_encoding.color_space} has no ICC profile, '
+                'using colorimetric sRGB preview without a scene-linear view transform'
+            )
+        else:
+            fallback_status = (
+                f'Display transform: active ({profile_name}); {output_encoding.color_space} has no ICC profile, '
+                'using sRGB preview fallback'
+            )
+    else:
+        source_pixels = _encode_pixels_for_output_profile(
+            image_data,
+            output_encoding=output_encoding,
+            colour_module=colour_module,
+        )
+
+    source_uint8 = np.uint8(np.clip(source_pixels, 0.0, 1.0) * 255)
+    source_image = pil_image_module.fromarray(source_uint8, mode='RGB')
+    transformed_image = imagecms_module.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
+    return np.asarray(transformed_image, dtype=np.uint8), fallback_status or f'Display transform: active ({profile_name})'
+
+
+def _imagecms_profile_for_color_space(color_space: str, *, imagecms_module: Any) -> object | None:
+    icc_bytes = resolve_icc_profile_bytes(color_space)
+    if icc_bytes is not None:
+        try:
+            return imagecms_module.ImageCmsProfile(BytesIO(icc_bytes))
+        except (AttributeError, OSError, TypeError, ValueError, imagecms_module.PyCMSError):
+            return None
+
+    if color_space == DISPLAY_PREVIEW_COLOR_SPACE:
+        try:
+            return imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
+        except (AttributeError, OSError, TypeError, ValueError, imagecms_module.PyCMSError):
+            return None
+
+    return None
+
+
+def _encode_pixels_for_output_profile(
+    image_data: np.ndarray,
+    *,
+    output_encoding: ColorEncoding,
+    colour_module: Any,
+) -> np.ndarray:
+    if not output_encoding.is_linear:
+        return image_data
+    return colour_module.RGB_to_RGB(
         image_data,
-        output_color_space,
-        DISPLAY_PREVIEW_COLOR_SPACE,
-        apply_cctf_decoding=True,
+        output_encoding.color_space,
+        output_encoding.color_space,
+        apply_cctf_decoding=False,
         apply_cctf_encoding=True,
     )
-    srgb_preview_uint8 = np.uint8(np.clip(srgb_preview, 0.0, 1.0) * 255)
-    source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
-    source_image = pil_image_module.fromarray(srgb_preview_uint8, mode='RGB')
-    transformed_image = imagecms_module.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
-    return np.asarray(transformed_image, dtype=np.uint8), f'Display transform: active ({profile_name})'
 
 
 def prepare_output_display_image(
     image_data: np.ndarray,
     *,
-    output_color_space: str,
+    output_encoding: ColorEncoding | None = None,
+    output_color_space: str | None = None,
     use_display_transform: bool,
     padding_pixels: float = 0.0,
     imagecms_module: Any,
@@ -192,20 +260,33 @@ def prepare_output_display_image(
     pil_image_module: Any,
 ) -> tuple[np.ndarray, str]:
     del padding_pixels
+    output_encoding = _resolve_output_encoding(output_encoding, output_color_space)
     normalized_image = normalized_image_data(np.asarray(image_data)[..., :3])
-    preview_image = np.uint8(np.clip(normalized_image, 0.0, 1.0) * 255)
+    preview_source = normalized_image
+    if output_encoding.is_linear:
+        try:
+            preview_source = colour_module.RGB_to_RGB(
+                normalized_image,
+                output_encoding.color_space,
+                output_encoding.color_space,
+                apply_cctf_decoding=False,
+                apply_cctf_encoding=True,
+            )
+        except (AttributeError, LookupError, RuntimeError, TypeError, ValueError):
+            preview_source = normalized_image
+    preview_image = np.uint8(np.clip(preview_source, 0.0, 1.0) * 255)
     if not use_display_transform:
         return preview_image, display_transform_status_message(False, imagecms_module=imagecms_module)
     try:
         transformed_image, status = apply_display_transform(
             normalized_image,
-            output_color_space=output_color_space,
+            output_encoding=output_encoding,
             colour_module=colour_module,
             imagecms_module=imagecms_module,
             pil_image_module=pil_image_module,
         )
         return transformed_image, status
-    except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
+    except (AttributeError, LookupError, OSError, RuntimeError, ValueError, TypeError, imagecms_module.PyCMSError):
         return preview_image, 'Display transform: transform failed, using raw preview'
 
 
@@ -215,17 +296,32 @@ def execute_simulation_request(
     run_simulation_fn: Callable[[np.ndarray, object], np.ndarray],
     prepare_output_display_image_fn: Callable[..., tuple[np.ndarray, str]],
 ) -> SimulationResult:
+    output_encoding = _resolve_output_encoding(request.output_encoding, request.output_color_space)
     scan = run_simulation_fn(request.image, request.params)
     scan_display, display_status = prepare_output_display_image_fn(
         scan,
-        output_color_space=request.output_color_space,
+        output_encoding=output_encoding,
         use_display_transform=request.use_display_transform,
     )
     return SimulationResult(
         mode_label=request.mode_label,
         display_image=scan_display,
         float_image=np.asarray(scan),
-        output_color_space=request.output_color_space,
         use_display_transform=request.use_display_transform,
         status_message=display_status,
+        output_encoding=output_encoding,
+        output_color_space=output_encoding.color_space,
+    )
+
+
+def _resolve_output_encoding(
+    output_encoding: ColorEncoding | None,
+    output_color_space: str | None,
+) -> ColorEncoding:
+    if output_encoding is not None:
+        return output_encoding
+    return ColorEncoding(
+        color_space=output_color_space or DISPLAY_PREVIEW_COLOR_SPACE,
+        transfer="cctf",
+        role="display",
     )

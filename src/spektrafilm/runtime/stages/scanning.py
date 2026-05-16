@@ -4,6 +4,7 @@ import colour
 import numpy as np
 from opt_einsum import contract
 
+from spektrafilm.color_management import ColorEncoding, output_encoding_from_io
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
 from spektrafilm.model.diffusion import apply_gaussian_blur, apply_unsharp_mask
 from spektrafilm.model.emulsion import compute_density_spectral
@@ -44,10 +45,12 @@ class ScanningStage:
     # public methods
 
     @timeit("scan")
-    def scan(self, density_channels: np.ndarray) -> np.ndarray:
+    def scan(self, density_channels: np.ndarray, output_encoding: ColorEncoding | None = None) -> np.ndarray:
+        if output_encoding is None:
+            output_encoding = output_encoding_from_io(self._io)
         rgb = self._density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
         rgb = self._apply_blur_and_unsharp(rgb)
-        return self._apply_cctf_encoding_and_clip(rgb)
+        return self._apply_cctf_encoding_and_clip(rgb, output_encoding)
 
     # private methods
 
@@ -114,16 +117,19 @@ class ScanningStage:
             rgb = apply_unsharp_mask(rgb, sigma=sigma, amount=amount)
         return rgb
 
-    def _apply_cctf_encoding_and_clip(self, rgb: np.ndarray) -> np.ndarray:
-        if self._io.output_cctf_encoding:
+    def _apply_cctf_encoding_and_clip(self, rgb: np.ndarray, encoding: ColorEncoding) -> np.ndarray:
+        if encoding.is_cctf_encoded:
             rgb = colour.RGB_to_RGB(
                 rgb,
-                self._io.output_color_space,
-                self._io.output_color_space,
+                encoding.color_space,
+                encoding.color_space,
                 apply_cctf_decoding=False,
                 apply_cctf_encoding=True,
             )
-        return np.clip(rgb, a_min=0, a_max=1)
-
+        if encoding.clip_negatives:
+            rgb = np.maximum(rgb, 0.0)
+        if encoding.clip_highlights:
+            rgb = np.minimum(rgb, 1.0)
+        return rgb
 
 

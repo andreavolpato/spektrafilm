@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from qtpy import QtCore, QtWidgets
 
+from spektrafilm.color_management import ColorEncoding, output_encoding_from_io
 from spektrafilm_gui import controller_persistence as persistence_actions
 from spektrafilm_gui import controller_profile_sync as profile_sync
 from spektrafilm_gui import controller_runtime as runtime
@@ -109,6 +110,10 @@ def load_image_oiio(*args, **kwargs):
     return import_module('spektrafilm.utils.io').load_image_oiio(*args, **kwargs)
 
 
+def read_image_color_encoding(*args, **kwargs):
+    return import_module('spektrafilm.utils.io').read_image_color_encoding(*args, **kwargs)
+
+
 def save_image_oiio(*args, **kwargs):
     return import_module("spektrafilm.utils.io").save_image_oiio(*args, **kwargs)
 
@@ -179,6 +184,11 @@ class GuiController:
 
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
+        try:
+            input_encoding = read_image_color_encoding(path)
+        except (OSError, RuntimeError, TypeError, ValueError):
+            input_encoding = None
+        self._apply_loaded_input_encoding(input_encoding)
         self._current_input_path = path
         self._set_or_add_input_stack(image)
         self._request_auto_preview_if_enabled()
@@ -351,6 +361,9 @@ class GuiController:
         )
         saving_color_space = gui_state.simulation.saving_color_space
         saving_cctf_encoding = gui_state.simulation.saving_cctf_encoding
+        save_ext = Path(filepath).suffix.lower()
+        if save_ext == ".exr":
+            saving_cctf_encoding = False
         if source_color_space != saving_color_space:
             image_data = colour.RGB_to_RGB(
                 image_data,
@@ -368,6 +381,13 @@ class GuiController:
                 apply_cctf_encoding=saving_cctf_encoding,
             )
 
+        saving_encoding = ColorEncoding(
+            color_space=saving_color_space,
+            transfer="cctf" if saving_cctf_encoding else "linear",
+            role="display" if saving_cctf_encoding else "scene",
+            clip_negatives=True,
+            clip_highlights=save_ext != ".exr",
+        )
         source_metadata = None
 
         if self._current_input_path is not None:
@@ -379,6 +399,7 @@ class GuiController:
                 image_data,
                 color_space=saving_color_space,
                 cctf_encoding=saving_cctf_encoding,
+                encoding=saving_encoding,
             )
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
@@ -400,6 +421,8 @@ class GuiController:
                 self._viewer,
                 f"Saved output image to {filepath}, but failed to copy metadata: {metadata_write_error}",
             )
+        elif save_ext == ".exr":
+            set_status(self._viewer, f"Saved output image to {filepath} (EXR saved as linear data)")
         else:
             set_status(self._viewer, f"Saved output image to {filepath}")
 
@@ -512,6 +535,35 @@ class GuiController:
         if home_input_stack:
             self._home_input_stack()
 
+    def _apply_loaded_input_encoding(self, input_encoding: ColorEncoding | None) -> None:
+        if input_encoding is None:
+            return
+        input_section = getattr(self._widgets, 'input_image', None)
+        if input_section is None:
+            return
+        self._set_editor_value_silently(
+            getattr(input_section, 'input_color_space', None),
+            input_encoding.color_space,
+        )
+        self._set_editor_value_silently(
+            getattr(input_section, 'apply_cctf_decoding', None),
+            input_encoding.is_cctf_encoded,
+        )
+
+    @staticmethod
+    def _set_editor_value_silently(editor, value) -> None:
+        if editor is None:
+            return
+        block_signals = getattr(editor, 'blockSignals', None)
+        previous_block_state = None
+        if callable(block_signals):
+            previous_block_state = block_signals(True)
+        try:
+            setattr(editor, 'value', value)
+        finally:
+            if callable(block_signals):
+                block_signals(bool(previous_block_state))
+
     def _sync_white_border(self, *, white_padding: float) -> None:
         self._layers.sync_white_border(white_padding=white_padding)
 
@@ -612,12 +664,14 @@ class GuiController:
     def _prepare_output_display_image(
         image_data: np.ndarray,
         *,
-        output_color_space: str,
+        output_encoding: ColorEncoding | None = None,
+        output_color_space: str | None = None,
         use_display_transform: bool,
         padding_pixels: float = 0.0,
     ) -> tuple[np.ndarray, str]:
         return runtime.prepare_output_display_image(
             image_data,
+            output_encoding=output_encoding,
             output_color_space=output_color_space,
             use_display_transform=use_display_transform,
             padding_pixels=padding_pixels,
@@ -702,13 +756,14 @@ class GuiController:
             build_params_from_state(state),
             source_layer_name=source_layer_name,
         )
+        output_encoding = self._output_encoding_from_params(params, state=state)
 
         image = np.double(image_data)
         request = SimulationRequest(
             mode_label=mode_label,
             image=image,
             params=params,
-            output_color_space=state.simulation.output_color_space,
+            output_encoding=output_encoding,
             use_display_transform=state.display.use_display_transform,
         )
 
@@ -732,8 +787,16 @@ class GuiController:
         self._set_or_add_output_layer(
             result.display_image,
             float_image=result.float_image,
-            output_color_space=result.output_color_space,
-            output_cctf_encoding=True,
+            output_color_space=(
+                result.output_encoding.color_space
+                if result.output_encoding is not None
+                else result.output_color_space or 'sRGB'
+            ),
+            output_cctf_encoding=(
+                result.output_encoding.is_cctf_encoded
+                if result.output_encoding is not None
+                else True
+            ),
             use_display_transform=result.use_display_transform,
         )
         if report_status:
@@ -772,19 +835,32 @@ class GuiController:
             build_params_from_state(state),
             source_layer_name=source_layer_name,
         )
+        output_encoding = self._output_encoding_from_params(params, state=state)
 
         image = np.double(image_data)
         scan = self._process_image_with_runtime(image, params)
         scan_display, display_status = self._prepare_output_display_image(
             scan,
-            output_color_space=state.simulation.output_color_space,
+            output_color_space=output_encoding.color_space,
+            output_encoding=output_encoding,
             use_display_transform=state.display.use_display_transform,
         )
         self._set_or_add_output_layer(
             scan_display,
             float_image=scan,
-            output_color_space=state.simulation.output_color_space,
-            output_cctf_encoding=True,
+            output_color_space=output_encoding.color_space,
+            output_cctf_encoding=output_encoding.is_cctf_encoded,
             use_display_transform=state.display.use_display_transform,
         )
         set_status(self._viewer, display_status)
+
+    @staticmethod
+    def _output_encoding_from_params(params, *, state) -> ColorEncoding:
+        io_params = getattr(params, 'io', None)
+        if io_params is not None:
+            return output_encoding_from_io(io_params)
+        return ColorEncoding(
+            color_space=state.simulation.output_color_space,
+            transfer="cctf",
+            role="display",
+        )

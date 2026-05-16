@@ -332,9 +332,12 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
 
     np.testing.assert_array_equal(preview, np.full((1, 1, 3), 64, dtype=np.uint8))
     assert status == 'Display transform: active (Studio Display ICC)'
-    assert captured['profile_to_profile']['source_profile'] == 'profile:sRGB'
+    assert captured['profile_to_profile']['source_profile'] != 'profile:sRGB'
     assert captured['profile_to_profile']['output_mode'] == 'RGB'
-    np.testing.assert_array_equal(captured['profile_to_profile']['image_data'], np.full((1, 1, 3), 127, dtype=np.uint8))
+    np.testing.assert_array_equal(
+        captured['profile_to_profile']['image_data'],
+        np.uint8(np.clip(image_data, 0.0, 1.0) * 255),
+    )
 
 
 def test_prepare_output_display_image_reports_missing_display_profile(monkeypatch) -> None:
