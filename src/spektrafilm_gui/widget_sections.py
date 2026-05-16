@@ -649,6 +649,30 @@ class SimulationSection(DataclassSection):
             return SliderFloatEditor(minimum=8.0, maximum=120.0, step=1.0, decimals=0, suffix=' mm')
         return super()._build_editor(field_name, annotation)
 
+    def set_state(self, state: Any) -> None:
+        for field_info in fields(self._state_cls):
+            field_name = field_info.name
+            value = getattr(state, field_name)
+            if field_name == 'film_format_mm' and isinstance(value, str):
+                # State stores film_format_mm as a label like "35 mm"; the slider needs a float.
+                try:
+                    value = float(value.split()[0])
+                except (ValueError, IndexError):
+                    value = 35.0
+            getattr(self, field_name).value = value
+
+    def get_state(self) -> Any:
+        values = {}
+        for field_info in fields(self._state_cls):
+            field_name = field_info.name
+            value = getattr(self, field_name).value
+            if field_name == 'film_format_mm' and isinstance(value, (int, float)):
+                # Convert the float back to the canonical label string.
+                from spektrafilm_gui.state import _FILM_FORMAT_MM, _closest_film_format
+                value = _FILM_FORMAT_MM[_closest_film_format(float(value))]
+            values[field_name] = value
+        return self._state_cls(**values)
+
     def _init_extra_widgets(self) -> None:
         self._glare_section = None
         self._scan_for_print_restore_state = None
