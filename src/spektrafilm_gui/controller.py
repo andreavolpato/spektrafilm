@@ -842,6 +842,7 @@ class GuiController:
         scan_display, display_status = self._prepare_output_display_image(
             scan,
             output_color_space=output_encoding.color_space,
+            output_encoding=output_encoding,
             use_display_transform=state.display.use_display_transform,
         )
         self._set_or_add_output_layer(
