@@ -413,8 +413,7 @@ def _known_color_space_from_chromaticities(spec) -> str | None:
     return None
 
 
-def load_image_oiio(filename, *, dtype=np.float32):
-    dtype = _runtime_image_dtype(dtype)
+def load_image_oiio(filename):
     # Open the image file
     in_img = oiio.ImageInput.open(filename)
     if not in_img:
@@ -443,28 +442,18 @@ def load_image_oiio(filename, *, dtype=np.float32):
         if pixels is None:
             raise Exception("Failed to read image data from " + filename)
 
-        # Convert image payloads to the runtime dtype. 50MP+ scans should use
-        # float32 unless the caller explicitly needs float64.
+        # Convert the raw data to a NumPy array and reshape it
         np_pixels = np.array(pixels)
         np_pixels = np_pixels.reshape(spec.height, spec.width, spec.nchannels)
 
         if spec.format == oiio.TypeDesc("uint16"):
-            np_pixels = np_pixels.astype(dtype) / dtype.type(2**16 - 1)
-        elif spec.format == oiio.TypeDesc("uint8"):
-            np_pixels = np_pixels.astype(dtype) / dtype.type(2**8 - 1)
-        elif np.issubdtype(np_pixels.dtype, np.floating):
-            np_pixels = np.asarray(np_pixels, dtype=dtype)
+            np_pixels = np.double(np_pixels) / (2**16 - 1)
+        if spec.format == oiio.TypeDesc("uint8"):
+            np_pixels = np.double(np_pixels) / (2**8 - 1)
 
         return np_pixels
     finally:
         in_img.close()
-
-
-def _runtime_image_dtype(dtype) -> np.dtype:
-    dtype = np.dtype(dtype)
-    if dtype == np.dtype(np.float32) or dtype == np.dtype(np.float64):
-        return dtype
-    raise ValueError("image runtime dtype must be float32 or float64")
 
 def save_image_oiio(
     filename,
