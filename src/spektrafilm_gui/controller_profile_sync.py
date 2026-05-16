@@ -125,4 +125,9 @@ def apply_profile_sync_state(
             if section_name == 'simulation' and field_name == 'scan_film':
                 section_widget.set_scan_film_value(field_value)
                 continue
+            if section_name == 'simulation' and field_name == 'film_format_mm' and isinstance(field_value, str):
+                try:
+                    field_value = float(field_value.split()[0])
+                except (ValueError, IndexError):
+                    field_value = 35.0
             getattr(section_widget, field_name).value = field_value
