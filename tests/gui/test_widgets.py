@@ -410,7 +410,7 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'
 
 
-def test_simulation_section_round_trips_string_film_format_with_slider() -> None:
+def test_simulation_section_uses_film_format_enum_for_string_state() -> None:
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     from qtpy import QtWidgets
 
@@ -421,5 +421,6 @@ def test_simulation_section_round_trips_string_film_format_with_slider() -> None
 
     section.set_state(state)
 
+    assert isinstance(section.film_format_mm, widget_editors_module.EnumEditor)
     assert section.film_format_mm.value == '35 mm'
     assert section.get_state().film_format_mm == '35 mm'

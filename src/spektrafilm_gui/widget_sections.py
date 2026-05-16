@@ -33,59 +33,13 @@ from spektrafilm_gui.state import (
 )
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, SliderFloatEditor
+from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 from spektrafilm_gui.widget_specs import GUI_SECTION_ENUMS, get_auxiliary_spec, get_button_spec, get_widget_spec
 
 
 def _enum_values(enum_cls):
     return [member.value for member in enum_cls]
-
-
-def _film_format_value(value: str | float | int) -> float:
-    if isinstance(value, str):
-        return float(value.strip().split()[0])
-    return float(value)
-
-
-def _film_format_label(value: float) -> str:
-    return f'{value:g} mm'
-
-
-class FilmFormatSliderEditor(QWidget):
-    valueChanged = Signal(str)
-
-    def __init__(self, *, minimum: float, maximum: float, step: float, decimals: int, suffix: str):
-        super().__init__()
-        self._slider = SliderFloatEditor(minimum=minimum, maximum=maximum, step=step, decimals=decimals, suffix=suffix)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._slider)
-        self._slider.valueChanged.connect(self._emit_value_changed)
-
-    @property
-    def value(self) -> str:
-        return _film_format_label(self._slider.value)
-
-    @value.setter
-    def value(self, value: str | float | int) -> None:
-        self._slider.value = _film_format_value(value)
-
-    def setMinimum(self, value: float) -> None:  # noqa: N802 - Qt API name
-        self._slider.setMinimum(value)
-
-    def setMaximum(self, value: float) -> None:  # noqa: N802 - Qt API name
-        self._slider.setMaximum(value)
-
-    def setSingleStep(self, value: float) -> None:  # noqa: N802 - Qt API name
-        self._slider.setSingleStep(value)
-
-    def setToolTip(self, text: str) -> None:  # noqa: N802 - Qt API name
-        super().setToolTip(text)
-        self._slider.setToolTip(text)
-
-    def _emit_value_changed(self, _value: float) -> None:
-        self.valueChanged.emit(self.value)
 
 
 def _build_collapsible_form_section(
@@ -689,11 +643,6 @@ class SimulationSection(DataclassSection):
                 'saving_cctf_encoding',
             },
         )
-
-    def _build_editor(self, field_name: str, annotation: Any) -> QWidget:
-        if field_name == 'film_format_mm':
-            return FilmFormatSliderEditor(minimum=8.0, maximum=120.0, step=1.0, decimals=0, suffix=' mm')
-        return super()._build_editor(field_name, annotation)
 
     def _init_extra_widgets(self) -> None:
         self._glare_section = None
