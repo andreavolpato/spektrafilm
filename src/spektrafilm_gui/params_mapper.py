@@ -74,6 +74,8 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
     params.io.input_cctf_decoding = state.input_image.apply_cctf_decoding
     params.io.output_color_space = state.simulation.output_color_space
     params.io.output_cctf_encoding = True
+    params.io.output_clip_min = True
+    params.io.output_clip_max = True
     params.io.scan_film = state.simulation.scan_film
 
 

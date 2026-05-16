@@ -189,6 +189,8 @@ Snapshot files are never updated automatically during pytest runs.
 ## GUI
 When launching the GUI, a `napari` window should appear. Note that `napari` is not color-managed. The way I work is to set the screen and operating system color profile to sRGB, and I set the output color space of the simulation to sRGB. On Windows, the GUI will try to get the display profile and convert the final image for viewing; if successful, this will be indicated in the status bar.
 
+Spektrafilm keeps a small color-encoding contract for runtime input, preview, and export. PNG/JPEG/TIFF exports embed a matching ICC profile when one is bundled in `src/spektrafilm/data/icc/`; EXR exports stay linear and carry `chromaticities`, `oiio:ColorSpace`, and `colorInteropID` metadata instead of an ICC profile. Loading an image with a recognized ICC profile, OpenImageIO color-space tag, or EXR chromaticities updates the GUI input color-space controls automatically.
+
 You can import camera RAW files directly from the `import raw` section. Choose the white balance mode (`as shot`, `daylight`, `tungsten`, or `custom`), set temperature and tint when using `custom`, then click `select file`. The RAW importer uses `rawpy` and converts the image to the current `input color space` and `apply CCTF decoding` settings. You can use `reprocess raw` to reload the same file and reprocess it with the new settings.
 
 > [!TIP]
@@ -235,5 +237,4 @@ The simulation expects linear scene-referred files as input, with or without a t
 [^3]: Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB Reflectance, Eurographics Symposium on Rendering - DL-only and Industry Track, 2019, doi:10.2312/SR.20191216
 
 Sample images are from [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
-
 
