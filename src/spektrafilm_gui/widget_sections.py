@@ -33,7 +33,13 @@ from spektrafilm_gui.state import (
 )
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm.utils.raw_file_processor import (
+    query_lensfun_camera_makes,
+    query_lensfun_camera_models,
+    query_lensfun_lens_makes,
+    query_lensfun_lens_models,
+)
+from spektrafilm_gui.widget_editors import BoolEditor, DynamicComboEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 from spektrafilm_gui.widget_specs import GUI_SECTION_ENUMS, get_auxiliary_spec, get_button_spec, get_widget_spec
 
@@ -347,6 +353,11 @@ class InputImageSection(SimpleDataclassSection):
 
 
 class LoadRawSection(DataclassSection):
+    _MANUAL_FIELDS = frozenset({
+        'lens_camera_make', 'lens_camera_model', 'lens_make', 'lens_model',
+        'lens_focal_length', 'lens_f_number',
+    })
+
     load_requested = Signal(str)
 
     def __init__(self):
@@ -355,8 +366,14 @@ class LoadRawSection(DataclassSection):
             section_name='load_raw',
             title='Import Raw',
             enum_fields=GUI_SECTION_ENUMS['load_raw'],
+            hidden_fields=self._MANUAL_FIELDS,
             collapsed_by_default=True,
         )
+
+    def _build_editor(self, field_name: str, annotation: Any) -> QWidget:
+        if annotation is str and field_name not in self._enum_fields:
+            return DynamicComboEditor()
+        return super()._build_editor(field_name, annotation)
 
     def _init_extra_widgets(self) -> None:
         self.file_path = QLineEdit()
@@ -375,7 +392,64 @@ class LoadRawSection(DataclassSection):
         form.addRow(_build_vertical_container(_build_button_row(self.file_path, browse_button, spacing=4), spacing=0))
 
     def _add_extra_rows_after(self, form: QFormLayout) -> None:
+        # Build manual lens profile sub-form
+        manual_form = _new_form_layout()
+        for field_name in ('lens_camera_make', 'lens_camera_model', 'lens_make', 'lens_model', 'lens_focal_length', 'lens_f_number'):
+            manual_form.addRow(_build_widget_label('load_raw', field_name), getattr(self, field_name))
+
+        self._manual_container = QWidget()
+        self._manual_container.setLayout(manual_form)
+        self._manual_container.setVisible(False)
+        form.addRow(self._manual_container)
         form.addRow(self.reprocess_button)
+
+        # Populate the top-level camera makes once
+        self.lens_camera_make.set_items(query_lensfun_camera_makes())
+
+        # Cascade connections
+        self.lens_camera_make.currentTextChanged.connect(self._on_camera_make_changed)
+        self.lens_camera_model.currentTextChanged.connect(
+            lambda _: self._on_camera_model_changed()
+        )
+        self.lens_make.currentTextChanged.connect(
+            lambda _: self._on_lens_make_changed()
+        )
+
+        # Show/hide the manual container
+        self.lens_correction_manual.stateChanged.connect(
+            lambda state: self._manual_container.setVisible(bool(state))
+        )
+
+    # -- cascade helpers -------------------------------------------------------
+
+    def _on_camera_make_changed(self, make: str) -> None:
+        self.lens_camera_model.set_items(query_lensfun_camera_models(make))
+
+    def _on_camera_model_changed(self) -> None:
+        self.lens_make.set_items(
+            query_lensfun_lens_makes(self.lens_camera_make.value, self.lens_camera_model.value)
+        )
+
+    def _on_lens_make_changed(self) -> None:
+        self.lens_model.set_items(
+            query_lensfun_lens_models(
+                self.lens_camera_make.value, self.lens_camera_model.value, self.lens_make.value,
+            )
+        )
+
+    # -- state overrides -------------------------------------------------------
+
+    def set_state(self, state: LoadRawState) -> None:
+        # Pre-populate cascades so values can be restored correctly
+        self.lens_camera_model.set_items(query_lensfun_camera_models(state.lens_camera_make))
+        self.lens_make.set_items(query_lensfun_lens_makes(state.lens_camera_make, state.lens_camera_model))
+        self.lens_model.set_items(
+            query_lensfun_lens_models(state.lens_camera_make, state.lens_camera_model, state.lens_make)
+        )
+        super().set_state(state)
+        self._manual_container.setVisible(bool(state.lens_correction_manual))
+
+    # -- file helpers ----------------------------------------------------------
 
     def _choose_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input raw'), load_dialog_dir('raw_input'))
@@ -397,20 +471,49 @@ class LoadRawSection(DataclassSection):
 
 
 class PreviewCropSection(QWidget):
+    format_preset_requested = Signal(float)
+
+    _FORMATS = [
+        ('35mm',  3.0 / 2.0),
+        ('645',   6.0 / 4.5),
+        ('6×6',   1.0),
+        ('6×7',   7.0 / 6.0),
+        ('4×5',   5.0 / 4.0),
+        ('Pano',  17.0 / 6.0),
+    ]
+
     def __init__(self, input_image_section: InputImageSection):
         super().__init__()
-        self.setLayout(
-            _build_linked_form_section(
-                'Crop and upscale',
-                [
-                    _spec_row('input_image', 'upscale_factor', input_image_section.upscale_factor),
-                    _spec_row('input_image', 'crop', input_image_section.crop),
-                    _spec_row('input_image', 'crop_center', input_image_section.crop_center),
-                    _spec_row('input_image', 'crop_size', input_image_section.crop_size),
-                ],
-                expanded=False,
-            ),
+
+        form = _new_form_layout()
+
+        btn_container = _build_inline_container(
+            *[
+                _build_button(name, lambda _, r=ratio: self.format_preset_requested.emit(r),
+                              preserve_case=True)
+                for name, ratio in self._FORMATS
+            ],
+            spacing=4,
         )
+        label = QLabel(_normalize_ui_text('Format'))
+        label.setToolTip('Crop to a common film format aspect ratio')
+        form.addRow(label, btn_container)
+
+        _add_form_rows(form, [
+            _spec_row('input_image', 'upscale_factor', input_image_section.upscale_factor),
+            _spec_row('input_image', 'crop', input_image_section.crop),
+            _spec_row('input_image', 'crop_center', input_image_section.crop_center),
+            _spec_row('input_image', 'crop_size', input_image_section.crop_size),
+        ])
+
+        content = QWidget()
+        content.setLayout(form)
+
+        root = QVBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(CollapsibleSection('Crop and upscale', content, expanded=False))
+        self.setLayout(root)
 
 
 class GrainSection(SimpleDataclassSection):

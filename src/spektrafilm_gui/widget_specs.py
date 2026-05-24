@@ -589,7 +589,7 @@ GUI_WIDGET_SPECS = {
     "load_raw": {
         "white_balance": WidgetSpec(
             label="White balance",
-            tooltip="Select white balance settings, if custom you can tune temperature and tint",
+            tooltip="Select white balance settings. Auto uses LibRaw's automatic algorithm on the raw sensor data. Custom allows manual temperature and tint.",
         ),
         "temperature": WidgetSpec(
             label="Temperature",
@@ -603,7 +603,14 @@ GUI_WIDGET_SPECS = {
             min_value=0,
             step=0.01,
         ),
-        "lens_correction": WidgetSpec(label="Lens correction", tooltip="Apply lens corrections"),
+        "lens_correction": WidgetSpec(label="Lens correction", tooltip="Apply lens corrections (auto-detects camera and lens from EXIF)"),
+        "lens_correction_manual": WidgetSpec(label="Manual lens profile", tooltip="Override EXIF and manually select the lensfun camera and lens profile"),
+        "lens_camera_make": WidgetSpec(label="Camera make", tooltip="Camera manufacturer"),
+        "lens_camera_model": WidgetSpec(label="Camera model", tooltip="Camera model"),
+        "lens_make": WidgetSpec(label="Lens make", tooltip="Lens manufacturer"),
+        "lens_model": WidgetSpec(label="Lens", tooltip="Lens model"),
+        "lens_focal_length": WidgetSpec(label="Focal length (mm)", tooltip="Focal length in mm used for lens correction", min_value=1.0, step=1.0, decimals=0),
+        "lens_f_number": WidgetSpec(label="F-number", tooltip="Aperture f-number used for lens correction", min_value=0.7, step=0.1),
     },
 }
 

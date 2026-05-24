@@ -19,10 +19,12 @@ class RGBtoRAWMethod(Enum):
 
 
 class RawWhiteBalance(Enum):
+    auto = "auto"
     as_shot = "as_shot"
     daylight = "daylight"
     tungsten = "tungsten"
     custom = "custom"
+
 
 
 class AutoExposureMethods(Enum):

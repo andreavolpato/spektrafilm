@@ -273,6 +273,34 @@ class EnumEditor(QtWidgets.QComboBox):
             raise ValueError(f"{value!r} is not a valid option")
 
 
+class DynamicComboEditor(QtWidgets.QComboBox):
+    """A QComboBox whose item list can be replaced at runtime for cascading dropdowns."""
+
+    def set_items(self, items: list[str] | tuple[str, ...]) -> None:
+        current = self.currentText()
+        self.blockSignals(True)
+        self.clear()
+        self.addItems(list(items))
+        self.blockSignals(False)
+        index = self.findText(current)
+        new_index = index if index >= 0 else 0
+        self.setCurrentIndex(new_index)
+        if self.currentText() != current:
+            self.currentTextChanged.emit(self.currentText())
+
+    @property
+    def value(self) -> str:
+        return self.currentText()
+
+    @value.setter
+    def value(self, v: str) -> None:
+        if not v:
+            return
+        index = self.findText(v)
+        if index >= 0:
+            self.setCurrentIndex(index)
+
+
 class TupleEditor(QtWidgets.QWidget):
     def __init__(self, editors: list[QtWidgets.QWidget]):
         super().__init__()

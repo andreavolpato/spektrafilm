@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -187,6 +188,7 @@ class GuiController:
         gui_state = collect_gui_state(widgets=self._widgets)
         set_status(self._viewer, "Loading raw...", timeout_ms=0)
         lens_info: dict[str, str] = {}
+        wb_info: dict[str, float] = {}
         try:
             image = load_and_process_raw_file(
                 path,
@@ -194,9 +196,17 @@ class GuiController:
                 temperature=gui_state.load_raw.temperature,
                 tint=gui_state.load_raw.tint,
                 lens_correction=gui_state.load_raw.lens_correction,
+                lens_correction_manual=gui_state.load_raw.lens_correction_manual,
+                lens_camera_make=gui_state.load_raw.lens_camera_make,
+                lens_camera_model=gui_state.load_raw.lens_camera_model,
+                lens_make=gui_state.load_raw.lens_make,
+                lens_model=gui_state.load_raw.lens_model,
+                lens_focal_length=gui_state.load_raw.lens_focal_length,
+                lens_f_number=gui_state.load_raw.lens_f_number,
                 output_colorspace=gui_state.input_image.input_color_space,
                 output_cctf_encoding=gui_state.input_image.apply_cctf_decoding,
                 lens_info_out=lens_info,
+                wb_info_out=wb_info,
             )
         except (OSError, ValueError) as exc:
             QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{exc}')
@@ -206,12 +216,20 @@ class GuiController:
         self._current_input_path = path
         self._set_or_add_input_stack(image)
 
+        if wb_info:
+            new_load_raw = replace(
+                gui_state.load_raw,
+                white_balance='custom',
+                temperature=wb_info['temperature'],
+                tint=1.0,
+            )
+            self._widgets.load_raw.set_state(new_load_raw)
+
         lens_summary = lens_info.get('summary')
         if lens_summary:
-            set_status(
-                self._viewer,
-                f"Loaded raw and applied lens correction: {lens_summary}",
-            )
+            set_status(self._viewer, f"Loaded raw and applied lens correction: {lens_summary}")
+        elif gui_state.load_raw.lens_correction_manual:
+            set_status(self._viewer, "Loaded raw, manual lens profile not applied (camera or lens not found)")
         elif gui_state.load_raw.lens_correction:
             set_status(self._viewer, "Loaded raw, lens correction not applied")
         else:
@@ -245,6 +263,25 @@ class GuiController:
             home_input_stack=True,
             hide_output=True,
         )
+        self._request_auto_preview_if_enabled()
+
+    def apply_crop_format_preset(self, aspect_ratio: float) -> None:
+        image = self._current_input_image
+        if image is None:
+            return
+        h, w = image.shape[:2]
+        long_side = max(h, w)
+        if h > w:
+            aspect_ratio = 1.0 / aspect_ratio
+        image_ratio = w / h
+        if aspect_ratio >= image_ratio:
+            crop_x = w / long_side
+            crop_y = crop_x / aspect_ratio
+        else:
+            crop_y = h / long_side
+            crop_x = crop_y * aspect_ratio
+        self._widgets.input_image.crop.value = True
+        self._widgets.input_image.crop_size.value = (round(crop_x, 3), round(crop_y, 3))
         self._request_auto_preview_if_enabled()
 
     def apply_profile_defaults(self, _selected_value: str) -> None:

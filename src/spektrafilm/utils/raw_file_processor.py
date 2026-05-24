@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from os import PathLike
 
 import colour
@@ -13,6 +14,8 @@ from scipy.ndimage import map_coordinates
 _TUNGSTEN_TEMPERATURE = 2850.0
 _DAYLIGHT_REFERENCE_TEMPERATURE = 6504.0
 _ACES_COLOURSPACE = colour.RGB_COLOURSPACES["ACES2065-1"]
+
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +116,9 @@ def _postprocess_params(
             postprocess_adaptation = (scene_white_xyz, reference_white_xyz)
         tint_multiplier = target_tint
 
-    if white_balance == 'as_shot':
+    if white_balance == 'auto':
+        params['use_auto_wb'] = True
+    elif white_balance == 'as_shot':
         params['use_camera_wb'] = True
     elif white_balance == 'daylight':
         pass
@@ -289,48 +294,90 @@ def _select_lens_candidate(lenses: list[object], exif_metadata: ExifData) -> obj
     return candidates[0]
 
 
+def _estimate_auto_wb_temperature(raw: rawpy.RawPy) -> float:
+    """Estimate CCT from rawpy auto-WB multipliers.
+
+    Compares auto WB against the camera's daylight reference to derive the
+    scene illuminant XYZ, then converts to a correlated colour temperature.
+    Returns 5500.0 on failure.
+    """
+    try:
+        r_a, g1_a, b_a, g2_a = [float(x) for x in raw.camera_whitebalance]
+        r_d, g1_d, b_d, g2_d = [float(x) for x in raw.daylight_whitebalance]
+
+        g_a = (g1_a + g2_a) / 2.0 if g2_a > 0 else g1_a
+        g_d = (g1_d + g2_d) / 2.0 if g2_d > 0 else g1_d
+
+        if any(v <= 0 for v in [g_a, g_d, r_a, b_a, r_d, b_d]):
+            return 5500.0
+
+        # Scene illuminant R/G and B/G relative to the camera daylight reference
+        scene_r_g = (r_d / g_d) / (r_a / g_a)
+        scene_b_g = (b_d / g_d) / (b_a / g_a)
+
+        # Anchor at D55 (5500 K) and shift by the measured channel ratios
+        ref_xy = colour.CCT_to_xy(np.float64(5500.0), method='CIE Illuminant D Series')
+        ref_xyz = colour.xy_to_XYZ(ref_xy)
+        ref_xyz = ref_xyz / ref_xyz[1]
+
+        scene_xyz = ref_xyz * np.array([scene_r_g, 1.0, scene_b_g])
+        scene_xyz = scene_xyz / scene_xyz[1]
+
+        xyz_sum = scene_xyz.sum()
+        xy = np.array([scene_xyz[0] / xyz_sum, scene_xyz[1] / xyz_sum])
+
+        temperature = float(colour.xy_to_CCT(xy, method='Hernandez 1999'))
+        return float(np.clip(temperature, 1000.0, 25000.0))
+    except Exception:
+        return 5500.0
+
+
+@lru_cache(maxsize=1)
+def _get_lensfun_db() -> lensfunpy.Database:
+    return lensfunpy.Database()
+
+
+def _run_lensfun_modifier(
+    rgb: np.ndarray,
+    lens: object,
+    crop_factor: float,
+    focal_length: float,
+    f_number: float,
+) -> np.ndarray:
+    """Apply a lensfunpy modifier (vignetting, TCA, distortion, geometry, scale)."""
+    height, width = rgb.shape[:2]
+    mod = lensfunpy.Modifier(lens, crop_factor, width, height)
+    mod.initialize(focal_length, f_number, pixel_format=np.float32, flags=lensfunpy.ModifyFlags.ALL)
+    mod.apply_color_modification(rgb)
+    undist_coords = mod.apply_subpixel_geometry_distortion()
+    if undist_coords is not None:
+        corrected = np.empty_like(rgb)
+        for c in range(rgb.shape[2]):
+            corrected[:, :, c] = map_coordinates(
+                rgb[:, :, c],
+                [undist_coords[:, :, c, 1], undist_coords[:, :, c, 0]],
+                order=1,
+                mode="nearest",
+            )
+        return corrected
+    return rgb
+
+
 def _apply_lens_correction(
     rgb: np.ndarray,
     exif_metadata: ExifData,
 ) -> tuple[np.ndarray, str]:
-    """Apply ``lensfun`` lens corrections to the image.
-
-    Camera and lens are looked up in the ``lensfun`` database using the
-    supplied EXIF metadata. If either the camera or lens is not found, no
-    correction is applied and the original image is returned.
-
-    The following corrections are applied in sequence, if supported by the
-    identified lens: vignetting, chromatic aberration, distortion,
-    geometry and scale.
-
-    Parameters
-    ----------
-    rgb
-        Linear ``float32`` RGB image array with shape ``(H, W, 3)``.
-    exif_metadata
-        Camera and lens metadata read from the RAW file.
-
-    Returns:
-    -------
-    numpy.ndarray
-        Corrected (or original) ``float32`` RGB image.
-    str
-        Human readable summary of the camera, lens, focal length and aperture
-        used for the correction. Empty when the camera or lens was not found in
-        the ``lensfun`` database.
-
-    """
+    """Apply lensfun corrections using camera/lens identity from EXIF metadata."""
     if not exif_metadata.lens_model.strip():
         return rgb, ""
 
-    db = lensfunpy.Database()
+    db = _get_lensfun_db()
     cameras = db.find_cameras(exif_metadata.make, exif_metadata.model, loose_search=True)
 
     if not cameras:
         return rgb, ""
 
     camera = cameras[0]
-
     lenses = _find_lens_candidates(db, camera, exif_metadata)
 
     if not lenses:
@@ -339,34 +386,78 @@ def _apply_lens_correction(
     lens = _select_lens_candidate(lenses, exif_metadata)
     lens_label = getattr(lens, 'model', None) or exif_metadata.lens_model or str(lens)
     lens_info = f"{lens_label} @ {exif_metadata.focal_length}mm f/{exif_metadata.f_number}"
-
-    height, width = rgb.shape[:2]
-
-    mod = lensfunpy.Modifier(lens, camera.crop_factor, width, height)
-    mod.initialize(
-        exif_metadata.focal_length,
-        exif_metadata.f_number,
-        pixel_format=np.float32,
-        flags=lensfunpy.ModifyFlags.ALL,
-    )
-
-    mod.apply_color_modification(rgb)
-    undist_coords = mod.apply_subpixel_geometry_distortion()
-
-    if undist_coords is not None:
-        corrected = np.empty_like(rgb)
-
-        for c in range(rgb.shape[2]):
-            corrected[:, :, c] = map_coordinates(
-                rgb[:, :, c],
-                [undist_coords[:, :, c, 1], undist_coords[:, :, c, 0]],
-                order=1,
-                mode="nearest",
-            )
-
-        rgb = corrected
-
+    rgb = _run_lensfun_modifier(rgb, lens, camera.crop_factor, exif_metadata.focal_length, exif_metadata.f_number)
     return rgb, lens_info
+
+
+def _apply_lens_correction_manual(
+    rgb: np.ndarray,
+    camera_make: str,
+    camera_model: str,
+    lens_make: str,
+    lens_model: str,
+    focal_length: float,
+    f_number: float,
+) -> tuple[np.ndarray, str]:
+    """Apply lensfun corrections using an explicitly specified camera and lens profile."""
+    db = _get_lensfun_db()
+    cameras = db.find_cameras(camera_make, camera_model, loose_search=True)
+    if not cameras:
+        return rgb, ""
+
+    camera = cameras[0]
+    lenses = db.find_lenses(camera, lens_make or None, lens_model or None, loose_search=True)
+    if not lenses:
+        return rgb, ""
+
+    lens = lenses[0]
+    lens_label = getattr(lens, 'model', None) or lens_model or str(lens)
+    lens_info = f"{lens_label} @ {focal_length}mm f/{f_number}"
+    rgb = _run_lensfun_modifier(rgb, lens, camera.crop_factor, focal_length, f_number)
+    return rgb, lens_info
+
+
+@lru_cache(maxsize=None)
+def query_lensfun_camera_makes() -> tuple[str, ...]:
+    """Return all unique camera maker names in the lensfunpy database."""
+    db = _get_lensfun_db()
+    return tuple(sorted(set(c.maker for c in db.cameras if c.maker)))
+
+
+@lru_cache(maxsize=None)
+def query_lensfun_camera_models(camera_make: str) -> tuple[str, ...]:
+    """Return camera models for a given maker."""
+    if not camera_make:
+        return ()
+    db = _get_lensfun_db()
+    cameras = db.find_cameras(camera_make, '', loose_search=True)
+    return tuple(sorted(set(c.model for c in cameras if c.model)))
+
+
+@lru_cache(maxsize=None)
+def query_lensfun_lens_makes(camera_make: str, camera_model: str) -> tuple[str, ...]:
+    """Return lens maker names compatible with the specified camera."""
+    if not camera_make or not camera_model:
+        return ()
+    db = _get_lensfun_db()
+    cameras = db.find_cameras(camera_make, camera_model, loose_search=True)
+    if not cameras:
+        return ()
+    lenses = db.find_lenses(cameras[0], None, None, loose_search=True)
+    return tuple(sorted(set(getattr(l, 'maker', '') for l in lenses if getattr(l, 'maker', ''))))
+
+
+@lru_cache(maxsize=None)
+def query_lensfun_lens_models(camera_make: str, camera_model: str, lens_make: str) -> tuple[str, ...]:
+    """Return lens models for a given camera and lens maker."""
+    if not camera_make or not camera_model:
+        return ()
+    db = _get_lensfun_db()
+    cameras = db.find_cameras(camera_make, camera_model, loose_search=True)
+    if not cameras:
+        return ()
+    lenses = db.find_lenses(cameras[0], lens_make or None, None, loose_search=True)
+    return tuple(sorted(set(getattr(l, 'model', '') for l in lenses if getattr(l, 'model', ''))))
 
 
 def load_and_process_raw_file(
@@ -375,9 +466,17 @@ def load_and_process_raw_file(
     temperature: float | None = None,
     tint: float | None = None,
     lens_correction: bool = False,
+    lens_correction_manual: bool = False,
+    lens_camera_make: str = '',
+    lens_camera_model: str = '',
+    lens_make: str = '',
+    lens_model: str = '',
+    lens_focal_length: float = 0.0,
+    lens_f_number: float = 0.0,
     output_colorspace: str = "ACES2065-1",
     output_cctf_encoding: bool = False,
     lens_info_out: dict[str, str] | None = None,
+    wb_info_out: dict[str, float] | None = None,
 ) -> np.ndarray:
     """Load a RAW file into linear RGB and optionally convert its colourspace.
 
@@ -400,9 +499,20 @@ def load_and_process_raw_file(
         Multiplicative adjustment applied to both green channels for
         temperature-derived white balance.
     lens_correction
-        When ``True``, apply all lensfun lens corrections (vignetting,
-        TCA, distortion, geometry and scale). Camera and lens are identified
-        from the EXIF metadata.
+        When ``True``, apply lensfun corrections using camera/lens identity
+        from EXIF metadata. Ignored when ``lens_correction_manual`` is ``True``.
+    lens_correction_manual
+        When ``True``, apply lensfun corrections using the explicitly specified
+        camera and lens profile instead of reading EXIF. Takes precedence over
+        ``lens_correction``.
+    lens_camera_make, lens_camera_model
+        Camera maker and model for manual lens correction.
+    lens_make, lens_model
+        Lens maker and model for manual lens correction.
+    lens_focal_length
+        Focal length in mm for manual lens correction.
+    lens_f_number
+        Aperture f-number for manual lens correction.
     output_colorspace
         Output RGB colourspace name understood by ``colour.RGB_COLOURSPACES``.
     output_cctf_encoding
@@ -418,11 +528,19 @@ def load_and_process_raw_file(
     with rawpy.imread(str(raw_path)) as raw:
         params, postprocess_adaptation, tint_multiplier = _postprocess_params(white_balance, temperature, tint)
         rgb = raw.postprocess(**params).astype(np.float32) / np.float32(65535.0)
+        if white_balance == 'auto' and wb_info_out is not None:
+            wb_info_out['temperature'] = _estimate_auto_wb_temperature(raw)
 
-    if lens_correction:
+    if lens_correction_manual and lens_camera_model and lens_model:
+        rgb, lens_info = _apply_lens_correction_manual(
+            rgb, lens_camera_make, lens_camera_model, lens_make, lens_model,
+            lens_focal_length, lens_f_number,
+        )
+        if lens_info_out is not None and lens_info:
+            lens_info_out["summary"] = lens_info
+    elif lens_correction:
         exif_metadata = _read_exif_metadata(raw_path)
         rgb, lens_info = _apply_lens_correction(rgb, exif_metadata)
-
         if lens_info_out is not None and lens_info:
             lens_info_out["summary"] = lens_info
 
@@ -443,4 +561,10 @@ def load_and_process_raw_file(
     return rgb
 
 
-__all__ = ['load_and_process_raw_file']
+__all__ = [
+    'load_and_process_raw_file',
+    'query_lensfun_camera_makes',
+    'query_lensfun_camera_models',
+    'query_lensfun_lens_makes',
+    'query_lensfun_lens_models',
+]

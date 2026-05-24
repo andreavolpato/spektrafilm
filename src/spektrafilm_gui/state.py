@@ -33,6 +33,13 @@ class LoadRawState:
     temperature: float
     tint: float
     lens_correction: bool
+    lens_correction_manual: bool = False
+    lens_camera_make: str = ''
+    lens_camera_model: str = ''
+    lens_make: str = ''
+    lens_model: str = ''
+    lens_focal_length: float = 50.0
+    lens_f_number: float = 2.8
 
 
 @dataclass(slots=True)
