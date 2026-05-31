@@ -40,6 +40,8 @@ class ScanIlluminants(Enum):
 
 class RGBtoRAWMethod(Enum):
     hanatos2025 = "hanatos2025"
+    jakob2019 = "jakob2019"
+    otsu2018 = "otsu2018"
     mallett2019 = "mallett2019"
 
 

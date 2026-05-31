@@ -92,7 +92,7 @@ def _compute_spectra_from_coeffs(coeffs, smooth_steps=1):
     spectra = np.apply_along_axis(interp_slice, axis=-1, wl=wl, wl_up=wl_up, arr=spectra)
     return spectra
 
-def compute_lut_spectra(lut_size=128, smooth_steps=1, lut_coeffs_filename='hanatos_irradiance_xy_coeffs_250304.lut'):
+def compute_hanatos2025_lut_spectra(lut_size=128, smooth_steps=1, lut_coeffs_filename='hanatos_irradiance_xy_coeffs_250304.lut'):
     v = np.linspace(0,1,lut_size)
     tx,ty = np.meshgrid(v,v, indexing='ij')
     tc = np.stack((tx,ty), axis=-1)
@@ -102,7 +102,7 @@ def compute_lut_spectra(lut_size=128, smooth_steps=1, lut_coeffs_filename='hanat
     lut_spectra = np.array(lut_spectra, dtype=np.half)
     return lut_spectra
 
-def _load_hanatos2025_spectra_lut(filename='irradiance_xy_tc.npy'):
+def _load_hanatos2025_spectra_lut(filename='hanatos2025_irradiance_xy_tc.npy'):
     data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
     with data_path.open('rb') as file:
         spectra_lut = np.double(np.load(file))
@@ -418,8 +418,307 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
     return spectrum_w.flatten()
 
 
+################################################################################
+# From [Jakob2019] — bounded surface reflectance recovery (study b50)
+#
+# Unlike hanatos2025 (which recovers the *irradiance* spectrum reaching the
+# sensor), jakob2019 recovers a bounded surface *reflectance* R(l) in [0, 1]
+# under an assumed SCENE illuminant (D65), then RELIGHTS it with the film's
+# reference illuminant. It shares hanatos's exact runtime hot path
+# (_rgb_to_tc_b -> apply_lut_cubic_2d(tc) * b); only the spectrum stored per tc
+# chromaticity differs (bounded reflectance vs irradiance).
+#
+# The reflectance is the same algebraic sigmoid hanatos evaluates:
+#   R(l) = 0.5 + 0.5 * u / sqrt(1 + u^2),   u = quadratic in wavelength.
+# The film-independent reflectance LUT is baked ONCE (at SCENE illuminant, unit
+# brightness X+Y+Z=1) and shipped as `jakob2019_reflectance_xy_tc.npy`, the
+# analog of hanatos's `hanatos2025_irradiance_xy_tc.npy`. Brightness rides the
+# linear `b` scale at runtime. This 2D-tc + linear-b approximation costs ~5% on
+# saturated/bright colors (reflectance is not scale-separable); see study b50
+# n010 for the full analysis.
+
+_JAKOB2019_MIDGRAY = 0.184
+_JAKOB2019_SCENE_ILLUMINANT = 'D65'
+# shifted-Legendre basis P0,P1,P2 on the scaled wavelength t in [0,1].
+# NOT the raw monomials {l^2, l, 1}: those are near-collinear on the band, which
+# makes J^T J singular and the solve fail to converge. Legendre orthogonality
+# conditions the batched Levenberg-Marquardt step (study b50 n010 §4a).
+_JAKOB2019_T = (
+    (SPECTRAL_SHAPE.wavelengths - SPECTRAL_SHAPE.wavelengths[0])
+    / (SPECTRAL_SHAPE.wavelengths[-1] - SPECTRAL_SHAPE.wavelengths[0])
+)
+_JAKOB2019_BASIS = np.stack(
+    [np.ones_like(_JAKOB2019_T), 2 * _JAKOB2019_T - 1,
+     6 * _JAKOB2019_T * _JAKOB2019_T - 6 * _JAKOB2019_T + 1],
+    axis=-1,
+)
+
+
+def _jakob2019_scene_integration(scene_illuminant):
+    """E*cmfs (81,3) and white-normalizer k for a scene illuminant (R=1 -> Y=1)."""
+    E = standard_illuminant(scene_illuminant)[:]
+    cmfs = np.asarray(STANDARD_OBSERVER_CMFS[:])
+    Ecmfs = E[:, None] * cmfs
+    k = 1.0 / np.sum(E * cmfs[:, 1])
+    return Ecmfs, k
+
+
+def reflectance_from_jakob2019_coeffs(coeffs):
+    """(..., 3) sigmoid coefficients -> (..., 81) bounded reflectance. Vectorized."""
+    u = np.einsum("...j,lj->...l", coeffs, _JAKOB2019_BASIS)
+    return 0.5 + 0.5 * u / np.sqrt(1.0 + u * u)
+
+
+def _jakob2019_forward(coeffs, Ecmfs, k):
+    u = np.einsum("...j,lj->...l", coeffs, _JAKOB2019_BASIS)
+    s = 1.0 / np.sqrt(1.0 + u * u)
+    R = 0.5 + 0.5 * u * s
+    XYZ = k * np.einsum("...l,lm->...m", R, Ecmfs)
+    dRdu = 0.5 * s ** 3  # d sigmoid / du
+    J = k * np.einsum("...lj,lm->...mj", dRdu[..., None] * _JAKOB2019_BASIS, Ecmfs)
+    return XYZ, J
+
+
+def solve_jakob2019_coeffs(XYZ_target, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT, iters=80):
+    """Batched Levenberg-Marquardt for sigmoid coefficients over a whole array.
+
+    Returns coeffs of shape XYZ_target.shape[:-1] + (3,). In-gamut targets
+    converge to ~0 residual; out-of-gamut edges settle at the closest bounded
+    reflectance (the same extrapolation role hanatos's LUT plays there).
+    """
+    Ecmfs, k = _jakob2019_scene_integration(scene_illuminant)
+    c = np.zeros(XYZ_target.shape[:-1] + (3,))
+    mu = np.full(XYZ_target.shape[:-1], 1e-2)
+    eye = np.eye(3)
+    XYZ, J = _jakob2019_forward(c, Ecmfs, k)
+    cost = np.sum((XYZ - XYZ_target) ** 2, axis=-1)
+    for _ in range(iters):
+        r = XYZ - XYZ_target
+        JtJ = np.einsum("...mi,...mj->...ij", J, J)
+        Jtr = np.einsum("...mi,...m->...i", J, r)
+        # ridge floor (mu + 1e-8) keeps A positive-definite even at degenerate /
+        # out-of-gamut chromaticities; without it mu can underflow to 0 and
+        # np.linalg.solve raises "Singular matrix".
+        A = JtJ + (mu[..., None, None] + 1e-8) * eye
+        delta = np.linalg.solve(A, -Jtr[..., None])[..., 0]
+        cn = c + delta
+        XYZn, Jn = _jakob2019_forward(cn, Ecmfs, k)
+        costn = np.sum((XYZn - XYZ_target) ** 2, axis=-1)
+        better = costn < cost
+        c = np.where(better[..., None], cn, c)
+        XYZ = np.where(better[..., None], XYZn, XYZ)
+        J = np.where(better[..., None, None], Jn, J)
+        cost = np.where(better, costn, cost)
+        mu = np.clip(np.where(better, mu * 0.5, mu * 3.0), 1e-7, 1e7)
+    return c
+
+
+def compute_jakob2019_reflectance_lut(lut_size=192, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT):
+    """(S, S, 81) bounded reflectance per tc chromaticity, baked at unit brightness.
+
+    The film-independent artifact shipped as `jakob2019_reflectance_xy_tc.npy`
+    (analog of hanatos's irradiance spectra LUT). Each tc -> xy via `_quad2tri`;
+    the unit-brightness tristimulus XYZ = [x, y, 1-x-y] (X+Y+Z = 1) is solved for
+    its sigmoid coefficients over the whole grid at once, then evaluated to
+    reflectance. Stored as float16 to match the hanatos LUT footprint.
+    """
+    v = np.linspace(0, 1, lut_size)
+    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
+    xy = _quad2tri(tc)                                              # (S,S,2)
+    x, y = xy[..., 0], xy[..., 1]
+    XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1)
+    coeffs = solve_jakob2019_coeffs(XYZ_unit, scene_illuminant)
+    reflectance = reflectance_from_jakob2019_coeffs(coeffs)
+    return np.array(reflectance, dtype=np.half)
+
+
+def _load_jakob2019_reflectance_lut(filename='jakob2019_reflectance_xy_tc.npy'):
+    data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
+    with data_path.open('rb') as file:
+        spectra_lut = np.double(np.load(file))
+    return spectra_lut
+
+
+# Lazy load (not an import-time global like HANATOS2025_SPECTRA_LUT): the bake
+# script imports compute_jakob2019_reflectance_lut from this module, and the
+# .npy may not exist yet on a fresh checkout when it does. Deferring the load
+# avoids an import-time failure during regeneration.
+_JAKOB2019_REFLECTANCE_LUT = None
+
+
+def get_jakob2019_reflectance_lut():
+    global _JAKOB2019_REFLECTANCE_LUT
+    if _JAKOB2019_REFLECTANCE_LUT is None:
+        _JAKOB2019_REFLECTANCE_LUT = _load_jakob2019_reflectance_lut()
+    return _JAKOB2019_REFLECTANCE_LUT
+
+
+def compute_jakob2019_tc_lut(sensitivity, reference_illuminant,
+                             spectra_lut=None, gamut_compress=None):
+    """(S, S, 3) raw LUT: relight the bounded reflectance by the film reference
+    illuminant, integrate against the film sensitivity.
+
+    Mirrors compute_hanatos2025_tc_lut, but the spectra are *reflectance* (under
+    the scene illuminant) and are RELIT by E_ref here — the decoupled-illuminant
+    structure (the Hanika point, study b50). Self-normalized on a flat 0.184
+    neutral (green channel), like rgb_to_raw_mallett2019, so magnitudes are
+    correct regardless of sensitivity pre-balancing.
+    """
+    if spectra_lut is None:
+        spectra_lut = get_jakob2019_reflectance_lut()
+    E_ref = standard_illuminant(reference_illuminant)[:]            # (81,)
+    relit = spectra_lut * E_ref[None, None, :]                     # (S,S,81)
+    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)          # (S,S,3)
+    raw_midgray = np.einsum('l,lm->m', _JAKOB2019_MIDGRAY * E_ref, sensitivity)
+    raw_lut = raw_lut / raw_midgray[1]
+
+    if gamut_compress is not None and gamut_compress.active:
+        # Bake input gamut compression into the LUT at build time, exactly as
+        # compute_hanatos2025_tc_lut does, so the per-pixel hot path stays
+        # compression-agnostic. Reference illuminant matches _rgb_to_tc_b's.
+        from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
+        ref_xy = _illuminant_to_xy(reference_illuminant)
+        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
+
+    return raw_lut
+
+
+def rgb_to_raw_jakob2019(rgb, sensitivity,
+                         color_space,
+                         apply_cctf_decoding,
+                         reference_illuminant,
+                         tc_lut=None,
+                         scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT):
+    """Runtime path — byte-for-byte the hanatos2025 hot path, decoupled illuminants.
+
+    The SCENE illuminant drives the chromaticity projection in _rgb_to_tc_b
+    (so white balance can be changed freely); the FILM reference illuminant
+    drives the relight baked into tc_lut.
+    """
+    tc_raw, b = _rgb_to_tc_b(
+        rgb,
+        color_space=color_space,
+        apply_cctf_decoding=apply_cctf_decoding,
+        reference_illuminant=scene_illuminant,
+    )
+    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
+        tc_lut = compute_jakob2019_tc_lut(sensitivity, reference_illuminant)
+    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
+    raw *= b[..., None]
+    return raw
+
+
+################################################################################
+# From [Otsu2018] — clustered-basis surface reflectance recovery (study b50)
+#
+# Second reflectance prior alongside jakob2019, sharing the SAME deliverable
+# shape and hot path. Where jakob fits a smooth 3-parameter sigmoid per
+# chromaticity, Otsu et al. 2018 (colour.recovery.XYZ_to_sd_Otsu2018) selects a
+# leaf cluster in a trained tree and recovers reflectance = cluster_mean +
+# basis @ weights. It represents multi-modal/structured reflectances a single
+# sigmoid cannot, at the cost of cluster-boundary discontinuities, and its
+# linear-b approximation floor is lower than jakob's on the ColorChecker (~2.3%
+# vs ~5.1%; see study b50 n010 §4b).
+#
+# Unlike jakob, the bake is a plain per-point loop: Otsu's per-color recovery is
+# ~0.55 ms (vs jakob's ~31 ms), fast enough that no batched solver is needed.
+
+_OTSU2018_MIDGRAY = 0.184
+_OTSU2018_SCENE_ILLUMINANT = 'D65'
+
+
+def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SCENE_ILLUMINANT):
+    """(S, S, 81) bounded reflectance per tc chromaticity, baked at unit brightness.
+
+    The film-independent artifact shipped as `otsu2018_reflectance_xy_tc.npy`.
+    Each tc -> xy via `_quad2tri`; the unit-brightness tristimulus
+    XYZ = [x, y, 1-x-y] is recovered per grid point with Otsu2018 (clip=True ->
+    bounded reflectance), aligned to SPECTRAL_SHAPE, stored float16.
+    """
+    v = np.linspace(0, 1, lut_size)
+    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
+    xy = _quad2tri(tc)
+    x, y = xy[..., 0], xy[..., 1]
+    XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1).reshape(-1, 3)
+    illuminant_sd = standard_illuminant(scene_illuminant, return_class=True)
+    wl = SPECTRAL_SHAPE.wavelengths
+    reflectance = np.empty((XYZ_unit.shape[0], len(wl)))
+    for i, xyz in enumerate(XYZ_unit):
+        sd = colour.recovery.XYZ_to_sd_Otsu2018(
+            xyz, cmfs=STANDARD_OBSERVER_CMFS, illuminant=illuminant_sd, clip=True)
+        reflectance[i] = sd.align(SPECTRAL_SHAPE).values
+    reflectance = reflectance.reshape(lut_size, lut_size, len(wl))
+    # Otsu's clip=True bounds the recovery, but aligning its native (380,730,10)
+    # shape out to SPECTRAL_SHAPE's 780 nm tail can overshoot [0,1] at OOG grid
+    # edges. Clip the aligned LUT so the shipped reflectance stays physical
+    # (bounded [0,1] is the property reflectance recovery guarantees over mallett).
+    reflectance = np.clip(reflectance, 0.0, 1.0)
+    return np.array(reflectance, dtype=np.half)
+
+
+def _load_otsu2018_reflectance_lut(filename='otsu2018_reflectance_xy_tc.npy'):
+    data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
+    with data_path.open('rb') as file:
+        spectra_lut = np.double(np.load(file))
+    return spectra_lut
+
+
+# Lazy load (same rationale as jakob): the bake script imports
+# compute_otsu2018_reflectance_lut from this module before the .npy exists.
+_OTSU2018_REFLECTANCE_LUT = None
+
+
+def get_otsu2018_reflectance_lut():
+    global _OTSU2018_REFLECTANCE_LUT
+    if _OTSU2018_REFLECTANCE_LUT is None:
+        _OTSU2018_REFLECTANCE_LUT = _load_otsu2018_reflectance_lut()
+    return _OTSU2018_REFLECTANCE_LUT
+
+
+def compute_otsu2018_tc_lut(sensitivity, reference_illuminant,
+                            spectra_lut=None, gamut_compress=None):
+    """(S, S, 3) raw LUT: relight the bounded Otsu reflectance by the film
+    reference illuminant, integrate against sensitivity. Mirrors
+    compute_jakob2019_tc_lut (self-normalized on a flat 0.184 neutral)."""
+    if spectra_lut is None:
+        spectra_lut = get_otsu2018_reflectance_lut()
+    E_ref = standard_illuminant(reference_illuminant)[:]
+    relit = spectra_lut * E_ref[None, None, :]
+    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)
+    raw_midgray = np.einsum('l,lm->m', _OTSU2018_MIDGRAY * E_ref, sensitivity)
+    raw_lut = raw_lut / raw_midgray[1]
+
+    if gamut_compress is not None and gamut_compress.active:
+        from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
+        ref_xy = _illuminant_to_xy(reference_illuminant)
+        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
+
+    return raw_lut
+
+
+def rgb_to_raw_otsu2018(rgb, sensitivity,
+                        color_space,
+                        apply_cctf_decoding,
+                        reference_illuminant,
+                        tc_lut=None,
+                        scene_illuminant=_OTSU2018_SCENE_ILLUMINANT):
+    """Runtime path — byte-for-byte the hanatos2025 hot path, decoupled illuminants
+    (mirrors rgb_to_raw_jakob2019)."""
+    tc_raw, b = _rgb_to_tc_b(
+        rgb,
+        color_space=color_space,
+        apply_cctf_decoding=apply_cctf_decoding,
+        reference_illuminant=scene_illuminant,
+    )
+    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
+        tc_lut = compute_otsu2018_tc_lut(sensitivity, reference_illuminant)
+    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
+    raw *= b[..., None]
+    return raw
+
+
 if __name__=='__main__':
     lut_coeffs = _load_coeffs_lut()
     coeffs = _fetch_coeffs(np.array([[1,1]]) ,lut_coeffs)
     spectra = _compute_spectra_from_coeffs(coeffs)
-    lut_spectra = compute_lut_spectra(lut_size=128)
+    lut_spectra = compute_hanatos2025_lut_spectra(lut_size=128)
