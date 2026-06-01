@@ -5,37 +5,42 @@ import time
 @numba.njit(parallel=True, fastmath=True, cache=True)
 def fast_interp(image, x_axis, y_vals):
     """
-    Perform 1-D linear interpolation on an N-dimensional array where the
-    last dimension is 3. The x_axis can be:
-      - a 1D array of length K (common for all channels), or
-      - a 2D array of shape (K,3) (each column for a channel).
-    
+    Perform 1-D linear interpolation on an N-dimensional array whose last
+    dimension is C. C is derived from the input (``image.shape[-1]``), not
+    hard-coded to 3, so the same kernel serves any column count — emulsion
+    channels (n_ch) at the density-curve call site and grain sub-layers
+    (n_layers) at the layer call site. The x_axis can be:
+      - a 1D array of length K (common to all columns), or
+      - a 2D array of shape (K, C) (one column per channel).
+
     For values outside the x range, the first (if too small) or last (if too large)
-    value from the y_vals (which is Kx3) is returned.
-    
+    value from the y_vals (which is KxC) is returned.
+
     Uses precomputed reciprocal differences from the monotonic x_axis for efficiency.
     Repeated x values are allowed and follow np.interp-style right-biased
     exact-match semantics.
-    
+
     Parameters:
-      image: an array of shape (..., 3) containing new x values.
-      x_axis: sorted x axis, either a 1D array (shape (K,)) or 2D array (shape (K,3)).
-      y_vals: a Kx3 array of reference y values for each channel.
-      
+      image: an array of shape (..., C) containing new x values.
+      x_axis: sorted x axis, either a 1D array (shape (K,)) or 2D array (shape (K, C)).
+      y_vals: a KxC array of reference y values for each column.
+
     Returns:
       result: an array of the same shape as image with interpolated values.
     """
-    # Compute total number of "pixels" (all dims except the last).
+    # Compute total number of "pixels" (all dims except the last) and the
+    # per-pixel column count C.
     shape = image.shape
+    C = shape[len(shape) - 1]
     n = 1
     for i in range(len(shape) - 1):
         n *= shape[i]
-    flat_image = image.reshape(n, 3)
+    flat_image = image.reshape(n, C)
     flat_result = np.empty_like(flat_image)
-    
+
     K = x_axis.shape[0]
     common_axis = (x_axis.ndim == 1)
-    
+
     # Precompute reciprocal differences (for monotonic x_axis).
     if common_axis:
         inv_dx_common = np.empty(K - 1, dtype=x_axis.dtype)
@@ -46,18 +51,18 @@ def fast_interp(image, x_axis, y_vals):
             else:
                 inv_dx_common[i] = 0.0
     else:
-        inv_dx = np.empty((K - 1, 3), dtype=x_axis.dtype)
-        for c in range(3):
+        inv_dx = np.empty((K - 1, C), dtype=x_axis.dtype)
+        for c in range(C):
             for i in range(K - 1):
                 dx = x_axis[i+1, c] - x_axis[i, c]
                 if dx != 0:
                     inv_dx[i, c] = 1.0 / dx
                 else:
                     inv_dx[i, c] = 0.0
-    
-    # Process each "pixel" (each row of length 3).
+
+    # Process each "pixel" (each row of length C).
     for i in numba.prange(n):
-        for c in range(3):
+        for c in range(C):
             x = flat_image[i, c]
             # Choose proper x_axis and inv_dx for this channel.
             if common_axis:
@@ -84,18 +89,19 @@ def fast_interp(image, x_axis, y_vals):
 
 def np_interp_for_image(image, x_axis, y_vals):
     """
-    Uses np.interp to perform interpolation on an N-dimensional array where the
-    last dimension is 3. Handles both common (1D) and channel-specific (2D)
-    x_axis.
+    Uses np.interp to perform interpolation on an N-dimensional array whose
+    last dimension is C (derived from the input, not hard-coded to 3). Handles
+    both common (1D) and channel-specific (2D) x_axis.
     """
     shape = image.shape
-    flat_image = image.reshape(-1, 3)
+    C = shape[-1]
+    flat_image = image.reshape(-1, C)
     flat_result = np.empty_like(flat_image)
     if x_axis.ndim == 1:
-        for c in range(3):
+        for c in range(C):
             flat_result[:, c] = np.interp(flat_image[:, c], x_axis, y_vals[:, c])
     else:
-        for c in range(3):
+        for c in range(C):
             flat_result[:, c] = np.interp(flat_image[:, c], x_axis[:, c], y_vals[:, c])
     return flat_result.reshape(shape)
 
