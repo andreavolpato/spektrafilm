@@ -117,6 +117,17 @@ class ProfileInfo:
     reference_illuminant: str = 'D55'
     viewing_illuminant: str = 'D50'
 
+    @property
+    def n_channels(self) -> int:
+        """Number of emulsion (dye) channels: 1 for BW, 3 for color.
+
+        Declared by `channel_model`, not inferred from array shapes. For BW the
+        `density_curves` columns index development time (not channels), so the
+        count cannot be read off `density_curves`; `_validate_profile` checks
+        the spectral arrays (`log_sensitivity` / `channel_density`) match it.
+        """
+        return 1 if self.channel_model == 'bw' else 3
+
 @dataclass
 class Hanatos2025SensitivityAdaptation:
     window_params: np.ndarray = field(default_factory=_empty_vector)
@@ -316,17 +327,25 @@ def _validate_profile(profile, stock):
     try:
         _validate_profile_info(profile.info, stock)
         data = profile.data
+        # Channel count is declared by channel_model (1 for bw, 3 for color),
+        # and the per-channel spectral arrays (log_sensitivity / channel_density)
+        # must match it. For BW the density_curves columns index development
+        # time, so they are NOT constrained to n_ch here; only color requires
+        # density_curves.shape[1] == n_ch. (When development_time_min lands,
+        # tighten the BW check to == len(development_time_min). See b10 n050.)
+        n_ch = profile.info.n_channels
         valid = (
             data.log_exposure.ndim == 1
             and data.density_curves.ndim == 2
-            and data.density_curves.shape[1] == 3
             and data.density_curves.shape[0] == data.log_exposure.shape[0]
+            and (profile.info.channel_model != 'color'
+                 or data.density_curves.shape[1] == n_ch)
             and data.log_sensitivity.ndim == 2
-            and data.log_sensitivity.shape[1] == 3
-            and data.wavelengths.ndim == 1
+            and data.log_sensitivity.shape[1] == n_ch
             and data.channel_density.ndim == 2
-            and data.channel_density.shape[1] == 3
+            and data.channel_density.shape[1] == n_ch
             and data.channel_density.shape[0] == data.wavelengths.shape[0]
+            and data.wavelengths.ndim == 1
             and data.base_density.ndim == 1
             and data.base_density.shape[0] == data.wavelengths.shape[0]
             and data.midscale_neutral_density.ndim == 1
