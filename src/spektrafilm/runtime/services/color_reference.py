@@ -49,7 +49,7 @@ class ColorReferenceService:
             cmy_to_log_xyz: Callable[[np.ndarray], np.ndarray] = self.cmy_to_log_xyz
             if self._scan_film and self._film.info.type == 'positive' and not in_print:
                 cmy_black = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
-                cmy_white = np.zeros((1, 1, 3))
+                cmy_white = np.zeros_like(cmy_black)
                 log_xyz_black = cmy_to_log_xyz.__call__(cmy_black)
                 log_xyz_white = cmy_to_log_xyz.__call__(cmy_white)
                 self._y_black = (10 ** log_xyz_black)[:, :, 1]

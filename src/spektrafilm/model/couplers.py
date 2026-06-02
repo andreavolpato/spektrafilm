@@ -30,7 +30,7 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     couplers_amount_curves = contract('jk, km->jm', density_curves_silver, dir_couplers_matrix)
     log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
-    for i in np.arange(3):
+    for i in np.arange(density_curves.shape[1]):
         if positive:
             density_curves_corrected[:,i] = -np.interp(log_exposure, log_exposure_0[:,i], -density_curves[:,i])
         else:
@@ -38,9 +38,15 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     return density_curves_corrected
 
 
-def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplersParams()):
+def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplersParams(), n_ch: int = 3):
     """
     Compute the inhibitors matrix using a simple diffusion model across layers.
+
+    The matrix is ``n_ch x n_ch``. The diagonal is self-inhibition (same-layer
+    adjacency / edge effect, after spatial diffusion); the off-diagonal is the
+    inter-image (inter-layer) effect. Inter-image is intrinsically trichromatic
+    and is only populated for ``n_ch == 3``; single-emulsion BW (``n_ch == 1``)
+    keeps self-inhibition only — its off-diagonal does not exist.
 
     Parameters:
     amount_rgb (list of float): Amounts of dir couplers for RGB channels. Default is [0.7,0.7,0.5]. Typically 0-1 range.
@@ -51,18 +57,19 @@ def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplers
     Row index is the donor/source layer that releases inhibitor.
     Column index is the receiving/affected layer whose exposure is reduced.
     """
-    
-    M_self = np.array(couplers_params.gamma_samelayer_rgb)*couplers_params.inhibition_samelayer
+
+    M_self = np.array(couplers_params.gamma_samelayer_rgb)[:n_ch]*couplers_params.inhibition_samelayer
     M_self = np.diag(M_self)
-    M_inter = np.zeros((3,3))
-    # Off-diagonal terms follow the same convention: donor row, receiver column.
-    M_inter[0,1] = couplers_params.gamma_interlayer_r_to_gb[0]
-    M_inter[0,2] = couplers_params.gamma_interlayer_r_to_gb[1]
-    M_inter[1,0] = couplers_params.gamma_interlayer_g_to_rb[0]
-    M_inter[1,2] = couplers_params.gamma_interlayer_g_to_rb[1]
-    M_inter[2,0] = couplers_params.gamma_interlayer_b_to_rg[0]
-    M_inter[2,1] = couplers_params.gamma_interlayer_b_to_rg[1]
-    M_inter *= couplers_params.inhibition_interlayer
+    M_inter = np.zeros((n_ch, n_ch))
+    if n_ch == 3:
+        # Off-diagonal terms follow the same convention: donor row, receiver column.
+        M_inter[0,1] = couplers_params.gamma_interlayer_r_to_gb[0]
+        M_inter[0,2] = couplers_params.gamma_interlayer_r_to_gb[1]
+        M_inter[1,0] = couplers_params.gamma_interlayer_g_to_rb[0]
+        M_inter[1,2] = couplers_params.gamma_interlayer_g_to_rb[1]
+        M_inter[2,0] = couplers_params.gamma_interlayer_b_to_rg[0]
+        M_inter[2,1] = couplers_params.gamma_interlayer_b_to_rg[1]
+        M_inter *= couplers_params.inhibition_interlayer
     return M_self + M_inter
 
 def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
@@ -121,8 +128,8 @@ def apply_density_correction_dir_couplers(
         return density_cmy
 
     positive = profile_type == 'positive'
-    
-    couplers_matrix = compute_dir_couplers_matrix(dir_couplers)
+
+    couplers_matrix = compute_dir_couplers_matrix(dir_couplers, n_ch=density_cmy.shape[-1])
     couplers_matrix *= dir_couplers.amount
     
     density_curves_0 = compute_density_curves_before_dir_couplers(

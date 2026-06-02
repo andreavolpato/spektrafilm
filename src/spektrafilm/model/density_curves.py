@@ -10,22 +10,17 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
     """
     Interpolates the exposure values to density values using the provided density curves.
     Parameters:
-    log_exposure_rgb (numpy.ndarray): A 3D array of shape (height, width, 3) representing the log10 RGB exposure values.
-    density_curves (numpy.ndarray): A 2D array of shape (num_points, 3) representing the density curves for each channel.
+    log_exposure_rgb (numpy.ndarray): A 3D array of shape (height, width, n_ch) representing the log10 exposure values.
+    density_curves (numpy.ndarray): A 2D array of shape (num_points, n_ch) representing the density curves for each channel.
     log_exposure (numpy.ndarray): A 1D array of logarithmic exposure values.
     gamma_factor (float): The gamma correction factor to be applied to the density characteristic curves.
     Returns:
-    numpy.ndarray: A 3D array of shape (height, width, 3) representing the interpolated density values in CMY channels.
+    numpy.ndarray: A 3D array of shape (height, width, n_ch) representing the interpolated density values.
     """
+    n_ch = log_exposure_rgb.shape[-1]
     if np.size(gamma_factor)==1:
-        gamma_factor = [gamma_factor, gamma_factor, gamma_factor]
+        gamma_factor = [gamma_factor] * n_ch
     gamma_factor = np.array(gamma_factor)
-    density_cmy = np.zeros((log_exposure_rgb.shape[0], log_exposure_rgb.shape[1], 3))
-    # for channel in np.arange(3):
-    #     sel = ~np.isnan(density_curves[:,channel])
-    #     density_cmy[:,:,channel] = np.interp(log_exposure_rgb[:,:,channel],
-    #                                          log_exposure[sel]/gamma_factor[channel],
-    #                                          density_curves[sel,channel])
     density_cmy = fast_interp(np.ascontiguousarray(log_exposure_rgb),
                               log_exposure[:,None]/gamma_factor[None,:],
                               density_curves)
@@ -33,14 +28,17 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
 
 
 def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
-    density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], 3, 3)) # x,y,layer,rgb
+    # density_curves_layers is (n_le, n_layers, n_ch); channel is the last axis.
+    n_ch = density_cmy.shape[-1]
+    n_layers = density_curves_layers.shape[1]
+    density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], n_layers, n_ch)) # x,y,layer,channel
     if positive_film:
-        for ch in np.arange(3):
-            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+        for ch in np.arange(n_ch):
+            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], n_layers, -1),
                                                        -density_curves[:,ch], density_curves_layers[:,:,ch])
     else:
-        for ch in np.arange(3):
-            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], 3, -1),
+        for ch in np.arange(n_ch):
+            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], n_layers, -1),
                                                        density_curves[:,ch], density_curves_layers[:,:,ch])
     return density_cmy_layers
     

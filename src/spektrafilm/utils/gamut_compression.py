@@ -1277,7 +1277,7 @@ def remap_tc_lut_for_compression(
     ----------
     tc_lut :
         The per-film ``compute_hanatos2025_tc_lut`` output, shape
-        ``(H, W, 3)``.
+        ``(H, W, n_ch)`` (n_ch=3 for color, 1 for BW).
     reference_illuminant_xy :
         The film's reference illuminant xy (the compression's
         achromatic axis). Must match the illuminant used inside
@@ -1296,8 +1296,9 @@ def remap_tc_lut_for_compression(
     # spectral_upsampling.py and gamut_compression.py.
     from spektrafilm.utils.spectral_upsampling import _quad2tri, _tri2quad
 
+    # Channel-generic: each channel is sampled independently below, so this
+    # works for BW (n_ch=1) as well as color (n_ch=3).
     H, W, C = tc_lut.shape
-    assert C == 3, f"tc_lut must have 3 channels, got {C}"
 
     # Grid of LUT cell positions in tc space (the LUT's own indexing).
     # Cell (i, j) corresponds to tc = (i / (H-1), j / (W-1)).
