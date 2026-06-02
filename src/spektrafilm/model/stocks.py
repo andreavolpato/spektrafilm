@@ -27,6 +27,8 @@ class FilmStocks(Enum):
     kodak_kodachrome_64 = 'kodak_kodachrome_64'
     fujifilm_velvia_100 = 'fujifilm_velvia_100'
     fujifilm_provia_100f = 'fujifilm_provia_100f'
+    # positive bw cine
+    kodak_trix = 'kodak_trix'
 
 class PrintPapers(Enum):
     kodak_ultra_endura = 'kodak_ultra_endura' # problematic

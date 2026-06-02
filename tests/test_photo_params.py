@@ -200,7 +200,7 @@ class TestDigestParamsFilmDefaults:
         assert params.film_render.halation.halation_first_sigma_um == (50.0, 50.0, 50.0)
         assert params.film_render.halation.halation_strength == (0.08, 0.02, 0.0)
 
-    def test_missing_neutral_filter_database_entry_keeps_current_filters(self, monkeypatch):
+    def test_missing_neutral_filter_database_entry_falls_back_to_default(self, monkeypatch):
         params = init_params()
         params.enlarger.c_filter_neutral = 12.0
         params.enlarger.m_filter_neutral = 34.0
@@ -214,6 +214,8 @@ class TestDigestParamsFilmDefaults:
 
         digest_params(params)
 
-        assert params.enlarger.c_filter_neutral == 12.0
-        assert params.enlarger.m_filter_neutral == 34.0
-        assert params.enlarger.y_filter_neutral == 56.0
+        # Missing entry -> neutral default pack (C0 M50 Y50), so any combination
+        # stays printable instead of silently keeping whatever was set.
+        assert params.enlarger.c_filter_neutral == 0.0
+        assert params.enlarger.m_filter_neutral == 50.0
+        assert params.enlarger.y_filter_neutral == 50.0

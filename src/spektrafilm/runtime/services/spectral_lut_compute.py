@@ -62,9 +62,12 @@ class SpectralLUTService:
     ) -> Hanatos2025SensitivityAdaptation | None:
         if adaptation is None:
             return None
+        # Preserve None (absent adaptation, e.g. BW): np.array(None) would make a
+        # 0-d object array that slips past the `is not None` guards downstream.
+        copy_params = lambda p: None if p is None else np.array(p, copy=True)
         return Hanatos2025SensitivityAdaptation(
-            window_params=np.array(adaptation.window_params, copy=True),
-            surface_params=np.array(adaptation.surface_params, copy=True),
+            window_params=copy_params(adaptation.window_params),
+            surface_params=copy_params(adaptation.surface_params),
             spectral_gaussian_blur=float(adaptation.spectral_gaussian_blur),
             reference_illuminant=adaptation.reference_illuminant,
             apply_window=bool(adaptation.apply_window),
