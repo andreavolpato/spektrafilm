@@ -36,6 +36,11 @@ class SpectralLUTService:
         self._cmy_test_values = np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
                                           [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]]) # to test if LUTs are identical
 
+    @staticmethod
+    def _supports_3d_lut(cmy_data) -> bool:
+        data = np.asarray(cmy_data)
+        return data.ndim >= 3 and data.shape[-1] == 3
+
     def set_hanatos2025_adaptation(self, adaptation: Hanatos2025SensitivityAdaptation) -> None:
         adaptation_copy = self._copy_hanatos2025_adaptation(adaptation)
         self.hanatos2025_adaptation = adaptation_copy
@@ -100,7 +105,7 @@ class SpectralLUTService:
         *,
         use_lut: bool = False,
     ):
-        if not use_lut:
+        if not use_lut or not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
         test_results = spectral_calculation(np.array(self._cmy_test_values))
@@ -138,7 +143,7 @@ class SpectralLUTService:
         *,
         use_lut: bool = False,
     ):
-        if not use_lut:
+        if not use_lut or not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
         test_results = spectral_calculation(np.array(self._cmy_test_values))

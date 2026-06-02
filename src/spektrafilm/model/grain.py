@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import scipy.ndimage
 from spektrafilm.model.density_curves import interp_density_cmy_layers
+from spektrafilm.model.diffusion import match_channels
 from spektrafilm.runtime.params_schema import GrainParams
 from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson, fast_lognormal_from_mean_std
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
@@ -74,17 +75,19 @@ def apply_grain_to_density(density_cmy,
                            n_sub_layers=1,
                            fixed_seed=None,
                            ):
-    density_min = np.array(density_min)
-    density_max = density_max_curves + density_min
+    n_ch = density_cmy.shape[-1]
+    density_min = match_channels(density_min, n_ch)
+    density_max = match_channels(density_max_curves, n_ch) + density_min
     pixel_area_um2 = pixel_size_um**2
-    particle_area_um2 = particle_area_um2*np.array(particle_scale)
+    particle_area_um2 = particle_area_um2 * match_channels(particle_scale, n_ch)
     n_particles_per_pixel = pixel_area_um2/particle_area_um2
+    grain_uniformity = match_channels(grain_uniformity, n_ch)
     sigma_blur_pixel = grain_blur
     
     if fixed_seed is not None:
         seed = None
     else:
-        seed = [0, 1, 2]
+        seed = list(range(n_ch))
     
     if n_sub_layers>1:
         n_particles_per_pixel /= n_sub_layers
@@ -123,26 +126,28 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
                                   fixed_seed=None,
                                   use_fast_stats=False,
                                   ):
+    n_layers = density_cmy_layers.shape[2]
+    n_ch = density_cmy_layers.shape[3]
     density_max_total = np.sum(density_max_layers, axis=0) # [sublayers,rgb]
     density_max_fractions = density_max_layers/density_max_total[None,:]
-    density_min_layers = density_max_fractions*np.array(density_min)[None,:]
+    density_min = match_channels(density_min, n_ch)
+    density_min_layers = density_max_fractions * density_min[None, :]
     density_max_layers = density_max_layers + density_min_layers
     
     pixel_area_um2 = pixel_size_um**2
     particle_area_um2_layers = (particle_area_um2 * 
-                                    np.array(particle_scale)[None,:] * 
+                                    match_channels(particle_scale, n_ch)[None,:] * 
                                     np.array(particle_scale_layers)[:,None]) # layers, rgb
     n_particles_per_pixel = pixel_area_um2*density_max_fractions/particle_area_um2_layers
+    grain_uniformity = match_channels(grain_uniformity, n_ch)
 
     
     if fixed_seed is not None:
         seed = None
     else:
-        seed = [0, 1, 2]
+        seed = list(range(n_ch))
     
     # density_cmy_layers is (x, y, sublayers, channels): channel is the last axis.
-    n_layers = density_cmy_layers.shape[2]
-    n_ch = density_cmy_layers.shape[3]
     density_cmy_layers += density_min_layers
     density_cmy_out = np.zeros(density_cmy_layers.shape[0:2] + (n_ch,))
     for ch in np.arange(n_ch): # channels

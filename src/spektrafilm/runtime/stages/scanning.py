@@ -5,7 +5,7 @@ import numpy as np
 from opt_einsum import contract
 
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
-from spektrafilm.model.diffusion import apply_gaussian_blur, apply_unsharp_mask
+from spektrafilm.model.diffusion import apply_gaussian_blur, apply_unsharp_mask, match_channels
 from spektrafilm.model.develop import compute_density_spectral
 from spektrafilm.model.glare import add_glare
 from spektrafilm.model.illuminants import standard_illuminant
@@ -53,7 +53,7 @@ class ScanningStage:
     def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._io.scan_film:
             glare = None
-            density_min = -np.array(self._film_render.grain.density_min)
+            density_min = -match_channels(self._film_render.grain.density_min, density_channels.shape[-1])
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
             scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
         else:
