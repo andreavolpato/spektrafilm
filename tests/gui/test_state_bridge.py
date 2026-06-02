@@ -117,7 +117,6 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
             scan_film=state.simulation.io.scan_film,
         ),
         preview_crop=object(),
-        exposure_control=object(),
         enlarger=object(),
         spectral_upsampling=object(),
         tune=object(),

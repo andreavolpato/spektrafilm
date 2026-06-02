@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from spektrafilm_gui.param_manifest import (
+from spektrafilm_gui.params_manifest import (
     CAMERA_DIFFUSION_MANIFEST,
     CAMERA_MANIFEST,
     CHEMISTRY_MANIFEST,
@@ -19,7 +19,6 @@ from spektrafilm_gui.widget_sections import (
     ParamsGroupSection,
     DisplaySection,
     EnlargerSection,
-    ExposureControlSection,
     FilePickerSection,
     GuiConfigSection,
     InputImageSection,
@@ -62,7 +61,6 @@ class WidgetBundle:
     simulation: SimulationSection
     preview_crop: PreviewCropSection
     camera: ParamsGroupSection
-    exposure_control: ExposureControlSection
     enlarger: EnlargerSection
     scanner: ParamsGroupSection
     spectral_upsampling: SpectralUpsamplingSection
@@ -100,7 +98,6 @@ def create_widget_bundle() -> WidgetBundle:
         simulation=simulation,
         preview_crop=PreviewCropSection(input_image),
         camera=camera,
-        exposure_control=ExposureControlSection(simulation, camera),
         enlarger=EnlargerSection(simulation),
         scanner=scanner,
         spectral_upsampling=SpectralUpsamplingSection(input_image),

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from spektrafilm.model.illuminants import standard_illuminant
-from spektrafilm.model.color_filters import compute_band_pass_filter
+from spektrafilm.model.color_filters import color_filter_transmittance
 from spektrafilm.model.diffusion import apply_diffusion_filter_um, apply_gaussian_blur_um, apply_halation_um, boost_highlights
 from spektrafilm.model.develop import compute_density_spectral, develop, develop_simple
-from spektrafilm.utils.autoexposure import measure_autoexposure_ev
+from spektrafilm.utils.autoexposure import measure_raw_autoexposure_ev
 from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_mallett2019
 
 
@@ -37,24 +36,13 @@ class FilmingStage:
 
     # public methods
 
-    def auto_exposure(self, image: np.ndarray) -> float:
-        if self._camera.auto_exposure:
-            small_preview = self._resize_service.small_preview(image)
-            autoexposure_ev = measure_autoexposure_ev(
-                small_preview,
-                self._io.input_color_space,
-                self._io.input_cctf_decoding,
-                method=self._camera.auto_exposure_method,
-            )
-            return image * 2 ** autoexposure_ev
-        return image
-
     def expose(self, image: np.ndarray) -> np.ndarray:
         raw = self._rgb_to_film_raw(
             image,
             color_space=self._io.input_color_space,
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
+        raw = self._auto_exposure(raw)
         raw *= 2 ** self._camera.exposure_compensation_ev
         boost_highlights(raw, self._film_render.halation.boost_ev,
                          self._film_render.halation.boost_range,
@@ -104,6 +92,18 @@ class FilmingStage:
 
     # private methods
 
+    def _auto_exposure(self, raw: np.ndarray) -> np.ndarray:
+        """Meter the film raw and scale it so the metered region lands at the
+        raw midgray reference (raw == 1). Metered on a downsampled preview for
+        speed; a no-op when auto-exposure is disabled."""
+        if not self._camera.auto_exposure:
+            return raw
+        autoexposure_ev = measure_raw_autoexposure_ev(
+            self._resize_service.small_preview(raw),
+            method=self._camera.auto_exposure_method,
+        )
+        return raw * 2 ** autoexposure_ev
+
     def _rgb_to_film_raw(
         self,
         rgb: np.ndarray,
@@ -114,12 +114,13 @@ class FilmingStage:
         sensitivity = 10 ** self._film.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
 
-        if self._camera.filter_uv[0] > 0 or self._camera.filter_ir[0] > 0:
-            illuminant = standard_illuminant(self._film.info.reference_illuminant)
-            band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
-            band_pass_filter = np.tile(band_pass_filter[:, None], (1, sensitivity.shape[1]))
-            normalization = np.sum(sensitivity * band_pass_filter * illuminant[:, None], axis=0) / np.sum(sensitivity * illuminant[:, None], axis=0)
-            sensitivity *= band_pass_filter / normalization
+        # A camera taking filter (UV / haze / colored) sits in front of the lens
+        # and multiplies the incoming light spectrum; fold its transmittance into
+        # the spectral sensitivity. No renormalization -- the attenuation and
+        # color cast are the intended effect.
+        transmittance = color_filter_transmittance(self._camera.color_filter)
+        if transmittance is not None:
+            sensitivity = sensitivity * transmittance[:, None]
 
         if self._settings.rgb_to_raw_method == "hanatos2025":
             tc_lut = self._lut_service.get_filming_tc_lut(sensitivity)

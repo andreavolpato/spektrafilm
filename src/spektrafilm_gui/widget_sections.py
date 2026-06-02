@@ -19,8 +19,7 @@ QWidget = QtWidgets.QWidget
 Qt = QtCore.Qt
 Signal = QtCore.Signal
 
-from spektrafilm_gui.param_manifest import (
-    CAMERA_EXPOSURE_BORROWED_FIELDS,
+from spektrafilm_gui.params_manifest import (
     CROP_PANEL_FIELDS,
     DISPLAY_PANEL_FIELDS,
     GroupManifest,
@@ -835,21 +834,13 @@ class OutputSection(QWidget):
         )
 
 
-class ExposureControlSection(QWidget):
-    def __init__(self, simulation_section: SimulationSection, camera_section: 'ParamsGroupSection'):
-        super().__init__()
-        # auto_exposure / exposure_compensation_ev are CameraParams fields
-        # owned by camera_section; the print-exposure fields are owned by
-        # simulation_section. Render the camera pair on top, then the print
-        # controls, from a merged editor lookup (leaves do not collide).
-        editors = {**camera_section._editors, **simulation_section._editors}
-        fields = CAMERA_EXPOSURE_BORROWED_FIELDS + SIMULATION_EXPOSURE_PANEL_FIELDS
-        self.setLayout(_build_path_panel('Exposure control', fields, editors, expanded=True))
-
-
 class EnlargerSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
+        # Print exposure controls and filter shifts are both owned by
+        # simulation_section; render the exposure pair on top of the filter
+        # shifts.
+        fields = SIMULATION_EXPOSURE_PANEL_FIELDS + SIMULATION_ENLARGER_PANEL_FIELDS
         self.setLayout(
-            _build_path_panel('Enlarger', SIMULATION_ENLARGER_PANEL_FIELDS, simulation_section._editors, expanded=True),
+            _build_path_panel('Enlarger', fields, simulation_section._editors, expanded=True),
         )

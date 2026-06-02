@@ -410,7 +410,6 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
                 widgets.input_image,
                 widgets.camera,
                 widgets.simulation,
-                widgets.exposure_control,
                 widgets.enlarger,
                 widgets.scanner,
                 widgets.output,

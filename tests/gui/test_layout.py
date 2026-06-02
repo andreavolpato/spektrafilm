@@ -338,7 +338,6 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         input_gamut_compress='input_gamut_compress',
         camera='camera',
         simulation='simulation',
-        exposure_control='exposure_control',
         enlarger='enlarger',
         scanner='scanner',
         output='output',

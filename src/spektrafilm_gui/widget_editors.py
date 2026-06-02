@@ -17,6 +17,7 @@ from spektrafilm.profiles.io import load_profile
 from spektrafilm_gui.theme_palette import (
     ACCENT_COLOR_TEXT,
     ACCENT_COLOR_TEXT_SECONDARY,
+    TEXT_DIM,
     BOOL_EDITOR_BORDER_CHECKED,
     BOOL_EDITOR_BORDER_UNCHECKED,
     BOOL_EDITOR_CHECKED_DISABLED,
@@ -30,18 +31,33 @@ from spektrafilm_gui.theme import resolve_theme_qcolor
 
 
 @lru_cache(maxsize=None)
-def _profile_use_text_and_color(profile_name: str) -> tuple[str, str]:
+def _profile_meta_tokens(profile_name: str) -> tuple[str, ...]:
+    """Metadata badge tokens for a profile, e.g. ('still', 'neg', 'color').
+
+    Reads use (still/cine), type (neg/pos) and channel model (color/bw) from
+    the profile's info. Returns an empty tuple when the profile can't be
+    loaded, so the editor falls back to showing the bare stock name.
+    """
     if not profile_name:
-        return '', ACCENT_COLOR_TEXT
+        return ()
     try:
         profile = load_profile(profile_name)
     except (FileNotFoundError, TypeError, ValueError):
-        return '', ACCENT_COLOR_TEXT
-    if profile.is_cine:
-        return 'cine', ACCENT_COLOR_TEXT_SECONDARY
-    if profile.is_still:
-        return 'still', ACCENT_COLOR_TEXT
-    return '', ACCENT_COLOR_TEXT
+        return ()
+    use = 'cine' if profile.is_cine else 'still' if profile.is_still else ''
+    profile_type = 'pos' if profile.is_positive else 'neg' if profile.is_negative else ''
+    channel = 'bw' if profile.is_bw else 'color' if profile.is_color else ''
+    return tuple(token for token in (use, profile_type, channel) if token)
+
+
+def _profile_token_color(token: str) -> str:
+    """Accent color for the use token (still/cine); gray for everything else
+    (type/channel badges)."""
+    if token == 'still':
+        return ACCENT_COLOR_TEXT
+    if token == 'cine':
+        return ACCENT_COLOR_TEXT_SECONDARY
+    return TEXT_DIM
 
 
 def _draw_profile_display_text(
@@ -52,29 +68,33 @@ def _draw_profile_display_text(
     base_color: QtGui.QColor,
     font: QtGui.QFont,
 ) -> None:
-    profile_use, use_color = _profile_use_text_and_color(profile_name)
-    if not profile_use:
+    painter.setFont(font)
+    tokens = _profile_meta_tokens(profile_name)
+    if not tokens:
         painter.setPen(base_color)
-        painter.setFont(font)
         painter.drawText(rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, profile_name)
         return
 
+    # Per-segment coloring: still/cine in their accent colors, the type/channel
+    # badges and the "/" bars in gray, then the stock name in the base color.
+    bar_color = QtGui.QColor(TEXT_DIM)
+    segments: list[tuple[str, QtGui.QColor]] = []
+    for token in tokens:
+        segments.append((token, QtGui.QColor(_profile_token_color(token))))
+        segments.append((' / ', bar_color))
+    segments.append((profile_name, base_color))
+
     font_metrics = QtGui.QFontMetrics(font)
-    prefix_text = f'{profile_use} '
-    slash_text = '/ '
-    prefix_width = font_metrics.horizontalAdvance(prefix_text)
-    slash_width = font_metrics.horizontalAdvance(slash_text)
-
-    painter.setFont(font)
-    prefix_rect = QRect(rect.x(), rect.y(), prefix_width, rect.height())
-    slash_rect = QRect(rect.x() + prefix_width, rect.y(), slash_width, rect.height())
-    value_rect = QRect(rect.x() + prefix_width + slash_width, rect.y(), max(0, rect.width() - prefix_width - slash_width), rect.height())
-
-    painter.setPen(QtGui.QColor(use_color))
-    painter.drawText(prefix_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, prefix_text)
-    painter.setPen(base_color)
-    painter.drawText(slash_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, slash_text)
-    painter.drawText(value_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, profile_name)
+    x = rect.x()
+    right = rect.x() + rect.width()
+    for text, color in segments:
+        if x >= right:
+            break
+        width = font_metrics.horizontalAdvance(text)
+        seg_rect = QRect(x, rect.y(), min(width, right - x), rect.height())
+        painter.setPen(color)
+        painter.drawText(seg_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, text)
+        x += width
 
 
 class ProfileEnumItemDelegate(QStyledItemDelegate):
@@ -110,10 +130,10 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
 
     @staticmethod
     def display_text_for_value(value: str) -> str:
-        profile_use, _color = _profile_use_text_and_color(value)
-        if not profile_use:
+        tokens = _profile_meta_tokens(value)
+        if not tokens:
             return value
-        return f'{profile_use} / {value}'
+        return f"{' / '.join(tokens)} / {value}"
 
     @property
     def value(self) -> str:
