@@ -91,7 +91,7 @@ def apply_grain_to_density(density_cmy,
     
     density_cmy += density_min
     density_cmy_out = np.zeros_like(density_cmy)
-    for ch in np.arange(3):
+    for ch in np.arange(density_cmy.shape[-1]):
         for sl in np.arange(n_sub_layers):
             density_cmy_out[:,:,ch] += layer_particle_model(density_cmy[:,:,ch],
                                                             density_max=density_max[ch],
@@ -140,10 +140,13 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
     else:
         seed = [0, 1, 2]
     
+    # density_cmy_layers is (x, y, sublayers, channels): channel is the last axis.
+    n_layers = density_cmy_layers.shape[2]
+    n_ch = density_cmy_layers.shape[3]
     density_cmy_layers += density_min_layers
-    density_cmy_out = np.zeros(density_cmy_layers.shape[0:3])
-    for ch in np.arange(3): # rgb channels
-        for sl in np.arange(3): # sublayers
+    density_cmy_out = np.zeros(density_cmy_layers.shape[0:2] + (n_ch,))
+    for ch in np.arange(n_ch): # channels
+        for sl in np.arange(n_layers): # sublayers
             density_cmy_out[:,:,ch] += layer_particle_model(density_cmy_layers[:,:,sl,ch],
                                                             density_max=density_max_layers[sl,ch],
                                                             n_particles_per_pixel=n_particles_per_pixel[sl,ch],

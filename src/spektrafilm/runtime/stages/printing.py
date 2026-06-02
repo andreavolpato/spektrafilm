@@ -38,7 +38,7 @@ class PrintingStage:
 
     def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
         
-        cmy_film_black = np.zeros((1,1,3)) - np.array(self._film_render.grain.density_min)
+        cmy_film_black = np.zeros((1, 1, self._film.info.n_channels)) - np.array(self._film_render.grain.density_min)
         cmy_film_white = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
         self._color_reference_service.log_raw_print_black = self._film_cmy_to_print_log_raw(cmy_film_black)
         self._color_reference_service.log_raw_print_white = self._film_cmy_to_print_log_raw(cmy_film_white)
@@ -97,7 +97,7 @@ class PrintingStage:
             light_preflash = density_to_light(density_base, preflash_illuminant)
             raw_preflash = contract("ijk, kl->ijl", light_preflash, sensitivity)
             return raw_preflash * self._enlarger.preflash_exposure
-        return np.zeros((3,))
+        return np.zeros((sensitivity.shape[1],))
 
     def _compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
         factor_midgray = _exposure_factor(sensitivity, print_illuminant, self._enlarger_service.density_spectral_midgray)

@@ -99,7 +99,7 @@ class FilmingStage:
         if self._camera.filter_uv[0] > 0 or self._camera.filter_ir[0] > 0:
             illuminant = standard_illuminant(self._film.info.reference_illuminant)
             band_pass_filter = compute_band_pass_filter(self._camera.filter_uv, self._camera.filter_ir)
-            band_pass_filter = np.tile(band_pass_filter[:, None], (1, 3))
+            band_pass_filter = np.tile(band_pass_filter[:, None], (1, sensitivity.shape[1]))
             normalization = np.sum(sensitivity * band_pass_filter * illuminant[:, None], axis=0) / np.sum(sensitivity * illuminant[:, None], axis=0)
             sensitivity *= band_pass_filter / normalization
 

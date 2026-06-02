@@ -206,13 +206,19 @@ class TestRemapTcLutForCompression:
         assert out.shape == lut.shape
         assert np.all(np.isfinite(out))
 
-    def test_remap_rejects_non_3_channels(self):
-        lut = np.zeros((32, 32, 4))
+    def test_remap_handles_single_channel_bw(self):
+        # The remap is channel-generic (each channel sampled independently), so a
+        # 1-channel BW tc_lut must remap correctly rather than being rejected.
+        H = W = 32
+        i, _ = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
+        lut = (i / (H - 1))[..., None].astype(float)  # (32, 32, 1)
         spec = InputGamutCompressSpec()
-        with pytest.raises(AssertionError, match="3 channels"):
-            remap_tc_lut_for_compression(
-                lut, np.array([1 / 3, 1 / 3]), spec,
-            )
+        out = remap_tc_lut_for_compression(
+            lut, np.array([1 / 3, 1 / 3]), spec,
+        )
+        assert out.shape == (H, W, 1)
+        assert out.dtype == lut.dtype
+        assert np.all(np.isfinite(out))
 
 
 class TestOutputGamutCompressSpec:
