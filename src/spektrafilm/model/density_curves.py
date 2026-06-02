@@ -1,6 +1,164 @@
 import numpy as np
 import scipy
+import scipy.stats
 from spektrafilm.utils.fast_interp import fast_interp
+
+
+################################################################################
+# Parametric density-curve model (source of truth)
+################################################################################
+#
+# A profile's density curves are defined by its DensityCurvesModel: per channel
+# and per layer a (center, amplitude, sigma) — plus a skew `alpha` for the
+# septic model. The sampled `density_curves` / `density_curves_layers` arrays
+# the runtime consumes are DERIVED from this model by sampling it onto the
+# profile's log_exposure grid (see refresh_density_curves_from_model). The
+# arrays are an implementation detail of the fast_interp hot path; the model is
+# the source of truth.
+#
+# Two per-layer sigmoid families (model_type):
+#   'norm_cdfs'      Gaussian CDF Phi((x-mu)/sigma)        — no skew.
+#   'sept_norm_cdfs' septic-polynomial CDF approximation with a median-
+#                    preserving skew `alpha` (|alpha|<1). Transcendental-free;
+#                    alpha=0 reproduces the symmetric Gaussian fit. Derived in
+#                    research study b70/s010.
+
+SEPT_K = 5.8013  # septic support width in sigmas (minimax vs Gaussian CDF)
+_GAUSS_MODEL_TYPES = ('norm_cdfs',)
+_SEPT_MODEL_TYPE = 'sept_norm_cdfs'
+
+
+def _septic_smoothstep(v):
+    """Order-7 Hermite smoothstep on [0, 1]: 35v^4 - 84v^5 + 70v^6 - 20v^7."""
+    v2 = v * v
+    return (v2 * v2) * (35.0 + v * (-84.0 + v * (70.0 - 20.0 * v)))
+
+
+def _septic_smoothstep_deriv(v):
+    """d/dv of the septic smoothstep: 140 v^3 (1 - v)^3."""
+    return 140.0 * (v ** 3) * ((1.0 - v) ** 3)
+
+
+def _septic_warp(z, alpha=0.0):
+    """Map signed `z` (sigma units) to the warped smoothstep coordinate.
+
+    Median-preserving skew warp v = u + alpha*u(1-u)(2u-1)^2 (vanishes at
+    u=0.5, so the 0.5 crossing stays on the center for every alpha). Returns
+    (v, dv/du) so callers can form both the CDF and its derivative.
+    """
+    u = np.clip(z / SEPT_K + 0.5, 0.0, 1.0)
+    if alpha:
+        two_u_m1 = 2.0 * u - 1.0
+        v = np.clip(u + alpha * u * (1.0 - u) * two_u_m1 * two_u_m1, 0.0, 1.0)
+        dv_du = 1.0 + alpha * (u * (u * (-16.0 * u + 24.0) - 10.0) + 1.0)
+        return v, dv_du
+    return u, 1.0
+
+
+def _septic_cdf(z, alpha=0.0):
+    """Septic CDF approximation for input `z` in sigma units, with skew alpha."""
+    v, _ = _septic_warp(z, alpha)
+    return _septic_smoothstep(v)
+
+
+def _septic_layer(z, alpha=0.0):
+    """Septic CDF and its du-derivative (for pdf / distribution models)."""
+    v, dv_du = _septic_warp(z, alpha)
+    return _septic_smoothstep(v), _septic_smoothstep_deriv(v) * dv_du
+
+
+def _layer_cdf_values(z, model_type, alpha=0.0):
+    """Per-layer sigmoid value for signed input `z`, dispatched by model_type."""
+    if model_type in _GAUSS_MODEL_TYPES:
+        return scipy.stats.norm.cdf(z)
+    if model_type == _SEPT_MODEL_TYPE:
+        return _septic_cdf(z, alpha)
+    raise ValueError(
+        f"unknown density-curve model_type {model_type!r}; "
+        f"expected one of {(*_GAUSS_MODEL_TYPES, _SEPT_MODEL_TYPE)}"
+    )
+
+
+def _require_model(density_curves_model):
+    if density_curves_model is None:
+        raise ValueError(
+            "profile has no density_curves_model; the runtime derives density "
+            "curves from the parametric model and requires it to be present"
+        )
+    return density_curves_model
+
+
+def evaluate_density_curves(density_curves_model, log_exposure, profile_type='negative'):
+    """Sample the model's total density curves onto `log_exposure`.
+
+    Returns an array shaped (n_le, n_channels). Mirrors the per-channel sum
+    D(x) = sum_i A_i * cdf(+/-(x - mu_i) / sigma_i) used at fit time.
+    """
+    model = _require_model(density_curves_model)
+    x = np.asarray(log_exposure, dtype=float)
+    centers = np.asarray(model.centers, dtype=float)
+    amplitudes = np.asarray(model.amplitudes, dtype=float)
+    sigmas = np.asarray(model.sigmas, dtype=float)
+    alphas = None if model.alphas is None else np.asarray(model.alphas, dtype=float)
+    n_ch, n_layers = centers.shape
+    sign = -1.0 if profile_type == 'positive' else 1.0
+
+    out = np.zeros((x.size, n_ch), dtype=float)
+    for ch in range(n_ch):
+        for i in range(n_layers):
+            z = sign * (x - centers[ch, i]) / sigmas[ch, i]
+            alpha = float(alphas[ch, i]) if alphas is not None else 0.0
+            out[:, ch] += amplitudes[ch, i] * _layer_cdf_values(z, model.model_type, alpha)
+    return out
+
+
+def evaluate_density_curves_layers(density_curves_model, log_exposure,
+                                   profile_type='negative'):
+    """Sample the model's per-layer density curves onto `log_exposure`.
+
+    Returns an array shaped (n_le, n_layers, n_channels) — one slice per
+    emulsion sub-layer, summing across the layer axis to the total curve.
+    """
+    model = _require_model(density_curves_model)
+    x = np.asarray(log_exposure, dtype=float)
+    centers = np.asarray(model.centers, dtype=float)
+    amplitudes = np.asarray(model.amplitudes, dtype=float)
+    sigmas = np.asarray(model.sigmas, dtype=float)
+    alphas = None if model.alphas is None else np.asarray(model.alphas, dtype=float)
+    n_ch, n_layers = centers.shape
+    sign = -1.0 if profile_type == 'positive' else 1.0
+
+    out = np.zeros((x.size, n_layers, n_ch), dtype=float)
+    for ch in range(n_ch):
+        for i in range(n_layers):
+            z = sign * (x - centers[ch, i]) / sigmas[ch, i]
+            alpha = float(alphas[ch, i]) if alphas is not None else 0.0
+            out[:, i, ch] = amplitudes[ch, i] * _layer_cdf_values(z, model.model_type, alpha)
+    return out
+
+
+def refresh_density_curves_from_model(profile_data, profile_type='negative'):
+    """Repopulate `density_curves` and `density_curves_layers` on `profile_data`
+    from its `density_curves_model`, in place.
+
+    The model is the source of truth; this samples it onto the profile's own
+    `log_exposure` grid so every downstream consumer (develop, grain, couplers,
+    Dmax probes) sees model-derived arrays. Raises if the model is absent.
+
+    A single-layer model has no emulsion sub-layer structure, so
+    `density_curves_layers` is left None (the grain path then uses its simple,
+    non-sublayer branch) — matching how such stocks behaved previously.
+    """
+    model = _require_model(profile_data.density_curves_model)
+    log_exposure = np.asarray(profile_data.log_exposure, dtype=float)
+    profile_data.density_curves = evaluate_density_curves(model, log_exposure, profile_type)
+    if model.n_layers > 1:
+        profile_data.density_curves_layers = evaluate_density_curves_layers(
+            model, log_exposure, profile_type)
+    else:
+        profile_data.density_curves_layers = None
+    return profile_data
+
 
 ################################################################################
 # Denstity curves
