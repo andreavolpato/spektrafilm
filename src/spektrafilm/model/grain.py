@@ -179,7 +179,7 @@ def apply_grain(
     if not grain.active or bypass_grain:
         return density_cmy
 
-    if not grain.sublayers_active:
+    if not grain.sublayers_active or density_curves_layers is None:
         density_max = np.nanmax(density_curves, axis=0)
         return apply_grain_to_density(
             density_cmy,

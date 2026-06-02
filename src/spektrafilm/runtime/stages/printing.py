@@ -4,7 +4,7 @@ import numpy as np
 from opt_einsum import contract
 
 from spektrafilm.model.diffusion import apply_diffusion_filter_um
-from spektrafilm.model.develop import compute_density_spectral, develop_print_morph
+from spektrafilm.model.develop import compute_density_spectral, develop_print_morph, develop_simple
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.conversions import density_to_light
 
@@ -61,11 +61,20 @@ class PrintingStage:
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
-                
+        model = self._print.data.density_curves_model
+        if model is None or model.centers is None:
+            # No parametric morph model: develop directly against the stored
+            # curves (the morph is a feature that's simply off when absent).
+            return develop_simple(
+                log_raw,
+                self._print.data.log_exposure,
+                self._print.data.density_curves,
+                gamma_factor=1.0,
+            )
         return develop_print_morph(
             log_raw,
             self._print.data.log_exposure,
-            self._print.data.density_curves_model,
+            model,
             density_curves_morph=self._print_render.density_curves_morph,
             profile_type=self._print.info.type,
         )

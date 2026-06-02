@@ -9,10 +9,15 @@ from spektrafilm.model.color_filters import dichroic_filters
 def _density_matrix(emulsion):
     if hasattr(emulsion, 'dye_density'):
         return np.asarray(emulsion.dye_density)
+    base_density = np.asarray(emulsion.data.base_density)
+    midscale = emulsion.data.midscale_neutral_density
+    # midscale is optional (absent -> None); fall back to zeros so the draft plot
+    # still composes for stocks that don't carry it (e.g. BW).
+    midscale = np.zeros_like(base_density) if midscale is None else np.asarray(midscale)
     return np.column_stack((
         np.asarray(emulsion.data.channel_density),
-        np.asarray(emulsion.data.base_density),
-        np.asarray(emulsion.data.midscale_neutral_density),
+        base_density,
+        midscale,
     ))
 
 def plot(self):
