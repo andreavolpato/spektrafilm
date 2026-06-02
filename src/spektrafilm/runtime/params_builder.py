@@ -198,6 +198,10 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.104, 0.078)
         params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.078, 0.078)
         
+    if params.film.is_bw:
+        params.film_render.grain.particle_area_um2 = 1.2
+        params.film_render.grain.uniformity = (0.05, 0.05, 0.05)
+        
     # if params.film.info.stock == "kodak_portra_400":
     #     params.film_render.halation.scatter_core_um = (3.5, 2.2, 1.9)
     return params

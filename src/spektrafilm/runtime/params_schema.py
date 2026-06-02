@@ -52,8 +52,10 @@ class CameraParams:
     auto_exposure_method: str = "center_weighted"
     lens_blur_um: float = 0.0
     film_format_mm: float = 35.0
-    filter_uv: tuple[float, float, float] = (0.0, 410.0, 8.0)
-    filter_ir: tuple[float, float, float] = (0.0, 675.0, 15.0)
+    # color_filter selects a camera taking filter from the color filter library.
+    # Allowed values are the members of `CameraColorFilters` in
+    # spektrafilm.model.color_filters ("none" = no filter).
+    color_filter: str = "none"
     diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
 
 
@@ -89,11 +91,11 @@ class ScannerParams:
 class GrainParams:
     active: bool = True
     sublayers_active: bool = True
-    particle_area_um2: float = 0.2
-    particle_scale: tuple[float, float, float] = (1.6, 1.6, 3.2)
+    particle_area_um2: float = 0.4
+    particle_scale: tuple[float, float, float] = (1.0, 1.5, 2.0)
     particle_scale_layers: tuple[float, float, float] = (2.0, 1.0, 0.5)
     density_min: tuple[float, float, float] = (0.03, 0.03, 0.03)
-    uniformity: tuple[float, float, float] = (0.97, 0.99, 0.97)
+    uniformity: tuple[float, float, float] = (0.97, 0.97, 0.97)
     blur: float = 0.65
     blur_dye_clouds_um: float = 1.0
     micro_structure: tuple[float, float] = (0.2, 30)

@@ -29,6 +29,7 @@ from spektrafilm.runtime.params_schema import (
 )
 from spektrafilm.runtime.params_schema import CameraParams
 from spektrafilm.model.illuminants import Illuminants
+from spektrafilm.model.color_filters import CameraColorFilters
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
 from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
@@ -282,7 +283,6 @@ GRAIN_MANIFEST = GroupManifest(
     group_cls=GrainParams,
     fields=(
         ParamSpec(f"{_G}.active", tier="basic", tooltip="Add grain to the negative"),
-        ParamSpec(f"{_G}.sublayers_active", tier="basic", tooltip="Enable per-sublayer grain structure."),
         ParamSpec(
             f"{_G}.particle_area_um2",
             tier="basic",
@@ -499,6 +499,19 @@ _CAM = "camera"
 
 CAMERA_PANEL_FIELDS = (
     ParamSpec(
+        f"{_CAM}.exposure_compensation_ev",
+        tier="basic",
+        min=-100,
+        max=100,
+        step=0.25,
+        tooltip="Add a bias to the auto-exposure of the camera.",
+    ),
+    ParamSpec(
+        f"{_CAM}.auto_exposure",
+        tier="basic",
+        tooltip="Use the auto-exposure feature of the virtual camera.",
+    ),
+    ParamSpec(
         f"{_CAM}.film_format_mm",
         tier="basic",
         min=8.0,
@@ -508,36 +521,15 @@ CAMERA_PANEL_FIELDS = (
         tooltip="Long edge of the film format in millimeters, e.g. 8, 16, 35, 60, 120.",
     ),
     ParamSpec(
-        f"{_CAM}.lens_blur_um",
-        min=0,
-        step=0.05,
-        tooltip="Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses; used for sharp input simulations without lens blur.",
-    ),
-    ParamSpec(
         f"{_CAM}.auto_exposure_method",
         enum=AutoExposureMethods,
         tooltip="Metering method used by the virtual camera's auto-exposure.",
     ),
-)
-
-# Camera-owned exposure controls displayed in the Exposure control panel
-# rather than the Camera panel. They remain CameraParams fields, so the
-# camera section still builds, persists, and auto-preview-wires their
-# editors; CAMERA_MANIFEST.panel_fields keeps them out of the Camera
-# panel so ExposureControlSection can borrow them.
-CAMERA_EXPOSURE_BORROWED_FIELDS = (
     ParamSpec(
-        f"{_CAM}.auto_exposure",
+        f"{_CAM}.color_filter",
         tier="basic",
-        tooltip="Use the auto-exposure feature of the virtual camera.",
-    ),
-    ParamSpec(
-        f"{_CAM}.exposure_compensation_ev",
-        tier="basic",
-        min=-100,
-        max=100,
-        step=0.25,
-        tooltip="Add a bias to the auto-exposure of the camera.",
+        enum=CameraColorFilters,
+        tooltip="Camera taking filter held in front of the lens. Its measured spectral transmittance multiplies the incoming light, so it both darkens and color-casts the exposure (e.g. Hoya Y2/YA3 yellow, R1 red, X0/X1 UV/haze). 'none' = no filter.",
     ),
 )
 
@@ -545,9 +537,8 @@ CAMERA_MANIFEST = GroupManifest(
     title="Camera",
     group_path=_CAM,
     group_cls=CameraParams,
-    collapsed_by_default=True,
-    fields=CAMERA_PANEL_FIELDS + CAMERA_EXPOSURE_BORROWED_FIELDS,
-    panel_fields=CAMERA_PANEL_FIELDS,
+    collapsed_by_default=False,
+    fields=CAMERA_PANEL_FIELDS,
 )
 
 
@@ -796,18 +787,18 @@ SIMULATION_SPECIAL_BORROWED_FIELDS = (
 
 SIMULATION_EXPOSURE_PANEL_FIELDS = (
     ParamSpec(
-        "enlarger.print_exposure_compensation",
-        name="print_exposure_compensation",
-        label="Print auto compensation",
-        tooltip="Auto adjust the print exposure for the camera exposure compensation ev",
-    ),
-    ParamSpec(
         "enlarger.print_exposure",
         name="print_exposure",
         label="Print exposure",
         tooltip="Changes the exposure time set in the virtual enlarger",
         min=0,
         step=0.02,
+    ),
+    ParamSpec(
+        "enlarger.print_exposure_compensation",
+        name="print_exposure_compensation",
+        label="Print auto compensation",
+        tooltip="Auto adjust the print exposure for the camera exposure compensation ev",
     ),
 )
 

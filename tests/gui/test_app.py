@@ -6,7 +6,7 @@ import numpy as np
 from qtpy import QtGui
 
 from spektrafilm_gui import app as app_module
-from spektrafilm_gui import param_manifest as param_manifest_module
+from spektrafilm_gui import params_manifest as param_manifest_module
 from spektrafilm_gui import state as state_module
 
 from .helpers import StubToggle, make_test_gui_state

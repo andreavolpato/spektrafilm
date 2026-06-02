@@ -147,7 +147,6 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
     state = make_state()
     state.camera.lens_blur_um = 4.0
     state.camera.exposure_compensation_ev = 0.75
-    state.camera.filter_uv = (0.5, 400.0, 10.0)
     # The camera diffusion filter is now its own section (FILM tab), owned by
     # state.camera_diffusion -- NOT the passthrough state.camera.diffusion_filter.
     state.camera_diffusion = replace(
@@ -163,7 +162,6 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
 
     assert params.camera.lens_blur_um == 4.0
     assert params.camera.exposure_compensation_ev == 0.75
-    assert params.camera.filter_uv == (0.5, 400.0, 10.0)
     assert params.camera.diffusion_filter.active is True
     assert params.camera.diffusion_filter.filter_family == 'glimmerglass'
     assert params.camera.diffusion_filter.strength == 0.25

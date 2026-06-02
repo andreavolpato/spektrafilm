@@ -199,7 +199,6 @@ class SimulationPipeline:
 
     def _preprocess(self, image):
         image = np.double(np.array(image)[:, :, 0:3])
-        image = self._filming_stage.auto_exposure(image)
         image = self._resize_service.crop_and_rescale(image)
         return image
 
