@@ -5,6 +5,7 @@ from time import perf_counter
 
 import numpy as np
 
+from spektrafilm.model.density_curves import refresh_density_curves_from_model
 from spektrafilm.runtime.services import (
     EnlargerService,
     ResizingService,
@@ -41,6 +42,14 @@ class SimulationPipeline:
         self.debug = self._params.debug
         self.settings = self._params.settings
         self.taps = self._params.taps
+
+        # The parametric density_curves_model is the source of truth. Sample it
+        # onto each profile's log_exposure grid so every downstream consumer
+        # (develop, grain, couplers, Dmax probes) reads model-derived curves.
+        # Done before services/stages capture the profiles below.
+        for profile in (self.film, self.print):
+            if profile is not None:
+                refresh_density_curves_from_model(profile.data, profile.info.type)
 
         self.timings = {}
         self._last_elapsed_time = None

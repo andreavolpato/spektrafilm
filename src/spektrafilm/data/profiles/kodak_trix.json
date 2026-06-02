@@ -4527,7 +4527,7 @@
             ]
         ],
         "density_curves_model": {
-            "model_type": "cdfs",
+            "model_type": "norm_cdfs",
             "centers": [
                 [
                     -0.4874568239140218,

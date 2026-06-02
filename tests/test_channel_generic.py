@@ -21,7 +21,7 @@ from spektrafilm.model.couplers import (
     apply_density_correction_dir_couplers,
     compute_dir_couplers_matrix,
 )
-from spektrafilm.profiles.io import Profile, ProfileData, ProfileInfo
+from spektrafilm.profiles.io import DensityCurvesModel, Profile, ProfileData, ProfileInfo
 from spektrafilm.runtime.params_builder import init_params, digest_params
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams, HalationParams
 from spektrafilm.runtime.pipeline import SimulationPipeline
@@ -36,6 +36,16 @@ def _synthetic_bw_negative():
     sens = 0.5 * np.exp(-((wl - 560.0) / 130.0) ** 2) + 1e-3
     log_exposure = np.linspace(-3.0, 1.5, 256)
     density_curves = (0.1 + 1.9 / (1 + np.exp(-(log_exposure + 0.5) / 0.4)))[:, None]
+    # The runtime derives density curves from the parametric model; give this
+    # synthetic stock a one-layer Gaussian-CDF model that matches the logistic
+    # above (center -0.5, amplitude 1.9, sigma ~0.64 for the 0.4 logistic scale;
+    # the 0.1 base is normalized away in develop).
+    density_curves_model = DensityCurvesModel(
+        model_type='norm_cdfs',
+        centers=[[-0.5]],
+        amplitudes=[[1.9]],
+        sigmas=[[0.64]],
+    )
     data = ProfileData(
         wavelengths=wl,
         log_sensitivity=np.log10(sens)[:, None],
@@ -44,6 +54,7 @@ def _synthetic_bw_negative():
         midscale_neutral_density=np.zeros(wl.size),
         log_exposure=log_exposure,
         density_curves=density_curves,
+        density_curves_model=density_curves_model,
     )
     info = ProfileInfo(stock='synthetic_bw_pan', name='Synthetic BW Pan',
                        type='negative', support='film', stage='filming',
