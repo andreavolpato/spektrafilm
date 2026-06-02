@@ -68,12 +68,11 @@ class TestLoadProfile:
 
         assert profile.data.log_sensitivity.ndim == 2
         assert profile.data.log_sensitivity.shape[1] == 3
-        assert profile.data.hanatos2025_adaptation_window_params.ndim == 1
-        assert profile.data.hanatos2025_adaptation_surface_params.ndim == 2
-        assert (
-            profile.data.hanatos2025_adaptation_surface_params.size == 0
-            or profile.data.hanatos2025_adaptation_surface_params.shape[0] == 3
-        )
+        # Adaptation params are optional: None when absent/empty, else shaped.
+        window = profile.data.hanatos2025_adaptation_window_params
+        surface = profile.data.hanatos2025_adaptation_surface_params
+        assert window is None or window.ndim == 1
+        assert surface is None or (surface.ndim == 2 and surface.shape[0] == 3)
 
         assert profile.data.wavelengths.ndim == 1
         assert profile.data.channel_density.ndim == 2
@@ -213,6 +212,37 @@ class TestChannelCount:
         profile.data.channel_density = np.zeros((profile.data.wavelengths.shape[0], 1))
         with pytest.raises(ValueError, match='synthetic'):
             _validate_profile(profile, 'synthetic')
+
+
+class TestFlexibleProfileData:
+    """The data model adapts: absent/empty -> None, unknown keys tolerated."""
+
+    def test_omitted_optional_fields_default_to_none(self):
+        profile = profile_from_dict({'info': {'channel_model': 'bw'},
+                                     'data': {'wavelengths': [380.0, 385.0]}})
+        assert profile.data.density_curves_layers is None
+        assert profile.data.density_curves_model is None
+        assert profile.data.midscale_neutral_density is None
+        assert profile.data.hanatos2025_adaptation_window_params is None
+        assert profile.data.hanatos2025_adaptation_surface_params is None
+
+    def test_empty_array_becomes_none(self):
+        # "no data is no data": an explicit [] is treated the same as absent.
+        profile = profile_from_dict({'data': {'midscale_neutral_density': []}})
+        assert profile.data.midscale_neutral_density is None
+
+    def test_present_field_is_coerced_to_float_array(self):
+        profile = profile_from_dict({'data': {'wavelengths': [380, 385, 390]}})
+        assert isinstance(profile.data.wavelengths, np.ndarray)
+        assert profile.data.wavelengths.dtype == float
+
+    def test_unknown_data_field_is_tolerated_with_warning(self):
+        payload = {'info': {'channel_model': 'bw'},
+                   'data': {'wavelengths': [380.0], 'experimental_curve': [1.0, 2.0]}}
+        with pytest.warns(RuntimeWarning, match='experimental_curve'):
+            profile = profile_from_dict(payload)
+        assert not hasattr(profile.data, 'experimental_curve')
+        np.testing.assert_array_equal(profile.data.wavelengths, [380.0])
 
 
 class TestDependencyBoundaries:

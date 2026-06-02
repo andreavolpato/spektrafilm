@@ -1,4 +1,5 @@
 import copy
+import warnings
 from datetime import date
 from importlib.metadata import PackageNotFoundError, version as distribution_version
 import importlib.resources as pkg_resources
@@ -37,44 +38,34 @@ def _created_date() -> str:
 def _copyright_statement() -> str:
     return f"Copyright (c) {date.today().year} Andrea Volpato. Licensed under CC BY-SA 4.0."
 
-def _empty_vector() -> np.ndarray:
-    return np.empty((0,), dtype=float)
-
-def _empty_matrix() -> np.ndarray:
-    return np.empty((0, 3), dtype=float)
-
-def _empty_tensor() -> np.ndarray:
-    return np.empty((0, 3, 3), dtype=float)
-
-
-def _empty_layer_matrix() -> np.ndarray:
-    return np.empty((3, 0), dtype=float)
-
-
 @dataclass
 class DensityCurvesModel:
     """Parametric model of the density curves.
 
-    `centers`, `amplitudes`, `sigmas` are 2D arrays shaped (n_channels, n_layers).
-    n_layers can be 2, 3, ... — set by the array shape.
+    `centers`, `amplitudes`, `sigmas` are 2D arrays shaped (n_channels, n_layers),
+    or None when absent. n_layers can be 2, 3, ... — set by the array shape.
+    Same rule as ProfileData: present, non-empty → float ndarray; else None.
     """
     model_type: str = 'cdfs'
-    centers: np.ndarray = field(default_factory=_empty_layer_matrix)
-    amplitudes: np.ndarray = field(default_factory=_empty_layer_matrix)
-    sigmas: np.ndarray = field(default_factory=_empty_layer_matrix)
+    centers: np.ndarray | None = None
+    amplitudes: np.ndarray | None = None
+    sigmas: np.ndarray | None = None
 
     def __post_init__(self):
-        self.centers = np.asarray(self.centers, dtype=float)
-        self.amplitudes = np.asarray(self.amplitudes, dtype=float)
-        self.sigmas = np.asarray(self.sigmas, dtype=float)
+        for name in ('centers', 'amplitudes', 'sigmas'):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            arr = np.asarray(value, dtype=float)
+            setattr(self, name, arr if arr.size else None)
 
     @property
     def n_channels(self) -> int:
-        return self.centers.shape[0] if self.centers.ndim == 2 else 0
+        return self.centers.shape[0] if self.centers is not None and self.centers.ndim == 2 else 0
 
     @property
     def n_layers(self) -> int:
-        return self.centers.shape[1] if self.centers.ndim == 2 else 0
+        return self.centers.shape[1] if self.centers is not None and self.centers.ndim == 2 else 0
 
 
 @dataclass
@@ -130,8 +121,8 @@ class ProfileInfo:
 
 @dataclass
 class Hanatos2025SensitivityAdaptation:
-    window_params: np.ndarray = field(default_factory=_empty_vector)
-    surface_params: np.ndarray = field(default_factory=_empty_vector)
+    window_params: np.ndarray | None = None
+    surface_params: np.ndarray | None = None
     spectral_gaussian_blur: float = 0.0 # sigma in nm for gaussian blur of the spectra
     reference_illuminant: str = None # "D55" or "T"
     apply_window: bool = True
@@ -140,36 +131,47 @@ class Hanatos2025SensitivityAdaptation:
 
 @dataclass
 class ProfileData:
-    wavelengths: np.ndarray = field(default_factory=_empty_vector)
-    log_sensitivity: np.ndarray = field(default_factory=_empty_matrix)
-    hanatos2025_adaptation_window_params: np.ndarray = field(default_factory=_empty_vector)
-    hanatos2025_adaptation_surface_params: np.ndarray = field(default_factory=_empty_vector)
-    channel_density: np.ndarray = field(default_factory=_empty_matrix)
-    base_density: np.ndarray = field(default_factory=_empty_vector)
-    midscale_neutral_density: np.ndarray = field(default_factory=_empty_vector)
-    log_exposure: np.ndarray = field(default_factory=_empty_vector)
-    density_curves: np.ndarray = field(default_factory=_empty_matrix)
-    density_curves_layers: np.ndarray = field(default_factory=_empty_tensor)
-    density_curves_model: DensityCurvesModel = field(default_factory=DensityCurvesModel)
+    """Spectral and characteristic data for a stock.
+
+    Every field defaults to ``None``: an absent field is ``None``, never a fake
+    empty array. Whatever is present is coerced to a float ndarray. The model is
+    meant to grow — adding a new array field is a single line here and nothing
+    else needs to change (``__post_init__`` coerces it, ``profile_from_dict``
+    loads it, it round-trips). ``_validate_profile`` only checks the internal
+    shape-consistency of the fields that are present.
+    """
+    # --- wavelengths
+    wavelengths: np.ndarray | None = None
+    log_sensitivity: np.ndarray | None = None
+    channel_density: np.ndarray | None = None
+    base_density: np.ndarray | None = None
+    midscale_neutral_density: np.ndarray | None = None
+    # --- log_exposure
+    log_exposure: np.ndarray | None = None
+    density_curves: np.ndarray | None = None
+    density_curves_layers: np.ndarray | None = None
+    density_curves_model: DensityCurvesModel | None = None
+    # --- extra
+    hanatos2025_adaptation_window_params: np.ndarray | None = None
+    hanatos2025_adaptation_surface_params: np.ndarray | None = None
 
     def __post_init__(self):
-        self.wavelengths = np.asarray(self.wavelengths, dtype=float)
-        self.log_sensitivity = np.asarray(self.log_sensitivity, dtype=float)
-        self.hanatos2025_adaptation_window_params = np.asarray(self.hanatos2025_adaptation_window_params, dtype=float)
-        if self.hanatos2025_adaptation_window_params.size == 0:
-            self.hanatos2025_adaptation_window_params = _empty_vector()
-        self.hanatos2025_adaptation_surface_params = np.asarray(self.hanatos2025_adaptation_surface_params, dtype=float)
-        if self.hanatos2025_adaptation_surface_params.size == 0:
-            self.hanatos2025_adaptation_surface_params = _empty_matrix()
-        self.channel_density = np.asarray(self.channel_density, dtype=float)
-        self.base_density = np.asarray(self.base_density, dtype=float)
-        self.midscale_neutral_density = np.asarray(self.midscale_neutral_density, dtype=float)
-        self.log_exposure = np.asarray(self.log_exposure, dtype=float)
-        self.density_curves = np.asarray(self.density_curves, dtype=float)
-        self.density_curves_layers = np.asarray(self.density_curves_layers, dtype=float)
-        if not isinstance(self.density_curves_model, DensityCurvesModel):
-            if isinstance(self.density_curves_model, Mapping):
-                self.density_curves_model = DensityCurvesModel(**dict(self.density_curves_model))
+        # One uniform rule: a present, non-empty array field becomes a float
+        # ndarray; anything absent OR empty becomes None ("no data is no data",
+        # whether the JSON omitted the key or gave []). density_curves_model is
+        # the one structured field.
+        for name in self.__dataclass_fields__:
+            if name == 'density_curves_model':
+                continue
+            value = getattr(self, name)
+            if value is None:
+                continue
+            arr = np.asarray(value, dtype=float)
+            setattr(self, name, arr if arr.size else None)
+        model = self.density_curves_model
+        if model is not None and not isinstance(model, DensityCurvesModel):
+            if isinstance(model, Mapping):
+                self.density_curves_model = DensityCurvesModel(**dict(model))
             else:
                 raise TypeError('density_curves_model must be a DensityCurvesModel or Mapping')
 
@@ -254,6 +256,22 @@ class Profile:
         return self.info.use == 'cine'
 
 
+def _known_fields_only(cls, payload, what):
+    """Keep only keys that are fields of `cls`; tolerate the rest with a warning
+    instead of crashing. This is what lets the schema evolve: an experimental
+    key in a profile file is ignored (not fatal) until it's promoted to a field.
+    """
+    known = cls.__dataclass_fields__
+    unknown = sorted(k for k in payload if k not in known)
+    if unknown:
+        warnings.warn(
+            f"Profile {what}: ignoring unknown field(s) {unknown}.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return {k: v for k, v in payload.items() if k in known}
+
+
 def profile_from_dict(data: Any) -> Profile:
     if isinstance(data, Profile):
         return data
@@ -276,9 +294,9 @@ def profile_from_dict(data: Any) -> Profile:
         info_payload.pop(key, None)
 
     return Profile(
-        metadata=ProfileMetadata(**dict(metadata_payload)),
-        info=ProfileInfo(**info_payload),
-        data=ProfileData(**dict(data_payload)),
+        metadata=ProfileMetadata(**_known_fields_only(ProfileMetadata, dict(metadata_payload), 'metadata')),
+        info=ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, 'info')),
+        data=ProfileData(**_known_fields_only(ProfileData, dict(data_payload), 'data')),
     )
 
 
@@ -323,33 +341,52 @@ def _validate_profile_info(info, stock):
         raise ValueError(f"Invalid profile '{stock}': unsupported channel_model={info.channel_model!r}")
 
 
+# The arrays a film/paper needs to actually run. Optional features
+# (density_curves_layers/model, hanatos adaptation, midscale) may be absent.
+_REQUIRED_DATA_FIELDS = (
+    'wavelengths', 'log_sensitivity', 'channel_density',
+    'base_density', 'log_exposure', 'density_curves',
+)
+
+
 def _validate_profile(profile, stock):
+    """Thin, permissive safety net: the run-essentials must be present, and any
+    field that *is* present must be internally shape-consistent. Absent optional
+    fields are fine. Channel count is declared by channel_model (1 bw / 3 color);
+    the spectral arrays must match it, and only color pins density_curves columns
+    to n_ch (BW columns will index development time — see b10 n050)."""
     try:
         _validate_profile_info(profile.info, stock)
         data = profile.data
-        # Channel count is declared by channel_model (1 for bw, 3 for color),
-        # and the per-channel spectral arrays (log_sensitivity / channel_density)
-        # must match it. For BW the density_curves columns index development
-        # time, so they are NOT constrained to n_ch here; only color requires
-        # density_curves.shape[1] == n_ch. (When development_time_min lands,
-        # tighten the BW check to == len(development_time_min). See b10 n050.)
         n_ch = profile.info.n_channels
+
+        missing = [f for f in _REQUIRED_DATA_FIELDS if getattr(data, f) is None]
+        if missing:
+            raise ValueError(f"Invalid profile '{stock}': missing required data {missing}")
+
+        n_wl = data.wavelengths.shape[0]
+        n_le = data.log_exposure.shape[0]
+
+        def present_ok(value, predicate):
+            return value is None or predicate(value)
+
         valid = (
-            data.log_exposure.ndim == 1
+            data.wavelengths.ndim == 1
+            and data.log_exposure.ndim == 1
             and data.density_curves.ndim == 2
-            and data.density_curves.shape[0] == data.log_exposure.shape[0]
+            and data.density_curves.shape[0] == n_le
             and (profile.info.channel_model != 'color'
                  or data.density_curves.shape[1] == n_ch)
             and data.log_sensitivity.ndim == 2
             and data.log_sensitivity.shape[1] == n_ch
             and data.channel_density.ndim == 2
             and data.channel_density.shape[1] == n_ch
-            and data.channel_density.shape[0] == data.wavelengths.shape[0]
-            and data.wavelengths.ndim == 1
+            and data.channel_density.shape[0] == n_wl
             and data.base_density.ndim == 1
-            and data.base_density.shape[0] == data.wavelengths.shape[0]
-            and data.midscale_neutral_density.ndim == 1
-            and data.midscale_neutral_density.shape[0] == data.wavelengths.shape[0]
+            and data.base_density.shape[0] == n_wl
+            # Optional: validated only when present.
+            and present_ok(data.midscale_neutral_density,
+                           lambda v: v.ndim == 1 and v.shape[0] == n_wl)
         )
     except (AttributeError, IndexError, KeyError, TypeError):
         raise ValueError(f"Invalid profile '{stock}'") from None
