@@ -71,18 +71,36 @@ class FilmingStage:
         return log_raw
 
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
+        density_curves, density_curves_layers = self._select_development_time_curves()
         return develop(
             log_raw,
             self._resize_service.pixel_size_um,
             self._film.data.log_exposure,
-            self._film.data.density_curves,
-            self._film.data.density_curves_layers,
+            density_curves,
+            density_curves_layers,
             self._film_render.dir_couplers,
             self._film_render.grain,
             self._film.info.type,
             gamma_factor=self._film_render.density_curve_gamma,
             use_fast_stats=self._settings.use_fast_stats,
         )
+
+    def _select_development_time_curves(self):
+        """Resolve a BW development-time family to the single curve matching the
+        requested development time. `development_time` (profile data) holds one
+        value per density-curve column; the nearest is picked. Single-curve /
+        color stocks (no `development_time`) pass through unchanged."""
+        data = self._film.data
+        density_curves = data.density_curves
+        density_curves_layers = data.density_curves_layers
+        development_time = data.development_time
+        if development_time is None or density_curves.shape[1] <= 1:
+            return density_curves, density_curves_layers
+        index = int(np.argmin(np.abs(np.asarray(development_time) - self._film_render.development_time)))
+        density_curves = density_curves[:, index:index + 1]
+        if density_curves_layers is not None:
+            density_curves_layers = density_curves_layers[:, :, index:index + 1]
+        return density_curves, density_curves_layers
 
     # private methods
 

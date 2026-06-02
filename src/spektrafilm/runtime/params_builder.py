@@ -34,6 +34,11 @@ def clone_runtime_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
     return RuntimePhotoParams(**kwargs)
 
 
+# Fallback filter pack (C, M, Y) for film/print/illuminant combinations that
+# aren't in the neutral-print-filters database — keeps any combination printable.
+_DEFAULT_NEUTRAL_PRINT_FILTERS = (0.0, 50.0, 50.0)
+
+
 @lru_cache(maxsize=1)
 def _get_neutral_print_filters():
     try:
@@ -46,7 +51,6 @@ def apply_database_neutral_print_filters(
     params: RuntimePhotoParams,
     *,
     database=None,
-    warn_missing: bool = True,
 ) -> RuntimePhotoParams:
     if not params.settings.neutral_print_filters_from_database:
         return params
@@ -58,17 +62,16 @@ def apply_database_neutral_print_filters(
         .get(params.enlarger.illuminant, {})
         .get(params.film.info.stock)
     )
-    if stock_filters is not None:
+    if stock_filters is None:
+        # Missing entry: fall back to a neutral default (C0 M50 Y50) instead of
+        # leaving the params untouched, so any film/print/illuminant combination
+        # stays printable even when it isn't in the database.
+        c_filter, m_filter, y_filter = _DEFAULT_NEUTRAL_PRINT_FILTERS
+    else:
         c_filter, m_filter, y_filter = (float(value) for value in stock_filters)
-        params.enlarger.c_filter_neutral = c_filter
-        params.enlarger.m_filter_neutral = m_filter
-        params.enlarger.y_filter_neutral = y_filter
-    elif warn_missing:
-        print(
-            f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} "
-            f"with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. "
-            "Using defaults."
-        )
+    params.enlarger.c_filter_neutral = c_filter
+    params.enlarger.m_filter_neutral = m_filter
+    params.enlarger.y_filter_neutral = y_filter
     return params
 
 

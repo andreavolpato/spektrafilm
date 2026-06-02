@@ -151,6 +151,9 @@ class ProfileData:
     density_curves: np.ndarray | None = None
     density_curves_layers: np.ndarray | None = None
     density_curves_model: DensityCurvesModel | None = None
+    # BW only: development time per density-curve column (the columns index
+    # development time, not channels). None for color.
+    development_time: np.ndarray | None = None
     # --- extra
     hanatos2025_adaptation_window_params: np.ndarray | None = None
     hanatos2025_adaptation_surface_params: np.ndarray | None = None
@@ -387,6 +390,9 @@ def _validate_profile(profile, stock):
             # Optional: validated only when present.
             and present_ok(data.midscale_neutral_density,
                            lambda v: v.ndim == 1 and v.shape[0] == n_wl)
+            # BW development-time family: one time per density-curve column.
+            and present_ok(data.development_time,
+                           lambda v: v.ndim == 1 and v.shape[0] == data.density_curves.shape[1])
         )
     except (AttributeError, IndexError, KeyError, TypeError):
         raise ValueError(f"Invalid profile '{stock}'") from None

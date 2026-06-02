@@ -151,6 +151,9 @@ class GlareParams:
 @dataclass
 class FilmRenderingParams:
     density_curve_gamma: float = 1.0
+    # BW: which development-time curve to use from the profile's family. Matched
+    # against ProfileData.development_time; ignored for single-curve/color stocks.
+    development_time: float = 1.0
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
