@@ -42,17 +42,27 @@ def _copyright_statement() -> str:
 class DensityCurvesModel:
     """Parametric model of the density curves.
 
-    `centers`, `amplitudes`, `sigmas` are 2D arrays shaped (n_channels, n_layers),
-    or None when absent. n_layers can be 2, 3, ... — set by the array shape.
+    `centers`, `amplitudes`, `sigmas` (and `alphas`, when present) are 2D
+    arrays shaped (n_channels, n_layers), or None when absent. n_layers can
+    be 2, 3, ... — set by the array shape.
     Same rule as ProfileData: present, non-empty → float ndarray; else None.
+
+    `model_type` names the per-layer sigmoid:
+      - 'norm_cdfs'      sum of Gaussian CDFs (centers, amplitudes, sigmas);
+                         `alphas` is None.
+      - 'sept_norm_cdfs' sum of septic-polynomial CDF approximations with a
+                         per-layer median-preserving skew `alphas` (|α|<1).
+                         A fast, transcendental-free stand-in for the
+                         Gaussian; α=0 reproduces the symmetric Gaussian fit.
     """
-    model_type: str = 'cdfs'
+    model_type: str = 'norm_cdfs'
     centers: np.ndarray | None = None
     amplitudes: np.ndarray | None = None
     sigmas: np.ndarray | None = None
+    alphas: np.ndarray | None = None
 
     def __post_init__(self):
-        for name in ('centers', 'amplitudes', 'sigmas'):
+        for name in ('centers', 'amplitudes', 'sigmas', 'alphas'):
             value = getattr(self, name)
             if value is None:
                 continue

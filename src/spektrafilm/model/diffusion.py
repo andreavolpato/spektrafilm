@@ -21,6 +21,21 @@ def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
     return image_sharp
 
 
+def match_channels(values, n_ch):
+    """Adapt a per-channel parameter (RGB 3-tuple by default) to an image with
+    ``n_ch`` channels. Colour (``n_ch == 3``) passes through unchanged; a
+    single-channel BW emulsion uses the first channel (one panchromatic layer).
+    Any other mismatch is an error."""
+    arr = np.asarray(values, dtype=np.float64).ravel()
+    if arr.shape[0] == n_ch:
+        return arr
+    if n_ch == 1:
+        return arr[:1]
+    raise ValueError(
+        f"cannot adapt {arr.shape[0]} per-channel values to {n_ch} channels"
+    )
+
+
 def apply_halation_um(raw, halation, pixel_size_um):
     """Apply highlight boost, in-emulsion scatter, and back-reflection halation.
 
@@ -44,11 +59,12 @@ def apply_halation_um(raw, halation, pixel_size_um):
     #    where s = scatter_amount. sigma_c and lambda_t are both scaled by
     #    scatter_spatial_scale; lambda_t is the decay constant of the
     #    exponential, dispatched internally to a Gaussian mixture.
+    n_ch = raw.shape[-1]
     s_amount = float(halation.scatter_amount)
     s_scale = float(halation.scatter_spatial_scale)
-    w_s = np.asarray(halation.scatter_tail_weight, dtype=np.float64)
-    sigma_c_px = np.asarray(halation.scatter_core_um, dtype=np.float64) * s_scale / pixel_size_um
-    lambda_t_px = np.asarray(halation.scatter_tail_um, dtype=np.float64) * s_scale / pixel_size_um
+    w_s = match_channels(halation.scatter_tail_weight, n_ch)
+    sigma_c_px = match_channels(halation.scatter_core_um, n_ch) * s_scale / pixel_size_um
+    lambda_t_px = match_channels(halation.scatter_tail_um, n_ch) * s_scale / pixel_size_um
     if s_amount > 0 and (np.any(sigma_c_px > 0) or np.any(lambda_t_px > 0)):
         core = fast_gaussian_filter(raw, np.maximum(sigma_c_px, 1e-6))
         tail = fast_exponential_filter(raw, np.maximum(lambda_t_px, 1e-6))
@@ -61,8 +77,8 @@ def apply_halation_um(raw, halation, pixel_size_um):
     #    halation_spatial_scale.
     h_amount = float(halation.halation_amount)
     h_scale = float(halation.halation_spatial_scale)
-    a_tot = np.asarray(halation.halation_strength, dtype=np.float64) * h_amount
-    sigma_h_px = np.asarray(halation.halation_first_sigma_um, dtype=np.float64) * h_scale / pixel_size_um
+    a_tot = match_channels(halation.halation_strength, n_ch) * h_amount
+    sigma_h_px = match_channels(halation.halation_first_sigma_um, n_ch) * h_scale / pixel_size_um
     N = int(halation.halation_n_bounces)
     rho = float(halation.halation_bounce_decay)
     if N >= 1 and np.any(a_tot > 0) and np.any(sigma_h_px > 0):

@@ -11,7 +11,9 @@ from spektrafilm.model.density_curves import (
     interpolate_exposure_to_density,
     interp_density_cmy_layers,
 )
+from spektrafilm.model.diffusion import apply_halation_um
 from spektrafilm.model.grain import (
+    apply_grain,
     apply_grain_to_density,
     apply_grain_to_density_layers,
 )
@@ -21,7 +23,7 @@ from spektrafilm.model.couplers import (
 )
 from spektrafilm.profiles.io import Profile, ProfileData, ProfileInfo
 from spektrafilm.runtime.params_builder import init_params, digest_params
-from spektrafilm.runtime.params_schema import DirCouplersParams
+from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams, HalationParams
 from spektrafilm.runtime.pipeline import SimulationPipeline
 
 
@@ -89,6 +91,20 @@ class TestInterpDensityCmyLayers:
 
 
 class TestGrainSingleChannel:
+    def test_apply_grain_with_default_runtime_params_single_channel(self):
+        density_curves = np.linspace(0.0, 2.2, 32)[:, None]
+        density_cmy = np.full((16, 16, 1), 1.0)
+        out = apply_grain(
+            density_cmy,
+            pixel_size_um=10,
+            grain=GrainParams(sublayers_active=False),
+            density_curves=density_curves,
+            density_curves_layers=None,
+            profile_type='negative',
+        )
+        assert out.shape == (16, 16, 1)
+        assert np.all(np.isfinite(out))
+
     def test_apply_grain_to_density_single_channel(self):
         density_cmy = np.full((16, 16, 1), 1.0)
         out = apply_grain_to_density(
@@ -119,6 +135,15 @@ class TestGrainSingleChannel:
             grain_uniformity=[0.98],
         )
         assert out.shape == (16, 16, n_ch)
+        assert np.all(np.isfinite(out))
+
+
+class TestHalationSingleChannel:
+    def test_apply_halation_with_default_runtime_params_single_channel(self):
+        raw = np.zeros((17, 17, 1), dtype=float)
+        raw[8, 8, 0] = 1.0
+        out = apply_halation_um(raw, HalationParams(), pixel_size_um=10.0)
+        assert out.shape == raw.shape
         assert np.all(np.isfinite(out))
 
 
@@ -169,7 +194,7 @@ class TestBwScanFromNegativePipeline:
     """End-to-end: a single-channel BW negative through the scan-from-negative
     path. Guards the whole channel-generic chain against regression."""
 
-    def _run(self):
+    def _run(self, *, activate_effects: bool = False):
         params = init_params()
         params.film = _synthetic_bw_negative()
         params.io.scan_film = True
@@ -182,8 +207,8 @@ class TestBwScanFromNegativePipeline:
         params.settings.neutral_print_filters_from_database = False
         params.settings.apply_hanatos2025_adaptation_window = False
         params.settings.apply_hanatos2025_adaptation_surface = False
-        params.debug.deactivate_spatial_effects = True
-        params.debug.deactivate_stochastic_effects = True
+        params.debug.deactivate_spatial_effects = not activate_effects
+        params.debug.deactivate_stochastic_effects = not activate_effects
         params = digest_params(params)
 
         pipe = SimulationPipeline(params)
@@ -207,3 +232,30 @@ class TestBwScanFromNegativePipeline:
         out = self._run()
         lum = out[3].mean(axis=1)
         assert np.all(np.diff(lum) < 1e-6)
+
+    def test_runs_with_effects_enabled(self):
+        out = self._run(activate_effects=True)
+        assert out.shape == (6, 16, 3)
+        assert np.all(np.isfinite(out))
+
+    def test_runs_with_luts_enabled(self):
+        params = init_params(film_profile='kodak_trix')
+        params.io.scan_film = True
+        params.io.upscale_factor = 1.0
+        params.io.crop = False
+        params.camera.auto_exposure = False
+        params.camera.exposure_compensation_ev = 0.0
+        params.settings.use_enlarger_lut = True
+        params.settings.use_scanner_lut = True
+        params.settings.neutral_print_filters_from_database = False
+        params.settings.apply_hanatos2025_adaptation_window = False
+        params.settings.apply_hanatos2025_adaptation_surface = False
+        params = digest_params(params)
+
+        pipe = SimulationPipeline(params)
+        ramp = np.linspace(0.02, 0.95, 16)
+        img = np.repeat(np.repeat(ramp[None, :, None], 6, axis=0), 3, axis=2)
+        out = pipe.process(img)
+
+        assert out.shape == (6, 16, 3)
+        assert np.all(np.isfinite(out))

@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from opt_einsum import contract
 
+from spektrafilm.model.diffusion import match_channels
 from spektrafilm.model.diffusion import apply_diffusion_filter_um
 from spektrafilm.model.develop import compute_density_spectral, develop_print_morph, develop_simple
 from spektrafilm.model.illuminants import standard_illuminant
@@ -37,8 +38,8 @@ class PrintingStage:
     # public methods
 
     def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
-        
-        cmy_film_black = np.zeros((1, 1, self._film.info.n_channels)) - np.array(self._film_render.grain.density_min)
+        density_min = match_channels(self._film_render.grain.density_min, self._film.info.n_channels)
+        cmy_film_black = np.zeros((1, 1, self._film.info.n_channels)) - density_min[None, None, :]
         cmy_film_white = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
         self._color_reference_service.log_raw_print_black = self._film_cmy_to_print_log_raw(cmy_film_black)
         self._color_reference_service.log_raw_print_white = self._film_cmy_to_print_log_raw(cmy_film_white)
@@ -46,7 +47,7 @@ class PrintingStage:
         log_raw_print = self._lut_service.spectral_compute_enlarger(
             cmy_film_density,
             spectral_calculation=self._film_cmy_to_print_log_raw,
-            data_min=-np.array(self._film_render.grain.density_min),
+            data_min=-density_min,
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
             use_lut=self._settings.use_enlarger_lut,
         )    
