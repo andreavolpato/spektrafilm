@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
+    BaseParams,
     CameraParams,
     DiffusionFilterParams,
     DirCouplersParams,
@@ -200,6 +201,7 @@ class GuiState:
     halation: HalationParams
     couplers: DirCouplersParams
     chemistry: PrintChemistryParams
+    base: BaseParams
     film_chemistry: FilmChemistryParams
     camera: CameraParams
     enlarger_diffusion: DiffusionFilterParams
@@ -249,6 +251,7 @@ def clone_gui_state(state: GuiState) -> GuiState:
         halation=clone_state_section(state.halation),
         couplers=clone_state_section(state.couplers),
         chemistry=clone_state_section(state.chemistry),
+        base=clone_state_section(state.base),
         film_chemistry=clone_state_section(state.film_chemistry),
         camera=clone_state_section(state.camera),
         enlarger_diffusion=clone_state_section(state.enlarger_diffusion),
@@ -279,6 +282,7 @@ def gui_state_from_params(
         halation=replace(params.film_render.halation),
         couplers=replace(params.film_render.dir_couplers),
         chemistry=replace(params.print_render.chemistry),
+        base=replace(params.film_render.base),
         film_chemistry=replace(params.film_render.chemistry),
         camera=replace(params.camera),
         enlarger_diffusion=replace(params.enlarger.diffusion_filter),

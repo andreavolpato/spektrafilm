@@ -347,6 +347,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         grain='grain',
         camera_diffusion='camera_diffusion',
         chemistry='chemistry',
+        base='base',
         film_chemistry='film_chemistry',
         glare='glare',
         preflashing='preflashing',

@@ -21,6 +21,7 @@ def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
     _apply_grain(params, state)
     _apply_couplers(params, state)
     _apply_chemistry(params, state)
+    _apply_base(params, state)
     _apply_film_chemistry(params, state)
     _apply_enlarger(params, state)
     _apply_scanner(params, state)
@@ -80,6 +81,10 @@ def _apply_couplers(params: RuntimePhotoParams, state: GuiState) -> None:
 
 def _apply_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
     params.print_render.chemistry = replace(state.chemistry)
+
+
+def _apply_base(params: RuntimePhotoParams, state: GuiState) -> None:
+    params.film_render.base = replace(state.base)
 
 
 def _apply_film_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
