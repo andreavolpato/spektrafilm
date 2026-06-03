@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spektrafilm.runtime.params_schema import (
+    BaseParams,
     EnlargerParams,
     DiffusionFilterParams,
     DirCouplersParams,
@@ -321,6 +322,22 @@ GRAIN_MANIFEST = GroupManifest(
             step=0.1,
             tooltip="Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.",
         ),
+    ),
+)
+
+
+_BD = "film_render.base"
+
+BASE_MANIFEST = GroupManifest(
+    title="Base",
+    group_path=_BD,
+    group_cls=BaseParams,
+    fields=(
+        ParamSpec(f"{_BD}.active", tier="basic", tooltip="Enable base-density (film base + fog / orange mask) tuning."),
+        ParamSpec(f"{_BD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the base density."),
+        ParamSpec(f"{_BD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel scale of the base density."),
+        ParamSpec(f"{_BD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel scale of the base density."),
+        ParamSpec(f"{_BD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel scale of the base density."),
     ),
 )
 
@@ -924,6 +941,7 @@ ALL_MANIFESTS = (
     GRAIN_MANIFEST,
     GLARE_MANIFEST,
     CHEMISTRY_MANIFEST,
+    BASE_MANIFEST,
     FILM_CHEMISTRY_MANIFEST,
     PREFLASHING_MANIFEST,
     CAMERA_MANIFEST,

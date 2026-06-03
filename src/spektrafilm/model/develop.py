@@ -1,4 +1,5 @@
 from typing import Literal, TypeAlias
+from scipy.ndimage import gaussian_filter1d
 
 import numpy as np
 from numpy.typing import NDArray
@@ -9,6 +10,7 @@ from spektrafilm.model.grain import apply_grain
 from spektrafilm.profiles.io import DensityCurvesModel
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
 from spektrafilm.utils.morph_curves import apply_print_curves_morph, PrintChemistryParams
+from spektrafilm.config import SPECTRAL_SHAPE
 
 FloatArray: TypeAlias = NDArray[np.float64]
 ProfileType: TypeAlias = Literal['negative', 'positive']
@@ -16,18 +18,44 @@ ProfileType: TypeAlias = Literal['negative', 'positive']
 ################################################################################
 # Emulsion helpers
 
+def base_density_tuning(base_density, base_density_params):
+    # Color: spectral base from the 3 channel mins at the status-A peaks.
+    wavelengths = SPECTRAL_SHAPE.wavelengths
+    status_a_max_peak = [445, 530, 610]
+    base_density_channels = np.interp(status_a_max_peak, wavelengths, base_density)
+    base_density_channels *= [base_density_params.yellow,
+                              base_density_params.magenta,
+                              base_density_params.cyan]
+    spectral_min = np.interp(wavelengths, status_a_max_peak, base_density_channels)
+    sigma_nm = 20
+    sigma_points = sigma_nm / np.mean(np.diff(wavelengths))
+    return gaussian_filter1d(spectral_min, sigma_points)
+
+
+def _tuned_base_density(base_density, base_density_params):
+    """Apply the optional base-density tuning. With no params or tuning
+    disabled, the base is used unchanged (the case for the film base on the
+    film→print exposure path, where the print-paper base controls do not
+    apply); neutral channels (all 1.0) skip the resample and only scale."""
+    if base_density_params is None or not base_density_params.active:
+        return base_density
+    if (base_density_params.cyan, base_density_params.magenta, base_density_params.yellow) == (1.0, 1.0, 1.0):
+        tuned = base_density
+    else:
+        tuned = base_density_tuning(base_density, base_density_params)
+    return tuned * base_density_params.scale
+
+
 def compute_density_spectral(
     channel_density,
     density_cmy,
     base_density=None,
-    base_params=None,
+    base_density_params=None,
 ):
     density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(channel_density))
-    if base_density is not None:
-        if base_params is not None:
-            base_density *= base_params.scale
-        density_spectral += np.asarray(base_density)
-    return density_spectral
+    if base_density is None:
+        return density_spectral
+    return density_spectral + _tuned_base_density(base_density, base_density_params)
 
 
 # Keep black/white reference correction anchored to the stock density curves.

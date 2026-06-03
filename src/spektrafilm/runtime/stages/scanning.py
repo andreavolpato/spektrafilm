@@ -114,6 +114,7 @@ class ScanningStage:
                 channel_density,
                 density_cmy,
                 base_density,
+                base_density_params=self._film_render.base,
             )
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization

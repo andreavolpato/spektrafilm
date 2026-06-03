@@ -170,13 +170,14 @@ class FilmRenderingParams:
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
     glare: GlareParams = field(default_factory=GlareParams)
+    # Base density (film base + fog / orange mask) tuning, applied at scan time.
+    base: BaseParams = field(default_factory=BaseParams)
 
 
 @dataclass
 class PrintRenderingParams:
     glare: GlareParams = field(default_factory=GlareParams)
     chemistry: PrintChemistryParams = field(default_factory=PrintChemistryParams)
-    base: BaseParams = field(default_factory=BaseParams)
 
 
 @dataclass
