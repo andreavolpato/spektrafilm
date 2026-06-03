@@ -723,7 +723,7 @@ OUTPUT_GAMUT_COMPRESS_MANIFEST = GroupManifest(
             f"{_OGC}.algorithm",
             tier="basic",
             enum=OutputGamutCompressAlgorithms,
-            tooltip="off: disable output gamut compression. cam16ucs (default): CAM16-UCS chroma reduction with the smoothest constant-hue behavior. oklch: perceptual chroma reduction in OkLab, preserves hue + lightness. aces_rgc: per-channel ACES RGC v1.3, matches Resolve/Nuke/OCIO. oklrab/jzazbz: alternative perceptual spaces.",
+            tooltip="off: disable output gamut compression. aces_rgc (default): per-channel ACES RGC v1.3, matches Resolve/Nuke/OCIO and is the cheapest per pixel. cam16ucs: CAM16-UCS chroma reduction with the smoothest constant-hue behavior (heaviest). oklch: perceptual chroma reduction in OkLab, preserves hue + lightness. oklrab/jzazbz: alternative perceptual spaces.",
         ),
         ParamSpec(
             f"{_OGC}.knee",
