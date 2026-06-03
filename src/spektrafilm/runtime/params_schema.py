@@ -7,7 +7,7 @@ from spektrafilm.utils.gamut_compression import (
     InputGamutCompressSpec,
     OutputGamutCompressSpec,
 )
-from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
+from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 
 
 
@@ -152,10 +152,13 @@ class GlareParams:
 
 @dataclass
 class FilmRenderingParams:
-    density_curve_gamma: float = 1.0
-    # BW: which development-time curve to use from the profile's family. Matched
-    # against ProfileData.development_time; ignored for single-curve/color stocks.
-    development_time: float = 1.0
+    # Film chemistry: development_time selects which curve / base+fog column of a
+    # BW development-time family to render (matched against
+    # ProfileData.development_time); the remaining fields are the s023 morph,
+    # shared with the print chemistry. Off by default for single-curve/color.
+    chemistry: FilmChemistryParams = field(
+        default_factory=lambda: FilmChemistryParams(active=True)
+    )
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
@@ -165,8 +168,8 @@ class FilmRenderingParams:
 @dataclass
 class PrintRenderingParams:
     glare: GlareParams = field(default_factory=GlareParams)
-    density_curves_morph: PrintCurvesMorphParams = field(
-        default_factory=lambda: PrintCurvesMorphParams(active=False)
+    chemistry: PrintChemistryParams = field(
+        default_factory=lambda: PrintChemistryParams(active=True)
     )
 
 

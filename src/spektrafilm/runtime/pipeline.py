@@ -5,7 +5,11 @@ from time import perf_counter
 
 import numpy as np
 
-from spektrafilm.model.density_curves import refresh_density_curves_from_model
+from spektrafilm.model.density_curves import (
+    refresh_density_curves_from_model,
+    select_development_time,
+)
+from spektrafilm.utils.morph_curves import apply_print_curves_morph_with_layers
 from spektrafilm.runtime.services import (
     EnlargerService,
     ResizingService,
@@ -50,6 +54,31 @@ class SimulationPipeline:
         for profile in (self.film, self.print):
             if profile is not None:
                 refresh_density_curves_from_model(profile.data, profile.info.type)
+        # A BW development-time family carries one curve / base+fog per
+        # development time; collapse the film to the one chemistry.development_time
+        # selects, so every downstream consumer sees a single curve and a 1-D base.
+        if self.film is not None:
+            select_development_time(self.film.data, self.film_render.chemistry.development_time)
+            # Bake the film chemistry morph (gamma / developer exhaustion) into the
+            # curves, regenerating the grain sublayers from the same morphed params
+            # so grain stays consistent. Replaces the old density_curve_gamma; an
+            # inactive/identity chemistry reproduces the fitted curves exactly.
+            film_data = self.film.data
+            film_model = film_data.density_curves_model
+            if film_model is not None and film_model.n_layers > 0:
+                total, layers = apply_print_curves_morph_with_layers(
+                    film_data.log_exposure,
+                    film_model,
+                    self.film_render.chemistry,
+                    profile_type=self.film.info.type,
+                )
+                film_data.density_curves = total
+                film_data.density_curves_layers = layers if film_model.n_layers > 1 else None
+        # The print can likewise be a BW development-time family (e.g. a BW print
+        # film); collapse it to the chosen development. Its morph is applied in
+        # the printing stage, so only the family selection happens here.
+        if self.print is not None:
+            select_development_time(self.print.data, self.print_render.chemistry.development_time)
 
         self.timings = {}
         self._last_elapsed_time = None

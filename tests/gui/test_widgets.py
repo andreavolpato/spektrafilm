@@ -383,7 +383,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
 
     special_specs = {spec.leaf: spec for spec in SPECIAL_FIELDS}
     for field_name in tuple(spec.leaf for spec in SPECIAL_FIELDS):
-        annotation = float if field_name == 'film_gamma_factor' else tuple[int, int, int]
+        annotation = tuple[int, int, int]
         is_numeric = annotation in (int, float) or get_origin(annotation) is tuple
         if not is_numeric:
             continue

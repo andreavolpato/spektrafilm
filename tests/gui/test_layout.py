@@ -347,11 +347,11 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         grain='grain',
         camera_diffusion='camera_diffusion',
         chemistry='chemistry',
+        film_chemistry='film_chemistry',
         glare='glare',
         preflashing='preflashing',
         enlarger_diffusion='enlarger_diffusion',
         spectral_upsampling='spectral_upsampling',
-        tune='tune',
         special='special',
         gui_config='gui_config',
         display='display',
@@ -367,6 +367,12 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         'spectral_upsampling',
         'input_gamut_compress',
         'output_gamut_compress',
-        'tune',
         'special',
+    )
+    assert tabs['FILM'] == (
+        'film_chemistry',
+        'halation',
+        'couplers',
+        'grain',
+        'camera_diffusion',
     )

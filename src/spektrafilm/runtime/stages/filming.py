@@ -59,36 +59,20 @@ class FilmingStage:
         return log_raw
 
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
-        density_curves, density_curves_layers = self._select_development_time_curves()
+        # The film chemistry morph (and BW development-time selection) is already
+        # baked into the curves / sublayers upstream (pipeline init), so these are
+        # the single chosen, morphed development — develop runs at unit gamma.
         return develop(
             log_raw,
             self._resize_service.pixel_size_um,
             self._film.data.log_exposure,
-            density_curves,
-            density_curves_layers,
+            self._film.data.density_curves,
+            self._film.data.density_curves_layers,
             self._film_render.dir_couplers,
             self._film_render.grain,
             self._film.info.type,
-            gamma_factor=self._film_render.density_curve_gamma,
             use_fast_stats=self._settings.use_fast_stats,
         )
-
-    def _select_development_time_curves(self):
-        """Resolve a BW development-time family to the single curve matching the
-        requested development time. `development_time` (profile data) holds one
-        value per density-curve column; the nearest is picked. Single-curve /
-        color stocks (no `development_time`) pass through unchanged."""
-        data = self._film.data
-        density_curves = data.density_curves
-        density_curves_layers = data.density_curves_layers
-        development_time = data.development_time
-        if development_time is None or density_curves.shape[1] <= 1:
-            return density_curves, density_curves_layers
-        index = int(np.argmin(np.abs(np.asarray(development_time) - self._film_render.development_time)))
-        density_curves = density_curves[:, index:index + 1]
-        if density_curves_layers is not None:
-            density_curves_layers = density_curves_layers[:, :, index:index + 1]
-        return density_curves, density_curves_layers
 
     # private methods
 
@@ -143,28 +127,43 @@ class FilmingStage:
     
     def _compute_density_spectral_midgray_to_balance_print(self):
         rgb_midgray = np.array([[[0.184] * 3]])
-        density_spectral_midgray = self._simple_rgb_to_density_spectral(rgb_midgray)
+        raw_midgray = self._rgb_to_film_raw(rgb_midgray)
+        # Match the real exposure path: autoexposure normalizes midgray to raw==1,
+        # so a camera color filter's attenuation is compensated here too. Without
+        # this the print-balance reference keeps the filter-attenuated exposure
+        # while the actual negative is autoexposed, shifting print exposure. The
+        # same midgray-derived scale is applied to the exposure-compensated
+        # reference so their relationship is preserved.
+        autoexposure_scale = self._midgray_autoexposure_scale(raw_midgray)
+        density_spectral_midgray = self._raw_to_density_spectral(raw_midgray * autoexposure_scale)
         if self._enlarger_service.print_exposure_compensation:
             neg_exp_comp_ev = self._camera.exposure_compensation_ev
-            rgb_midgray_comp = np.array([[[0.184] * 3]]) * 2 ** neg_exp_comp_ev
-            density_spectral_midgray_comp = self._simple_rgb_to_density_spectral(rgb_midgray_comp)
+            raw_midgray_comp = self._rgb_to_film_raw(rgb_midgray * 2 ** neg_exp_comp_ev)
+            density_spectral_midgray_comp = self._raw_to_density_spectral(
+                raw_midgray_comp * autoexposure_scale)
         else:
             density_spectral_midgray_comp = None
         return density_spectral_midgray, density_spectral_midgray_comp
 
-    def _simple_rgb_to_density_spectral(self, rgb: np.ndarray) -> np.ndarray:
-        raw = self._rgb_to_film_raw(rgb) 
+    def _midgray_autoexposure_scale(self, raw_midgray: np.ndarray) -> float:
+        """The exposure scale autoexposure would apply to land midgray at raw==1
+        (1.0 when autoexposure is off). Mirrors `_auto_exposure` so the print-
+        balance reference tracks the actual negative through a camera filter."""
+        if not self._camera.auto_exposure:
+            return 1.0
+        ev = measure_raw_autoexposure_ev(raw_midgray, method=self._camera.auto_exposure_method)
+        return 2 ** ev
+
+    def _raw_to_density_spectral(self, raw: np.ndarray) -> np.ndarray:
         log_raw = np.log10(raw + 1e-10)
         density_cmy = develop_simple(
             log_raw,
             self._film.data.log_exposure,
             self._film.data.density_curves,
-            gamma_factor=self._film_render.density_curve_gamma,
         )
-        density_spectral = compute_density_spectral(
+        return compute_density_spectral(
             self._film.data.channel_density,
             density_cmy,
             base_density=self._film.data.base_density,
         )
-        return density_spectral
     

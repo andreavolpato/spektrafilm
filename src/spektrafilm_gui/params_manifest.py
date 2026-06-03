@@ -32,7 +32,7 @@ from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.color_filters import CameraColorFilters
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
-from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
+from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 from spektrafilm_gui.options import (
     AutoExposureMethods,
     DiffusionFilterFamilies,
@@ -340,13 +340,19 @@ GLARE_MANIFEST = GroupManifest(
 )
 
 
-_CH = "print_render.density_curves_morph"
+_CH = "print_render.chemistry"
 
 CHEMISTRY_MANIFEST = GroupManifest(
     title="Chemistry",
     group_path=_CH,
-    group_cls=PrintCurvesMorphParams,
+    group_cls=PrintChemistryParams,
     fields=(
+        ParamSpec(
+            f"{_CH}.development_time",
+            label="Development time",
+            tier="basic",
+            tooltip="Development time for a BW development-time family: selects the density curve and base+fog to render. '—' uses the representative middle development; ignored for single-curve and color stocks.",
+        ),
         ParamSpec(f"{_CH}.active", tier="basic", tooltip="Enable print density-curve morphing."),
         ParamSpec(
             f"{_CH}.gamma_factor",
@@ -404,6 +410,81 @@ CHEMISTRY_MANIFEST = GroupManifest(
             max=1.0,
             step=0.02,
             tooltip="Blend all three print sub-layers toward the matched Gumbel shoulder while preserving midgray via a common horizontal offset.",
+        ),
+    ),
+)
+
+
+_FCH = "film_render.chemistry"
+
+FILM_CHEMISTRY_MANIFEST = GroupManifest(
+    title="Chemistry",
+    group_path=_FCH,
+    group_cls=FilmChemistryParams,
+    fields=(
+        ParamSpec(
+            f"{_FCH}.development_time",
+            label="Development time",
+            tier="basic",
+            tooltip="Development time for a BW development-time family: selects the density curve and base+fog to render. '—' uses the representative middle development; ignored for single-curve and color stocks.",
+        ),
+        ParamSpec(f"{_FCH}.active", tier="basic", tooltip="Enable film density-curve morphing."),
+        ParamSpec(
+            f"{_FCH}.gamma_factor",
+            label="Gamma factor",
+            tier="basic",
+            min=0.5,
+            max=2.0,
+            step=0.05,
+            tooltip="Global coupled gamma multiplier for the film density curves.",
+        ),
+        ParamSpec(
+            f"{_FCH}.gamma_factor_fast",
+            label="Gamma factor fast",
+            min=0.5,
+            max=2.0,
+            step=0.05,
+            tooltip="Gamma factor applied to the fast sub-layer.",
+        ),
+        ParamSpec(
+            f"{_FCH}.gamma_factor_slow",
+            label="Gamma factor slow",
+            min=0.5,
+            max=2.0,
+            step=0.05,
+            tooltip="Gamma factor applied to the mid and slow sub-layers.",
+        ),
+        ParamSpec(
+            f"{_FCH}.gamma_factor_red",
+            label="Gamma factor red",
+            min=0.5,
+            max=2.0,
+            step=0.02,
+            tooltip="Per-channel gamma factor applied to the red channel.",
+        ),
+        ParamSpec(
+            f"{_FCH}.gamma_factor_green",
+            label="Gamma factor green",
+            min=0.5,
+            max=2.0,
+            step=0.02,
+            tooltip="Per-channel gamma factor applied to the green channel.",
+        ),
+        ParamSpec(
+            f"{_FCH}.gamma_factor_blue",
+            label="Gamma factor blue",
+            min=0.5,
+            max=2.0,
+            step=0.02,
+            tooltip="Per-channel gamma factor applied to the blue channel.",
+        ),
+        ParamSpec(
+            f"{_FCH}.developer_exhaustion",
+            label="Developer exhaustion",
+            min=0.0,
+            max=1.0,
+            step=0.02,
+            tooltip="Blend all three film sub-layers toward the matched Gumbel shoulder while preserving midgray via a common horizontal offset.",
         ),
     ),
 )
@@ -721,18 +802,7 @@ SPECIAL_PANEL_FIELDS = (
     ),
 )
 
-TUNE_PANEL_FIELDS = (
-    ParamSpec(
-        "film_render.density_curve_gamma",
-        name="film_gamma_factor",
-        label="Film gamma factor",
-        tooltip="Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast",
-        min=0,
-        step=0.05,
-    ),
-)
-
-SPECIAL_FIELDS = SPECIAL_PANEL_FIELDS + TUNE_PANEL_FIELDS
+SPECIAL_FIELDS = SPECIAL_PANEL_FIELDS
 
 
 DISPLAY_PANEL_FIELDS = (
@@ -854,6 +924,7 @@ ALL_MANIFESTS = (
     GRAIN_MANIFEST,
     GLARE_MANIFEST,
     CHEMISTRY_MANIFEST,
+    FILM_CHEMISTRY_MANIFEST,
     PREFLASHING_MANIFEST,
     CAMERA_MANIFEST,
     CAMERA_DIFFUSION_MANIFEST,

@@ -29,6 +29,15 @@ from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
 
+def _family_development_times(profile) -> np.ndarray | None:
+    """A stock's development-time family as a 1-D array, or None when it has no
+    family to choose from (color / single-curve)."""
+    if profile is None or profile.data.development_time is None:
+        return None
+    times = np.asarray(profile.data.development_time, dtype=float)
+    return times if times.size > 1 else None
+
+
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
 OUTPUT_COLOR_SPACE_KEY = 'pipeline_output_color_space'
 OUTPUT_CCTF_ENCODING_KEY = 'pipeline_output_cctf_encoding'
@@ -253,12 +262,20 @@ class GuiController:
             return
 
         params = build_params_from_state(state)
+        # Read the development-time families before digest collapses them to one
+        # column. A family is >1 development times; anything else has no choice.
+        film_times = _family_development_times(params.film)
+        print_times = _family_development_times(params.print)
         synced_state = gui_state_from_params(
             digest_after_selection(params),
             film_stock=state.selection.film_stock,
             print_paper=state.selection.print_paper,
         )
         self._apply_profile_sync_state(synced_state)
+        # Populate the dropdowns last: with no prior selection the editor
+        # defaults to the family's floor-middle development (None when no family).
+        self._widgets.film_chemistry.set_development_time_choices(film_times)
+        self._widgets.chemistry.set_development_time_choices(print_times)
         self._next_runtime_digest_applies_stock_specifics = True
 
     def apply_film_profile_defaults(self, film_stock: str) -> None:

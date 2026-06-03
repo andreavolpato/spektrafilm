@@ -418,7 +418,6 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
 
     assert widgets.input_image.upscale_factor.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.input_image.crop_size._editors[0].valueChanged.connected == [controller.request_auto_preview]
-    assert widgets.special.film_gamma_factor.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.print_y_filter_shift.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.camera.film_format_mm.valueChanged.connected == [controller.request_auto_preview]
     assert widgets.enlarger_diffusion.strength.valueChanged.connected == [controller.request_auto_preview]

@@ -41,8 +41,8 @@ def _make_test_profile(profile_type: str) -> Profile:
 @pytest.mark.parametrize("profile_type", ["negative", "positive"])
 def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
     profile = _make_test_profile(profile_type)
+    gamma_factor = 1.15
     render = FilmRenderingParams(
-        density_curve_gamma=1.15,
         grain=GrainParams(
             active=True,
             sublayers_active=True,
@@ -81,14 +81,14 @@ def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
         render.dir_couplers,
         render.grain,
         profile.info.type,
-        gamma_factor=render.density_curve_gamma,
+        gamma_factor=gamma_factor,
         use_fast_stats=False,
     )
     expected = develop_simple(
         log_raw.copy(),
         profile.data.log_exposure,
         normalized_density_curves,
-        gamma_factor=render.density_curve_gamma,
+        gamma_factor=gamma_factor,
     )
     expected = apply_density_correction_dir_couplers(
         expected,
@@ -98,7 +98,7 @@ def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
         normalized_density_curves,
         render.dir_couplers,
         profile.info.type,
-        gamma_factor=render.density_curve_gamma,
+        gamma_factor=gamma_factor,
     )
     expected = apply_grain(
         expected,

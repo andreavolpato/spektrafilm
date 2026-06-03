@@ -56,7 +56,9 @@ class TestInitParamsDefaults:
         assert params.scanner.black_level == 0.01
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
-        assert params.film_render.density_curve_gamma == 1.0
+        assert params.film_render.chemistry.development_time is None
+        assert params.film_render.chemistry.active is True
+        assert params.print_render.chemistry.development_time is None
         assert params.film_render.grain.active is True
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
@@ -65,14 +67,14 @@ class TestInitParamsDefaults:
         assert params.film_render.dir_couplers.inhibition_interlayer == 1.0
         assert params.film_render.dir_couplers.gamma_samelayer_rgb == (0.341, 0.324, 0.273)
 
-        assert params.print_render.density_curves_morph.active is False
-        assert params.print_render.density_curves_morph.gamma_factor == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_fast == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_slow == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_red == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_green == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_blue == 1.0
-        assert params.print_render.density_curves_morph.developer_exhaustion == 0.0
+        assert params.print_render.chemistry.active is True
+        assert params.print_render.chemistry.gamma_factor == 1.0
+        assert params.print_render.chemistry.gamma_factor_fast == 1.0
+        assert params.print_render.chemistry.gamma_factor_slow == 1.0
+        assert params.print_render.chemistry.gamma_factor_red == 1.0
+        assert params.print_render.chemistry.gamma_factor_green == 1.0
+        assert params.print_render.chemistry.gamma_factor_blue == 1.0
+        assert params.print_render.chemistry.developer_exhaustion == 0.0
         assert params.print_render.glare.active is True
 
         assert params.io.input_color_space == 'ProPhoto RGB'
