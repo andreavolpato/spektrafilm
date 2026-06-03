@@ -103,7 +103,7 @@ class OutputGamutCompressSpec:
         in the runtime, the LUT cube can then leak outside [0, 1] —
         use ``"off"`` only for diagnostic builds.
 
-        ``"cam16ucs"`` (default) — CIECAM16 Uniform Color Space chroma reduction
+        ``"cam16ucs"`` — CIECAM16 Uniform Color Space chroma reduction
         (Li & Luo 2017, CIE-endorsed). Same JpCphp polar shape as
         ``oklch`` / ``jzazbz``, but in CAM16-UCS, which models
         chromatic adaptation and viewing-condition response explicitly
@@ -122,22 +122,23 @@ class OutputGamutCompressSpec:
         space's RGB cube, apply the Reinhard knee to ``C / C_max``,
         reconstruct. Preserves OkLab hue ``h`` and OkLab lightness
         ``L`` — the colorist sees the same hue at the same perceptual
-        brightness, just less saturated. Default because the
-        simulation's output gamut is the smooth, round-to-hexagonal
-        envelope of a CMY dye set (see n110 §2), and perceptual-
-        chroma reduction around a round envelope reads more smoothly
-        than a per-channel knee against a triangle.
+        brightness, just less saturated. A smooth principled choice when
+        the output gamut is the round-to-hexagonal envelope of a CMY dye
+        set (see n110 §2), where perceptual-chroma reduction around a
+        round envelope reads more smoothly than a per-channel knee
+        against a triangle.
 
-        ``"aces_rgc"`` — ACES Reference Gamut Compression v1.3 native
-        form. Per-channel knee on the achromatic distance
+        ``"aces_rgc"`` (default) — ACES Reference Gamut Compression v1.3
+        native form. Per-channel knee on the achromatic distance
         ``d = (max(R,G,B) - c) / max(R,G,B)``. Preserves the achromatic
         RGB mixture. This is the cinema-industry standard for output
         gamut mapping; same operation as OCIO's
         ``FixedFunctionTransform(style=ACES_GamutComp13)`` (the knee
         math is verified bit-identical in
-        ``validate_compression_against_references.py``). Available as
-        an opt-in for users who want behavior matching downstream
-        Resolve/Nuke gamut-compress tools.
+        ``validate_compression_against_references.py``). Default because
+        it matches downstream Resolve/Nuke gamut-compress tools and is
+        far cheaper per pixel than the perceptual algorithms (no CAM /
+        OkLab forward+inverse), which dominates the scanner stage cost.
 
         ``"jzazbz"`` — JzCzhz chroma reduction, structurally identical
         to ``oklch`` but in the JzAzBz perceptual space (Safdar 2017)
@@ -195,7 +196,7 @@ class OutputGamutCompressSpec:
 
     algorithm: Literal[
         "off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs",
-    ] = "cam16ucs"
+    ] = "aces_rgc"
     knee: tuple[float, float, float] = (0.0, 1.0, 6.0)
     # One-sided soft compression on the perceptual lightness coordinate
     # (L for oklch/oklrab, Jz for jzazbz, Jp for cam16ucs), rolling
