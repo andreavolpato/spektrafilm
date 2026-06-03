@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import numpy as np
 from qtpy import QtGui
 
 from spektrafilm_gui import app as app_module
 from spektrafilm_gui import params_manifest as param_manifest_module
 from spektrafilm_gui import state as state_module
+from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES
 
 from .helpers import StubToggle, make_test_gui_state
 
@@ -74,214 +74,112 @@ def test_apply_app_palette_uses_fixed_dark_palette(monkeypatch) -> None:
     assert palette.color(QtGui.QPalette.Highlight).name() == app_module.TEXT_SELECTION_BG
 
 
-def test_schedule_background_warmup_queues_only_once(monkeypatch) -> None:
-    captured: list[tuple[int, object]] = []
-    monkeypatch.setattr(app_module, '_background_warmup_started', False)
-    monkeypatch.setattr(app_module, '_background_warmup_scheduled', False)
-    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
-
-    def fake_single_shot(delay_ms: int, callback) -> None:
-        captured.append((delay_ms, callback))
-
-    app_module._schedule_background_warmup(single_shot_fn=fake_single_shot)
-    app_module._schedule_background_warmup(single_shot_fn=fake_single_shot)
-
-    assert captured == [(0, app_module._start_background_warmup)]
-
-
-def test_start_background_warmup_starts_task_once(monkeypatch) -> None:
+def test_create_app_builds_window_shell_and_defers_controls(monkeypatch) -> None:
+    # Phase 1: a light window shell is built and the controls build is deferred;
+    # no widgets/controller exist yet.
     captured: dict[str, object] = {}
-    monkeypatch.setattr(app_module, '_background_warmup_started', False)
-    monkeypatch.setattr(app_module, '_background_warmup_scheduled', True)
-    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
-
-    class FakeThreadPool:
-        def __init__(self) -> None:
-            self.started: list[object] = []
-
-        def start(self, task) -> None:
-            self.started.append(task)
-
-    fake_task = object()
-    fake_pool = FakeThreadPool()
-
-    app_module._start_background_warmup(
-        thread_pool=fake_pool,
-        task_factory=lambda: captured.setdefault('task', fake_task),
-    )
-    app_module._start_background_warmup(
-        thread_pool=fake_pool,
-        task_factory=lambda: object(),
-    )
-
-    assert fake_pool.started == [fake_task]
-    assert app_module._background_warmup_started is True
-    assert app_module._background_warmup_scheduled is False
-
-
-def test_start_background_warmup_uses_dedicated_pool_when_not_injected(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-    monkeypatch.setattr(app_module, '_background_warmup_started', False)
-    monkeypatch.setattr(app_module, '_background_warmup_scheduled', True)
-    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
-
-    class FakeThreadPool:
-        def __init__(self) -> None:
-            self.started: list[object] = []
-            self.max_thread_count: int | None = None
-
-        def setMaxThreadCount(self, value: int) -> None:  # noqa: N802 - Qt API name
-            self.max_thread_count = value
-
-        def start(self, task) -> None:
-            self.started.append(task)
-
-    app_module._start_background_warmup(
-        thread_pool_factory=lambda: captured.setdefault('pool', FakeThreadPool()),
-        task_factory=lambda: captured.setdefault('task', object()),
-    )
-
-    fake_pool = captured['pool']
-    assert fake_pool.started == [captured['task']]
-    assert fake_pool.max_thread_count == 1
-    assert app_module._background_warmup_pool is fake_pool
-
-
-def test_warmup_task_defaults_to_full_gui_warmup(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-    monkeypatch.setattr(app_module, '_warmup_full_gui', lambda: captured.setdefault('ran', True))
-
-    app_module._WarmupTask().run()
-
-    assert captured['ran'] is True
-
-
-def test_warmup_task_swallows_background_failures() -> None:
-    app_module._WarmupTask(warmup_fn=lambda: (_ for _ in ()).throw(RuntimeError('boom'))).run()
-
-
-def test_warmup_launch_input_path_primes_first_image_load(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-    fake_state = SimpleNamespace(
-        input_image=SimpleNamespace(io=SimpleNamespace(input_color_space='ACES2065-1', input_cctf_decoding=False)),
-    )
-    fake_colour_module = object()
-    fake_io_module = object()
-    fake_preview_module = object()
-
-    def fake_prepare_input_color_preview_image(image, **kwargs):
-        captured['input_preview'] = (np.asarray(image), kwargs)
-        return np.asarray(image, dtype=np.float32)
-
-    fake_controller_runtime = SimpleNamespace(
-        prepare_input_color_preview_image=fake_prepare_input_color_preview_image,
-    )
-    module_map = {
-        'colour': fake_colour_module,
-        'spektrafilm_gui.controller_runtime': fake_controller_runtime,
-        'spektrafilm.utils.io': fake_io_module,
-        'spektrafilm.utils.preview': fake_preview_module,
-    }
-
-    monkeypatch.setattr(app_module, 'import_module', lambda name: module_map[name])
-
-    app_module._warmup_launch_input_path(fake_state)
-
-    input_preview_image, input_preview_kwargs = captured['input_preview']
-    assert input_preview_image.shape == app_module.WARMUP_IMAGE_SHAPE
-    assert input_preview_kwargs['input_color_space'] == 'ACES2065-1'
-    assert input_preview_kwargs['apply_cctf_decoding'] is False
-    assert input_preview_kwargs['colour_module'] is fake_colour_module
-
-
-def test_warmup_launch_input_path_swallows_launch_failures(monkeypatch) -> None:
-    monkeypatch.setattr(app_module, 'import_module', lambda name: (_ for _ in ()).throw(RuntimeError(name)))
-
-    app_module._warmup_launch_input_path(SimpleNamespace(input_image=SimpleNamespace(io=SimpleNamespace(input_color_space='sRGB', input_cctf_decoding=False))))
-
-
-def test_create_app_syncs_display_transform_availability_before_connecting(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
     fake_viewer = object()
-    fake_widgets = SimpleNamespace(display=SimpleNamespace(use_display_transform=object(), gray_18_canvas=StubToggle(True)))
-    fake_main_window = object()
+    fake_window = SimpleNamespace(mount_controls=lambda panel: None)
 
-    monkeypatch.setattr(app_module, '_background_warmup_started', False)
-    monkeypatch.setattr(app_module, '_background_warmup_scheduled', False)
-    monkeypatch.setattr(app_module, '_background_warmup_pool', None)
-    monkeypatch.setattr(app_module, '_apply_app_palette', lambda: captured.setdefault('palette', True))
     monkeypatch.setattr(app_module, '_create_viewer', lambda: fake_viewer)
-    monkeypatch.setattr(app_module, '_create_widgets', lambda: fake_widgets)
-    fake_gui_state = object()
-    monkeypatch.setattr(app_module, 'load_default_gui_state', lambda: fake_gui_state)
-    monkeypatch.setattr(app_module, 'apply_gui_state', lambda state, *, widgets: captured.setdefault('applied', (state, widgets)))
-    fake_controller = object()
+    monkeypatch.setattr(app_module, '_apply_app_palette', lambda: captured.setdefault('palette', True))
+    monkeypatch.setattr(
+        app_module,
+        'configure_napari_chrome',
+        lambda viewer, *, gray_18_canvas=True: captured.setdefault('chrome', (viewer, gray_18_canvas)),
+    )
 
-    def fake_initialize_controller(*, viewer, widgets):
-        captured['controller_args'] = (viewer, widgets)
-        return fake_controller
+    def fake_build_main_window(viewer, *, on_rotate_ccw=None, on_rotate_cw=None):
+        captured['window_args'] = (viewer, on_rotate_ccw, on_rotate_cw)
+        return fake_window
 
-    def fake_build_main_window_for_app(*, viewer, widgets, controller=None):
-        captured['window_args'] = (viewer, widgets, controller)
-        return fake_main_window
-
-    monkeypatch.setattr(app_module, 'initialize_controller', fake_initialize_controller)
-    monkeypatch.setattr(app_module, 'build_main_window_for_app', fake_build_main_window_for_app)
-    monkeypatch.setattr(app_module, '_warmup_launch_input_path', lambda state: captured.setdefault('launch_warmup_state', state))
-    monkeypatch.setattr(app_module, '_schedule_background_warmup', lambda: captured.setdefault('warmup_scheduled', True))
+    monkeypatch.setattr(app_module, 'build_main_window', fake_build_main_window)
+    monkeypatch.setattr(app_module, '_schedule_startup', lambda app: captured.setdefault('scheduled_app', app))
 
     app = app_module.create_app()
 
     assert captured['palette'] is True
-    assert captured['applied'] == (fake_gui_state, fake_widgets)
-    assert captured['launch_warmup_state'] is fake_gui_state
-    assert captured['controller_args'] == (fake_viewer, fake_widgets)
-    assert captured['window_args'] == (fake_viewer, fake_widgets, fake_controller)
-    assert captured['warmup_scheduled'] is True
+    assert captured['chrome'] == (fake_viewer, app_module.DEFAULT_GRAY_18_CANVAS)
     assert app.viewer is fake_viewer
-    assert app.widgets is fake_widgets
-    assert app.controller is fake_controller
-    assert app.main_window is fake_main_window
+    assert app.main_window is fake_window
+    assert app.widgets is None and app.controller is None
+    assert captured['scheduled_app'] is app
+    # Rotate callbacks are no-ops until the controller exists (does not raise).
+    captured['window_args'][1]()
+    captured['window_args'][2]()
 
 
-def test_build_main_window_for_app_passes_rotate_callbacks_when_controller_is_available() -> None:
+def test_schedule_startup_warms_off_thread_then_builds_controls(monkeypatch) -> None:
     captured: dict[str, object] = {}
-    viewer = object()
-    widgets = SimpleNamespace(display=SimpleNamespace(gray_18_canvas=StubToggle(True)))
-    controller = SimpleNamespace(
-        rotate_input_image_counterclockwise=object(),
-        rotate_input_image_clockwise=object(),
+    submitted: dict[str, object] = {}
+
+    class FakeRunner:
+        def submit(self, channel, work, *, on_done, on_error=None):
+            submitted.update(channel=channel, work=work, on_done=on_done, on_error=on_error)
+
+    app = app_module.GuiApp(viewer=object(), runner=FakeRunner())
+
+    monkeypatch.setattr(app_module, 'set_status', lambda *args, **kwargs: None)
+    monkeypatch.setattr(app_module, '_build_controls', lambda built: captured.setdefault('built', built))
+
+    def fake_single_shot(delay_ms, callback):
+        captured['scheduled'] = (delay_ms, callback)
+
+    app_module._schedule_startup(app, single_shot_fn=fake_single_shot)
+
+    delay, callback = captured['scheduled']
+    assert delay == 0
+    assert 'channel' not in submitted  # nothing submitted until the timer fires
+
+    callback()
+    assert submitted['channel'] == 'startup'
+    assert submitted['work'] is app_module._warmup_full_gui
+
+    # The controls build runs whether warmup succeeds or fails.
+    submitted['on_done'](None)
+    assert captured['built'] is app
+    submitted['on_error']('boom')
+    assert captured['built'] is app
+
+
+def test_build_controls_builds_widgets_controller_and_mounts(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    fake_widgets = SimpleNamespace(display=SimpleNamespace(gray_18_canvas=StubToggle(True)))
+    fake_controls = object()
+    fake_window = SimpleNamespace(mount_controls=lambda panel: captured.setdefault('mounted', panel))
+    app = app_module.GuiApp(viewer=object(), runner=SimpleNamespace(), main_window=fake_window)
+
+    class FakeController:
+        def __init__(self, *, viewer, widgets):
+            captured['ctor'] = (viewer, widgets)
+
+        def sync_display_transform_availability(self, *, report_status):
+            captured['sync'] = report_status
+
+        def show_startup_placeholder(self):
+            captured['placeholder'] = True
+
+    monkeypatch.setattr('spektrafilm_gui.widgets.create_widget_bundle', lambda: fake_widgets)
+    monkeypatch.setattr('spektrafilm_gui.persistence.load_default_gui_state', lambda: 'gui-state')
+    monkeypatch.setattr(
+        'spektrafilm_gui.state_bridge.apply_gui_state',
+        lambda state, *, widgets: captured.setdefault('applied', (state, widgets)),
     )
-    fake_controls_panel = object()
-    fake_main_window = object()
+    monkeypatch.setattr('spektrafilm_gui.controller.GuiController', FakeController)
+    monkeypatch.setattr(app_module, 'configure_napari_chrome', lambda *args, **kwargs: None)
+    monkeypatch.setattr(app_module, 'build_controls_panel', lambda viewer, widgets: fake_controls)
+    monkeypatch.setattr(app_module, 'connect_controller_signals', lambda c, w: captured.setdefault('connected', (c, w)))
+    monkeypatch.setattr(app_module, 'set_status', lambda *args, **kwargs: None)
 
-    def fake_build_controls_panel(viewer, widgets):
-        captured['panel_args'] = (viewer, widgets)
-        return fake_controls_panel
+    app_module._build_controls(app)
 
-    def fake_build_main_window(viewer, controls_panel, **kwargs):
-        captured['window_args'] = (viewer, controls_panel, kwargs)
-        return fake_main_window
-
-    main_window = app_module.build_main_window_for_app(
-        viewer=viewer,
-        widgets=widgets,
-        controller=controller,
-        configure_napari_chrome_fn=lambda viewer, *, gray_18_canvas=False: captured.setdefault('chrome', (viewer, gray_18_canvas)),
-        build_controls_panel_fn=fake_build_controls_panel,
-        build_main_window_fn=fake_build_main_window,
-    )
-
-    assert main_window is fake_main_window
-    assert captured['chrome'] == (viewer, True)
-    assert captured['panel_args'] == (viewer, widgets)
-    assert captured['window_args'][0] is viewer
-    assert captured['window_args'][1] is fake_controls_panel
-    assert captured['window_args'][2] == {
-        'on_rotate_ccw': controller.rotate_input_image_counterclockwise,
-        'on_rotate_cw': controller.rotate_input_image_clockwise,
-    }
+    assert captured['applied'] == ('gui-state', fake_widgets)
+    assert captured['sync'] is False
+    assert captured['placeholder'] is True
+    assert captured['mounted'] is fake_controls
+    assert app.widgets is fake_widgets
+    assert isinstance(app.controller, FakeController)
+    assert captured['connected'][0] is app.controller
 
 
 def test_connect_controller_signals_wires_all_widget_events() -> None:
@@ -361,7 +259,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     controller = SimpleNamespace(request_auto_preview=lambda *args: None)
     widgets = SimpleNamespace()
 
-    for section_name in app_module.GUI_STATE_SECTION_NAMES:
+    for section_name in GUI_STATE_SECTION_NAMES:
         if section_name == 'load_raw':
             setattr(widgets, section_name, None)
             continue
@@ -448,7 +346,7 @@ def test_connect_auto_preview_signals_wires_params_group_section_editors() -> No
     camera_editors = {'film_format_mm': _make_auto_preview_editor(35.0)}
     camera_section = SimpleNamespace(_is_params_group=True, _editors=camera_editors)
     widgets = SimpleNamespace()
-    for section_name in app_module.GUI_STATE_SECTION_NAMES:
+    for section_name in GUI_STATE_SECTION_NAMES:
         setattr(widgets, section_name, None)
     widgets.scanner = scanner_section
     widgets.camera = camera_section
@@ -467,86 +365,3 @@ def test_connect_auto_preview_signals_wires_params_group_section_editors() -> No
     assert camera_editors['film_format_mm'].valueChanged.connected == [controller.request_auto_preview]
 
 
-def test_initialize_controller_syncs_connects_and_refreshes() -> None:
-    captured: dict[str, object] = {}
-
-    class FakeController:
-        def __init__(self, *, viewer, widgets) -> None:
-            captured['init'] = (viewer, widgets)
-
-        def sync_display_transform_availability(self, *, report_status: bool) -> None:
-            captured['sync'] = report_status
-
-    widgets = object()
-    viewer = object()
-
-    controller = app_module.initialize_controller(
-        viewer=viewer,
-        widgets=widgets,
-        controller_cls=FakeController,
-        connect_signals_fn=lambda controller, widgets: captured.setdefault('connected', (controller, widgets)),
-    )
-
-    assert captured['init'] == (viewer, widgets)
-    assert captured['sync'] is False
-    assert captured['connected'][1] is widgets
-    assert controller is captured['connected'][0]
-
-
-def test_initialize_controller_shows_startup_placeholder_when_available() -> None:
-    captured: dict[str, object] = {}
-
-    class FakeController:
-        def __init__(self, *, viewer, widgets) -> None:
-            captured['init'] = (viewer, widgets)
-
-        def sync_display_transform_availability(self, *, report_status: bool) -> None:
-            captured['sync'] = report_status
-
-        def show_startup_placeholder(self) -> None:
-            captured['startup_placeholder'] = True
-
-    widgets = object()
-    viewer = object()
-
-    controller = app_module.initialize_controller(
-        viewer=viewer,
-        widgets=widgets,
-        controller_cls=FakeController,
-        connect_signals_fn=lambda controller, widgets: captured.setdefault('connected', (controller, widgets)),
-    )
-
-    assert captured['init'] == (viewer, widgets)
-    assert captured['sync'] is False
-    assert captured['startup_placeholder'] is True
-    assert captured['connected'][1] is widgets
-    assert controller is captured['connected'][0]
-
-
-def test_build_main_window_for_app_uses_gray_18_canvas_state() -> None:
-    captured: dict[str, object] = {}
-    viewer = object()
-    widgets = SimpleNamespace(display=SimpleNamespace(gray_18_canvas=StubToggle(True)))
-    fake_controls_panel = object()
-    fake_main_window = object()
-
-    def fake_build_controls_panel(viewer, widgets):
-        captured['panel_args'] = (viewer, widgets)
-        return fake_controls_panel
-
-    def fake_build_main_window(viewer, controls_panel):
-        captured['window_args'] = (viewer, controls_panel)
-        return fake_main_window
-
-    main_window = app_module.build_main_window_for_app(
-        viewer=viewer,
-        widgets=widgets,
-        configure_napari_chrome_fn=lambda viewer, *, gray_18_canvas=False: captured.setdefault('chrome', (viewer, gray_18_canvas)),
-        build_controls_panel_fn=fake_build_controls_panel,
-        build_main_window_fn=fake_build_main_window,
-    )
-
-    assert captured['chrome'] == (viewer, True)
-    assert captured['panel_args'] == (viewer, widgets)
-    assert captured['window_args'][0] is viewer
-    assert main_window is fake_main_window

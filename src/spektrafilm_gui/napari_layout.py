@@ -10,6 +10,7 @@ from qtpy.QtCore import Qt
 
 if TYPE_CHECKING:
     import napari
+    from spektrafilm_gui.widgets import WidgetBundle
 
 QFrame = QtWidgets.QFrame
 QIcon = QtGui.QIcon
@@ -32,8 +33,10 @@ from spektrafilm_gui.theme_palette import (
     SIZE_SPLITTER_HANDLE_MARGIN_LEFT,
     SIZE_TAB_CONTENT_TOP_MARGIN,
 )
-from spektrafilm_gui.widgets import WidgetBundle
-from spektrafilm_gui.widgets import CollapsibleSection, platform_default_font
+# Only widget_primitives (light: Qt + theme) is imported at module scope so this
+# module stays cheap to import during the fast startup shell. WidgetBundle is a
+# type-only reference (see TYPE_CHECKING above).
+from spektrafilm_gui.widget_primitives import CollapsibleSection, platform_default_font
 
 
 DEFAULT_CONTROLS_PANEL_WIDTH = 420
@@ -44,6 +47,10 @@ class AppMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self._viewer_status_bar: QStatusBar | None = None
+        # Layout of the (initially empty) sidebar. The two-phase startup shows
+        # the window with a placeholder here, then mounts the real controls
+        # panel once the heavy imports have warmed up.
+        self._controls_layout: QtWidgets.QVBoxLayout | None = None
 
     def set_viewer_status_bar(self, status_bar: QStatusBar) -> None:
         self._viewer_status_bar = status_bar
@@ -52,6 +59,19 @@ class AppMainWindow(QMainWindow):
         if self._viewer_status_bar is not None:
             return self._viewer_status_bar
         return super().statusBar()
+
+    def mount_controls(self, controls_panel: QWidget) -> None:
+        """Replace the sidebar placeholder with the real controls panel."""
+        layout = self._controls_layout
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+        layout.addWidget(controls_panel, 1)
 
 def _get_current_stylesheet() -> str:
     try:
@@ -191,15 +211,21 @@ def _wrap_scrollable(widget: QWidget) -> QScrollArea:
     return scroll
 
 
-def _build_sidebar(controls_panel: QWidget) -> QFrame:
+def _build_sidebar() -> tuple[QFrame, QtWidgets.QVBoxLayout]:
     sidebar = QtWidgets.QFrame()
     sidebar.setObjectName('sidebarPanel')
 
     layout = QtWidgets.QVBoxLayout(sidebar)
     layout.setContentsMargins(SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_PANEL_MARGIN, SIZE_FOOTER_BOTTOM_INSET)
     layout.setSpacing(0)
-    layout.addWidget(controls_panel, 1)
-    return sidebar
+    return sidebar, layout
+
+
+def _build_loading_placeholder() -> QWidget:
+    label = QtWidgets.QLabel('Warming up…')
+    label.setObjectName('loadingPlaceholder')
+    label.setAlignment(Qt.AlignCenter)
+    return label
 
 
 def _build_controls_tab(*widgets: QWidget) -> QWidget:
@@ -466,11 +492,13 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
 
 def build_main_window(
     viewer: napari.Viewer,
-    controls_panel: QWidget,
     *,
     on_rotate_ccw: Callable[[], None] | None = None,
     on_rotate_cw: Callable[[], None] | None = None,
-) -> QMainWindow:
+) -> AppMainWindow:
+    """Build the window shell: viewer panel + an empty sidebar holding a
+    'Warming up…' placeholder. The real controls panel is mounted later with
+    ``main_window.mount_controls`` once the heavy imports have warmed up."""
     viewer_widget = take_viewer_widget(viewer)
     status_bar = QtWidgets.QStatusBar()
     status_bar.setSizeGripEnabled(False)
@@ -483,6 +511,10 @@ def build_main_window(
     main_window.setStyleSheet(APP_STYLE_SHEET)
     main_window.set_viewer_status_bar(status_bar)
     set_host_window(viewer, main_window)
+
+    sidebar, controls_layout = _build_sidebar()
+    controls_layout.addWidget(_build_loading_placeholder(), 1)
+    main_window._controls_layout = controls_layout
 
     splitter = QtWidgets.QSplitter(Qt.Horizontal)
     splitter.setChildrenCollapsible(False)
@@ -498,7 +530,7 @@ def build_main_window(
             on_home_view=lambda: reset_viewer_camera(viewer),
         )
     )
-    splitter.addWidget(_build_sidebar(controls_panel))
+    splitter.addWidget(sidebar)
     splitter.setStretchFactor(0, 1)
     splitter.setStretchFactor(1, 0)
     splitter.setSizes([DEFAULT_VIEWER_SPLITTER_WIDTH, DEFAULT_CONTROLS_PANEL_WIDTH])

@@ -79,13 +79,23 @@ class BackgroundRunner:
     submission.
     """
 
-    def __init__(self, thread_pool: Any | None = None) -> None:
+    def __init__(
+        self,
+        thread_pool: Any | None = None,
+        *,
+        on_busy_changed: Callable[[bool], None] | None = None,
+    ) -> None:
         self._pool = thread_pool if thread_pool is not None else QThreadPool.globalInstance()
         self._signals = _RunnerSignals()
         self._signals.done.connect(self._on_done)
         self._signals.error.connect(self._on_error)
         self._active: dict[str, _Request] = {}
         self._pending: dict[str, _Request] = {}
+        # Fires (on the GUI thread) when the runner crosses idle <-> busy, i.e.
+        # whenever any channel has a task running. Drives the "working thread
+        # engaged" UI state, such as graying out the action buttons.
+        self._on_busy_changed = on_busy_changed
+        self._busy = False
 
     def submit(
         self,
@@ -110,6 +120,7 @@ class BackgroundRunner:
 
     def _start(self, channel: str, request: _Request) -> None:
         self._active[channel] = request
+        self._refresh_busy()
         self._pool.start(_Task(channel, request.work, self._signals))
 
     def _on_done(self, channel: str, result: Any) -> None:
@@ -117,14 +128,23 @@ class BackgroundRunner:
         if request is not None and request.on_done is not None:
             request.on_done(result)
         self._drain(channel)
+        self._refresh_busy()
 
     def _on_error(self, channel: str, message: str) -> None:
         request = self._active.pop(channel, None)
         if request is not None and request.on_error is not None:
             request.on_error(message)
         self._drain(channel)
+        self._refresh_busy()
 
     def _drain(self, channel: str) -> None:
         request = self._pending.pop(channel, None)
         if request is not None:
             self._start(channel, request)
+
+    def _refresh_busy(self) -> None:
+        busy = bool(self._active)
+        if busy != self._busy:
+            self._busy = busy
+            if self._on_busy_changed is not None:
+                self._on_busy_changed(busy)

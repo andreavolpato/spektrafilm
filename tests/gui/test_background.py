@@ -70,6 +70,39 @@ def test_busy_channel_coalesces_to_latest_pending() -> None:
     assert not runner.is_busy('c')
 
 
+def test_busy_listener_fires_on_idle_busy_transitions() -> None:
+    pool = FakePool()
+    transitions: list[bool] = []
+    runner = BackgroundRunner(pool, on_busy_changed=transitions.append)
+
+    runner.submit('a', lambda: 1, on_done=lambda r: None)
+    assert transitions == [True]  # idle -> busy when the first task starts
+
+    runner.submit('b', lambda: 2, on_done=lambda r: None)
+    assert transitions == [True]  # second channel: still busy, no new edge
+
+    pool.run_next()
+    assert transitions == [True]  # one channel done, the other still running
+
+    pool.run_next()
+    assert transitions == [True, False]  # both drained -> idle
+
+
+def test_busy_listener_stays_busy_across_coalesced_pending() -> None:
+    pool = FakePool()
+    transitions: list[bool] = []
+    runner = BackgroundRunner(pool, on_busy_changed=transitions.append)
+
+    runner.submit('c', lambda: 'first', on_done=lambda r: None)
+    runner.submit('c', lambda: 'latest', on_done=lambda r: None)  # coalesced as pending
+
+    pool.run_next()  # 'first' done, pending 'latest' starts immediately
+    assert transitions == [True]  # no idle blip between the two
+
+    pool.run_next()
+    assert transitions == [True, False]
+
+
 def test_channels_run_independently() -> None:
     pool = FakePool()
     runner = BackgroundRunner(pool)

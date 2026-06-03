@@ -621,6 +621,40 @@ def test_request_auto_preview_schedules_once_and_runs_preview(monkeypatch) -> No
     assert captured['preview_runs'] == [False]
 
 
+def test_start_warmup_runs_on_working_thread_and_grays_out_buttons(monkeypatch) -> None:
+    class FakeButton:
+        def __init__(self) -> None:
+            self.enabled = True
+
+        def setEnabled(self, value: bool) -> None:
+            self.enabled = value
+
+    buttons = SimpleNamespace(preview_button=FakeButton(), scan_button=FakeButton(), save_button=FakeButton())
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=buttons))
+    statuses: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        controller_module,
+        'set_status',
+        lambda viewer, message, timeout_ms=5000: statuses.append((message, timeout_ms)),
+    )
+
+    warmup_calls: list[bool] = []
+
+    def fake_warmup() -> None:
+        # While the warmup runs, the action buttons must be grayed out.
+        warmup_calls.append(True)
+        assert all(not getattr(buttons, name).enabled for name in ('preview_button', 'scan_button', 'save_button'))
+
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
+
+    controller.start_warmup(fake_warmup)
+
+    assert warmup_calls == [True]
+    assert statuses == [('Warming up...', 0), ('Ready', 5000)]
+    # Buttons are re-enabled once the working thread goes idle again.
+    assert all(getattr(buttons, name).enabled for name in ('preview_button', 'scan_button', 'save_button'))
+
+
 def test_run_scheduled_auto_preview_submits_silent_preview(monkeypatch) -> None:
     # Busy-state coalescing now lives in the BackgroundRunner, so the scheduled
     # auto-preview always submits and lets the runner coalesce against any

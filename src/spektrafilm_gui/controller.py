@@ -160,7 +160,7 @@ class GuiController:
         # One runner drives every off-thread operation. Each kind of work runs
         # on its own channel; within a channel the runner coalesces so a burst
         # of requests never piles up and only the latest result lands.
-        self._jobs = BackgroundRunner(self._thread_pool)
+        self._jobs = BackgroundRunner(self._thread_pool, on_busy_changed=self._set_busy)
         # Preview and Scan run on separate channels (a manual Scan is never
         # superseded by a preview), but they share one cached simulator, so the
         # runtime work itself is serialized with this lock.
@@ -747,7 +747,8 @@ class GuiController:
             use_display_transform=state.gui_only.display.use_display_transform,
         )
 
-        self._set_simulation_controls_enabled(False)
+        # Button state is driven centrally by the runner's busy listener
+        # (_set_busy); submitting here disables the controls as a side effect.
         if report_status:
             set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
         self._jobs.submit(
@@ -756,9 +757,6 @@ class GuiController:
             on_done=lambda result: self._on_simulation_finished(result, report_status=report_status),
             on_error=lambda message: self._on_simulation_failed(message, mode_label=mode_label),
         )
-
-    def _simulation_busy(self) -> bool:
-        return self._jobs.is_busy('simulation') or self._jobs.is_busy('scan')
 
     def _on_simulation_finished(self, result: SimulationResult, *, report_status: bool = True) -> None:
         self._set_or_add_output_layer(
@@ -770,16 +768,16 @@ class GuiController:
         )
         if report_status:
             set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
-        # Re-enable only once preview and scan have both fully drained; a
-        # coalesced request still pending keeps the controls disabled.
-        if not self._simulation_busy():
-            self._set_simulation_controls_enabled(True)
 
     def _on_simulation_failed(self, message: str, *, mode_label: str = 'Simulation') -> None:
         QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
         set_status(self._viewer, f'{mode_label} failed')
-        if not self._simulation_busy():
-            self._set_simulation_controls_enabled(True)
+
+    def _set_busy(self, busy: bool) -> None:
+        """Called by the runner whenever the working thread becomes engaged or
+        idle. Grays out the action buttons so they cannot be triggered while a
+        preview / scan / raw decode / warmup is in flight."""
+        self._set_simulation_controls_enabled(not busy)
 
     def _set_simulation_controls_enabled(self, enabled: bool) -> None:
         simulation_section = getattr(self._widgets, 'simulation', None)
@@ -790,6 +788,19 @@ class GuiController:
             set_enabled = getattr(button, 'setEnabled', None)
             if callable(set_enabled):
                 set_enabled(enabled)
+
+    def start_warmup(self, warmup_fn) -> None:
+        """Run a one-off warmup callable on the working thread so the GUI is
+        usable immediately while libraries / JIT / the first pipeline build
+        prime in the background. The action buttons gray out (busy listener)
+        and the status bar shows progress until it finishes."""
+        set_status(self._viewer, 'Warming up...', timeout_ms=0)
+        self._jobs.submit(
+            'warmup',
+            warmup_fn,
+            on_done=lambda _result: set_status(self._viewer, 'Ready'),
+            on_error=lambda _message: set_status(self._viewer, 'Ready'),
+        )
 
     def _run_simulation(self, *, source_layer_name: str) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
