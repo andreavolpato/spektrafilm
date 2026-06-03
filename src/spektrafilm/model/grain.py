@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import scipy.ndimage
 from spektrafilm.model.density_curves import interp_density_cmy_layers_channel
-from spektrafilm.model.diffusion import match_channels
+from spektrafilm.model.diffusion import match_channels, apply_multiplicative_unsharp_mask
 from spektrafilm.runtime.params_schema import GrainParams
 from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
@@ -99,6 +99,8 @@ def apply_grain_to_density(density_cmy,
                            grain_blur=1.0,
                            n_sub_layers=1,
                            fixed_seed=None,
+                           usm_sigma=0.0,
+                           usm_amount=0.0,
                            ):
     n_ch = density_cmy.shape[-1]
     density_min = match_channels(density_min, n_ch)
@@ -127,12 +129,16 @@ def apply_grain_to_density(density_cmy,
                                                             grain_uniformity=grain_uniformity[ch],
                                                             seed=seed[ch] + sl*10)
     density_cmy_out /= n_sub_layers
-    density_cmy_out -= density_min
-    
+
     if sigma_blur_pixel>0.4:
         # density_cmy_out = scipy.ndimage.gaussian_filter(density_cmy_out, (sigma_blur_pixel, sigma_blur_pixel, 0))
         density_cmy_out = fast_gaussian_filter(density_cmy_out, sigma_blur_pixel)
-        
+    # Mass-conserving density USM on the absolute (positive) density, before the
+    # floor is removed, so positivity holds (see diffusion.apply_multiplicative_unsharp_mask).
+    if usm_amount > 0 and usm_sigma > 0:
+        density_cmy_out = apply_multiplicative_unsharp_mask(density_cmy_out, usm_sigma, usm_amount)
+    density_cmy_out -= density_min
+
     return density_cmy_out
 
 
@@ -188,13 +194,18 @@ def _channel_sublayer_grain(layers_ch, density_max_layers_ch, n_particles_ch,
     return channel_grain
 
 
-def _finalize_grain(density_cmy_out, density_min, grain_micro_structure, pixel_size_um, grain_blur):
-    """Shared grain finishing: optical micro-structure clumping, remove the
-    density floor, and the final dye-cloud blur."""
+def _finalize_grain(density_cmy_out, density_min, grain_micro_structure, pixel_size_um,
+                    grain_blur, usm_sigma=0.0, usm_amount=0.0):
+    """Shared grain finishing: optical micro-structure clumping, the
+    pixel-correlating blur, the mass-conserving density unsharp mask (applied on
+    the absolute density, before the floor is removed, so it stays positive),
+    and removal of the density floor."""
     density_cmy_out = add_micro_structure(density_cmy_out, grain_micro_structure, pixel_size_um)
-    density_cmy_out -= density_min
     if grain_blur > 0:
         density_cmy_out = fast_gaussian_filter(density_cmy_out, grain_blur)
+    if usm_amount > 0 and usm_sigma > 0:
+        density_cmy_out = apply_multiplicative_unsharp_mask(density_cmy_out, usm_sigma, usm_amount)
+    density_cmy_out -= density_min
     return density_cmy_out
 
 
@@ -211,6 +222,8 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
                                   grain_micro_structure=(0.1, 30),
                                   fixed_seed=None,
                                   use_fast_stats=False,
+                                  usm_sigma=0.0,
+                                  usm_amount=0.0,
                                   ):
     # Whole-array entry: grains a pre-built (H, W, sublayers, channels) stack.
     # `apply_grain` uses the streaming path below instead; this stays for direct
@@ -233,7 +246,7 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
             grain_blur_dye_clouds_um, use_fast_stats)
 
     density_cmy_out = _finalize_grain(density_cmy_out, density_min, grain_micro_structure,
-                                      pixel_size_um, grain_blur)
+                                      pixel_size_um, grain_blur, usm_sigma, usm_amount)
     return density_cmy_out.astype(out_dtype, copy=False)
 
 
@@ -262,6 +275,8 @@ def apply_grain(
             grain_uniformity=grain.uniformity,
             grain_blur=grain.blur,
             n_sub_layers=grain.n_sub_layers,
+            usm_sigma=grain.mult_usm_sigma,
+            usm_amount=grain.mult_usm_amount,
         )
 
     # Streaming sub-layer grain: build and grain one channel's sub-layer stack
@@ -290,7 +305,8 @@ def apply_grain(
             grain_uniformity[ch], ch, grain.blur_dye_clouds_um, use_fast_stats)
 
     density_cmy_out = _finalize_grain(density_cmy_out, density_min, grain.micro_structure,
-                                      pixel_size_um, grain.blur)
+                                      pixel_size_um, grain.blur,
+                                      grain.mult_usm_sigma, grain.mult_usm_amount)
     return density_cmy_out.astype(density_cmy.dtype, copy=False)
 
 # TODO: make grain parameter with RMS granularity

@@ -311,6 +311,19 @@ GRAIN_MANIFEST = GroupManifest(
             tooltip="Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res).",
         ),
         ParamSpec(
+            f"{_G}.mult_usm_amount",
+            tier="basic",
+            min=0,
+            step=0.1,
+            tooltip="Strength of the mass-conserving density unsharp mask applied after the grain blur: it makes the pixel/sampling grid disappear while keeping the grain and image content (positive, mass-conserving, not a denoiser). 0 disables. Default 0.4; gets 'wormy' above ~1.",
+        ),
+        ParamSpec(
+            f"{_G}.mult_usm_sigma",
+            min=0,
+            step=0.25,
+            tooltip="Radius (px) of the density unsharp mask. Broad (default 2.0) puts the acutance in the mid-band, away from Nyquist, so the pixel stays gone while perceived sharpness comes back.",
+        ),
+        ParamSpec(
             f"{_G}.blur_dye_clouds_um",
             min=0,
             step=0.1,
