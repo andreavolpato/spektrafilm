@@ -5,6 +5,7 @@ import warnings
 from spektrafilm.utils.fast_interp_lut import (
     apply_lut_cubic_3d,
     apply_lut_pchip_3d,
+    apply_lut_tetrahedral_3d,
 )
 from spektrafilm.utils.lut import compute_with_lut
 
@@ -179,6 +180,51 @@ def test_apply_monotone_3d_lut_mitchell_matches_ground_truth_with_small_error():
 
     assert rmse_mitchell < 2e-3
     assert max_error_mitchell < 1.2e-2
+
+
+def test_apply_lut_tetrahedral_3d_is_exact_on_affine():
+    # Tetrahedral interpolation reproduces any affine transform exactly (it is
+    # linear within each tetrahedron), so a LUT baked from an affine function
+    # round-trips to ~machine epsilon.
+    steps = 17
+    grid = np.linspace(0.0, 1.0, steps, dtype=np.float64)
+    x_r, x_g, x_b = np.meshgrid(grid, grid, grid, indexing='ij')
+    lut = affine_transform(np.stack((x_r, x_g, x_b), axis=-1))
+
+    rng = np.random.default_rng(0)
+    image = rng.random((32, 24, 3))
+
+    output = apply_lut_tetrahedral_3d(lut, image)
+
+    np.testing.assert_allclose(output, affine_transform(image), atol=1e-12, rtol=0)
+
+
+def test_apply_monotone_3d_lut_tetrahedral_matches_ground_truth_with_small_error():
+    lut, image, ground_truth = make_monotone_3d_lut_and_image()
+
+    output = apply_lut_tetrahedral_3d(lut, image)
+
+    diff = output - ground_truth
+    assert np.sqrt(np.mean(diff**2)) < 2e-3
+    assert np.max(np.abs(diff)) < 1.2e-2
+
+
+def test_compute_with_lut_uses_tetrahedral_and_matches_affine():
+    # compute_with_lut applies via apply_lut_3d, whose default is now
+    # tetrahedral — exact on an affine transform.
+    grid = np.linspace(0.0, 1.0, 9, dtype=np.float64)
+    data = np.array(
+        [
+            [[grid[1], grid[2], grid[3]], [grid[4], grid[5], grid[6]]],
+            [[grid[6], grid[3], grid[2]], [grid[7], grid[6], grid[1]]],
+        ],
+        dtype=np.float64,
+    )
+
+    output, lut = compute_with_lut(data, affine_transform, steps=9)
+
+    assert lut.shape == (9, 9, 9, 3)
+    np.testing.assert_allclose(output, affine_transform(data), atol=1e-8, rtol=1e-8)
 
 
 def test_apply_lut_pchip_3d_does_not_warn_for_mixed_direction_monotone_lines():

@@ -222,7 +222,7 @@ def _build_sidebar() -> tuple[QFrame, QtWidgets.QVBoxLayout]:
 
 
 def _build_loading_placeholder() -> QWidget:
-    label = QtWidgets.QLabel('Warming up…')
+    label = QtWidgets.QLabel('Warming up the chemicals…')
     label.setObjectName('loadingPlaceholder')
     label.setAlignment(Qt.AlignCenter)
     return label

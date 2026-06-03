@@ -44,6 +44,35 @@ def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0),
     data_normalized = (data - xmin) / (xmax - xmin)
     return apply_lut_3d(lut, data_normalized), lut
 
+
+def compute_with_lut_1d(data, function, xmin, xmax, steps=1024):
+    """Accelerate a single-channel transform with a 1D LUT.
+
+    For a one-channel input (e.g. a black-and-white emulsion's single density
+    layer), ``function`` maps ``(..., 1)`` to ``(..., n_out)``. Sampling it on a
+    1D grid of densities and linearly interpolating avoids ever materializing
+    the full-resolution intermediate spectral cube the direct call would build
+    — the whole reason a B&W scan otherwise dwarfs the colour pipeline.
+
+    ``xmin`` / ``xmax`` are the input density bounds (scalar or length-1). The
+    output channel count is taken from ``function``'s result, so this works for
+    both the enlarger (1 -> 1) and scanner (1 -> 3) stages. Values outside
+    ``[xmin, xmax]`` clamp to the endpoints, matching the 3D LUT path.
+    """
+    xmin = float(np.ravel(xmin)[0])
+    xmax = float(np.ravel(xmax)[0])
+    if xmax <= xmin:
+        raise ValueError('xmax must be greater than xmin')
+    nodes = np.linspace(xmin, xmax, steps)
+    # Sample the transform on the 1D density grid: (steps, 1, 1) -> (steps, 1, n_out).
+    node_values = np.asarray(function(nodes.reshape(steps, 1, 1))).reshape(steps, -1)
+    n_out = node_values.shape[1]
+    density = data[..., 0]
+    out = np.empty(data.shape[:-1] + (n_out,), dtype=node_values.dtype)
+    for c in range(n_out):
+        out[..., c] = np.interp(density, nodes, node_values[:, c])
+    return out
+
 def warmup_luts():
     """
     Performs a warmup for both 3D and 2D LUT JIT functions.

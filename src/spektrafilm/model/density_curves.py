@@ -232,19 +232,29 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
     return density_cmy
 
 
+def interp_density_cmy_layers_channel(density_cmy_ch, density_curves_ch, density_curves_layers_ch,
+                                      positive_film=False):
+    """Sub-layer densities for a single colour channel: ``(H, W, n_layers)``.
+
+    ``interp_density_cmy_layers`` is just this looped over channels. Exposed
+    separately so memory-sensitive callers (the grain) can build one channel's
+    slab at a time instead of materializing all channels at once.
+    """
+    n_layers = density_curves_layers_ch.shape[1]
+    stacked = np.repeat(density_cmy_ch[:, :, np.newaxis], n_layers, axis=-1)
+    if positive_film:
+        return fast_interp(-stacked, -density_curves_ch, density_curves_layers_ch)
+    return fast_interp(stacked, density_curves_ch, density_curves_layers_ch)
+
+
 def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
     # density_curves_layers is (n_le, n_layers, n_ch); channel is the last axis.
     n_ch = density_cmy.shape[-1]
     n_layers = density_curves_layers.shape[1]
     density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], n_layers, n_ch)) # x,y,layer,channel
-    if positive_film:
-        for ch in np.arange(n_ch):
-            density_cmy_layers[:,:,:,ch] = fast_interp(-np.repeat(density_cmy[:,:,ch,np.newaxis], n_layers, -1),
-                                                       -density_curves[:,ch], density_curves_layers[:,:,ch])
-    else:
-        for ch in np.arange(n_ch):
-            density_cmy_layers[:,:,:,ch] = fast_interp(np.repeat(density_cmy[:,:,ch,np.newaxis], n_layers, -1),
-                                                       density_curves[:,ch], density_curves_layers[:,:,ch])
+    for ch in np.arange(n_ch):
+        density_cmy_layers[:,:,:,ch] = interp_density_cmy_layers_channel(
+            density_cmy[:,:,ch], density_curves[:,ch], density_curves_layers[:,:,ch], positive_film)
     return density_cmy_layers
     
 # This method was used for multilayer grain, but it is not used anymore

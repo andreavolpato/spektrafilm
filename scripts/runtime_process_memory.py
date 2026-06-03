@@ -20,7 +20,6 @@ Usage:
     python scripts/runtime_process_memory.py -n 100          # more iterations
     python scripts/runtime_process_memory.py --preview       # preview-size path
     python scripts/runtime_process_memory.py --no-mutate     # repeat identical params
-    python scripts/runtime_process_memory.py --gamut cam16ucs # stress a heavier tail
 """
 from __future__ import annotations
 
@@ -42,15 +41,17 @@ from spektrafilm.runtime.process import Simulator
 IMAGE_PATH = "img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif"
 
 
-def build_base_params(gamut: str | None):
-    """Same configuration as runtime_process_timing.py, optionally forcing
-    the output gamut-compression algorithm to stress the scanner tail."""
+def build_base_params():
+    """Same configuration as runtime_process_timing.py.
+
+    Edit this directly to test a different stock / gamut / setting.
+    """
     params = init_params(print_profile="kodak_portra_endura")
     params.io.input_cctf_decoding = False
     params.print_render.glare.active = True
     params.debug.deactivate_stochastic_effects = False
     params.camera.auto_exposure = True
-    params.io.upscale_factor = 3.0
+    params.io.upscale_factor = 1.0
     params.io.scan_film = False
     params.film_render.grain.active = True
     params.film_render.grain.particle_area_um2 = 1
@@ -60,8 +61,6 @@ def build_base_params(gamut: str | None):
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
     params.settings.lut_resolution = 17
-    if gamut is not None:
-        params.io.output_gamut_compress.algorithm = gamut
     return params
 
 
@@ -111,8 +110,6 @@ def main() -> None:
                     help="run the preview-sized path instead of a full-res scan")
     ap.add_argument("--no-mutate", action="store_true",
                     help="repeat identical params instead of nudging one each iter")
-    ap.add_argument("--gamut", default=None,
-                    help="force output gamut-compress algorithm (e.g. cam16ucs)")
     ap.add_argument("--checkpoints", type=int, default=4,
                     help="number of tracemalloc compare checkpoints")
     args = ap.parse_args()
@@ -128,15 +125,14 @@ def main() -> None:
     warmup()
 
     image = np.double(load_image_oiio(IMAGE_PATH))
-    base = build_base_params(args.gamut)
+    base = build_base_params()
     if args.preview:
         image = resize_for_preview(image, base.settings.preview_max_size)
     print(f"Image shape: {image.shape}  ({'preview' if args.preview else 'scan'} path)")
-    print(f"Output gamut algorithm: {base.io.output_gamut_compress.algorithm}")
     print(f"Iterations: {args.iterations}  mutate params: {not args.no_mutate}\n")
 
     # Persistent simulator, exactly like the GUI keeps self._runtime_simulator.
-    simulator = Simulator(digest_params(build_base_params(args.gamut)))
+    simulator = Simulator(digest_params(build_base_params()))
 
     tracemalloc.start(25)
     gc.collect()
@@ -149,7 +145,7 @@ def main() -> None:
     checkpoint_snaps = []  # (iter, snapshot)
 
     for i in range(args.iterations):
-        params = build_base_params(args.gamut)
+        params = build_base_params()
         if not args.no_mutate:
             # Nudge a param so update_params takes the full rebuild path the
             # GUI hits on every slider move (not a no-op soft path).

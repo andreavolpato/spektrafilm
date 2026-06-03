@@ -794,7 +794,7 @@ class GuiController:
         usable immediately while libraries / JIT / the first pipeline build
         prime in the background. The action buttons gray out (busy listener)
         and the status bar shows progress until it finishes."""
-        set_status(self._viewer, 'Warming up...', timeout_ms=0)
+        set_status(self._viewer, 'Switching on the safe-light...', timeout_ms=0)
         self._jobs.submit(
             'warmup',
             warmup_fn,

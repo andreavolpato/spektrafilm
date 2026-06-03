@@ -47,6 +47,13 @@ def apply_halation_um(raw, halation, pixel_size_um):
 
     See the private halation notes for the physical derivation and parameter
     priors.
+
+    Operates in place on ``raw`` to keep the peak working set small: at
+    full resolution each intermediate is a multi-GB array, so the blend
+    steps reuse buffers (``core``, ``halation_blur``) and accumulate with
+    ``*=`` / ``+=`` instead of allocating fresh ``scattered`` / ``(1-s)*raw``
+    / ``wk*blur`` temporaries. The arithmetic is identical to the
+    out-of-place form; only the allocation pattern changes.
     """
     if not halation.active:
         return raw
@@ -66,10 +73,18 @@ def apply_halation_um(raw, halation, pixel_size_um):
     sigma_c_px = match_channels(halation.scatter_core_um, n_ch) * s_scale / pixel_size_um
     lambda_t_px = match_channels(halation.scatter_tail_um, n_ch) * s_scale / pixel_size_um
     if s_amount > 0 and (np.any(sigma_c_px > 0) or np.any(lambda_t_px > 0)):
+        # scattered = (1 - w_s) * core + w_s * tail, folded into `core`.
         core = fast_gaussian_filter(raw, np.maximum(sigma_c_px, 1e-6))
         tail = fast_exponential_filter(raw, np.maximum(lambda_t_px, 1e-6))
-        scattered = (1.0 - w_s) * core + w_s * tail
-        raw = (1.0 - s_amount) * raw + s_amount * scattered
+        core *= (1.0 - w_s)
+        tail *= w_s
+        core += tail
+        del tail
+        # raw = (1 - s) * raw + s * scattered, folded into `raw`.
+        raw *= (1.0 - s_amount)
+        core *= s_amount
+        raw += core
+        del core
 
     # 2. Halation pass — additive multi-bounce sum scaled by halation_amount:
     #    E2 = E1 + halation_amount * Σ_{k=1..N} a_k * G(sigma_h * sqrt(k)) * E1
@@ -84,13 +99,24 @@ def apply_halation_um(raw, halation, pixel_size_um):
     if N >= 1 and np.any(a_tot > 0) and np.any(sigma_h_px > 0):
         decay = np.array([rho ** (k - 1) for k in range(1, N + 1)], dtype=np.float64)
         decay /= decay.sum()
-        halation_blur = np.zeros_like(raw)
+        # Accumulate Σ_k w_k * G(sigma_k) * raw, seeding the accumulator with
+        # the first bounce so there is no separate zeros_like allocation.
+        halation_blur = None
         for k, wk in zip(range(1, N + 1), decay):
             sigma_k_px = np.maximum(sigma_h_px * np.sqrt(k), 1e-6)
-            halation_blur += wk * fast_gaussian_filter(raw, sigma_k_px)
-        raw = raw + a_tot * halation_blur
+            blurred = fast_gaussian_filter(raw, sigma_k_px)
+            blurred *= wk
+            if halation_blur is None:
+                halation_blur = blurred
+            else:
+                halation_blur += blurred
+                del blurred
+        # raw = raw + a_tot * halation_blur, then optional renormalize.
+        halation_blur *= a_tot
+        raw += halation_blur
+        del halation_blur
         if halation.halation_renormalize:
-            raw = raw / (1.0 + a_tot)
+            raw /= (1.0 + a_tot)
 
     return raw
 
@@ -644,15 +670,36 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
         overrides=overrides,
     )
 
-    padded = np.pad(image, ((radius, radius), (radius, radius), (0, 0)), mode='reflect')
-    blurred = np.empty_like(padded)
+    # Run the FFT convolution in single precision: a diffusion-blur needs
+    # nothing near float64 accuracy, and scipy's fftconvolve preserves the
+    # input dtype (float32 -> complex64 rfft internally), so this halves the
+    # padded buffer and every FFT work array. (float16 is not an option —
+    # neither numpy nor scipy implement a half-precision FFT, and its range
+    # would clip HDR-linear values; float32 is the practical floor.) Cast
+    # before padding so a float64 padded copy is never materialized.
+    work_dtype = np.float32
+    padded = np.pad(
+        image.astype(work_dtype, copy=False),
+        ((radius, radius), (radius, radius), (0, 0)), mode='reflect',
+    )
+    psf_per_channel = psf_per_channel.astype(work_dtype, copy=False)
+    # Output is image-sized (not padded): crop each channel as it comes out,
+    # so the full padded 3-channel `blurred` array is never held.
+    blurred = np.empty(image.shape, dtype=work_dtype)
     for channel in range(image.shape[2]):
-        blurred[:, :, channel] = fftconvolve(
+        conv = fftconvolve(
             padded[:, :, channel], psf_per_channel[..., channel], mode='same',
         )
-    blurred = blurred[radius:-radius, radius:-radius, :]
+        blurred[:, :, channel] = conv[radius:-radius, radius:-radius]
+    del padded
 
-    return (1.0 - p_s) * image + p_s * blurred
+    # Energy-conserving blend, returned in the input dtype. Scale the blur in
+    # place (float32 temp) before the upcasting add, so no float64 copy of the
+    # blurred image is allocated.
+    blurred *= p_s
+    result = image * (1.0 - p_s)
+    result += blurred
+    return result
 
 
 

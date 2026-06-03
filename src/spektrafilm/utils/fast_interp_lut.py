@@ -488,21 +488,111 @@ def apply_lut_pchip_3d(lut, image):
     return _apply_lut_pchip_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, cell_max, image)
 
 
+# ---------------------------
+# Tetrahedral 3D LUT interpolation
+# ---------------------------
+# The interpolation used by colour-grading software (Resolve, Nuke) and the
+# ICC/OCIO 3D-LUT path. Within each unit cell it picks one of the six
+# tetrahedra by the ordering of the fractional coordinates and blends only the
+# four relevant corners, so it costs 4 taps per pixel against PCHIP's 64 and
+# needs no per-LUT preparation. It is C0 (not C1) — exact on the cell diagonal
+# and on the grid nodes, with piecewise-linear faces — so gradients are very
+# slightly less smooth than PCHIP, but it is faster and free of the cubic
+# overshoot that PCHIP's monotonicity clamp exists to guard against. Good
+# default for an interactive preview; PCHIP stays available for final renders.
+@njit(cache=True)
+def _tetra_interp_lut_at_3d(lut, r, g, b):
+    size = lut.shape[0]
+    i, fr = cubic_coordinate_base_fraction(r, size)
+    j, fg = cubic_coordinate_base_fraction(g, size)
+    k, fb = cubic_coordinate_base_fraction(b, size)
+
+    out = np.empty(3, dtype=lut.dtype)
+    for c in range(3):
+        c000 = lut[i, j, k, c]
+        c111 = lut[i + 1, j + 1, k + 1, c]
+        if fr > fg:
+            if fg > fb:        # fr >= fg >= fb
+                c100 = lut[i + 1, j, k, c]
+                c110 = lut[i + 1, j + 1, k, c]
+                out[c] = c000 + fr * (c100 - c000) + fg * (c110 - c100) + fb * (c111 - c110)
+            elif fr > fb:      # fr >= fb >= fg
+                c100 = lut[i + 1, j, k, c]
+                c101 = lut[i + 1, j, k + 1, c]
+                out[c] = c000 + fr * (c100 - c000) + fb * (c101 - c100) + fg * (c111 - c101)
+            else:              # fb >= fr >= fg
+                c001 = lut[i, j, k + 1, c]
+                c101 = lut[i + 1, j, k + 1, c]
+                out[c] = c000 + fb * (c001 - c000) + fr * (c101 - c001) + fg * (c111 - c101)
+        else:
+            if fb > fg:        # fb >= fg >= fr
+                c001 = lut[i, j, k + 1, c]
+                c011 = lut[i, j + 1, k + 1, c]
+                out[c] = c000 + fb * (c001 - c000) + fg * (c011 - c001) + fr * (c111 - c011)
+            elif fb > fr:      # fg >= fb >= fr
+                c010 = lut[i, j + 1, k, c]
+                c011 = lut[i, j + 1, k + 1, c]
+                out[c] = c000 + fg * (c010 - c000) + fb * (c011 - c010) + fr * (c111 - c011)
+            else:              # fg >= fr >= fb
+                c010 = lut[i, j + 1, k, c]
+                c110 = lut[i + 1, j + 1, k, c]
+                out[c] = c000 + fg * (c010 - c000) + fr * (c110 - c010) + fb * (c111 - c110)
+    return out
+
+
+@njit(parallel=True, cache=True)
+def _apply_lut_tetrahedral_3d(lut, image):
+    height, width, _ = image.shape
+    output = np.empty((height, width, 3), dtype=lut.dtype)
+    scale = lut.shape[0] - 1
+    for i in prange(height):
+        for j in range(width):
+            out_val = _tetra_interp_lut_at_3d(
+                lut,
+                image[i, j, 0] * scale,
+                image[i, j, 1] * scale,
+                image[i, j, 2] * scale,
+            )
+            output[i, j, 0] = out_val[0]
+            output[i, j, 1] = out_val[1]
+            output[i, j, 2] = out_val[2]
+    return output
+
+
+def apply_lut_tetrahedral_3d(lut, image):
+    """
+    Apply a 3D LUT with tetrahedral interpolation.
+
+    No preparation step: the raw LUT array is used directly (4 corner taps per
+    pixel). Cheaper than PCHIP and monotonic by construction.
+    """
+    lut = np.ascontiguousarray(lut, dtype=np.float64)
+    if lut.ndim != 4 or lut.shape[3] != 3:
+        raise ValueError('3D LUT must have shape LxLxLx3')
+    if lut.shape[0] == 1:
+        return _apply_lut_constant_3d(lut, image)
+    return _apply_lut_tetrahedral_3d(lut, image)
+
+
 #########################
 # Public 3D LUT API
 #########################
 
-def apply_lut_3d(lut, image, method='pchip'):
+def apply_lut_3d(lut, image, method='tetrahedral'):
     """
     Apply a 3D LUT using the selected interpolation method.
 
-    The default is 'pchip'. The requested method directly selects the interpolation path.
+    'tetrahedral' (default): fast 4-tap interpolation (video / OCIO style),
+    no per-LUT preparation. 'pchip': smooth monotone cubic, slightly smoother
+    gradients at a higher cost. 'mitchell': cubic Mitchell-Netravali.
     """
     if method == 'mitchell':
         return apply_lut_cubic_3d(lut, image)
     if method == 'pchip':
         return apply_lut_pchip_3d(lut, image)
-    raise ValueError("method must be 'mitchell' or 'pchip'")
+    if method == 'tetrahedral':
+        return apply_lut_tetrahedral_3d(lut, image)
+    raise ValueError("method must be 'mitchell', 'pchip', or 'tetrahedral'")
 
 # ---------------------------
 # 2D LUT Cubic Interpolation (using x, y channels)
