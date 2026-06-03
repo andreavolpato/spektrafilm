@@ -296,13 +296,14 @@ class EnumEditor(QtWidgets.QComboBox):
 class DevelopmentTimeEditor(QtWidgets.QComboBox):
     """Dropdown of a BW stock's available development times.
 
-    The value is ``float | None``. ``None`` (shown as ``—``) means the stock has
-    no development-time family to choose from, or "use the representative middle
-    development". The choices are stock-dependent, so the controller repopulates
-    them via :meth:`set_choices` when the profile changes.
+    The value is ``float | None``. When the stock has a development-time family
+    the dropdown lists only the times and defaults to the floor-middle one; when
+    it has none, the dropdown holds a single ``none`` entry (value ``None``). The
+    choices are stock-dependent, so the controller repopulates them via
+    :meth:`set_choices` when the profile changes.
     """
 
-    _NONE_LABEL = '—'
+    _NONE_LABEL = 'none'
 
     def __init__(self, times: list[float] | None = None):
         super().__init__()
@@ -310,23 +311,25 @@ class DevelopmentTimeEditor(QtWidgets.QComboBox):
         self.set_choices(times)
 
     def set_choices(self, times: list[float] | None) -> None:
-        previous = self.value if self._values else None
+        previous = self.value if self.count() else None
+        times = [float(time) for time in (times or ())]
         self.blockSignals(True)
         self.clear()
-        self._values = [None]
-        self.addItem(self._NONE_LABEL)
-        for time in times or ():
-            self._values.append(float(time))
-            self.addItem(f'{float(time):g} min')
+        if times:
+            self._values = list(times)
+            for time in times:
+                self.addItem(f'{time:g} min')
+        else:
+            # No family to choose from: a single 'none' entry.
+            self._values = [None]
+            self.addItem(self._NONE_LABEL)
         self.blockSignals(False)
         if previous is not None and previous in self._values:
             # Keep an explicit prior selection that still exists in the new stock.
             self.value = previous
-        elif len(self._values) > 1:
-            # No prior choice but a development-time family is available: default
-            # to its floor-middle development. (_values[0] is the None entry.)
-            n_times = len(self._values) - 1
-            self.value = self._values[1 + (n_times - 1) // 2]
+        elif times:
+            # No prior choice but a family is available: default to floor-middle.
+            self.value = self._values[(len(self._values) - 1) // 2]
         else:
             self.value = None
 
@@ -338,10 +341,11 @@ class DevelopmentTimeEditor(QtWidgets.QComboBox):
     @value.setter
     def value(self, value: float | None) -> None:
         if value is None:
-            self.setCurrentIndex(0)
+            # The 'none' entry when present (no family), else no selection.
+            self.setCurrentIndex(0 if self._values == [None] else -1)
             return
         value = float(value)
-        self.setCurrentIndex(self._values.index(value) if value in self._values else 0)
+        self.setCurrentIndex(self._values.index(value) if value in self._values else -1)
 
 
 class TupleEditor(QtWidgets.QWidget):

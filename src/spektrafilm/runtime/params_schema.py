@@ -151,14 +151,21 @@ class GlareParams:
 
 
 @dataclass
+class BaseParams:
+    active: bool = True
+    scale: float = 1.0
+    cyan: float = 1.0
+    magenta: float = 1.0
+    yellow: float = 1.0
+
+
+@dataclass
 class FilmRenderingParams:
     # Film chemistry: development_time selects which curve / base+fog column of a
     # BW development-time family to render (matched against
     # ProfileData.development_time); the remaining fields are the s023 morph,
     # shared with the print chemistry. Off by default for single-curve/color.
-    chemistry: FilmChemistryParams = field(
-        default_factory=lambda: FilmChemistryParams(active=True)
-    )
+    chemistry: FilmChemistryParams = field(default_factory=FilmChemistryParams)
     grain: GrainParams = field(default_factory=GrainParams)
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
@@ -168,9 +175,8 @@ class FilmRenderingParams:
 @dataclass
 class PrintRenderingParams:
     glare: GlareParams = field(default_factory=GlareParams)
-    chemistry: PrintChemistryParams = field(
-        default_factory=lambda: PrintChemistryParams(active=True)
-    )
+    chemistry: PrintChemistryParams = field(default_factory=PrintChemistryParams)
+    base: BaseParams = field(default_factory=BaseParams)
 
 
 @dataclass

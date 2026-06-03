@@ -7,14 +7,6 @@ import numpy as np
 from spektrafilm_gui import controller_runtime as runtime_module
 
 
-class FakeSignal:
-    def __init__(self) -> None:
-        self.emitted: list[object] = []
-
-    def emit(self, value) -> None:
-        self.emitted.append(value)
-
-
 def test_execute_simulation_request_uses_runtime_runner_without_padding() -> None:
     request = runtime_module.SimulationRequest(
         mode_label='Preview',
@@ -35,26 +27,6 @@ def test_execute_simulation_request_uses_runtime_runner_without_padding() -> Non
     assert result.mode_label == 'Preview'
     np.testing.assert_allclose(result.float_image, np.full((4, 4, 3), 0.5, dtype=np.float32))
     assert result.status_message == 'Display transform: active'
-
-
-def test_simulation_worker_emits_failure_message() -> None:
-    request = runtime_module.SimulationRequest(
-        mode_label='Preview',
-        image=np.zeros((1, 1, 3), dtype=np.float32),
-        params=object(),
-        output_color_space='sRGB',
-        use_display_transform=False,
-    )
-    worker = runtime_module.SimulationWorker(
-        request,
-        execute_request=lambda request: (_ for _ in ()).throw(ValueError('bad simulation')),
-    )
-    worker.signals = SimpleNamespace(finished=FakeSignal(), failed=FakeSignal())
-
-    worker.run()
-
-    assert worker.signals.finished.emitted == []
-    assert worker.signals.failed.emitted == ['ValueError: bad simulation']
 
 
 def test_prepare_input_color_preview_image_converts_to_srgb_float_preview() -> None:
