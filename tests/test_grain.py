@@ -55,6 +55,7 @@ class TestApplyGrain:
             uniformity=(0.98, 0.97, 0.96),
             blur=0.0,
             n_sub_layers=2,
+            mult_usm_amount=0.0,
         )
 
         result = apply_grain(
@@ -104,6 +105,7 @@ class TestApplyGrain:
             blur=0.0,
             blur_dye_clouds_um=0.0,
             micro_structure=(0.0, 0.0),
+            mult_usm_amount=0.0,
         )
 
         result = apply_grain(

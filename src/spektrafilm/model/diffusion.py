@@ -21,6 +21,43 @@ def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
     return image_sharp
 
 
+def apply_multiplicative_unsharp_mask(image, sigma=0.0, amount=0.0, eps=1e-6):
+    """Mass-conserving, non-negative unsharp mask in the density domain.
+
+    Geometric (log-domain) sharpening, applied per channel:
+
+        D' = D * (D / G_sigma*D) ** amount     ( == additive USM on ln D )
+
+    followed by a per-channel scalar renormalization so each channel's integral
+    (total density = amount of absorbing dye, Beer-Lambert) is preserved exactly.
+    Positive by construction (a positive base to a real power), so it never
+    produces negative density and never needs clipping -- unlike the additive
+    unsharp mask above. Smooth and shift-invariant: no edge-awareness, not a
+    denoiser. Used after the pixel-correlating grain blur to recover acutance
+    while keeping the grain.
+
+    `image` must be a non-negative (absolute) density field. sigma or amount of
+    0 is a no-op. Designed in research study b80 ("make the pixels disappear");
+    see its n070 / n099 notes for the derivation and the default preset.
+    """
+    if sigma <= 0 or amount <= 0:
+        return image
+    D = np.maximum(image, 0.0)
+    blur = np.maximum(fast_gaussian_filter(D, sigma), eps)
+    out = np.where(D <= 0.0, 0.0, np.maximum(D, eps) ** (1.0 + amount) / blur ** amount)
+    # Per-channel scalar mass renormalization (preserves positivity).
+    if out.ndim == 3:
+        for c in range(out.shape[-1]):
+            s = out[..., c].sum()
+            if s > 0:
+                out[..., c] *= D[..., c].sum() / s
+    else:
+        s = out.sum()
+        if s > 0:
+            out *= D.sum() / s
+    return out.astype(image.dtype, copy=False)
+
+
 def match_channels(values, n_ch):
     """Adapt a per-channel parameter (RGB 3-tuple by default) to an image with
     ``n_ch`` channels. Colour (``n_ch == 3``) passes through unchanged; a

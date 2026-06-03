@@ -96,8 +96,10 @@ class GrainParams:
     particle_scale_layers: tuple[float, float, float] = (2.0, 1.0, 0.5)
     density_min: tuple[float, float, float] = (0.03, 0.03, 0.03)
     uniformity: tuple[float, float, float] = (0.97, 0.97, 0.97)
-    blur: float = 0.65
-    blur_dye_clouds_um: float = 1.0
+    blur: float = 0.89 # optimized to go with the mult usm below, see study b80
+    mult_usm_amount: float = 0.4 # Multiplicative (log-domain) density unsharp mask, see study b80
+    mult_usm_sigma: float = 2.0 # optimized to go with the blur above, see study b80
+    blur_dye_clouds_um: float = 2.0 # somewhat resolution of a normal microscope
     micro_structure: tuple[float, float] = (0.2, 30)
     n_sub_layers: int = 1
 
