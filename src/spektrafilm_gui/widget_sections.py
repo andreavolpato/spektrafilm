@@ -34,7 +34,6 @@ from spektrafilm_gui.params_manifest import (
     SIMULATION_SPECIAL_BORROWED_FIELDS,
     SPECTRAL_PANEL_FIELDS,
     SPECIAL_FIELDS,
-    TUNE_PANEL_FIELDS,
 )
 from spektrafilm_gui.state import (
     DisplayState,
@@ -49,7 +48,7 @@ from spektrafilm_gui.state import (
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
 from spektrafilm_gui.options import RawWhiteBalance
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm_gui.widget_editors import BoolEditor, DevelopmentTimeEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 
 
@@ -250,6 +249,10 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     sections so the type -> editor mapping lives in one place.
     """
     decimals = 2 if spec.decimals is None else spec.decimals
+    if spec.leaf == 'development_time':
+        # Stock-dependent choices, so the dropdown starts empty (None only) and
+        # the controller repopulates it on profile change.
+        return DevelopmentTimeEditor()
     if spec.enum is not None:
         if spec.leaf in {'film_stock', 'print_paper'}:
             editor = ProfileEnumEditor([member.value for member in spec.enum])
@@ -500,6 +503,13 @@ class ParamsGroupSection(QWidget):
         overrides = {leaf: editor.value for leaf, editor in self._editors.items()}
         return replace(base, **overrides)
 
+    def set_development_time_choices(self, times: Any) -> None:
+        """Repopulate the development-time dropdown (if this group has one) with
+        the loaded stock's available development times. No-op otherwise."""
+        editor = self._editors.get('development_time')
+        if isinstance(editor, DevelopmentTimeEditor):
+            editor.set_choices(None if times is None else [float(t) for t in times])
+
 
 class SpecialSection(QWidget):
     _is_params_group = True
@@ -520,8 +530,6 @@ class SpecialSection(QWidget):
             editor = _editor_from_param_spec(_path_annotation(SpecialState, spec.path), spec, label=spec.path)
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
-            if spec.leaf == 'film_gamma_factor':
-                continue
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
             if spec.tooltip:
                 label.setToolTip(spec.tooltip)
@@ -549,14 +557,6 @@ class SpectralUpsamplingSection(QWidget):
         super().__init__()
         self.setLayout(
             _build_path_panel('Spectral upsampling', SPECTRAL_PANEL_FIELDS, input_image_section._editors, expanded=False),
-        )
-
-
-class TuneSection(QWidget):
-    def __init__(self, special_section: SpecialSection):
-        super().__init__()
-        self.setLayout(
-            _build_path_panel('Tune', TUNE_PANEL_FIELDS, special_section._editors, expanded=True),
         )
 
 

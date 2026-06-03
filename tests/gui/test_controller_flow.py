@@ -391,11 +391,17 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
 
 
 def test_apply_profile_defaults_routes_through_selection_digest(monkeypatch) -> None:
-    controller = GuiController(viewer=object(), widgets=object())
+    controller = GuiController(
+        viewer=object(),
+        widgets=SimpleNamespace(
+            film_chemistry=SimpleNamespace(set_development_time_choices=lambda times: None),
+            chemistry=SimpleNamespace(set_development_time_choices=lambda times: None),
+        ),
+    )
     controller._next_runtime_digest_applies_stock_specifics = False
     gui_state = make_test_controller_gui_state()
     captured: dict[str, object] = {}
-    built_params = object()
+    built_params = SimpleNamespace(film=None, print=None)
     digested_params = object()
     synced_state = object()
 

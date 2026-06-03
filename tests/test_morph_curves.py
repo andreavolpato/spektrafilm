@@ -2,7 +2,7 @@ import numpy as np
 from pytest import mark
 
 from spektrafilm.profiles.io import DensityCurvesModel
-from spektrafilm.utils.morph_curves import PrintCurvesMorphParams, apply_print_curves_morph
+from spektrafilm.utils.morph_curves import PrintChemistryParams, apply_print_curves_morph
 
 
 pytestmark = mark.unit
@@ -41,13 +41,13 @@ def test_developer_exhaustion_preserves_midgray_at_loge_zero(profile_type):
     baseline = apply_print_curves_morph(
         log_exposure,
         model,
-        PrintCurvesMorphParams(),
+        PrintChemistryParams(),
         profile_type=profile_type,
     )
     exhausted = apply_print_curves_morph(
         log_exposure,
         model,
-        PrintCurvesMorphParams(developer_exhaustion=0.35),
+        PrintChemistryParams(developer_exhaustion=0.35),
         profile_type=profile_type,
     )
 

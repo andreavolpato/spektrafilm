@@ -10,7 +10,6 @@ from spektrafilm.runtime.params_schema import (
     DiffusionFilterParams,
     DirCouplersParams,
     EnlargerParams,
-    FilmRenderingParams,
     GlareParams,
     GrainParams,
     HalationParams,
@@ -20,7 +19,7 @@ from spektrafilm.runtime.params_schema import (
     SettingsParams,
 )
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
-from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
+from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 from spektrafilm_gui.params_manifest import DISPLAY_PANEL_FIELDS, INPUT_IMAGE_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
 
 
@@ -53,7 +52,6 @@ class LoadRawState:
 class SpecialState:
     film_channel_swap: tuple[int, int, int]
     print_channel_swap: tuple[int, int, int]
-    film_render: FilmRenderingParams = field(default_factory=FilmRenderingParams)
 
 
 @dataclass(slots=True)
@@ -135,9 +133,6 @@ def normalize_special_dict(data: dict[str, Any]) -> dict[str, Any]:
     return {
         'film_channel_swap': data.get('film_channel_swap', (0, 1, 2)),
         'print_channel_swap': data.get('print_channel_swap', (0, 1, 2)),
-        'film_render': {
-            'density_curve_gamma': data.get('film_gamma_factor', PROJECT_DEFAULT_GUI_STATE.special.film_render.density_curve_gamma),
-        },
     }
 
 
@@ -204,7 +199,8 @@ class GuiState:
     preflashing: EnlargerParams
     halation: HalationParams
     couplers: DirCouplersParams
-    chemistry: PrintCurvesMorphParams
+    chemistry: PrintChemistryParams
+    film_chemistry: FilmChemistryParams
     camera: CameraParams
     enlarger_diffusion: DiffusionFilterParams
     camera_diffusion: DiffusionFilterParams
@@ -226,8 +222,6 @@ def clone_state_section(section: StateSection) -> StateSection:
         raise TypeError('Expected a dataclass instance to clone.')
     if isinstance(section, InputImageState):
         return replace(section, io=replace(section.io), settings=replace(section.settings))
-    if isinstance(section, SpecialState):
-        return replace(section, film_render=replace(section.film_render))
     if isinstance(section, SimulationState):
         return replace(
             section,
@@ -255,6 +249,7 @@ def clone_gui_state(state: GuiState) -> GuiState:
         halation=clone_state_section(state.halation),
         couplers=clone_state_section(state.couplers),
         chemistry=clone_state_section(state.chemistry),
+        film_chemistry=clone_state_section(state.film_chemistry),
         camera=clone_state_section(state.camera),
         enlarger_diffusion=clone_state_section(state.enlarger_diffusion),
         camera_diffusion=clone_state_section(state.camera_diffusion),
@@ -283,7 +278,8 @@ def gui_state_from_params(
         preflashing=replace(params.enlarger),
         halation=replace(params.film_render.halation),
         couplers=replace(params.film_render.dir_couplers),
-        chemistry=replace(params.print_render.density_curves_morph),
+        chemistry=replace(params.print_render.chemistry),
+        film_chemistry=replace(params.film_render.chemistry),
         camera=replace(params.camera),
         enlarger_diffusion=replace(params.enlarger.diffusion_filter),
         camera_diffusion=replace(params.camera.diffusion_filter),
@@ -294,7 +290,6 @@ def gui_state_from_params(
         special=SpecialState(
             film_channel_swap=(0, 1, 2),
             print_channel_swap=(0, 1, 2),
-            film_render=FilmRenderingParams(density_curve_gamma=params.film_render.density_curve_gamma),
         ),
         simulation=SimulationState(
             selection=SelectionState(

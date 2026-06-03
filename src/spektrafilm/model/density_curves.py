@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 import scipy
 import scipy.stats
@@ -157,6 +159,51 @@ def refresh_density_curves_from_model(profile_data, profile_type='negative'):
             model, log_exposure, profile_type)
     else:
         profile_data.density_curves_layers = None
+    return profile_data
+
+
+def select_development_time(profile_data, development_time):
+    """Collapse a BW development-time family to the single member nearest
+    `development_time`, in place.
+
+    A BW family carries N density-curve columns (one per development time), a
+    matching per-column base+fog (n_wl, N), and an N-row density_curves_model.
+    The runtime renders one development time, so this picks one column across
+    all of them — curves, layer slice, base+fog, the development_time entry, and
+    the model row — leaving a normal single-curve profile (1-D base) for every
+    downstream consumer. ``development_time`` None means "no choice made": the
+    representative middle development is used (floor-middle when even). No-op for
+    color / single-curve stocks (no development_time, or a single column).
+    """
+    times = profile_data.development_time
+    curves = profile_data.density_curves
+    if times is None or curves is None or np.asarray(curves).shape[1] <= 1:
+        return profile_data
+    times = np.asarray(times, dtype=float)
+    if development_time is None:
+        index = (times.size - 1) // 2
+    else:
+        index = int(np.argmin(np.abs(times - float(development_time))))
+
+    profile_data.density_curves = np.asarray(curves)[:, index:index + 1]
+    if profile_data.density_curves_layers is not None:
+        profile_data.density_curves_layers = (
+            np.asarray(profile_data.density_curves_layers)[:, :, index:index + 1])
+    base = profile_data.base_density
+    if base is not None and np.asarray(base).ndim == 2:
+        profile_data.base_density = np.asarray(base)[:, index]
+    profile_data.development_time = times[index:index + 1]
+
+    model = profile_data.density_curves_model
+    if model is not None and model.centers is not None:
+        profile_data.density_curves_model = replace(
+            model,
+            centers=np.asarray(model.centers)[index:index + 1],
+            amplitudes=np.asarray(model.amplitudes)[index:index + 1],
+            sigmas=np.asarray(model.sigmas)[index:index + 1],
+            alphas=(None if model.alphas is None
+                    else np.asarray(model.alphas)[index:index + 1]),
+        )
     return profile_data
 
 

@@ -200,6 +200,55 @@ class TestDirCouplersSingleChannel:
         assert not np.allclose(result, density_cmy)
 
 
+class TestSelectDevelopmentTime:
+    """select_development_time collapses a BW development-time family to one
+    chosen column (curves, layers, base+fog, time, model row)."""
+
+    @staticmethod
+    def _family():
+        from types import SimpleNamespace
+        n_le, n_wl = 8, 5
+        # column j is the constant j, so the selected column is trivial to check.
+        return SimpleNamespace(
+            development_time=np.array([4.0, 5.0, 6.5, 9.0, 12.0]),
+            density_curves=np.tile(np.arange(5, dtype=float), (n_le, 1)),
+            density_curves_layers=None,
+            base_density=np.tile(np.arange(5, dtype=float), (n_wl, 1)),
+            density_curves_model=None,
+        )
+
+    def test_none_picks_floor_middle_and_collapses_base(self):
+        from spektrafilm.model.density_curves import select_development_time
+        data = self._family()
+        select_development_time(data, None)  # middle of 5 -> index 2 (6.5 min)
+        assert data.development_time.tolist() == [6.5]
+        assert data.density_curves.shape == (8, 1)
+        assert np.allclose(data.density_curves, 2.0)
+        assert data.base_density.ndim == 1 and np.allclose(data.base_density, 2.0)
+
+    def test_explicit_value_picks_nearest(self):
+        from spektrafilm.model.density_curves import select_development_time
+        data = self._family()
+        select_development_time(data, 8.0)  # nearest to 9.0 -> index 3
+        assert data.development_time.tolist() == [9.0]
+        assert np.allclose(data.density_curves, 3.0)
+        assert np.allclose(data.base_density, 3.0)
+
+    def test_single_curve_is_noop(self):
+        from types import SimpleNamespace
+        from spektrafilm.model.density_curves import select_development_time
+        data = SimpleNamespace(
+            development_time=np.array([7.0]),
+            density_curves=np.ones((8, 1)),
+            density_curves_layers=None,
+            base_density=np.zeros(5),
+            density_curves_model=None,
+        )
+        select_development_time(data, None)
+        assert data.density_curves.shape == (8, 1)
+        assert data.base_density.ndim == 1
+
+
 @pytest.mark.integration
 class TestBwScanFromNegativePipeline:
     """End-to-end: a single-channel BW negative through the scan-from-negative

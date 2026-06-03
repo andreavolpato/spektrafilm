@@ -395,8 +395,13 @@ def _validate_profile(profile, stock):
             and data.channel_density.ndim == 2
             and data.channel_density.shape[1] == n_ch
             and data.channel_density.shape[0] == n_wl
-            and data.base_density.ndim == 1
             and data.base_density.shape[0] == n_wl
+            # base_density is 1-D spectral, except a BW development-time family
+            # carries one flat spectral base per density-curve column.
+            and (data.base_density.ndim == 1
+                 or (profile.info.channel_model == 'bw'
+                     and data.base_density.ndim == 2
+                     and data.base_density.shape[1] == data.density_curves.shape[1]))
             # Optional: validated only when present.
             and present_ok(data.midscale_neutral_density,
                            lambda v: v.ndim == 1 and v.shape[0] == n_wl)

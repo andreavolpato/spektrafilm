@@ -8,6 +8,7 @@ PROFILE_SYNC_SECTION_NAMES = (
     'halation',
     'couplers',
     'chemistry',
+    'film_chemistry',
     'glare',
     'special',
     'simulation',

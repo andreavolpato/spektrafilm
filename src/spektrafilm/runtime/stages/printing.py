@@ -76,7 +76,7 @@ class PrintingStage:
             log_raw,
             self._print.data.log_exposure,
             model,
-            density_curves_morph=self._print_render.density_curves_morph,
+            chemistry=self._print_render.chemistry,
             profile_type=self._print.info.type,
         )
 

@@ -172,7 +172,6 @@ class TestRuntimeApi:
             params.settings.rgb_to_raw_method = 'mallett2019'
             params.film_render.grain.active = False
             params.film_render.halation.active = False
-            params.film_render.density_curve_gamma = 1.0
             params.film_render.dir_couplers.active = True
             params.film_render.dir_couplers.amount = 1.0
             params.print_render.glare.active = False

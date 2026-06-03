@@ -293,6 +293,57 @@ class EnumEditor(QtWidgets.QComboBox):
             raise ValueError(f"{value!r} is not a valid option")
 
 
+class DevelopmentTimeEditor(QtWidgets.QComboBox):
+    """Dropdown of a BW stock's available development times.
+
+    The value is ``float | None``. ``None`` (shown as ``—``) means the stock has
+    no development-time family to choose from, or "use the representative middle
+    development". The choices are stock-dependent, so the controller repopulates
+    them via :meth:`set_choices` when the profile changes.
+    """
+
+    _NONE_LABEL = '—'
+
+    def __init__(self, times: list[float] | None = None):
+        super().__init__()
+        self._values: list[float | None] = []
+        self.set_choices(times)
+
+    def set_choices(self, times: list[float] | None) -> None:
+        previous = self.value if self._values else None
+        self.blockSignals(True)
+        self.clear()
+        self._values = [None]
+        self.addItem(self._NONE_LABEL)
+        for time in times or ():
+            self._values.append(float(time))
+            self.addItem(f'{float(time):g} min')
+        self.blockSignals(False)
+        if previous is not None and previous in self._values:
+            # Keep an explicit prior selection that still exists in the new stock.
+            self.value = previous
+        elif len(self._values) > 1:
+            # No prior choice but a development-time family is available: default
+            # to its floor-middle development. (_values[0] is the None entry.)
+            n_times = len(self._values) - 1
+            self.value = self._values[1 + (n_times - 1) // 2]
+        else:
+            self.value = None
+
+    @property
+    def value(self) -> float | None:
+        index = self.currentIndex()
+        return self._values[index] if 0 <= index < len(self._values) else None
+
+    @value.setter
+    def value(self, value: float | None) -> None:
+        if value is None:
+            self.setCurrentIndex(0)
+            return
+        value = float(value)
+        self.setCurrentIndex(self._values.index(value) if value in self._values else 0)
+
+
 class TupleEditor(QtWidgets.QWidget):
     def __init__(self, editors: list[QtWidgets.QWidget]):
         super().__init__()

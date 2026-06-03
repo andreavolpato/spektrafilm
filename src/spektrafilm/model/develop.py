@@ -8,7 +8,7 @@ from spektrafilm.model.density_curves import interpolate_exposure_to_density
 from spektrafilm.model.grain import apply_grain
 from spektrafilm.profiles.io import DensityCurvesModel
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
-from spektrafilm.utils.morph_curves import apply_print_curves_morph, PrintCurvesMorphParams
+from spektrafilm.utils.morph_curves import apply_print_curves_morph, PrintChemistryParams
 
 FloatArray: TypeAlias = NDArray[np.float64]
 ProfileType: TypeAlias = Literal['negative', 'positive']
@@ -85,13 +85,13 @@ def develop_print_morph(
     log_raw: FloatArray,
     log_exposure: FloatArray,
     density_curves_model: DensityCurvesModel,
-    density_curves_morph: PrintCurvesMorphParams,
+    chemistry: PrintChemistryParams,
     profile_type: ProfileType = 'negative',
 ):
     density_curves_morphed = apply_print_curves_morph(
         log_exposure,
         density_curves_model,
-        density_curves_morph,
+        chemistry,
         profile_type=profile_type,
     )
     density_cmy = interpolate_exposure_to_density(
