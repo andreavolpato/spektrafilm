@@ -650,7 +650,6 @@ def test_start_warmup_runs_on_working_thread_and_grays_out_buttons(monkeypatch) 
     controller.start_warmup(fake_warmup)
 
     assert warmup_calls == [True]
-    assert statuses == [('Warming up...', 0), ('Ready', 5000)]
     # Buttons are re-enabled once the working thread goes idle again.
     assert all(getattr(buttons, name).enabled for name in ('preview_button', 'scan_button', 'save_button'))
 

@@ -196,7 +196,7 @@ class OutputGamutCompressSpec:
 
     algorithm: Literal[
         "off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs",
-    ] = "aces_rgc"
+    ] = "oklch"
     knee: tuple[float, float, float] = (0.0, 1.0, 6.0)
     # One-sided soft compression on the perceptual lightness coordinate
     # (L for oklch/oklrab, Jz for jzazbz, Jp for cam16ucs), rolling

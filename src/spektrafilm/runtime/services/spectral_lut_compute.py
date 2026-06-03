@@ -5,7 +5,7 @@ import numpy as np
 
 from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
-from spektrafilm.utils.lut import compute_with_lut
+from spektrafilm.utils.lut import compute_with_lut, compute_with_lut_1d
 from spektrafilm.utils.spectral_upsampling import compute_hanatos2025_tc_lut
 from spektrafilm.utils.timings import timeit
 
@@ -40,6 +40,13 @@ class SpectralLUTService:
     def _supports_3d_lut(cmy_data) -> bool:
         data = np.asarray(cmy_data)
         return data.ndim >= 3 and data.shape[-1] == 3
+
+    @staticmethod
+    def _is_single_channel(cmy_data) -> bool:
+        """True for a one-channel (black-and-white) emulsion, which uses the 1D
+        LUT path instead of the 3D one."""
+        data = np.asarray(cmy_data)
+        return data.ndim >= 3 and data.shape[-1] == 1
 
     def set_hanatos2025_adaptation(self, adaptation: Hanatos2025SensitivityAdaptation) -> None:
         adaptation_copy = self._copy_hanatos2025_adaptation(adaptation)
@@ -105,7 +112,12 @@ class SpectralLUTService:
         *,
         use_lut: bool = False,
     ):
-        if not use_lut or not self._supports_3d_lut(cmy_data):
+        if not use_lut:
+            return spectral_calculation(cmy_data)
+        if self._is_single_channel(cmy_data):
+            # B&W: one density channel -> 1D LUT (no full-res spectral cube).
+            return compute_with_lut_1d(cmy_data, spectral_calculation, data_min, data_max)
+        if not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
         test_results = spectral_calculation(np.array(self._cmy_test_values))
@@ -143,7 +155,12 @@ class SpectralLUTService:
         *,
         use_lut: bool = False,
     ):
-        if not use_lut or not self._supports_3d_lut(cmy_data):
+        if not use_lut:
+            return spectral_calculation(cmy_data)
+        if self._is_single_channel(cmy_data):
+            # B&W: one density channel -> 1D LUT (no full-res spectral cube).
+            return compute_with_lut_1d(cmy_data, spectral_calculation, data_min, data_max)
+        if not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
         test_results = spectral_calculation(np.array(self._cmy_test_values))

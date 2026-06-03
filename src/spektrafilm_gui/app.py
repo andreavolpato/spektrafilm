@@ -79,7 +79,7 @@ def _schedule_startup(
 
 
 def _start_warmup(app: GuiApp) -> None:
-    set_status(app.viewer, 'Warming up...', timeout_ms=0)
+    set_status(app.viewer, 'Switching on the safe-light...', timeout_ms=0)
     app.runner.submit(
         'startup',
         _warmup_full_gui,

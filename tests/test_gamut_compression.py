@@ -223,13 +223,12 @@ class TestRemapTcLutForCompression:
 
 class TestOutputGamutCompressSpec:
     def test_default_is_oklch_with_full_range_soft_knee(self):
-        """Default is the ACES RGC v1.3 per-channel algorithm with the
-        current full-range soft knee. It matches downstream Resolve/Nuke
-        tooling and is far cheaper per pixel than the perceptual
-        algorithms; those remain available as opt-in overrides."""
+        """Default is the OkLab (oklch) perceptual-chroma algorithm with the
+        current full-range soft knee. Other algorithms (aces_rgc, cam16ucs,
+        jzazbz, oklrab) remain available as opt-in overrides."""
         s = OutputGamutCompressSpec()
         assert s.active is True
-        assert s.algorithm == "aces_rgc"
+        assert s.algorithm == "oklch"
         assert s.knee == (0.0, 1.0, 6.0)
 
     def test_aces_rgc_constructs(self):

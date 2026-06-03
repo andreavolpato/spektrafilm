@@ -25,10 +25,12 @@ def fast_binomial(N_arr, p_arr):
 
     Returns
     -------
-    result : numpy array of int64
-        Binomial random variates, same shape as N_arr.
+    result : numpy array of int32
+        Binomial random variates, same shape as N_arr. int32 (not int64) keeps
+        these full-resolution count arrays half-size; grain particle counts are
+        far below the int32 range.
     """
-    result = np.empty(N_arr.shape, dtype=np.int64)
+    result = np.empty(N_arr.shape, dtype=np.int32)
     flat_N = N_arr.ravel()
     flat_p = p_arr.ravel()
     flat_result = result.ravel()
@@ -93,10 +95,12 @@ def fast_poisson(lam_arr):
 
     Returns
     -------
-    result : numpy array of int64
-        Poisson random variates, same shape as lam_arr.
+    result : numpy array of int32
+        Poisson random variates, same shape as lam_arr. int32 (not int64) keeps
+        these full-resolution count arrays half-size; grain particle counts are
+        far below the int32 range.
     """
-    result = np.empty(lam_arr.shape, dtype=np.int64)
+    result = np.empty(lam_arr.shape, dtype=np.int32)
     flat_lam = lam_arr.ravel()
     flat_result = result.ravel()
     n_elements = flat_lam.shape[0]
