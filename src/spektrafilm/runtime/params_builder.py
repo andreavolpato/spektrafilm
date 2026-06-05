@@ -86,7 +86,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.enlarger.lens_blur = 0.0
         params.film_render.dir_couplers.diffusion_size_um = 0.0
         params.film_render.grain.active = False
-        params.film_render.grain.particle_area_um2 = 0.0
+        params.film_render.grain.rms_granularity = (0.0, 0.0, 0.0)
         params.film_render.grain.blur = 0.0
         # scatter/halation kernel sigmas are preserved in preview mode
         params.print_render.glare.blur = 0.0
@@ -117,6 +117,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.dir_couplers.diffusion_size_um = 0
         params.film_render.grain.blur = 0.0
         params.film_render.grain.blur_dye_clouds_um = 0.0
+        params.film_render.grain.mult_usm_amount = 0.0  # USM is a spatial sharpen
         params.print_render.glare.blur = 0
         params.camera.lens_blur_um = 0.0
         params.enlarger.lens_blur = 0.0
@@ -199,7 +200,11 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.078, 0.078)
         
     if params.film.is_bw:
-        params.film_render.particle_area_um2 = 0.2
+        # NOTE: was `params.film_render.particle_area_um2 = 0.2`, a latent no-op
+        # (wrong path: set a junk attr on FilmRenderingParams, never reached
+        # .grain). Now expressed as per-channel RMS granularity; BW is
+        # single-channel so only the first value is read (match_channels).
+        params.film_render.grain.rms_granularity = (11.0, 11.0, 11.0)
         params.film_render.grain.uniformity = (0.05, 0.05, 0.05)
         
     # if params.film.info.stock == "kodak_portra_400":

@@ -463,24 +463,21 @@ class ParamsGroupSection(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        form = _new_form_layout()
+        # Build editors for every field (so the whole group stays editable,
+        # persisted, and auto-preview wired) regardless of how it is laid out.
         for spec in self._manifest.fields:
             editor = self._build_editor(spec)
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
-        # Build editors for every field (so the whole group stays editable,
-        # persisted, and auto-preview wired) but only lay out panel_fields;
-        # any remaining fields are displayed by a section that borrows them.
-        for spec in self._manifest.panel_fields or self._manifest.fields:
-            editor = self._editors[spec.leaf]
-            label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
-            if spec.tooltip:
-                label.setToolTip(spec.tooltip)
-                editor.setToolTip(spec.tooltip)
-            form.addRow(label, editor)
 
-        content = QWidget()
-        content.setLayout(form)
+        # Only lay out panel_fields; any remaining fields are displayed by a
+        # section that borrows them.
+        panel_specs = self._manifest.panel_fields or self._manifest.fields
+        if self._manifest.subsections:
+            content = self._build_subsectioned_content(panel_specs)
+        else:
+            content = QWidget()
+            content.setLayout(self._build_form(panel_specs))
 
         root = QVBoxLayout()
         root.setContentsMargins(0, 0, 0, 0)
@@ -488,6 +485,44 @@ class ParamsGroupSection(QWidget):
             CollapsibleSection(self._manifest.title, content, expanded=not self._manifest.collapsed_by_default),
         )
         self.setLayout(root)
+
+    def _build_form(self, specs) -> QFormLayout:
+        """A form laying out the editors (already built) for ``specs``, in order."""
+        form = _new_form_layout()
+        for spec in specs:
+            editor = self._editors[spec.leaf]
+            label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
+            if spec.tooltip:
+                label.setToolTip(spec.tooltip)
+                editor.setToolTip(spec.tooltip)
+            form.addRow(label, editor)
+        return form
+
+    def _build_subsectioned_content(self, panel_specs) -> QWidget:
+        """Lay the panel out as loose fields (top) followed by one nested
+        collapsible per :class:`SubSection`. Subsections reference fields by leaf
+        name; anything not grouped renders loose at the top (e.g. ``active``)."""
+        by_leaf = {spec.leaf: spec for spec in panel_specs}
+        grouped = {name for sub in self._manifest.subsections for name in sub.field_names}
+
+        container = QWidget()
+        vbox = QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setAlignment(Qt.AlignTop)
+
+        loose = [spec for spec in panel_specs if spec.leaf not in grouped]
+        if loose:
+            loose_widget = QWidget()
+            loose_widget.setLayout(self._build_form(loose))
+            vbox.addWidget(loose_widget)
+
+        for sub in self._manifest.subsections:
+            specs = [by_leaf[name] for name in sub.field_names if name in by_leaf]
+            sub_content = QWidget()
+            sub_content.setLayout(self._build_form(specs))
+            vbox.addWidget(CollapsibleSection(
+                sub.title, sub_content, expanded=sub.expanded, variant='subsection'))
+        return container
 
     def _build_editor(self, spec: ParamSpec) -> QWidget:
         annotation = self._type_hints[spec.leaf]

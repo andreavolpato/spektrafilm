@@ -90,18 +90,19 @@ class ScannerParams:
 @dataclass
 class GrainParams:
     active: bool = True
-    sublayers_active: bool = True
-    particle_area_um2: float = 0.4
-    particle_scale: tuple[float, float, float] = (1.0, 1.5, 2.0)
-    particle_scale_layers: tuple[float, float, float] = (2.0, 1.0, 0.5)
+    # pixel statistics
+    rms_granularity: tuple[float, float, float] = (6, 8, 10)
     density_min: tuple[float, float, float] = (0.03, 0.03, 0.03)
     uniformity: tuple[float, float, float] = (0.97, 0.97, 0.97)
+    particle_scale_sublayers: tuple[float, float, float] = (1.0, 0.5, 0.25)
+    # texture
     blur: float = 0.89 # optimized to go with the mult usm below, see study b80
     mult_usm_amount: float = 0.4 # Multiplicative (log-domain) density unsharp mask, see study b80
     mult_usm_sigma: float = 2.0 # optimized to go with the blur above, see study b80
+    # micro substructure
     blur_dye_clouds_um: float = 2.0 # somewhat resolution of a normal microscope
     micro_structure: tuple[float, float] = (0.2, 30)
-    n_sub_layers: int = 1
+    micro_sublayers: int = 1
 
 
 @dataclass

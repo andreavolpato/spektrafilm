@@ -14,7 +14,6 @@ from spektrafilm.model.density_curves import (
 from spektrafilm.model.diffusion import apply_halation_um
 from spektrafilm.model.grain import (
     apply_grain,
-    apply_grain_to_density,
     apply_grain_to_density_layers,
 )
 from spektrafilm.model.couplers import (
@@ -108,24 +107,10 @@ class TestGrainSingleChannel:
         out = apply_grain(
             density_cmy,
             pixel_size_um=10,
-            grain=GrainParams(sublayers_active=False),
+            grain=GrainParams(),
             density_curves=density_curves,
             density_curves_layers=None,
             profile_type='negative',
-        )
-        assert out.shape == (16, 16, 1)
-        assert np.all(np.isfinite(out))
-
-    def test_apply_grain_to_density_single_channel(self):
-        density_cmy = np.full((16, 16, 1), 1.0)
-        out = apply_grain_to_density(
-            density_cmy,
-            pixel_size_um=10,
-            particle_scale=[1.0],
-            density_min=[0.03],
-            density_max_curves=[2.2],
-            grain_uniformity=[0.98],
-            n_sub_layers=1,
         )
         assert out.shape == (16, 16, 1)
         assert np.all(np.isfinite(out))
@@ -140,8 +125,8 @@ class TestGrainSingleChannel:
             density_cmy_layers,
             density_max_layers=density_max_layers,
             pixel_size_um=10,
-            particle_scale=[1.0],
-            particle_scale_layers=[3.0, 1.0, 0.3],
+            rms_granularity=[8.0],
+            particle_scale_sublayers=[1.0, 0.5, 0.25],
             density_min=[0.03],
             grain_uniformity=[0.98],
         )

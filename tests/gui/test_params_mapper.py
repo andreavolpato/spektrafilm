@@ -29,15 +29,13 @@ def make_state():
 
 def test_build_params_maps_grain_fields() -> None:
     state = make_state()
-    state.grain.particle_area_um2 = 0.42
-    state.grain.particle_scale = (1.1, 1.2, 1.3)
-    state.grain.particle_scale_layers = (2.2, 1.2, 0.6)
+    state.grain.rms_granularity = (6.0, 7.0, 12.0)
+    state.grain.particle_scale_sublayers = (1.0, 0.5, 0.25)
 
     params = build_params_from_state(state)
 
-    assert params.film_render.grain.particle_area_um2 == 0.42
-    assert params.film_render.grain.particle_scale == (1.1, 1.2, 1.3)
-    assert params.film_render.grain.particle_scale_layers == (2.2, 1.2, 0.6)
+    assert params.film_render.grain.rms_granularity == (6.0, 7.0, 12.0)
+    assert params.film_render.grain.particle_scale_sublayers == (1.0, 0.5, 0.25)
 
 
 def test_build_params_copies_scanner_group() -> None:
