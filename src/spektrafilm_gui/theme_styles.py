@@ -157,6 +157,19 @@ QToolButton[role="sectionToggle"]:pressed {{
     background: transparent;
 }}
 
+QToolButton[role="subsectionToggle"] {{
+    color: {TEXT_HEADER_SECTION};
+    font-weight: {FONT_WEIGHT_BOLD};
+    background: transparent;
+    padding: 0;
+    min-height: 0;
+}}
+
+QToolButton[role="subsectionToggle"]:hover,
+QToolButton[role="subsectionToggle"]:pressed {{
+    background: transparent;
+}}
+
 QPushButton[role="accentAction"] {{
     background: {BUTTON_ACCENT_BG};
     color: {TEXT_BRIGHT};

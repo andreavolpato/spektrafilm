@@ -74,6 +74,23 @@ class ParamSpec:
 
 
 @dataclass(frozen=True)
+class SubSection:
+    """A titled, collapsible group of fields shown *inside* a GroupManifest panel.
+
+    ``field_names`` are leaf names — the same leaves as the owning manifest's
+    ``fields`` ParamSpecs — so the full presentation metadata stays declared once
+    in ``fields`` and a subsection only states the grouping and order.
+    ``expanded`` is the default open state of this nested section. Fields not
+    listed in any subsection render loose at the top of the panel (e.g. the
+    group's ``active`` toggle).
+    """
+
+    title: str
+    field_names: tuple[str, ...]
+    expanded: bool = False
+
+
+@dataclass(frozen=True)
 class GroupManifest:
     """A runtime parameter group rendered as one collapsible GUI panel.
 
@@ -98,6 +115,11 @@ class GroupManifest:
     fields: tuple[ParamSpec, ...]
     collapsed_by_default: bool = True
     panel_fields: tuple[ParamSpec, ...] | None = None
+    # Optional nested collapsible sub-groups laid out within this panel. When
+    # empty the panel renders one flat form (the default). Each SubSection
+    # references fields by leaf name; any field not in a subsection renders
+    # loose at the top of the panel.
+    subsections: tuple[SubSection, ...] = ()
 
 
 _DC = "film_render.dir_couplers"
@@ -282,27 +304,33 @@ GRAIN_MANIFEST = GroupManifest(
     title="Grain",
     group_path=_G,
     group_cls=GrainParams,
+    # `active` renders loose at the top; the rest are grouped by `subsections`
+    # below, which mirror the GrainParams schema categories.
     fields=(
         ParamSpec(f"{_G}.active", tier="basic", tooltip="Add grain to the negative"),
+        # --- pixel statistics ---
         ParamSpec(
-            f"{_G}.particle_area_um2",
+            f"{_G}.rms_granularity",
             tier="basic",
             min=0,
-            step=0.2,
-            tooltip="Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on.",
+            step=1.0,
+            tooltip="Per-channel (RGB) RMS granularity from the datasheet (sigma_D x 1000, 48 um aperture, net density 1.0). Higher = coarser grain. Typical consumer films ~4 (fine) to ~40 (coarse).",
         ),
         ParamSpec(
-            f"{_G}.particle_scale",
-            tooltip="Scale of particle area for the RGB layers, multiplies particle_area_um2",
+            f"{_G}.density_min",
+            tooltip="Minimum density of the grain, typical values (0.03-0.06).",
         ),
         ParamSpec(
-            f"{_G}.particle_scale_layers",
+            f"{_G}.uniformity",
+            tooltip="Grain uniformity per channel; lower bends the noise curve toward the Selwyn bell, typical values (0.94-0.98).",
+        ),
+        ParamSpec(
+            f"{_G}.particle_scale_sublayers",
             min=0,
             step=0.25,
-            tooltip="Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2",
+            tooltip="Relative particle-area scale per emulsion sublayer (coarsest sublayer = 1, finer sublayers smaller).",
         ),
-        ParamSpec(f"{_G}.density_min", tooltip="Minimum density of the grain, typical values (0.03-0.06)"),
-        ParamSpec(f"{_G}.uniformity", tooltip="Uniformity of the grain, typical values (0.94-0.98)"),
+        # --- texture ---
         ParamSpec(
             f"{_G}.blur",
             tier="basic",
@@ -323,17 +351,35 @@ GRAIN_MANIFEST = GroupManifest(
             step=0.25,
             tooltip="Radius (px) of the density unsharp mask. Broad (default 2.0) puts the acutance in the mid-band, away from Nyquist, so the pixel stays gone while perceived sharpness comes back.",
         ),
+        # --- micro substructure ---
         ParamSpec(
             f"{_G}.blur_dye_clouds_um",
             min=0,
             step=0.1,
-            tooltip="Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)",
+            tooltip="Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1).",
         ),
         ParamSpec(
             f"{_G}.micro_structure",
             min=0,
             step=0.1,
-            tooltip="Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.",
+            tooltip="Clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications.",
+        ),
+    ),
+    subsections=(
+        SubSection(
+            "pixel statistics",
+            ("density_min", "uniformity", "particle_scale_sublayers"),
+            expanded=False,
+        ),
+        SubSection(
+            "texture",
+            ("blur", "mult_usm_amount", "mult_usm_sigma"),
+            expanded=False,
+        ),
+        SubSection(
+            "micro substructure",
+            ("blur_dye_clouds_um", "micro_structure"),
+            expanded=False,
         ),
     ),
 )

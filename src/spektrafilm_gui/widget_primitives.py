@@ -25,12 +25,16 @@ def platform_default_font() -> QtGui.QFont:
 
 
 class CollapsibleSection(QtWidgets.QWidget):
-    def __init__(self, title: str, content: QtWidgets.QWidget, *, expanded: bool = True):
+    def __init__(self, title: str, content: QtWidgets.QWidget, *, expanded: bool = True,
+                 variant: str = 'section'):
         super().__init__()
         self._content = content
+        # 'section' is the accent-coloured top-level panel header; 'subsection'
+        # is a bold, non-accent header for nested groups within a panel.
+        toggle_role = 'sectionToggle' if variant == 'section' else 'subsectionToggle'
 
         self._toggle = QtWidgets.QToolButton()
-        self._toggle.setProperty('role', 'sectionToggle')
+        self._toggle.setProperty('role', toggle_role)
         self._toggle.setCheckable(True)
         self._toggle.setChecked(expanded)
         self._toggle.setAutoRaise(True)
@@ -47,7 +51,7 @@ class CollapsibleSection(QtWidgets.QWidget):
         self._apply_header_icon(title)
 
         self._title_button = QtWidgets.QToolButton()
-        self._title_button.setProperty('role', 'sectionToggle')
+        self._title_button.setProperty('role', toggle_role)
         self._title_button.setText(normalize_ui_text(title))
         self._title_button.setAutoRaise(True)
         self._title_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)

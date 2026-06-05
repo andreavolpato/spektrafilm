@@ -16,7 +16,6 @@ def run_simulation():
     # image = load_image_oiio('C:/Users/andre/Pictures/pixls/signature_edits/darktable_exported/Detty Studio (4).tif')
 
     params = init_params()
-    params.film_render.grain.sublayers_active = True
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
     
@@ -35,7 +34,7 @@ def run_simulation():
     params.enlarger.diffusion_filter.strength = 0.25
     params.enlarger.diffusion_filter.spatial_scale = 1.0
     params.camera.film_format_mm = 35
-    params.film_render.grain.particle_area_um2 = 1.2
+    params.film_render.grain.rms_granularity = (28, 28, 28)
     params.io.upscale_factor = 0.5
     print_scan = simulate(image, params)
     params.io.scan_film = True

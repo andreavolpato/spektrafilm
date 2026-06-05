@@ -54,7 +54,7 @@ def build_base_params():
     params.io.upscale_factor = 1.0
     params.io.scan_film = False
     params.film_render.grain.active = True
-    params.film_render.grain.particle_area_um2 = 1
+    params.film_render.grain.rms_granularity = (25, 25, 25)
     params.enlarger.print_exposure_compensation = True
     params.enlarger.print_exposure = 1.0
     params.settings.use_fast_stats = True
