@@ -244,7 +244,7 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
         print_paper=PrintPapers.kodak_supra_endura.value,
     )
 
-    assert state.grain.blur == 0.65
+    assert state.grain.blur == 0.89
     assert state.grain.micro_structure == (0.2, 30)
     assert state.halation.boost_ev == 0.0
     assert state.halation.protect_ev == 4.0

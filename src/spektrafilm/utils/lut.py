@@ -19,7 +19,11 @@ def _create_lut_3d(function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=3
     X = np.meshgrid(x_r, x_g, x_b, indexing='ij')
     X = np.stack(X, axis=3)
     X = np.reshape(X, (steps**2, steps, 3)) # shape as an image to be compatible with image processing
-    lut = np.reshape(function(X), (steps, steps, steps, 3))
+    # Output channel count is taken from the function's result, so a 3-channel
+    # input can map to any number of output channels (e.g. a colour film printed
+    # onto a B&W paper: 3 film densities -> 1 print exposure).
+    out = np.asarray(function(X))
+    lut = np.reshape(out, (steps, steps, steps, out.shape[-1]))
     return lut
 
 # def _create_lut_2d(function, xmin=0, xmax=1, steps=128):

@@ -260,26 +260,26 @@ _GRAIN_DEFAULTS = GRAIN_PRESETS.get("defaults", {})
 
 
 def _apply_grain_preset(params: RuntimePhotoParams) -> None:
-    defaults_color = _GRAIN_DEFAULTS.get("color", {})
-    defaults_bw = _GRAIN_DEFAULTS.get("bw", {})
+    if params.film.info.stock not in GRAIN_PRESETS:
+        return
+    preset = GRAIN_PRESETS[params.film.info.stock]
 
-    def _apply_preset(preset, defaults):
-        # apply each default, overridden by the stock preset where it provides
-        # a value, then any extra preset keys that map to a grain field
-        for key, value in defaults.items():
-            setattr(params.film_render.grain, key, preset.get(key, value))
-        for key, value in preset.items():
-            if not hasattr(params.film_render.grain, key):
-                continue
-            setattr(params.film_render.grain, key, value)
+    # Defaults are nested ``defaults.<channel_model>.<polarity>`` (e.g.
+    # ``defaults.bw.positive``), so resolve both axes to reach the leaf table of
+    # grain parameters. A missing combination yields an empty table, leaving the
+    # stock preset (and the schema defaults) to stand on their own.
+    channel_model = "bw" if params.film.is_bw else "color"
+    polarity = "positive" if params.film.is_positive else "negative"
+    defaults = _GRAIN_DEFAULTS.get(channel_model, {}).get(polarity, {})
 
-    if params.film.info.stock in GRAIN_PRESETS:
-        preset = GRAIN_PRESETS[params.film.info.stock]
-        if params.film.is_bw:
-            _apply_preset(preset, defaults_bw)
-        elif params.film.is_color:
-            _apply_preset(preset, defaults_color)
-    return
+    # apply each default, overridden by the stock preset where it provides a
+    # value, then any extra preset keys that map to a grain field
+    for key, value in defaults.items():
+        setattr(params.film_render.grain, key, preset.get(key, value))
+    for key, value in preset.items():
+        if not hasattr(params.film_render.grain, key):
+            continue
+        setattr(params.film_render.grain, key, value)
 
 def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply print specific settings to the params."""

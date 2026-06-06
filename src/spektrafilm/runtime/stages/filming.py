@@ -77,16 +77,32 @@ class FilmingStage:
     # private methods
 
     def _auto_exposure(self, raw: np.ndarray) -> np.ndarray:
-        """Meter the film raw and scale it so the metered region lands at the
-        raw midgray reference (raw == 1). Metered on a downsampled preview for
-        speed; a no-op when auto-exposure is disabled."""
+        """Scale the film raw so the metered region lands at the raw midgray
+        reference (raw == 1). Metering uses the full frame captured before
+        cropping/rescaling, so the exposure does not shift with the crop; a
+        no-op when auto-exposure is disabled."""
         if not self._camera.auto_exposure:
             return raw
         autoexposure_ev = measure_raw_autoexposure_ev(
-            self._resize_service.small_preview(raw),
+            self._metering_raw(),
             method=self._camera.auto_exposure_method,
         )
         return raw * 2 ** autoexposure_ev
+
+    def _metering_raw(self) -> np.ndarray:
+        """Film raw used for autoexposure metering: the full-frame preview
+        captured before the crop, run through the same film-sensitivity path as
+        the exposed raw. Falls back to a downsampled preview only if no full
+        frame was stashed (e.g. when injecting mid-pipeline)."""
+        preview = self._resize_service.full_frame_preview
+        if preview is None:
+            raise RuntimeError('autoexposure metering preview is unavailable; '
+                               'crop_and_rescale must run before filming')
+        return self._rgb_to_film_raw(
+            preview,
+            color_space=self._io.input_color_space,
+            apply_cctf_decoding=self._io.input_cctf_decoding,
+        )
 
     def _rgb_to_film_raw(
         self,

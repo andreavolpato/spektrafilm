@@ -39,7 +39,7 @@ def read_grain_presets():
     runtime grain fields.
     """
     package = pkg_resources.files('spektrafilm.data.presets')
-    resource = package / 'grain_presets.toml'
+    resource = package / 'grain.toml'
     with resource.open("rb") as file:
         data = tomllib.load(file)
     return _to_grain_values(data)
