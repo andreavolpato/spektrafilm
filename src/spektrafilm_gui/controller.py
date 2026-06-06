@@ -31,13 +31,17 @@ from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
 
-def _family_development_times(profile) -> np.ndarray | None:
-    """A stock's development-time family as a 1-D array, or None when it has no
-    family to choose from (color / single-curve)."""
+def _family_development_times(profile) -> np.ndarray:
+    """A stock's development-time choices as a 1-D array, always non-empty.
+
+    A real B&W family returns all of its times. A stock with no family (color,
+    or single-time B&W) falls back to its own single value, or to ``[1.0]`` when
+    it carries no development time at all — so the dropdown always offers a
+    concrete development time instead of 'none'. (A future push/pull strategy
+    can widen a single entry into a synthesised range.)"""
     if profile is None or profile.data.development_time is None:
-        return None
-    times = np.asarray(profile.data.development_time, dtype=float)
-    return times if times.size > 1 else None
+        return np.array([1.0])
+    return np.asarray(profile.data.development_time, dtype=float)
 
 
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
@@ -280,8 +284,8 @@ class GuiController:
             return
 
         params = build_params_from_state(state)
-        # Read the development-time families before digest collapses them to one
-        # column. A family is >1 development times; anything else has no choice.
+        # Read the development-time choices before digest collapses them to one
+        # column. Stocks without a family fall back to a single 1.0 entry.
         film_times = _family_development_times(params.film)
         print_times = _family_development_times(params.print)
         synced_state = gui_state_from_params(

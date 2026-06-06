@@ -181,6 +181,27 @@ def test_lut_path_stays_close_to_direct_path(default_params) -> None:
     np.testing.assert_allclose(result_lut, result_direct, atol=0.02)
 
 
+def test_colour_film_onto_bw_print_uses_generalized_3d_lut() -> None:
+    # Printing a colour film onto a B&W paper makes the enlarger map 3 film
+    # densities -> 1 print exposure. The 3D LUT (3-in) must handle the 1-channel
+    # output rather than assuming 3 (regression for the (17,17,17,3) reshape
+    # crash). The final scan is still RGB.
+    patch = _tile_rgb((0.30, 0.10, 0.05), 6)
+    params = make_fast_test_params(film_profile='kodak_portra_400', print_profile='kodak_2302')
+    params.io.scan_film = False
+
+    result_direct = simulate(patch, params)
+    _assert_valid_output(result_direct, shape=(6, 6, 3))
+
+    params.settings.use_enlarger_lut = True   # 3-in/1-out enlarger LUT
+    params.settings.use_scanner_lut = True
+    params.settings.lut_resolution = 17
+    result_lut = simulate(patch, params)
+
+    _assert_valid_output(result_lut, shape=(6, 6, 3))
+    np.testing.assert_allclose(result_lut, result_direct, atol=0.02)
+
+
 def test_auto_exposure_normalizes_bright_inputs(default_params) -> None:
     bright_patch = _tile_rgb((0.8, 0.8, 0.8), 8)
     default_params.camera.auto_exposure = True

@@ -253,3 +253,43 @@ def test_compute_with_lut_rejects_invalid_input_range():
 
     with pytest.raises(ValueError, match='xmax must be greater than xmin'):
         compute_with_lut(data, affine_transform, xmin=1.0, xmax=1.0)
+
+
+# --- 3-in / non-3-out generalization -----------------------------------------
+# The 3D LUT is 3-in but any number of output channels (e.g. a colour film
+# printed onto a B&W paper: 3 film densities -> 1 print exposure).
+
+def affine_transform_1ch(data):
+    """(..., 3) -> (..., 1): a single affine output (tetrahedral-exact)."""
+    return 0.4 * data[..., 0:1] + 0.35 * data[..., 1:2] + 0.25 * data[..., 2:3]
+
+
+def test_compute_with_lut_supports_single_output_channel():
+    rng = np.random.default_rng(0)
+    image = rng.random((20, 24, 3))
+
+    output, lut = compute_with_lut(image, affine_transform_1ch, steps=17)
+
+    assert lut.shape == (17, 17, 17, 1)
+    assert output.shape == (20, 24, 1)
+    np.testing.assert_allclose(output, affine_transform_1ch(image), atol=1e-8, rtol=1e-8)
+
+
+@pytest.mark.parametrize('apply_fn,atol', [
+    (apply_lut_tetrahedral_3d, 1e-12),  # exact on an affine transform
+    (apply_lut_pchip_3d, 1e-2),
+    (apply_lut_cubic_3d, 1e-2),
+])
+def test_apply_lut_3d_methods_support_single_output_channel(apply_fn, atol):
+    steps = 17
+    grid = np.linspace(0.0, 1.0, steps, dtype=np.float64)
+    x_r, x_g, x_b = np.meshgrid(grid, grid, grid, indexing='ij')
+    lut = affine_transform_1ch(np.stack((x_r, x_g, x_b), axis=-1))
+    assert lut.shape == (steps, steps, steps, 1)
+
+    rng = np.random.default_rng(1)
+    image = rng.random((16, 18, 3))
+    output = apply_fn(lut, image)
+
+    assert output.shape == (16, 18, 1)
+    np.testing.assert_allclose(output, affine_transform_1ch(image), atol=atol, rtol=0)
