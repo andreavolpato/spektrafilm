@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, is_dataclass, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, TypeVar
 
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
@@ -266,6 +266,26 @@ def clone_gui_state(state: GuiState) -> GuiState:
     )
 
 
+def _fill_channel_padding(grain):
+    """Mirror the first real channel across any ``None`` padding in the grain
+    tuples before they reach the GUI.
+
+    A single-channel (B&W) stock's grain preset pads its per-channel tuples to
+    three with ``None`` (e.g. ``uniformity = (0.6, None, None)``); the runtime
+    reads only the first channel, but the GUI editors are typed
+    ``tuple[float, float, float]`` and cannot display ``None``. Repeating the
+    first non-``None`` value presents the single B&W value across the RGB
+    editors and keeps the state type-valid. Always returns a copy.
+    """
+    changes = {}
+    for f in fields(grain):
+        value = getattr(grain, f.name)
+        if isinstance(value, tuple) and any(component is None for component in value):
+            fill = next((component for component in value if component is not None), 0.0)
+            changes[f.name] = tuple(fill if component is None else component for component in value)
+    return replace(grain, **changes)
+
+
 def gui_state_from_params(
     params: RuntimePhotoParams,
     *,
@@ -277,7 +297,7 @@ def gui_state_from_params(
             io=replace(params.io),
             settings=replace(params.settings),
         ),
-        grain=replace(params.film_render.grain),
+        grain=_fill_channel_padding(params.film_render.grain),
         preflashing=replace(params.enlarger),
         halation=replace(params.film_render.halation),
         couplers=replace(params.film_render.dir_couplers),

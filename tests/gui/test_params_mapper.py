@@ -238,6 +238,35 @@ def test_gui_state_from_params_mirrors_input_gamut_compress_group() -> None:
     assert state.input_gamut_compress.active is False
 
 
+def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
+    # A single-channel (B&W) stock's grain preset pads its per-channel tuples to
+    # three with None (e.g. uniformity=(0.6, None, None)); the runtime reads only
+    # channel 0, but the GUI editors are typed tuple[float, float, float] and
+    # crash on None. gui_state_from_params must mirror the first real channel
+    # across the padding so no None reaches the widgets (regression: the profile
+    # sync crashed mid-way, leaving the development-time dropdown un-repopulated).
+    from spektrafilm.runtime.api import digest_params
+
+    params = digest_params(init_params(
+        film_profile=FilmStocks.kodak_doublex.value,
+        print_profile=PrintPapers.kodak_2302.value,
+    ))
+    # precondition: the runtime grain genuinely carries None padding for B&W
+    assert any(c is None for c in params.film_render.grain.uniformity)
+
+    state = gui_state_from_params(
+        params,
+        film_stock=FilmStocks.kodak_doublex.value,
+        print_paper=PrintPapers.kodak_2302.value,
+    )
+
+    for field_name in ('rms_granularity', 'uniformity', 'density_min'):
+        values = getattr(state.grain, field_name)
+        assert all(c is not None for c in values), field_name
+        # padding mirrors channel 0, not a misleading zero
+        assert values == (values[0],) * len(values), field_name
+
+
 def test_build_default_gui_state_uses_runtime_defaults() -> None:
     state = build_default_gui_state(
         film_stock=FilmStocks.kodak_gold_200.value,
