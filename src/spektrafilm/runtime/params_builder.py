@@ -3,8 +3,8 @@ from __future__ import annotations
 import copy
 from dataclasses import fields
 from functools import lru_cache
-
-from spektrafilm.profiles.io import load_profile
+from spektrafilm.data.presets_loader import read_grain_presets
+from spektrafilm.data.profiles_loader import load_profile
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.utils.io import read_neutral_print_filters
 
@@ -185,7 +185,9 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
 #  [0.29901809 0.40196381 0.29901809]
 #  [0.14936985 0.36285359 0.48777655]]
 
+    # presets
     _apply_halation_preset(params)
+    _apply_grain_preset(params)
 
     # stock specifics overrides
     if params.film.info.stock == "fujifilm_velvia_100":
@@ -199,7 +201,11 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
         params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.104, 0.078)
         params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.078, 0.078)
         
-    if params.film.is_bw:
+    if params.film.is_bw and params.film.info.stock not in GRAIN_PRESETS:
+        # Fallback for B&W stocks without a grain preset; a stock listed in
+        # GRAIN_PRESETS is governed by _apply_grain_preset above (with the
+        # defaults.bw table filling any omitted parameter) and must not be
+        # clobbered here.
         # NOTE: was `params.film_render.particle_area_um2 = 0.2`, a latent no-op
         # (wrong path: set a junk attr on FilmRenderingParams, never reached
         # .grain). Now expressed as per-channel RMS granularity; BW is
@@ -247,6 +253,33 @@ def _apply_halation_preset(params: RuntimePhotoParams) -> None:
         return
     params.film_render.halation.halation_first_sigma_um = preset['sigma_h']
     params.film_render.halation.halation_strength = preset['strength']
+
+
+GRAIN_PRESETS = read_grain_presets()
+_GRAIN_DEFAULTS = GRAIN_PRESETS.get("defaults", {})
+
+
+def _apply_grain_preset(params: RuntimePhotoParams) -> None:
+    defaults_color = _GRAIN_DEFAULTS.get("color", {})
+    defaults_bw = _GRAIN_DEFAULTS.get("bw", {})
+
+    def _apply_preset(preset, defaults):
+        # apply each default, overridden by the stock preset where it provides
+        # a value, then any extra preset keys that map to a grain field
+        for key, value in defaults.items():
+            setattr(params.film_render.grain, key, preset.get(key, value))
+        for key, value in preset.items():
+            if not hasattr(params.film_render.grain, key):
+                continue
+            setattr(params.film_render.grain, key, value)
+
+    if params.film.info.stock in GRAIN_PRESETS:
+        preset = GRAIN_PRESETS[params.film.info.stock]
+        if params.film.is_bw:
+            _apply_preset(preset, defaults_bw)
+        elif params.film.is_color:
+            _apply_preset(preset, defaults_color)
+    return
 
 def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply print specific settings to the params."""

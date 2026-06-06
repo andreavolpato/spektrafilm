@@ -50,7 +50,7 @@ import numpy as np
 from scipy.optimize import brentq as _brentq
 
 from spektrafilm.model.density_curves import _layer_cdf_values
-from spektrafilm.profiles.io import DensityCurvesModel
+from spektrafilm.data.profiles_loader import DensityCurvesModel
 
 
 __all__ = [

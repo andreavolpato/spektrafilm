@@ -1,6 +1,6 @@
 """Runtime package exports."""
 
-from spektrafilm.profiles.io import load_profile, save_profile
+from spektrafilm.data.profiles_loader import load_profile, save_profile
 
 from .params_builder import digest_params, init_params
 from .process import Simulator, simulate

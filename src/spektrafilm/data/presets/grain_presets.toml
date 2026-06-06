@@ -1,0 +1,42 @@
+# defaults
+[defaults.bw] # roughly modeled after kodak_doublex
+rms_granularity = [14.0]
+uniformity = [0.6]
+density_min = [0.01]
+particle_scale_sublayers = [1.0, 0.4, 0.25]
+
+[defaults.color] # roughly modeled after kodak_vision3_50d
+rms_granularity = [7.0, 7.0, 12.0]
+uniformity = [0.97, 0.97, 0.97]
+density_min = [0.03, 0.03, 0.03]
+particle_scale_sublayers = [1.0, 0.4, 0.25]
+
+
+# cine color negative
+[kodak_vision3_50d]
+rms_granularity = [7.0, 7.0, 12.0]
+uniformity = [0.97, 0.95, 0.97]
+
+[kodak_vision3_250d]
+rms_granularity = [10.0, 11.0, 18.0]
+uniformity = [0.97, 0.94, 0.97]
+density_min = [0.10, 0.11, 0.12]
+
+[kodak_vision3_200t]
+rms_granularity = [7.0, 8.0, 17.0]
+density_min = [0.03, 0.03, 0.12]
+
+[kodak_vision3_500t]
+rms_granularity = [9.0, 13.0, 30.0]
+uniformity = [0.93, 0.97, 0.99]
+particle_scale_sublayers = [1.0, 0.3, 0.25]
+density_min = [0.12, 0.10, 0.35]
+
+
+# cine bw
+[kodak_doublex]
+rms_granularity = [14.0]
+
+[kodak_trix]
+rms_granularity = [44.0]
+density_min = [0.003]

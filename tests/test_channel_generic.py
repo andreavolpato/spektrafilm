@@ -20,7 +20,7 @@ from spektrafilm.model.couplers import (
     apply_density_correction_dir_couplers,
     compute_dir_couplers_matrix,
 )
-from spektrafilm.profiles.io import DensityCurvesModel, Profile, ProfileData, ProfileInfo
+from spektrafilm.data.profiles_loader import DensityCurvesModel, Profile, ProfileData, ProfileInfo
 from spektrafilm.runtime.params_builder import init_params, digest_params
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams, HalationParams
 from spektrafilm.runtime.pipeline import SimulationPipeline

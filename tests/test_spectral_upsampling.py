@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
+from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils import spectral_upsampling as spectral_upsampling_module
 
 

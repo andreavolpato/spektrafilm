@@ -7,7 +7,7 @@ from opt_einsum import contract
 from spektrafilm.model.couplers import apply_density_correction_dir_couplers
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
 from spektrafilm.model.grain import apply_grain
-from spektrafilm.profiles.io import DensityCurvesModel
+from spektrafilm.data.profiles_loader import DensityCurvesModel
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
 from spektrafilm.utils.morph_curves import apply_print_curves_morph, PrintChemistryParams
 from spektrafilm.config import SPECTRAL_SHAPE

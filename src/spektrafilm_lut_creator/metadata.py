@@ -5,7 +5,7 @@ provenance / licensing block that identifies spektrafilm as the source
 and surfaces citation expectations to downstream users. I/O lives with
 the builder; the dataclasses here are the source of truth for shape.
 
-The provenance defaults mirror :class:`spektrafilm.profiles.io.ProfileMetadata`
+The provenance defaults mirror :class:`spektrafilm.data.profiles_loader.ProfileMetadata`
 so a user receiving a LUT bundle reads the same licensing story they'd
 read on the profiles that informed it.
 

@@ -4,7 +4,7 @@ import pytest
 from spektrafilm.model.couplers import apply_density_correction_dir_couplers
 from spektrafilm.model.develop import develop, develop_simple
 from spektrafilm.model.grain import apply_grain
-from spektrafilm.profiles.io import Profile, ProfileData, ProfileInfo
+from spektrafilm.data.profiles_loader import Profile, ProfileData, ProfileInfo
 from spektrafilm.runtime.params_schema import DirCouplersParams, FilmRenderingParams, GrainParams
 
 

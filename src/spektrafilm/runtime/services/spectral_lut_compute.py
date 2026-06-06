@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable
 import numpy as np
 
-from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
+from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
 from spektrafilm.utils.lut import compute_with_lut, compute_with_lut_1d
 from spektrafilm.utils.spectral_upsampling import compute_hanatos2025_tc_lut

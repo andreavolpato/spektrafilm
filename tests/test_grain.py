@@ -93,6 +93,7 @@ class TestApplyGrain:
             grain_blur_dye_clouds_um=grain.blur_dye_clouds_um,
             grain_micro_structure=grain.micro_structure,
             use_fast_stats=False,
+            density_curves_layers=density_curves_layers,
         )
 
         np.testing.assert_allclose(result, expected, atol=1e-10)
@@ -116,6 +117,76 @@ class TestApplyGrain:
                               density_curves, None, "negative")
             peak = max(peak, float(np.std(out[:, :, 0])) * 1000)
         assert peak == pytest.approx(rms_in, rel=0.05)
+
+    def test_realized_peak_regime_coincident_sublayers(self):
+        # Coincident sub-layers: each is proportional to the same curve, so their
+        # variance bells peak together and the realized peak is their *sum*. The
+        # `sum` regime (speed_separated=False -> positives) recovers the input
+        # target; the `max` regime (speed_separated=True -> separated negatives)
+        # over-grains because it under-corrects the compounding (study a90).
+        # Driven through the whole-array path so the regime is isolated from the
+        # positive/negative curve-interpolation direction.
+        rms_in = 12.0
+        aperture_px = float(np.sqrt(np.pi * 24 ** 2))  # pixel area == 48 um aperture
+        dmax_tot = 2.2
+        fracs = np.array([0.5, 0.3, 0.2])              # coincident: D_sl = frac * D_tot
+        density_max_layers = (dmax_tot * fracs)[:, None]                  # (3, 1)
+
+        peaks = {}
+        for sep in (False, True):
+            peak = 0.0
+            for d in np.linspace(0.05, dmax_tot, 18):
+                layers = (fracs[None, None, :, None] * d).repeat(128, 0).repeat(128, 1)
+                out = apply_grain_to_density_layers(
+                    layers.astype(np.float64),
+                    density_max_layers=density_max_layers,
+                    pixel_size_um=aperture_px,
+                    rms_granularity=(rms_in, rms_in, rms_in),
+                    particle_scale_sublayers=(1.0, 0.5, 0.25),
+                    density_min=(0.03, 0.03, 0.03),
+                    grain_uniformity=(0.97, 0.97, 0.97),
+                    grain_blur=0.0, grain_blur_dye_clouds_um=0.0,
+                    grain_micro_structure=(0.0, 0.0),
+                    speed_separated=sep,
+                )
+                peak = max(peak, float(np.std(out[:, :, 0])) * 1000)
+            peaks[sep] = peak
+
+        # sum (False) lands on target; max (True) over-grains the coincident stack
+        assert peaks[False] == pytest.approx(rms_in, rel=0.1)
+        assert peaks[True] > peaks[False] * 1.1
+
+    @pytest.mark.parametrize("geometry", ["coincident", "separated"])
+    @pytest.mark.parametrize("u", [0.6, 0.97])
+    def test_curve_based_peak_matches_input_rms(self, geometry, u):
+        # The curve-based sizing (apply_grain's normal path) recovers the input
+        # RMS for any sub-layer geometry and uniformity — both the coincident
+        # stack (where a dominant-bell `max` over-grains) and the speed-separated
+        # stack (where a `sum` under-grains), at low and high u. This is the
+        # case a Dmax-only closed form cannot get right (study a90).
+        rms_in = 12.0
+        aperture_px = float(np.sqrt(np.pi * 24 ** 2))  # pixel area == 48 um aperture
+        x = np.linspace(0.0, 1.0, 64)
+        dmax_sl = np.array([0.8, 0.7, 0.6])
+        offsets = [0.0, 0.0, 0.0] if geometry == "coincident" else [0.0, 0.25, 0.5]
+        curves = np.stack([np.clip((x - o) / 0.4, 0.0, 1.0) * dm
+                           for o, dm in zip(offsets, dmax_sl)], axis=1)   # (64, 3)
+        density_curves = curves.sum(axis=1, keepdims=True)               # (64, 1)
+        density_curves_layers = curves[:, :, None]                       # (64, 3, 1)
+        dmax_tot = float(density_curves.max())
+        grain = GrainParams(
+            active=True, rms_granularity=(rms_in, rms_in, rms_in),
+            uniformity=(u, u, u), particle_scale_sublayers=(1.0, 0.5, 0.25),
+            density_min=(0.03, 0.03, 0.03), blur=0.0, blur_dye_clouds_um=0.0,
+            micro_structure=(0.0, 0.0), mult_usm_amount=0.0,
+        )
+        peak = 0.0
+        for d in np.linspace(0.05, dmax_tot * 0.98, 22):
+            img = np.full((220, 220, 1), d)
+            out = apply_grain(img.copy(), aperture_px, grain,
+                              density_curves, density_curves_layers, "negative")
+            peak = max(peak, float(np.std(out[:, :, 0])) * 1000)
+        assert peak == pytest.approx(rms_in, rel=0.1)
 
     def test_apply_grain_single_layer_density_model(self):
         # density_curves_layers=None (single-layer density model) is handled as
