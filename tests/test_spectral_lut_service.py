@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
+from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.runtime.services import spectral_lut_compute as spectral_lut_compute_module
 
 

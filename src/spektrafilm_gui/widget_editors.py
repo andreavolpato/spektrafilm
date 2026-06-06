@@ -13,7 +13,7 @@ QStyleOptionComboBox = QtWidgets.QStyleOptionComboBox
 QStyledItemDelegate = QtWidgets.QStyledItemDelegate
 QStylePainter = QtWidgets.QStylePainter
 
-from spektrafilm.profiles.io import load_profile
+from spektrafilm.data.profiles_loader import load_profile
 from spektrafilm_gui.theme_palette import (
     ACCENT_COLOR_TEXT,
     ACCENT_COLOR_TEXT_SECONDARY,

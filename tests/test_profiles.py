@@ -5,7 +5,7 @@ import ast
 import inspect
 
 from spektrafilm.model import stocks
-from spektrafilm.profiles.io import (
+from spektrafilm.data.profiles_loader import (
     Profile,
     ProfileData,
     ProfileInfo,

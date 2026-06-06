@@ -1,7 +1,7 @@
 import numpy as np
 from pytest import mark
 
-from spektrafilm.profiles.io import DensityCurvesModel
+from spektrafilm.data.profiles_loader import DensityCurvesModel
 from spektrafilm.utils.morph_curves import PrintChemistryParams, apply_print_curves_morph
 
 

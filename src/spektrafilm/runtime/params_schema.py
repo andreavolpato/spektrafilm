@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from spektrafilm.profiles.io import Profile
+from spektrafilm.data.profiles_loader import Profile
 from spektrafilm.utils.gamut_compression import (
     InputGamutCompressSpec,
     OutputGamutCompressSpec,
