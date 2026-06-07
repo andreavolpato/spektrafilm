@@ -1,0 +1,65 @@
+# DIR-coupler gamma presets, keyed by film stock.
+#
+# Loaded by spektrafilm.data.presets_loader.read_coupler_presets and applied in
+# params_builder._apply_couplers_preset. A `defaults.<color|bw>.<positive|
+# negative>` table seeds the baseline for the film's class; a per-stock table
+# overrides individual gammas. Stocks/classes with no table keep the
+# DirCouplersParams schema defaults.
+#
+# gamma_samelayer_rgb is a 3-vector (R, G, B self-inhibition); the interlayer
+# gammas are 2-vectors (donor -> the two other receivers). B&W (n_ch == 1) uses
+# only gamma_samelayer_rgb[0]; its interlayer entries are inert but kept so the
+# params mirror the color defaults.
+#
+# Optimized on 2026/06/07 from study a22
+
+# --- defaults
+[defaults.color.positive]
+gamma_samelayer_rgb = [0.2291, 0.1029, 0.2651]
+gamma_interlayer_r_to_gb = [0.1449, 0.1560]
+gamma_interlayer_g_to_rb = [0.0496, 0.0874]
+gamma_interlayer_b_to_rg = [0.0571, 0.2462]
+
+[defaults.color.negative]
+gamma_samelayer_rgb = [0.5159, 0.5934, 0.2829]
+gamma_interlayer_r_to_gb = [0.4032, 0.2488]
+gamma_interlayer_g_to_rb = [0.2227, 0.4340]
+gamma_interlayer_b_to_rg = [0.1829, 0.1799]
+
+[defaults.bw.positive]
+gamma_samelayer_rgb = [0.2291, 0.1029, 0.2651]
+gamma_interlayer_r_to_gb = [0.1449, 0.1560]
+gamma_interlayer_g_to_rb = [0.0496, 0.0874]
+gamma_interlayer_b_to_rg = [0.0571, 0.2462]
+
+[defaults.bw.negative]
+gamma_samelayer_rgb = [0.5159, 0.5934, 0.2829]
+gamma_interlayer_r_to_gb = [0.4032, 0.2488]
+gamma_interlayer_g_to_rb = [0.2227, 0.4340]
+gamma_interlayer_b_to_rg = [0.1829, 0.1799]
+
+
+# --- color positive
+[fujifilm_velvia_100]
+gamma_samelayer_rgb = [0.2398, 0.0662, 0.1440]
+gamma_interlayer_r_to_gb = [0.0707, 0.2367]
+gamma_interlayer_g_to_rb = [0.0119, 0.0380]
+gamma_interlayer_b_to_rg = [0.0111, 0.1413]
+
+[kodak_ektachrome_100]
+gamma_samelayer_rgb = [0.2291, 0.1029, 0.2651]
+gamma_interlayer_r_to_gb = [0.1449, 0.1560]
+gamma_interlayer_g_to_rb = [0.0496, 0.0874]
+gamma_interlayer_b_to_rg = [0.0571, 0.2462]
+
+[kodak_kodachrome_64]
+gamma_samelayer_rgb = [0.2942, 0.0841, 0.2492]
+gamma_interlayer_r_to_gb = [0.1699, 0.2188]
+gamma_interlayer_g_to_rb = [0.0625, 0.0692]
+gamma_interlayer_b_to_rg = [0.1153, 0.2359]
+
+[fujifilm_provia_100f]
+gamma_samelayer_rgb = [0.2786, 0.1257, 0.3480]
+gamma_interlayer_r_to_gb = [0.1448, 0.2003]
+gamma_interlayer_g_to_rb = [0.0516, 0.1250]
+gamma_interlayer_b_to_rg = [0.0518, 0.3089]

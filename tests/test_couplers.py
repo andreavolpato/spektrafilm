@@ -6,6 +6,8 @@ from spektrafilm.model.couplers import (
     compute_dir_couplers_matrix,
     compute_density_curves_before_dir_couplers,
     compute_exposure_correction_dir_couplers,
+    langmuir_donor_params,
+    receiver_langmuir_params,
 )
 from spektrafilm.runtime.params_schema import DirCouplersParams
 
@@ -87,11 +89,28 @@ class TestDirCouplers:
             gamma_factor=gamma_factor,
         )
 
-        matrix = compute_dir_couplers_matrix(dir_couplers) * dir_couplers.amount
+        # Mirror apply_density_correction_dir_couplers: donor-side Langmuir for
+        # negative, linear donor + receiver-side Langmuir for positive, with
+        # c_ref derived from the unit matrix (before the amount scaling).
+        matrix_unit = compute_dir_couplers_matrix(dir_couplers)
+        langmuir_k, langmuir_d_ref = langmuir_donor_params(
+            density_curves, dir_couplers.langmuir_donor_k_rgb, n_ch=3)
+        if positive:
+            donor_k = None
+            receiver_kr, receiver_c_ref = receiver_langmuir_params(
+                langmuir_d_ref, matrix_unit, dir_couplers.langmuir_receiver_k_rgb, n_ch=3)
+        else:
+            donor_k = langmuir_k
+            receiver_kr = receiver_c_ref = None
+        matrix = matrix_unit * dir_couplers.amount
         density_curves_0 = compute_density_curves_before_dir_couplers(
             density_curves,
             log_exposure,
             matrix,
+            donor_k,
+            langmuir_d_ref,
+            receiver_kr=receiver_kr,
+            receiver_c_ref=receiver_c_ref,
             positive=positive,
         )
         density_max = np.nanmax(density_curves, axis=0)
@@ -100,9 +119,13 @@ class TestDirCouplers:
             density_cmy,
             density_max,
             matrix,
+            donor_k,
+            langmuir_d_ref,
             dir_couplers.diffusion_size_um / pixel_size_um,
             dir_couplers.diffusion_tail_um / pixel_size_um,
             dir_couplers.diffusion_tail_weight,
+            receiver_kr=receiver_kr,
+            receiver_c_ref=receiver_c_ref,
             positive=positive,
         )
         expected = interpolate_exposure_to_density(

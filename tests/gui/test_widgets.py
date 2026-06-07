@@ -431,6 +431,31 @@ def test_params_group_section_mirrors_runtime_values_verbatim() -> None:
     np.testing.assert_allclose(out.scatter_tail_weight, (0.78, 0.65, 0.67))
 
 
+def test_couplers_section_surfaces_diffusion_tail_values() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    from spektrafilm.runtime.params_schema import DirCouplersParams
+    from spektrafilm_gui.params_manifest import DIR_COUPLERS_MANIFEST
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    section = widgets_module.ParamsGroupSection(DIR_COUPLERS_MANIFEST)
+
+    section.set_state(DirCouplersParams(
+        diffusion_size_um=18.0,
+        diffusion_tail_um=240.0,
+        diffusion_tail_weight=0.07,
+    ))
+    assert float(section.diffusion_tail_um.value) == 240.0
+    assert float(section.diffusion_tail_weight.value) == 0.07
+
+    out = section.get_state()
+    assert isinstance(out, DirCouplersParams)
+    assert out.diffusion_size_um == 18.0
+    assert out.diffusion_tail_um == 240.0
+    assert out.diffusion_tail_weight == 0.07
+
+
 def test_param_manifests_are_complete_and_well_formed() -> None:
     from spektrafilm_gui.params_manifest import ALL_MANIFESTS
 
