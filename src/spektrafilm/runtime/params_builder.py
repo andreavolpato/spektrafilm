@@ -236,7 +236,23 @@ def _apply_couplers_preset(params: RuntimePhotoParams) -> None:
     """
     channel_model = "bw" if params.film.is_bw else "color"
     polarity = "positive" if params.film.is_positive else "negative"
-    defaults = _COUPLER_DEFAULTS.get(channel_model, {}).get(polarity, {})
+    all_defaults = _COUPLER_DEFAULTS.get(channel_model, {}).get(polarity, {})
+    defaults = {
+        key: value
+        for key, value in all_defaults.items()
+        if hasattr(params.film_render.dir_couplers, key)
+    }
+    if channel_model == "color" and polarity == "negative" and params.film.is_cine:
+        cine_defaults = all_defaults.get("cine", {})
+        reference_illuminant = str(params.film.info.reference_illuminant).upper()
+        cine_branch = "tungsten" if reference_illuminant.startswith("T") else "daylight"
+        defaults.update(
+            {
+                key: value
+                for key, value in cine_defaults.get(cine_branch, {}).items()
+                if hasattr(params.film_render.dir_couplers, key)
+            }
+        )
     preset = COUPLER_PRESETS.get(params.film.info.stock, {})
 
     # apply each default, overridden by the stock preset where it provides a

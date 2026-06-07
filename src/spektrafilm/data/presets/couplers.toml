@@ -26,6 +26,18 @@ gamma_interlayer_r_to_gb = [0.4032, 0.2488]
 gamma_interlayer_g_to_rb = [0.2227, 0.4340]
 gamma_interlayer_b_to_rg = [0.1829, 0.1799]
 
+[defaults.color.negative.cine.daylight]
+gamma_samelayer_rgb = [0.5456, 0.5434, 0.3766]
+gamma_interlayer_r_to_gb = [0.4263, 0.2781]
+gamma_interlayer_g_to_rb = [0.2051, 0.5015]
+gamma_interlayer_b_to_rg = [0.2950, 0.2449]
+
+[defaults.color.negative.cine.tungsten]
+gamma_samelayer_rgb = [0.4601, 0.4433, 0.4414]
+gamma_interlayer_r_to_gb = [0.4313, 0.3157]
+gamma_interlayer_g_to_rb = [0.3145, 0.3890]
+gamma_interlayer_b_to_rg = [0.2423, 0.2506]
+
 [defaults.bw.positive]
 gamma_samelayer_rgb = [0.2291, 0.1029, 0.2651]
 gamma_interlayer_r_to_gb = [0.1449, 0.1560]
