@@ -141,9 +141,11 @@ class DirCouplersParams:
     gamma_interlayer_r_to_gb: tuple[float, float] = (0.355, 0.305)
     gamma_interlayer_g_to_rb: tuple[float, float] = (0.154, 0.358)
     gamma_interlayer_b_to_rg: tuple[float, float] = (0.171, 0.225)
+    langmuir_donor_k_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    langmuir_receiver_k_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0)
     diffusion_size_um: float = 20.0
     diffusion_tail_um: float = 200.0 # exponential tail for Lévy-like processes or environmental heterogeneity
-    diffusion_tail_weight: float = 0.06
+    diffusion_tail_weight: float = 0.03
 
 @dataclass
 class GlareParams:
