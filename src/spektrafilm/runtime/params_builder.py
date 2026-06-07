@@ -88,6 +88,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.grain.active = False
         params.film_render.grain.rms_granularity = (0.0, 0.0, 0.0)
         params.film_render.grain.blur = 0.0
+        params.film_render.grain.mult_usm_amount = 0.0  # USM is a spatial sharpen
         # scatter/halation kernel sigmas are preserved in preview mode
         params.print_render.glare.blur = 0.0
         params.camera.lens_blur_um = 0.0
@@ -100,15 +101,11 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     
     # debug switches
     if params.debug.lut_mode:
-        # LUT-sampling regime: force the pipeline into a deterministic
-        # per-pixel transform. Enabling lut_mode promotes spatial and
-        # stochastic deactivation and disables image-aware adjustments.
         params.debug.deactivate_spatial_effects = True
         params.debug.deactivate_stochastic_effects = True
         params.camera.auto_exposure = False
         params.scanner.white_correction = False
         params.scanner.black_correction = False
-        params.scanner.unsharp_mask = (0.0, 0.0)
 
     if params.debug.deactivate_spatial_effects:
         params.film_render.halation.scatter_core_um = (0.0, 0.0, 0.0)

@@ -175,6 +175,15 @@ DIR_COUPLERS_MANIFEST = GroupManifest(
             tooltip="DIR inhibition from the B layer onto the R and G layers respectively (g_B->R, g_B->G).",
         ),
         ParamSpec(
+            f"{_DC}.langmuir_k_rgb",
+            min=0.1,
+            step=0.1,
+            tooltip="Per-channel Langmuir saturation of DIR inhibitor release, "
+                    "normalized to each layer's d_max (R, G, B). Lower = earlier, "
+                    "stronger roll-off at high density (gentler shoulder, tames "
+                    "high-amount breakage); large values approach the linear model.",
+        ),
+        ParamSpec(
             f"{_DC}.diffusion_size_um",
             min=0,
             step=5,

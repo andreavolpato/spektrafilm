@@ -5,7 +5,50 @@ from spektrafilm.runtime.params_schema import DirCouplersParams
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter, fast_exponential_filter
 from spektrafilm.model.density_curves import interpolate_exposure_to_density
 
-def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix, positive=False):
+
+# ---- Langmuir saturating donor (DIR inhibitor release) ----------------------
+
+def langmuir_donor_params(density_curves, langmuir_k_rgb, n_ch):
+    """Per-channel Langmuir shape K and amplitude-matching density D_ref.
+
+    Derived entirely in-model from the (already base-subtracted) density
+    curves:
+
+    - ``d_max[c]`` = max over exposure of ``density_curves[:, c]``. Because
+      ``develop()`` removes the toe/base before couplers and the curves are a
+      sum of sublayer Gaussian CDFs that plateau, this max equals the summed
+      sublayer d_max — the channel's full dye/silver capacity.
+    - ``D_ref[c]`` = ``d_max[c] / 2`` (d_min is taken as 0; the toe is gone).
+    - ``K[c]`` = ``langmuir_k_rgb[c] * d_max[c]`` — the normalized shape knob,
+      so the saturation half-scale is a fraction of the layer ceiling.
+
+    ``langmuir_k_rgb -> inf`` recovers the linear law.
+    """
+    d_max = np.nanmax(density_curves, axis=0)
+    d_ref = 0.5 * d_max
+    k = np.asarray(langmuir_k_rgb, dtype=float)[:n_ch] * d_max
+    return k, d_ref
+
+
+def langmuir_donor(density_silver, langmuir_k, langmuir_d_ref):
+    """Amplitude-matched Langmuir donor ``g(D) = D (K + D_ref) / (K + D)``.
+
+    The saturating amount of inhibitor released per donor channel (last axis).
+    ``g(D_ref) = D_ref``, so the calibrated operating-point inhibition is
+    unchanged versus the linear model; the laws diverge only away from D_ref,
+    where the Langmuir form rolls off instead of growing without bound. ``K``
+    and ``D_ref`` broadcast over the last (donor channel) axis. A channel with
+    ``K = inf`` stays linear (``g(D) = D``).
+    """
+    k = np.asarray(langmuir_k, dtype=float)
+    finite = np.isfinite(k)
+    k_safe = np.where(finite, k, 1.0)
+    saturated = density_silver * (k_safe + langmuir_d_ref) / (k_safe + density_silver)
+    return np.where(finite, saturated, density_silver)
+
+
+def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir_couplers_matrix,
+                                               langmuir_k, langmuir_d_ref, positive=False):
     """
     DIR couplers affect the same layer by increasing contrast.
     I suppose that in the design of a film this is taken into account, and the final film has well behaved density curves.
@@ -27,7 +70,8 @@ def compute_density_curves_before_dir_couplers(density_curves, log_exposure, dir
     else:
         density_curves_silver = np.copy(density_curves)
     
-    couplers_amount_curves = contract('jk, km->jm', density_curves_silver, dir_couplers_matrix)
+    donor = langmuir_donor(density_curves_silver, langmuir_k, langmuir_d_ref)
+    couplers_amount_curves = contract('jk, km->jm', donor, dir_couplers_matrix)
     log_exposure_0 = log_exposure[:,None] - couplers_amount_curves
     density_curves_corrected = np.zeros_like(density_curves)
     for i in np.arange(density_curves.shape[1]):
@@ -74,10 +118,10 @@ def compute_dir_couplers_matrix(couplers_params: DirCouplersParams = DirCouplers
 
 def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
                                              dir_couplers_matrix,
+                                             langmuir_k, langmuir_d_ref,
                                              diffusion_size_pixel,
                                              diffusion_tail_size_pixel=0.0,
                                              diffusion_exp_tail_weight=0.0,
-                                             high_exposure_couplers_shift=0.0,
                                              positive=False):
     """
     Apply coupler inhibitors to the raw data based on density curves and inhibitor values.
@@ -94,8 +138,9 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
     diffusion_size_pixel (int): The size of the gaussian filter for the diffusion of the inhibitors in xy.
     diffusion_tail_size_pixel (int): The size of the exponential tail for the diffusion of the inhibitors in xy.
     diffusion_exp_tail_weight (float): The weight of the exponential tail in the diffusion of the inhibitors.
-    high_exposure_couplers_shift (float): if overexposure increases saturation, this will increase the inhibitors effect at higher density
-    
+    langmuir_k (array): per-channel Langmuir half-saturation scale K (absolute density units).
+    langmuir_d_ref (array): per-channel amplitude-matching density D_ref.
+
     Returns:
     numpy.ndarray: The modified raw exposure data after applying the effect of inhibitors.
     """
@@ -103,10 +148,13 @@ def compute_exposure_correction_dir_couplers(log_raw, density_cmy, density_max,
         density_silver = density_max - density_cmy
     else:
         density_silver = np.copy(density_cmy)
-    density_silver += high_exposure_couplers_shift*density_silver**2
-    # density_silver[..., k] generated in donor layer k contributes to receiver m
+    # Saturating Langmuir inhibitor release per donor channel (replaces the old
+    # supralinear high_exposure_couplers_shift term, whose nonlinearity grew the
+    # wrong way at high density).
+    donor = langmuir_donor(density_silver, langmuir_k, langmuir_d_ref)
+    # donor[..., k] generated in donor layer k contributes to receiver m
     # through dir_couplers_matrix[k, m].
-    log_raw_correction = contract('ijk, km->ijm', density_silver, dir_couplers_matrix)
+    log_raw_correction = contract('ijk, km->ijm', donor, dir_couplers_matrix)
     if diffusion_size_pixel>0:
         log_raw_correction = ( (1-diffusion_exp_tail_weight)*fast_gaussian_filter(log_raw_correction, diffusion_size_pixel)
                                        + fast_exponential_filter(log_raw_correction, diffusion_tail_size_pixel)*diffusion_exp_tail_weight)
@@ -131,11 +179,19 @@ def apply_density_correction_dir_couplers(
 
     couplers_matrix = compute_dir_couplers_matrix(dir_couplers, n_ch=density_cmy.shape[-1])
     couplers_matrix *= dir_couplers.amount
-    
+
+    # Langmuir saturating-donor parameters, derived in-model from the density
+    # curves (d_max per channel; D_ref = d_max/2). Shared by the inversion and
+    # the forward correction so both apply the same saturation.
+    langmuir_k, langmuir_d_ref = langmuir_donor_params(
+        density_curves, dir_couplers.langmuir_k_rgb, n_ch=density_cmy.shape[-1])
+
     density_curves_0 = compute_density_curves_before_dir_couplers(
         density_curves,
         log_exposure,
         couplers_matrix,
+        langmuir_k,
+        langmuir_d_ref,
         positive=positive,
     )
     density_max = np.nanmax(density_curves, axis=0)
@@ -158,6 +214,8 @@ def apply_density_correction_dir_couplers(
         density_cmy,
         density_max,
         couplers_matrix,
+        langmuir_k,
+        langmuir_d_ref,
         diffusion_size_pixel,
         diffusion_tail_size_pixel,
         diffusion_tail_weight,
