@@ -7,9 +7,7 @@ import numpy as np
 from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
 from spektrafilm.utils.lut import compute_with_lut
-from spektrafilm.utils.spectral_upsampling import (
-    compute_hanatos2025_tc_lut, compute_jakob2019_tc_lut, compute_otsu2018_tc_lut,
-)
+from spektrafilm.utils.spectral_upsampling import compute_tc_lut, lut_descriptor
 from spektrafilm.utils.timings import timeit
 
 
@@ -98,11 +96,21 @@ class SpectralLUTService:
         # drives a rebuild on the next call.
         self.input_gamut_compress: InputGamutCompressSpec = InputGamutCompressSpec()
 
+<<<<<<< HEAD
         # external memory
         self.filming_tc_lut_memory : np.ndarray | None = None # tc_lut memory
         self.enlarger_lut_memory : np.ndarray | None = None # enlarger lut memory
         self.scanner_lut_memory : np.ndarray | None = None # scanner lut memory
         self.convert_lut_memory : np.ndarray | None = None # convert (scan-inverse) lut memory
+=======
+        # One memo per rgb_to_raw method (lazily created, keyed by identifier). Key
+        # derivation differs by kind (reflectance vs irradiance); the caching does not.
+        self._tc_lut_memos: dict[str, _MemoLUT] = {}
+
+        # Probe-validated CMY->spectral LUTs.
+        self._enlarger_cache = _TestCacheLUT()
+        self._scanner_cache = _TestCacheLUT()
+>>>>>>> d8ad561 (feat: arctic2026alpha spectral upsampling)
 
         # local memory
         self._film_sensitivity = None # to track if tc_lut needs to be recomputed when film sensitivity changes
@@ -139,9 +147,7 @@ class SpectralLUTService:
         invalidate eagerly to free the stale arrays."""
         if spec != self.input_gamut_compress:
             self.input_gamut_compress = spec
-            self._filming_memo.invalidate()
-            self._jakob2019_memo.invalidate()
-            self._otsu2018_memo.invalidate()
+            self._tc_lut_memos.clear()       # drop every method's stale tc_lut
 
     @staticmethod
     def _copy_hanatos2025_adaptation(
@@ -164,6 +170,7 @@ class SpectralLUTService:
 
     # -- tc_luts ---------------------------------------------------------------
 
+<<<<<<< HEAD
     @timeit("spectral_compute_convert")
     def spectral_compute_convert(self,
         rgb_data,
@@ -221,47 +228,40 @@ class SpectralLUTService:
         if data_out is None:
             raise RuntimeError('LUT computation did not produce an output')
         return data_out
+=======
+    def _tc_lut_memo(self, method: str) -> _MemoLUT:
+        """The per-method memo, created on first use."""
+        memo = self._tc_lut_memos.get(method)
+        if memo is None:
+            memo = self._tc_lut_memos[method] = _MemoLUT()
+        return memo
+>>>>>>> d8ad561 (feat: arctic2026alpha spectral upsampling)
 
     @timeit("get_filming_tc_lut")
-    def get_filming_tc_lut(self, sensitivity):
-        """Irradiance tc_lut (hanatos2025). Keyed on sensitivity, the full
-        hanatos adaptation, and the input gamut compression spec."""
+    def get_filming_tc_lut(self, method, sensitivity, reference_illuminant):
+        """tc_lut for any rgb_to_raw `method`, dispatched on its descriptor kind and
+        memoized per method. REFLECTANCE methods (jakob2019 / otsu2018 / mallett2019 /
+        arctic2026…) relight under the film reference illuminant and key on
+        (sensitivity, reference + scene illuminants, gamut compress). The IRRADIANCE
+        method (hanatos2025) integrates directly and keys on (sensitivity, the full
+        hanatos adaptation, gamut compress) instead — its reference_illuminant rides in
+        the adaptation, not the relight."""
         sensitivity = np.asarray(sensitivity)
-        adaptation = self.hanatos2025_adaptation
-        key = (sensitivity, _adaptation_key(adaptation), self.input_gamut_compress)
-        return self._filming_memo.get(
-            key,
-            lambda: compute_hanatos2025_tc_lut(
-                sensitivity, adaptation, gamut_compress=self.input_gamut_compress),
-        )
-
-    @timeit("get_filming_tc_lut_jakob2019")
-    def get_filming_tc_lut_jakob2019(self, sensitivity, reference_illuminant,
-                                     scene_illuminant='D65'):
-        return self._get_reflectance_tc_lut(
-            self._jakob2019_memo, compute_jakob2019_tc_lut,
-            sensitivity, reference_illuminant, scene_illuminant)
-
-    @timeit("get_filming_tc_lut_otsu2018")
-    def get_filming_tc_lut_otsu2018(self, sensitivity, reference_illuminant,
-                                    scene_illuminant='D65'):
-        return self._get_reflectance_tc_lut(
-            self._otsu2018_memo, compute_otsu2018_tc_lut,
-            sensitivity, reference_illuminant, scene_illuminant)
-
-    def _get_reflectance_tc_lut(self, memo: _MemoLUT, compute_fn: Callable,
-                                sensitivity, reference_illuminant, scene_illuminant):
-        """Shared reflectance tc_lut path (jakob2019, otsu2018). Independent of
-        the hanatos adaptation (these methods use no window/surface correction);
-        keyed on sensitivity, the reference + scene illuminants, and the input
-        gamut compression spec."""
-        sensitivity = np.asarray(sensitivity)
-        key = (sensitivity, reference_illuminant, scene_illuminant, self.input_gamut_compress)
-        return memo.get(
-            key,
-            lambda: compute_fn(sensitivity, reference_illuminant,
-                               gamut_compress=self.input_gamut_compress),
-        )
+        descriptor = lut_descriptor(method)
+        if descriptor.get('kind') == 'irradiance':
+            adaptation = self.hanatos2025_adaptation
+            key = (method, sensitivity, _adaptation_key(adaptation), self.input_gamut_compress)
+            compute = lambda: compute_tc_lut(
+                method, sensitivity, hanatos2025_adaptation=adaptation,
+                gamut_compress=self.input_gamut_compress)
+        else:
+            scene_illuminant = descriptor['reflectance']['scene_illuminant']
+            key = (method, sensitivity, reference_illuminant, scene_illuminant,
+                   self.input_gamut_compress)
+            compute = lambda: compute_tc_lut(
+                method, sensitivity, reference_illuminant,
+                gamut_compress=self.input_gamut_compress)
+        return self._tc_lut_memo(method).get(key, compute)
 
     # -- CMY->spectral LUTs ----------------------------------------------------
 

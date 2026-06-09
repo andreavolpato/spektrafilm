@@ -1,0 +1,27 @@
+# Spectral-upsampling LUT descriptor (sidecar for the co-located .npy).
+# Read by the runtime spectral-LUT registry to drive ONE generic consume path:
+# identifier -> load spectra -> (reflectance: relight x E_ref, integrate, midgray-
+# normalize) -> apply_lut_cubic_2d(tc) * b. One descriptor per LUT in this folder.
+
+identifier = "otsu2018"
+file = "otsu2018_reflectance_xy_tc.npy"
+kind = "reflectance"                          # "reflectance" (relight + midgray-norm) | "irradiance" (direct)
+title = "Otsu et al. 2018 — clustered-basis bounded reflectance"
+
+[array]
+lut_size = 192                                # array is (lut_size, lut_size, bands) over the tc chromaticity grid
+bands = 81
+spectral_shape = [380, 780, 5]                # start, end, interval (nm)
+dtype = "float16"
+observer = "CIE 1931 2 Degree Standard Observer"
+
+[reflectance]                                 # present iff kind = "reflectance"
+scene_illuminant = "D65"                      # recovered/encoded under this white; the runtime _rgb_to_tc_b
+                                              # projection MUST use the same white, or neutrals drift
+midgray = 0.184                               # self-normalization neutral (green channel -> 1 after relight)
+bounded = true                                # values in [0, 1] (false = lift allowed, R may exceed 1)
+
+[meta]
+method = "Selects a leaf cluster in a trained tree; reflectance = cluster_mean + basis @ weights (clip=True -> bounded)."
+source = "Otsu, Yamamoto & Hachisuka 2018; spektrafilm study b50"
+notes = "Represents multi-modal reflectances a single sigmoid cannot; ~2.3% vs jakob's ~5.1% on the ColorChecker, at the cost of cluster-boundary discontinuities. See study b50 n010 4b."

@@ -2,12 +2,18 @@ import numpy as np
 import struct
 import colour
 import scipy
+import functools
 import importlib.resources
 from opt_einsum import contract
 import scipy.interpolate
 import scipy.special
 
-from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
+try:
+    import tomllib                       # Python >= 3.11
+except ModuleNotFoundError:              # pragma: no cover
+    import tomli as tomllib              # Python < 3.11 fallback
+
+from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 from spektrafilm.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
 from spektrafilm.model.illuminants import standard_illuminant
@@ -327,6 +333,37 @@ def rgb_to_raw_mallett2019(RGB, sensitivity,
     raw_midgray  = np.einsum('k,km->m', illuminant*0.184, sensitivity) # use 0.184 as midgray reference
     return raw / raw_midgray[1] # normalize with green channel
 
+
+_MALLETT2019_MIDGRAY = 0.184
+_MALLETT2019_SCENE_ILLUMINANT = 'D65'     # sRGB's whitepoint; the basis reproduces sRGB under it
+
+
+def compute_mallett2019_reflectance_lut(lut_size=192, scene_illuminant=_MALLETT2019_SCENE_ILLUMINANT):
+    """(S, S, 81) reflectance per tc chromaticity at unit brightness, from the Mallett &
+    Yuksel 2019 sRGB basis — the SAME deliverable as jakob2019 / otsu2018, shipped as
+    `mallett2019_reflectance_xy_tc.npy` so mallett flows through the generic reflectance
+    path (relight + integrate) like every other method.
+
+    Each tc -> xy -> XYZ_unit = [x, y, 1-x-y]; XYZ (under the scene illuminant = sRGB
+    white) -> linear sRGB -> reflectance = sum_k lrgb_k * basis_k(l). Stored float16.
+
+    NOTE: mallett is LINEAR in RGB, so the reconstruction is exactly scale-separable — the
+    tc LUT + linear-b reproduces rgb_to_raw_mallett2019 EXACTLY in-gamut (no tc loss, unlike
+    jakob/otsu whose nonlinear recovery costs ~5%). The only difference from the per-pixel
+    path is out-of-sRGB-gamut handling: this LUT clips reflectance to [0, 1] (like jakob /
+    otsu), where the per-pixel path leaves it unclipped. Weakest at saturated OOG colours.
+    """
+    v = np.linspace(0, 1, lut_size)
+    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
+    xy = _quad2tri(tc)
+    x, y = xy[..., 0], xy[..., 1]
+    XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1)
+    illu_xy = _illuminant_to_xy(scene_illuminant)
+    lrgb = colour.XYZ_to_RGB(XYZ_unit, colour.RGB_COLOURSPACES['sRGB'],
+                             illuminant=illu_xy, apply_cctf_encoding=False)    # linear sRGB
+    reflectance = np.einsum('...k,lk->...l', lrgb, np.array(MALLETT2019_BASIS[:]))
+    return np.array(np.clip(reflectance, 0.0, 1.0), dtype=np.half)
+
 ################################################################################
 # Using hanatos irradiance spectra generation
 
@@ -416,6 +453,158 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
     spectrum_w = scipy.interpolate.RegularGridInterpolator((v,v), HANATOS2025_SPECTRA_LUT)(tc_w)
     spectrum_w *= b_w
     return spectrum_w.flatten()
+
+
+################################################################################
+# Generic reflectance-LUT registry — identifier-driven loading + usage
+#
+# jakob2019, otsu2018 (and any future method) are the SAME runtime computation: a
+# (S, S, bands) reflectance LUT per tc chromaticity, recovered under a SCENE illuminant,
+# RELIT by the film reference illuminant, integrated against the sensitivity, and
+# self-normalized on a midgray neutral. So instead of a function per method, each LUT
+# ships a `.toml` sidecar (co-located with its `.npy`) declaring identifier / kind / file
+# and — for reflectance — scene_illuminant / midgray / bounded. The functions here load
+# and consume ANY such LUT by identifier; the named jakob2019 / otsu2018 entry points
+# below are thin wrappers. Drop a new `<id>_*.npy` + `<id>_*.toml` in the data folder and
+# it is usable with no code change. (hanatos2025 is irradiance — its own path, not here.)
+
+_LUT_DATA_PACKAGE = 'spektrafilm.data.luts.spectral_upsampling'
+
+
+@functools.lru_cache(maxsize=1)
+def _lut_registry():
+    """{identifier: descriptor} parsed from every `*.toml` sidecar in the LUT data
+    folder. Cached once per process (shipped data does not change at runtime)."""
+    registry = {}
+    for entry in importlib.resources.files(_LUT_DATA_PACKAGE).iterdir():
+        if entry.name.endswith('.toml'):
+            with entry.open('rb') as file:
+                descriptor = tomllib.load(file)
+            registry[descriptor['identifier']] = descriptor
+    return registry
+
+
+def available_lut_identifiers(kind=None):
+    """Sorted identifiers of shipped LUTs, optionally filtered to a `kind`
+    ('reflectance' | 'irradiance')."""
+    registry = _lut_registry()
+    return sorted(i for i, d in registry.items() if kind is None or d.get('kind') == kind)
+
+
+def lut_descriptor(identifier):
+    """Descriptor dict (parsed `.toml` sidecar) for `identifier`. Raises KeyError if
+    no LUT with that identifier is shipped."""
+    registry = _lut_registry()
+    if identifier not in registry:
+        raise KeyError(f"no spectral-upsampling LUT {identifier!r}; "
+                       f"available: {sorted(registry)}")
+    return registry[identifier]
+
+
+_LUT_SPECTRA_CACHE = {}
+
+
+def get_lut_spectra(identifier):
+    """Lazy-load + cache the (S, S, bands) spectra array for `identifier` from the `.npy`
+    its descriptor points at. NOT clipped to [0, 1] — methods that lift (R > 1) load
+    as-is. Lazy (not an import-time global) so a fresh checkout missing the `.npy` does
+    not fail at import; the array loads on first use."""
+    if identifier not in _LUT_SPECTRA_CACHE:
+        descriptor = lut_descriptor(identifier)
+        path = importlib.resources.files(_LUT_DATA_PACKAGE).joinpath(descriptor['file'])
+        with path.open('rb') as file:
+            _LUT_SPECTRA_CACHE[identifier] = np.double(np.load(file))
+    return _LUT_SPECTRA_CACHE[identifier]
+
+
+def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
+                               spectra_lut=None, gamut_compress=None):
+    """(S, S, 3) raw LUT for any REFLECTANCE-family method, selected by `identifier`.
+
+    Relight the reflectance by the film reference illuminant, integrate against the film
+    sensitivity, self-normalize on the descriptor's midgray neutral (green channel -> 1),
+    and optionally bake input gamut compression (build-time remap, keeping the per-pixel
+    hot path compression-agnostic). The decoupled-illuminant structure (the Hanika point,
+    study b50). Generalizes compute_jakob2019_tc_lut / compute_otsu2018_tc_lut.
+    """
+    descriptor = lut_descriptor(identifier)
+    if descriptor.get('kind') != 'reflectance':
+        raise ValueError(f"{identifier!r} is kind={descriptor.get('kind')!r}, not "
+                         f"'reflectance' (cannot relight a non-reflectance LUT)")
+    if spectra_lut is None:
+        spectra_lut = get_lut_spectra(identifier)
+    midgray = float(descriptor['reflectance']['midgray'])
+    E_ref = standard_illuminant(reference_illuminant)[:]               # (81,)
+    relit = spectra_lut * E_ref[None, None, :]                        # (S,S,81)
+    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)             # (S,S,3)
+    raw_midgray = np.einsum('l,lm->m', midgray * E_ref, sensitivity)
+    raw_lut = raw_lut / raw_midgray[1]
+
+    if gamut_compress is not None and gamut_compress.active:
+        from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
+        ref_xy = _illuminant_to_xy(reference_illuminant)
+        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
+
+    return raw_lut
+
+
+def rgb_to_raw_reflectance(identifier, rgb, sensitivity, color_space,
+                           apply_cctf_decoding, reference_illuminant,
+                           tc_lut=None, scene_illuminant=None):
+    """Runtime path for any REFLECTANCE-family method, selected by `identifier` — the
+    hanatos2025 hot path with decoupled illuminants. Chromaticity is projected under the
+    descriptor's SCENE illuminant (override with `scene_illuminant`); the relit `tc_lut`
+    is sampled and scaled by brightness `b`. Generalizes rgb_to_raw_jakob2019 / _otsu2018.
+    """
+    descriptor = lut_descriptor(identifier)
+    if scene_illuminant is None:
+        scene_illuminant = descriptor['reflectance']['scene_illuminant']
+    tc_raw, b = _rgb_to_tc_b(
+        rgb,
+        color_space=color_space,
+        apply_cctf_decoding=apply_cctf_decoding,
+        reference_illuminant=scene_illuminant,
+    )
+    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
+        tc_lut = compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant)
+    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
+    raw *= b[..., None]
+    return raw
+
+
+def compute_tc_lut(method, sensitivity, reference_illuminant=None,
+                   spectra_lut=None, gamut_compress=None, hanatos2025_adaptation=None):
+    """Build the (S, S, 3) raw tc_lut for any shipped `method`, dispatched on its
+    descriptor `kind`. REFLECTANCE methods relight + integrate (need reference_illuminant);
+    the IRRADIANCE method integrates directly with optional sensitivity adaptation. The
+    single generic builder behind the named compute_*_tc_lut wrappers / the LUT service."""
+    kind = lut_descriptor(method).get('kind')
+    if kind == 'reflectance':
+        return compute_reflectance_tc_lut(method, sensitivity, reference_illuminant,
+                                          spectra_lut=spectra_lut, gamut_compress=gamut_compress)
+    if kind == 'irradiance':
+        adaptation = (hanatos2025_adaptation if hanatos2025_adaptation is not None
+                      else HANATOS2025_NO_ADAPTATION)
+        return compute_hanatos2025_tc_lut(sensitivity, adaptation, gamut_compress=gamut_compress)
+    raise ValueError(f"method {method!r} has unsupported LUT kind {kind!r}")
+
+
+def rgb_to_raw(method, rgb, sensitivity, color_space, apply_cctf_decoding,
+               reference_illuminant, tc_lut=None, scene_illuminant=None):
+    """Convert RGB to film raw for any shipped `method`, dispatched on its descriptor
+    `kind`. REFLECTANCE methods project under the scene illuminant and sample the relit
+    tc_lut; the IRRADIANCE method (hanatos2025) samples its irradiance tc_lut directly.
+    The single generic runtime entry behind the named rgb_to_raw_* wrappers."""
+    kind = lut_descriptor(method).get('kind')
+    if kind == 'reflectance':
+        return rgb_to_raw_reflectance(method, rgb, sensitivity, color_space,
+                                      apply_cctf_decoding, reference_illuminant,
+                                      tc_lut=tc_lut, scene_illuminant=scene_illuminant)
+    if kind == 'irradiance':
+        return rgb_to_raw_hanatos2025(rgb, sensitivity, color_space=color_space,
+                                      apply_cctf_decoding=apply_cctf_decoding,
+                                      reference_illuminant=reference_illuminant, tc_lut=tc_lut)
+    raise ValueError(f"method {method!r} has unsupported LUT kind {kind!r}")
 
 
 ################################################################################
@@ -532,80 +721,24 @@ def compute_jakob2019_reflectance_lut(lut_size=192, scene_illuminant=_JAKOB2019_
     return np.array(reflectance, dtype=np.half)
 
 
-def _load_jakob2019_reflectance_lut(filename='jakob2019_reflectance_xy_tc.npy'):
-    data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
-    with data_path.open('rb') as file:
-        spectra_lut = np.double(np.load(file))
-    return spectra_lut
-
-
-# Lazy load (not an import-time global like HANATOS2025_SPECTRA_LUT): the bake
-# script imports compute_jakob2019_reflectance_lut from this module, and the
-# .npy may not exist yet on a fresh checkout when it does. Deferring the load
-# avoids an import-time failure during regeneration.
-_JAKOB2019_REFLECTANCE_LUT = None
-
-
 def get_jakob2019_reflectance_lut():
-    global _JAKOB2019_REFLECTANCE_LUT
-    if _JAKOB2019_REFLECTANCE_LUT is None:
-        _JAKOB2019_REFLECTANCE_LUT = _load_jakob2019_reflectance_lut()
-    return _JAKOB2019_REFLECTANCE_LUT
+    """Back-compat wrapper -> get_lut_spectra('jakob2019')."""
+    return get_lut_spectra('jakob2019')
 
 
 def compute_jakob2019_tc_lut(sensitivity, reference_illuminant,
                              spectra_lut=None, gamut_compress=None):
-    """(S, S, 3) raw LUT: relight the bounded reflectance by the film reference
-    illuminant, integrate against the film sensitivity.
-
-    Mirrors compute_hanatos2025_tc_lut, but the spectra are *reflectance* (under
-    the scene illuminant) and are RELIT by E_ref here — the decoupled-illuminant
-    structure (the Hanika point, study b50). Self-normalized on a flat 0.184
-    neutral (green channel), like rgb_to_raw_mallett2019, so magnitudes are
-    correct regardless of sensitivity pre-balancing.
-    """
-    if spectra_lut is None:
-        spectra_lut = get_jakob2019_reflectance_lut()
-    E_ref = standard_illuminant(reference_illuminant)[:]            # (81,)
-    relit = spectra_lut * E_ref[None, None, :]                     # (S,S,81)
-    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)          # (S,S,3)
-    raw_midgray = np.einsum('l,lm->m', _JAKOB2019_MIDGRAY * E_ref, sensitivity)
-    raw_lut = raw_lut / raw_midgray[1]
-
-    if gamut_compress is not None and gamut_compress.active:
-        # Bake input gamut compression into the LUT at build time, exactly as
-        # compute_hanatos2025_tc_lut does, so the per-pixel hot path stays
-        # compression-agnostic. Reference illuminant matches _rgb_to_tc_b's.
-        from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
-        ref_xy = _illuminant_to_xy(reference_illuminant)
-        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
-
-    return raw_lut
+    """Back-compat wrapper -> compute_reflectance_tc_lut('jakob2019', ...)."""
+    return compute_reflectance_tc_lut('jakob2019', sensitivity, reference_illuminant,
+                                      spectra_lut=spectra_lut, gamut_compress=gamut_compress)
 
 
-def rgb_to_raw_jakob2019(rgb, sensitivity,
-                         color_space,
-                         apply_cctf_decoding,
-                         reference_illuminant,
-                         tc_lut=None,
+def rgb_to_raw_jakob2019(rgb, sensitivity, color_space, apply_cctf_decoding,
+                         reference_illuminant, tc_lut=None,
                          scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT):
-    """Runtime path — byte-for-byte the hanatos2025 hot path, decoupled illuminants.
-
-    The SCENE illuminant drives the chromaticity projection in _rgb_to_tc_b
-    (so white balance can be changed freely); the FILM reference illuminant
-    drives the relight baked into tc_lut.
-    """
-    tc_raw, b = _rgb_to_tc_b(
-        rgb,
-        color_space=color_space,
-        apply_cctf_decoding=apply_cctf_decoding,
-        reference_illuminant=scene_illuminant,
-    )
-    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
-        tc_lut = compute_jakob2019_tc_lut(sensitivity, reference_illuminant)
-    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
-    raw *= b[..., None]
-    return raw
+    """Back-compat wrapper -> rgb_to_raw('jakob2019', ...)."""
+    return rgb_to_raw('jakob2019', rgb, sensitivity, color_space, apply_cctf_decoding,
+                      reference_illuminant, tc_lut=tc_lut, scene_illuminant=scene_illuminant)
 
 
 ################################################################################
@@ -656,65 +789,24 @@ def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SC
     return np.array(reflectance, dtype=np.half)
 
 
-def _load_otsu2018_reflectance_lut(filename='otsu2018_reflectance_xy_tc.npy'):
-    data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
-    with data_path.open('rb') as file:
-        spectra_lut = np.double(np.load(file))
-    return spectra_lut
-
-
-# Lazy load (same rationale as jakob): the bake script imports
-# compute_otsu2018_reflectance_lut from this module before the .npy exists.
-_OTSU2018_REFLECTANCE_LUT = None
-
-
 def get_otsu2018_reflectance_lut():
-    global _OTSU2018_REFLECTANCE_LUT
-    if _OTSU2018_REFLECTANCE_LUT is None:
-        _OTSU2018_REFLECTANCE_LUT = _load_otsu2018_reflectance_lut()
-    return _OTSU2018_REFLECTANCE_LUT
+    """Back-compat wrapper -> get_lut_spectra('otsu2018')."""
+    return get_lut_spectra('otsu2018')
 
 
 def compute_otsu2018_tc_lut(sensitivity, reference_illuminant,
                             spectra_lut=None, gamut_compress=None):
-    """(S, S, 3) raw LUT: relight the bounded Otsu reflectance by the film
-    reference illuminant, integrate against sensitivity. Mirrors
-    compute_jakob2019_tc_lut (self-normalized on a flat 0.184 neutral)."""
-    if spectra_lut is None:
-        spectra_lut = get_otsu2018_reflectance_lut()
-    E_ref = standard_illuminant(reference_illuminant)[:]
-    relit = spectra_lut * E_ref[None, None, :]
-    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)
-    raw_midgray = np.einsum('l,lm->m', _OTSU2018_MIDGRAY * E_ref, sensitivity)
-    raw_lut = raw_lut / raw_midgray[1]
-
-    if gamut_compress is not None and gamut_compress.active:
-        from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
-        ref_xy = _illuminant_to_xy(reference_illuminant)
-        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
-
-    return raw_lut
+    """Back-compat wrapper -> compute_reflectance_tc_lut('otsu2018', ...)."""
+    return compute_reflectance_tc_lut('otsu2018', sensitivity, reference_illuminant,
+                                      spectra_lut=spectra_lut, gamut_compress=gamut_compress)
 
 
-def rgb_to_raw_otsu2018(rgb, sensitivity,
-                        color_space,
-                        apply_cctf_decoding,
-                        reference_illuminant,
-                        tc_lut=None,
+def rgb_to_raw_otsu2018(rgb, sensitivity, color_space, apply_cctf_decoding,
+                        reference_illuminant, tc_lut=None,
                         scene_illuminant=_OTSU2018_SCENE_ILLUMINANT):
-    """Runtime path — byte-for-byte the hanatos2025 hot path, decoupled illuminants
-    (mirrors rgb_to_raw_jakob2019)."""
-    tc_raw, b = _rgb_to_tc_b(
-        rgb,
-        color_space=color_space,
-        apply_cctf_decoding=apply_cctf_decoding,
-        reference_illuminant=scene_illuminant,
-    )
-    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
-        tc_lut = compute_otsu2018_tc_lut(sensitivity, reference_illuminant)
-    raw = apply_lut_cubic_2d(tc_lut, tc_raw)
-    raw *= b[..., None]
-    return raw
+    """Back-compat wrapper -> rgb_to_raw('otsu2018', ...)."""
+    return rgb_to_raw('otsu2018', rgb, sensitivity, color_space, apply_cctf_decoding,
+                      reference_illuminant, tc_lut=tc_lut, scene_illuminant=scene_illuminant)
 
 
 if __name__=='__main__':

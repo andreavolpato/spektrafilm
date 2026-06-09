@@ -6,7 +6,7 @@ from spektrafilm.model.color_filters import color_filter_transmittance
 from spektrafilm.model.diffusion import apply_diffusion_filter_um, apply_gaussian_blur_um, apply_halation_um, boost_highlights
 from spektrafilm.model.develop import compute_density_spectral, develop, develop_simple
 from spektrafilm.utils.autoexposure import measure_autoexposure_ev
-from spektrafilm.utils.spectral_upsampling import rgb_to_raw_hanatos2025, rgb_to_raw_jakob2019, rgb_to_raw_otsu2018, rgb_to_raw_mallett2019
+from spektrafilm.utils.spectral_upsampling import rgb_to_raw
 
 
 class FilmingStage:
@@ -122,45 +122,22 @@ class FilmingStage:
         if transmittance is not None:
             sensitivity = sensitivity * transmittance[:, None]
 
-        if self._settings.rgb_to_raw_method == "hanatos2025":
-            tc_lut = self._lut_service.get_filming_tc_lut(sensitivity)
-            raw = rgb_to_raw_hanatos2025(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._film.info.reference_illuminant,
-                tc_lut=tc_lut,
-            )
-        elif self._settings.rgb_to_raw_method == "jakob2019":
-            tc_lut = self._lut_service.get_filming_tc_lut_jakob2019(
-                sensitivity, self._film.info.reference_illuminant)
-            raw = rgb_to_raw_jakob2019(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._film.info.reference_illuminant,
-                tc_lut=tc_lut,
-            )
-        elif self._settings.rgb_to_raw_method == "otsu2018":
-            tc_lut = self._lut_service.get_filming_tc_lut_otsu2018(
-                sensitivity, self._film.info.reference_illuminant)
-            raw = rgb_to_raw_otsu2018(
-                rgb,
-                sensitivity,
-                color_space=color_space,
-                apply_cctf_decoding=apply_cctf_decoding,
-                reference_illuminant=self._film.info.reference_illuminant,
-                tc_lut=tc_lut,
-            )
-        elif self._settings.rgb_to_raw_method == "mallett2019":
-            raw = rgb_to_raw_mallett2019(rgb, sensitivity,
-                            color_space=color_space,
-                            apply_cctf_decoding=apply_cctf_decoding,
-                            reference_illuminant=self._film.info.reference_illuminant)
-        else:
-            raise ValueError(f"Unsupported rgb_to_raw method: {self._settings.rgb_to_raw_method}")
+        # Single generic dispatch: the method string selects the LUT descriptor; the
+        # service builds (and caches) its tc_lut, and rgb_to_raw consumes it. Reflectance
+        # methods (jakob2019 / otsu2018 / mallett2019 / arctic2026…) and the irradiance
+        # method (hanatos2025) all flow through the same two calls.
+        method = self._settings.rgb_to_raw_method
+        tc_lut = self._lut_service.get_filming_tc_lut(
+            method, sensitivity, self._film.info.reference_illuminant)
+        raw = rgb_to_raw(
+            method,
+            rgb,
+            sensitivity,
+            color_space=color_space,
+            apply_cctf_decoding=apply_cctf_decoding,
+            reference_illuminant=self._film.info.reference_illuminant,
+            tc_lut=tc_lut,
+        )
         return raw
     
     def _compute_density_spectral_midgray_to_balance_print(self):
