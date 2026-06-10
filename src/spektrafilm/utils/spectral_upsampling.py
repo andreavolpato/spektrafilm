@@ -331,7 +331,7 @@ def rgb_to_raw_mallett2019(RGB, sensitivity,
     raw = np.ascontiguousarray(raw)
     
     raw_midgray  = np.einsum('k,km->m', illuminant*0.184, sensitivity) # use 0.184 as midgray reference
-    return raw / raw_midgray[1] # normalize with green channel
+    return raw / raw_midgray # per-channel -> a neutral surface maps to gray (1,1,1)
 
 
 _MALLETT2019_MIDGRAY = 0.184
@@ -396,10 +396,18 @@ def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compre
 
     if hanatos2025_adaptation.apply_window and hanatos2025_adaptation.window_params is not None:
         window = eval_spectral_bandpass_window(hanatos2025_adaptation.window_params)
-        illuminant = standard_illuminant(hanatos2025_adaptation.reference_illuminant)
+        # White-balance preservation must reference the neutral the LUT actually EMITS — the
+        # smooth-metamer reconstruction at the reference-illuminant chromaticity — NOT the bare
+        # illuminant. The two share CMF chromaticity but differ spectrally; under the film's
+        # (non-CMF) sensitivities, normalizing on the illuminant drifts neutrals ~2-3% off the
+        # balanced gray. Referencing the reconstructed white keeps the windowed neutral exactly
+        # on the unwindowed (1,1,1) gray for every reference illuminant.
+        white_tc = _tri2quad(_illuminant_to_xy(hanatos2025_adaptation.reference_illuminant))
+        neutral_sd = apply_lut_cubic_2d(                               # same cubic sampler as runtime
+            spectra_lut, np.asarray(white_tc).reshape(1, 1, 2))[0, 0]  # (81,) reconstructed white
         normalization = (
-            np.sum(sensitivity * illuminant[:, None] * window, axis=0)
-            / np.sum(sensitivity * illuminant[:, None], axis=0)
+            np.sum(sensitivity * neutral_sd[:, None] * window, axis=0)
+            / np.sum(sensitivity * neutral_sd[:, None], axis=0)
         )
         window = window / normalization
         raw_lut = contract('ijl,lm->ijm', spectra_lut, sensitivity * window)
@@ -522,10 +530,11 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
     """(S, S, 3) raw LUT for any REFLECTANCE-family method, selected by `identifier`.
 
     Relight the reflectance by the film reference illuminant, integrate against the film
-    sensitivity, self-normalize on the descriptor's midgray neutral (green channel -> 1),
-    and optionally bake input gamut compression (build-time remap, keeping the per-pixel
-    hot path compression-agnostic). The decoupled-illuminant structure (the Hanika point,
-    study b50). Generalizes compute_jakob2019_tc_lut / compute_otsu2018_tc_lut.
+    sensitivity, self-normalize PER CHANNEL on the descriptor's midgray neutral (so a neutral
+    surface -> gray (1,1,1) raw, matching the white-balance convention the hanatos2025 window
+    preserves), and optionally bake input gamut compression (build-time remap, keeping the
+    per-pixel hot path compression-agnostic). The decoupled-illuminant structure (the Hanika
+    point, study b50). Generalizes compute_jakob2019_tc_lut / compute_otsu2018_tc_lut.
     """
     descriptor = lut_descriptor(identifier)
     if descriptor.get('kind') != 'reflectance':
@@ -537,8 +546,25 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
     E_ref = standard_illuminant(reference_illuminant)[:]               # (81,)
     relit = spectra_lut * E_ref[None, None, :]                        # (S,S,81)
     raw_lut = contract('ijl,lm->ijm', relit, sensitivity)             # (S,S,3)
-    raw_midgray = np.einsum('l,lm->m', midgray * E_ref, sensitivity)
-    raw_lut = raw_lut / raw_midgray[1]
+    # White balance: a neutral input must map to gray (1,1,1), matching the convention the
+    # hanatos2025 windowed path now sits on. GREEN sets the midgray exposure anchor (flat 0.184
+    # under E_ref -> green 1, method-independent so exposure is consistent across methods). R/B
+    # are balanced against the METHOD'S OWN emitted neutral — its recovered reflectance at the
+    # SCENE-illuminant chromaticity, i.e. exactly where a neutral lands (rgb_to_raw_reflectance
+    # projects under the scene white, so the neutral sits at the D65 cell, NOT the D55 relight
+    # white) — so methods whose recovered neutral is NOT perfectly flat (otsu) still resolve to
+    # gray, not just the flat-neutral ones. (Was green-only, which left the film's reference-
+    # illuminant cast in every neutral.)
+    scene_illuminant = descriptor['reflectance']['scene_illuminant']
+    raw_midgray_green = np.einsum('l,lm->m', midgray * E_ref, sensitivity)[1]
+    white_tc = _tri2quad(_illuminant_to_xy(scene_illuminant))
+    # sample with the SAME cubic interpolator the runtime uses (apply_lut_cubic_2d), so the
+    # normalization neutral matches the sampled neutral exactly even for LUTs with sharp
+    # near-white structure (arctic), not just smooth ones.
+    neutral_refl = apply_lut_cubic_2d(spectra_lut, np.asarray(white_tc).reshape(1, 1, 2))[0, 0]
+    raw_neutral = np.einsum('l,lm->m', neutral_refl * E_ref, sensitivity)   # its film response (3,)
+    chroma = raw_neutral / raw_neutral[1]                             # neutral chroma, green = 1
+    raw_lut = raw_lut / (chroma * raw_midgray_green)                  # gray neutral, green-anchored
 
     if gamut_compress is not None and gamut_compress.active:
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
