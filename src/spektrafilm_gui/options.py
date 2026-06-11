@@ -43,7 +43,8 @@ class RGBtoRAWMethod(Enum):
     jakob2019 = "jakob2019"
     otsu2018 = "otsu2018"
     mallett2019 = "mallett2019"
-    arctic2026alpha = "arctic2026alpha"     # test gain-field reflectance LUT (study c30)
+    arctic2026alpha = "arctic2026alpha"
+    arctic2026alpha02 = "arctic2026alpha02"# test gain-field reflectance LUT (study c30)
 
 
 class RawWhiteBalance(Enum):
