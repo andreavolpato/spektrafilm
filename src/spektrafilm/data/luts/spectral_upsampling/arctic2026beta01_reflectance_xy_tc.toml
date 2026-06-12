@@ -1,0 +1,26 @@
+# Spectral-upsampling LUT descriptor (sidecar for the co-located .npy).
+# Read by the runtime spectral-LUT registry to drive ONE generic consume path:
+# identifier -> load spectra -> relight x E_ref, integrate, midgray-normalize ->
+# apply_lut_cubic_2d(tc) * b. One descriptor per LUT in this folder.
+
+identifier = "arctic2026beta01"
+file = "arctic2026beta01_reflectance_xy_tc.npy"
+kind = "reflectance"                          # "reflectance" (relight + midgray-norm) | "irradiance" (direct)
+title = "arctic2026 (beta01)"
+
+[array]
+lut_size = 192                                # array is (lut_size, lut_size, bands) over the tc chromaticity grid
+bands = 81
+spectral_shape = [380, 780, 5]                # start, end, interval (nm)
+dtype = "float16"
+observer = "CIE 1931 2 Degree Standard Observer"
+
+[reflectance]                                 # present iff kind = "reflectance"
+scene_illuminant = "D65"                      # recovered under it; runtime _rgb_to_tc_b projection MUST match
+midgray = 0.184                               # self-normalization neutral (green channel -> 1 after relight)
+bounded = false                               # unbounded metamer; R may exceed 1 (max ~4 after unit-brightness rescale)
+
+[meta]
+method = "Per-cell smoothest-metamer QP (chromaticity fixed, prior-guided realistic SHAPE), then RE-NORMALIZED to unit XYZ-sum per cell."
+source = "spektrafilm-research study c30 (s102_gain_field); alpha test artifact"
+notes = "Shipped as the unit-brightness variant R / sum(C.R): same convention as jakob/otsu (XYZ sums to 1), so brightness comes from the scene b, not the LUT. The gain field t was the QP's brightness DOF for finding realistic shapes; it is DISCARDED here (the raw gain-folded LUT darkened skin/veg by t<1 under raw*=b). Chromaticity and spectral shape are identical to the gain solve."
