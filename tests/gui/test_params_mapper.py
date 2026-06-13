@@ -348,9 +348,9 @@ def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None
     assert captured['gui_args'] == (digested_params, 'film-stock', 'print-paper')
 
 
-def test_digest_after_selection_sets_scan_film_from_film_type(monkeypatch) -> None:
-    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), io=SimpleNamespace(scan_film=False))
-    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), io=SimpleNamespace(scan_film=True))
+def test_digest_after_selection_sets_route_from_film_type(monkeypatch) -> None:
+    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), workflow=SimpleNamespace(route='input > film > print > scan'))
+    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), workflow=SimpleNamespace(route='input > film > print > scan'))
     digested_params = [positive_params, negative_params]
 
     def fake_digest_params(_params):
@@ -361,8 +361,8 @@ def test_digest_after_selection_sets_scan_film_from_film_type(monkeypatch) -> No
     positive_result = state_module.digest_after_selection(object())
     negative_result = state_module.digest_after_selection(object())
 
-    assert positive_result.io.scan_film is True
-    assert negative_result.io.scan_film is False
+    assert positive_result.workflow.route == 'input > film > scan'
+    assert negative_result.workflow.route == 'input > film > print > scan'
 
 
 def test_project_default_gui_state_matches_builder() -> None:

@@ -6,7 +6,8 @@ from typing import Any, TypeVar
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
-    BaseParams,
+    FilmBaseParams,
+    PrintBaseParams,
     CameraParams,
     DiffusionFilterParams,
     DirCouplersParams,
@@ -73,6 +74,10 @@ class SimulationState:
     selection: SelectionState = field(default_factory=lambda: SelectionState(film_stock='', print_paper=''))
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
     io: IOParams = field(default_factory=IOParams)
+    # Pipeline route selector (mirrors WorkflowParams.route). The footer
+    # "Workflow" dropdown binds to this; params_mapper copies it straight
+    # through to params.workflow.route.
+    route: str = "input > film > print > scan"
     workflow: SimulationWorkflowState = field(default_factory=lambda: SimulationWorkflowState(
         saving_color_space='sRGB',
         saving_cctf_encoding=True,
@@ -154,8 +159,11 @@ def normalize_simulation_dict(data: dict[str, Any]) -> dict[str, Any]:
         },
         'io': {
             'output_color_space': data.get('output_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space),
-            'scan_film': data.get('scan_film', PROJECT_DEFAULT_GUI_STATE.simulation.io.scan_film),
         },
+        # Back-compat: legacy states stored a boolean scan_film instead of a route.
+        'route': data.get('route') or (
+            'input > film > scan' if data.get('scan_film') else PROJECT_DEFAULT_GUI_STATE.simulation.route
+        ),
         'workflow': {
             'saving_color_space': data.get('saving_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_color_space),
             'saving_cctf_encoding': data.get('saving_cctf_encoding', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_cctf_encoding),
@@ -201,8 +209,9 @@ class GuiState:
     halation: HalationParams
     couplers: DirCouplersParams
     chemistry: PrintChemistryParams
-    base: BaseParams
+    print_base: PrintBaseParams
     film_chemistry: FilmChemistryParams
+    film_base: FilmBaseParams
     camera: CameraParams
     enlarger_diffusion: DiffusionFilterParams
     camera_diffusion: DiffusionFilterParams
@@ -251,8 +260,9 @@ def clone_gui_state(state: GuiState) -> GuiState:
         halation=clone_state_section(state.halation),
         couplers=clone_state_section(state.couplers),
         chemistry=clone_state_section(state.chemistry),
-        base=clone_state_section(state.base),
+        print_base=clone_state_section(state.print_base),
         film_chemistry=clone_state_section(state.film_chemistry),
+        film_base=clone_state_section(state.film_base),
         camera=clone_state_section(state.camera),
         enlarger_diffusion=clone_state_section(state.enlarger_diffusion),
         camera_diffusion=clone_state_section(state.camera_diffusion),
@@ -302,8 +312,9 @@ def gui_state_from_params(
         halation=replace(params.film_render.halation),
         couplers=replace(params.film_render.dir_couplers),
         chemistry=replace(params.print_render.chemistry),
-        base=replace(params.film_render.base),
+        print_base=replace(params.print_render.base),
         film_chemistry=replace(params.film_render.chemistry),
+        film_base=replace(params.film_render.base),
         camera=replace(params.camera),
         enlarger_diffusion=replace(params.enlarger.diffusion_filter),
         camera_diffusion=replace(params.camera.diffusion_filter),
@@ -330,8 +341,8 @@ def gui_state_from_params(
             io=IOParams(
                 output_color_space=params.io.output_color_space,
                 output_cctf_encoding=params.io.output_cctf_encoding,
-                scan_film=params.io.scan_film,
             ),
+            route=params.workflow.route,
             workflow=SimulationWorkflowState(
                 saving_color_space="sRGB",
                 saving_cctf_encoding=params.io.output_cctf_encoding,
@@ -358,7 +369,11 @@ def gui_state_from_params(
 
 def digest_after_selection(params: RuntimePhotoParams) -> RuntimePhotoParams:
     params = digest_params(params)
-    params.io.scan_film = bool(params.film.is_positive)
+    # A positive (reversal) film is scanned directly; a negative goes through
+    # the print stage before scanning.
+    params.workflow.route = (
+        "input > film > scan" if params.film.is_positive else "input > film > print > scan"
+    )
     return params
 
 

@@ -13,6 +13,13 @@ class RGBColorSpaces(Enum):
     ACES2065_1 = "ACES2065-1"
 
 
+class WorkflowRoutes(Enum):
+    input_film_scan = "input > film > scan"
+    input_film_print_scan = "input > film > print > scan"
+    input_convert_film_print_scan = "input > convert-film > print > scan"
+    input_convert_film_scan_minus_base = "input > convert-film > scan-minus-base"
+
+
 class RGBtoRAWMethod(Enum):
     hanatos2025 = "hanatos2025"
     mallett2019 = "mallett2019"

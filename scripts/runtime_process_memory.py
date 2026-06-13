@@ -52,7 +52,7 @@ def build_base_params():
     params.debug.deactivate_stochastic_effects = False
     params.camera.auto_exposure = True
     params.io.upscale_factor = 1.0
-    params.io.scan_film = False
+    params.workflow.route = "input > film > print > scan"
     params.film_render.grain.active = True
     params.film_render.grain.rms_granularity = (25, 25, 25)
     params.enlarger.print_exposure_compensation = True

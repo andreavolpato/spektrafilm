@@ -243,7 +243,6 @@ def connect_auto_preview_signals(controller: GuiController, widgets: WidgetBundl
             _connect_auto_preview_signal(editor, controller.request_auto_preview)
 
     widgets.simulation.bottom_auto_preview.toggled.connect(controller.request_auto_preview)
-    widgets.simulation.bottom_scan_film.toggled.connect(controller.request_auto_preview)
     widgets.simulation.bottom_scan_for_print.toggled.connect(controller.request_auto_preview)
 
 

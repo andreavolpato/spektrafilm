@@ -43,6 +43,7 @@ class SimulationPipeline:
         self.print_render = self._params.print_render
         self.scanner = self._params.scanner
         self.io = self._params.io
+        self.workflow = self._params.workflow
         self.debug = self._params.debug
         self.settings = self._params.settings
         self.taps = self._params.taps
@@ -91,7 +92,7 @@ class SimulationPipeline:
                                                               self.print, self.print_render,
                                                               self.scanner.black_correction, self.scanner.white_correction,
                                                               self.scanner.black_level, self.scanner.white_level,
-                                                              self.io)
+                                                              self.io, self.workflow)
 
         self._filming_stage = FilmingStage(
             self.film,
@@ -123,6 +124,7 @@ class SimulationPipeline:
             self.print_render,
             self.scanner,
             self.io,
+            self.workflow,
             self.settings,
             self._lut_service,
             self._color_reference_service,
@@ -211,20 +213,28 @@ class SimulationPipeline:
 
     def _build_topology(self) -> list[Node]:
         f, p, s = self._filming_stage, self._printing_stage, self._scanning_stage
-        common = [
-            Node((Tap.RGB_IN,),     (Tap.RGB_PRE,),    self._preprocess, "preprocess"),
-            Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,         "filming.expose"),
-            Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop,        "filming.develop"),
+        nodes = [
+            Node((Tap.RGB_IN,), (Tap.RGB_PRE,), self._preprocess, "preprocess"),
         ]
-        if self.io.scan_film:
-            return common + [
+        if self.workflow.do_filming:
+            nodes += [
+                Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,  "filming.expose"),
+                Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop, "filming.develop"),
+            ]
+        if self.workflow.do_printing:
+            nodes += [
+                Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
+                Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
+            ]
+        if self.workflow.scan_film:
+            nodes += [
                 Node((Tap.CMY_FILM,), (Tap.RGB_OUT,), s.scan, "scanning.scan_film"),
             ]
-        return common + [
-            Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
-            Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
-            Node((Tap.CMY_PRINT,),   (Tap.RGB_OUT,),     s.scan,    "scanning.scan_print"),
-        ]
+        else:
+            nodes += [
+                Node((Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"),
+            ]
+        return nodes
 
     def _preprocess(self, image):
         image = np.double(np.array(image)[:, :, 0:3])

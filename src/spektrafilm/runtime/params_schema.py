@@ -156,7 +156,23 @@ class GlareParams:
 
 
 @dataclass
-class BaseParams:
+class FilmBaseParams:
+    # Film base + fog / orange mask tuning. cyan/magenta/yellow are additive
+    # per-channel density shifts (value - 1) around the status-M peaks; tilt is
+    # a spectral tilt of the base. All neutral (cmy=1.0, tilt=0.0) is identity.
+    active: bool = True
+    scale: float = 1.0
+    tilt: float = 0.0
+    cyan: float = 1.0
+    magenta: float = 1.0
+    yellow: float = 1.0
+
+
+@dataclass
+class PrintBaseParams:
+    # Print base tuning. cyan/magenta/yellow are multiplicative scales of the
+    # per-channel base mins at the status-A peaks. All neutral (cmy=1.0) is
+    # identity. No tilt (film-base only).
     active: bool = True
     scale: float = 1.0
     cyan: float = 1.0
@@ -175,14 +191,16 @@ class FilmRenderingParams:
     halation: HalationParams = field(default_factory=HalationParams)
     dir_couplers: DirCouplersParams = field(default_factory=DirCouplersParams)
     glare: GlareParams = field(default_factory=GlareParams)
-    # Base density (film base + fog / orange mask) tuning, applied at scan time.
-    base: BaseParams = field(default_factory=BaseParams)
+    # Film base density (film base + fog / orange mask) tuning.
+    base: FilmBaseParams = field(default_factory=FilmBaseParams)
 
 
 @dataclass
 class PrintRenderingParams:
     glare: GlareParams = field(default_factory=GlareParams)
     chemistry: PrintChemistryParams = field(default_factory=PrintChemistryParams)
+    # Print base density tuning.
+    base: PrintBaseParams = field(default_factory=PrintBaseParams)
 
 
 @dataclass
@@ -210,8 +228,54 @@ class IOParams:
     crop_center: tuple[float, float] = (0.5, 0.5)
     crop_size: tuple[float, float] = (0.1, 0.1)
     upscale_factor: float = 1.0
-    scan_film: bool = False
 
+
+@dataclass
+class WorkflowParams:
+    # route selects which path the image takes through the pipeline stages.
+    # Allowed values:
+    #   "input > film > scan"               — expose film, scan the negative
+    #                                          directly (old io.scan_film=True)
+    #   "input > film > print > scan"        — full chain: expose film, print,
+    #                                          scan the print
+    #   "input > convert-film > print > scan" — skip filming, convert a scene-
+    #                                          referred input (negative photo) to
+    #                                          film density, print it and scan the
+    #                                          print (invert workflow)
+    #   "input > convert-film > scan-minus-base" — convert input to film density
+    #                                          and scan it with the base removed
+    # The "convert-film" routes need the input->cmy_film bridge, which is WIP.
+    route: str = "input > film > print > scan"
+
+    @property
+    def do_filming(self) -> bool:
+        """Whether the pipeline exposes and develops the film."""
+        return self.route in ("input > film > scan", "input > film > print > scan")
+
+    @property
+    def do_printing(self) -> bool:
+        """Whether the pipeline exposes and develops the print."""
+        return self.route in ("input > film > print > scan", "input > convert-film > print > scan")
+
+    @property
+    def scan_film(self) -> bool:
+        """Whether the final scan reads the film density rather than the print."""
+        return self.route in ("input > film > scan", "input > convert-film > scan-minus-base")
+
+    @property
+    def scan_minus_base(self) -> bool:
+        """Whether the film scan should subtract the film base (base subtraction itself is WIP)."""
+        return self.route == "input > convert-film > scan-minus-base"
+
+    @property
+    def full_process(self) -> bool:
+        """Whether the pipeline runs the full film-print-scan process."""
+        return self.route == "input > film > print > scan"
+
+    @property
+    def invert_film(self) -> bool:
+        """Whether the pipeline inverts the workflow by printing a scene-referred input and scanning the print."""
+        return self.route == "input > convert-film > print > scan"
 
 @dataclass
 class DebugParams:
@@ -262,6 +326,7 @@ class RuntimePhotoParams:
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
     scanner: ScannerParams = field(default_factory=ScannerParams)
     io: IOParams = field(default_factory=IOParams)
+    workflow: WorkflowParams = field(default_factory=WorkflowParams)
     debug: DebugParams = field(default_factory=DebugParams)
     settings: SettingsParams = field(default_factory=SettingsParams)
     taps: TapsParams = field(default_factory=TapsParams)

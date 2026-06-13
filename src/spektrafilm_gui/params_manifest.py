@@ -19,7 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spektrafilm.runtime.params_schema import (
-    BaseParams,
+    FilmBaseParams,
+    PrintBaseParams,
     EnlargerParams,
     DiffusionFilterParams,
     DirCouplersParams,
@@ -42,6 +43,7 @@ from spektrafilm_gui.options import (
     OutputGamutCompressAlgorithms,
     RGBColorSpaces,
     RGBtoRAWMethod,
+    WorkflowRoutes,
 )
 
 
@@ -422,16 +424,33 @@ GRAIN_MANIFEST = GroupManifest(
 
 _BD = "film_render.base"
 
-BASE_MANIFEST = GroupManifest(
+FILM_BASE_MANIFEST = GroupManifest(
     title="Base",
     group_path=_BD,
-    group_cls=BaseParams,
+    group_cls=FilmBaseParams,
     fields=(
-        ParamSpec(f"{_BD}.active", tier="basic", tooltip="Enable base-density (film base + fog / orange mask) tuning."),
-        ParamSpec(f"{_BD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the base density."),
-        ParamSpec(f"{_BD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel scale of the base density."),
-        ParamSpec(f"{_BD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel scale of the base density."),
-        ParamSpec(f"{_BD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel scale of the base density."),
+        ParamSpec(f"{_BD}.active", tier="basic", tooltip="Enable film base-density (film base + fog / orange mask) tuning."),
+        ParamSpec(f"{_BD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the film base density."),
+        ParamSpec(f"{_BD}.tilt", tier="basic", step=0.05, tooltip="Spectral tilt of the film base, pivoting at 555 nm (1.0 = +0.1 density at 650 nm; negative tilts the other way)."),
+        ParamSpec(f"{_BD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel film base density shift around 650 nm (1.0 = neutral; adds (value - 1) density)."),
+        ParamSpec(f"{_BD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel film base density shift around 555 nm (1.0 = neutral; adds (value - 1) density)."),
+        ParamSpec(f"{_BD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel film base density shift around 460 nm (1.0 = neutral; adds (value - 1) density)."),
+    ),
+)
+
+
+_PBD = "print_render.base"
+
+PRINT_BASE_MANIFEST = GroupManifest(
+    title="Base",
+    group_path=_PBD,
+    group_cls=PrintBaseParams,
+    fields=(
+        ParamSpec(f"{_PBD}.active", tier="basic", tooltip="Enable print base-density tuning."),
+        ParamSpec(f"{_PBD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the print base density."),
+        ParamSpec(f"{_PBD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel multiplicative scale of the print base min around 610 nm (1.0 = neutral)."),
+        ParamSpec(f"{_PBD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel multiplicative scale of the print base min around 530 nm (1.0 = neutral)."),
+        ParamSpec(f"{_PBD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel multiplicative scale of the print base min around 445 nm (1.0 = neutral)."),
     ),
 )
 
@@ -1016,7 +1035,21 @@ SIMULATION_FOOTER_FIELDS = (
         label="Auto preview",
         tooltip="trigger the preview after every change of gui parameters, use mouse scrollwheel on parameters field, read preview tooltip for details",
     ),
-    ParamSpec("io.scan_film", label="Scan film", tooltip="Show a scan of the negative instead of the print"),
+)
+
+SIMULATION_WORKFLOW_FIELDS = (
+    ParamSpec(
+        "route",
+        label="Workflow",
+        tooltip=(
+            "Which path the image takes through the pipeline: "
+            "input > film > scan (scan the negative directly), "
+            "input > film > print > scan (full chain), "
+            "input > convert-film > print > scan (print a scene-referred input and scan it), "
+            "input > convert-film > scan-minus-base (convert input and scan with base removed)."
+        ),
+        enum=WorkflowRoutes,
+    ),
 )
 
 SIMULATION_FIELDS = (
@@ -1026,6 +1059,7 @@ SIMULATION_FIELDS = (
     + SIMULATION_ENLARGER_PANEL_FIELDS
     + SIMULATION_OUTPUT_PANEL_FIELDS
     + SIMULATION_FOOTER_FIELDS
+    + SIMULATION_WORKFLOW_FIELDS
 )
 
 
@@ -1037,8 +1071,9 @@ ALL_MANIFESTS = (
     GRAIN_MANIFEST,
     GLARE_MANIFEST,
     CHEMISTRY_MANIFEST,
-    BASE_MANIFEST,
+    PRINT_BASE_MANIFEST,
     FILM_CHEMISTRY_MANIFEST,
+    FILM_BASE_MANIFEST,
     PREFLASHING_MANIFEST,
     CAMERA_MANIFEST,
     CAMERA_DIFFUSION_MANIFEST,

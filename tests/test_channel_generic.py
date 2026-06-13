@@ -242,7 +242,7 @@ class TestBwScanFromNegativePipeline:
     def _run(self, *, activate_effects: bool = False):
         params = init_params()
         params.film = _synthetic_bw_negative()
-        params.io.scan_film = True
+        params.workflow.route = "input > film > scan"
         params.io.upscale_factor = 1.0
         params.io.crop = False
         params.camera.auto_exposure = False
@@ -285,7 +285,7 @@ class TestBwScanFromNegativePipeline:
 
     def test_runs_with_luts_enabled(self):
         params = init_params(film_profile='kodak_trix')
-        params.io.scan_film = True
+        params.workflow.route = "input > film > scan"
         params.io.upscale_factor = 1.0
         params.io.crop = False
         params.camera.auto_exposure = False

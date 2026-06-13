@@ -292,7 +292,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 setattr(section, spec.leaf, editor)
             section._editors = special_editors
         elif section_name == 'simulation':
-            section._skip_auto_preview_leaves = {'auto_preview', 'scan_film'}
+            section._skip_auto_preview_leaves = {'auto_preview'}
             simulation_editors: dict = {}
             for spec in param_manifest_module.SIMULATION_FIELDS:
                 editor = _make_auto_preview_editor(state_module._read_attr_path(state_section, spec.path))
@@ -309,7 +309,6 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
         setattr(widgets, section_name, section)
 
     widgets.simulation.bottom_auto_preview = SimpleNamespace(toggled=FakeSignal())
-    widgets.simulation.bottom_scan_film = SimpleNamespace(toggled=FakeSignal())
     widgets.simulation.bottom_scan_for_print = SimpleNamespace(toggled=FakeSignal())
 
     app_module.connect_auto_preview_signals(controller, widgets)
@@ -328,8 +327,8 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
     assert widgets.display.preview_max_size.valueChanged.connected == []
     assert widgets.simulation.output_color_space.currentTextChanged.connected == [controller.request_auto_preview]
     assert widgets.simulation.bottom_auto_preview.toggled.connected == [controller.request_auto_preview]
-    assert widgets.simulation.bottom_scan_film.toggled.connected == [controller.request_auto_preview]
     assert widgets.simulation.bottom_scan_for_print.toggled.connected == [controller.request_auto_preview]
+    assert widgets.simulation.route.currentTextChanged.connected == [controller.request_auto_preview]
 
 
 def test_connect_auto_preview_signals_wires_params_group_section_editors() -> None:
@@ -352,7 +351,6 @@ def test_connect_auto_preview_signals_wires_params_group_section_editors() -> No
     widgets.camera = camera_section
     widgets.simulation = SimpleNamespace(
         bottom_auto_preview=SimpleNamespace(toggled=FakeSignal()),
-        bottom_scan_film=SimpleNamespace(toggled=FakeSignal()),
         bottom_scan_for_print=SimpleNamespace(toggled=FakeSignal()),
         _is_params_group=False,
     )

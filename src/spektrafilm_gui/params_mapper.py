@@ -57,9 +57,9 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
     params.io = replace(state.input_image.io)
     params.io.output_color_space = state.simulation.io.output_color_space
     params.io.output_cctf_encoding = True
-    params.io.scan_film = state.simulation.io.scan_film
     params.io.input_gamut_compress = replace(state.input_gamut_compress)
     params.io.output_gamut_compress = replace(state.output_gamut_compress)
+    params.workflow.route = state.simulation.route
 
 
 def _apply_halation(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -84,7 +84,8 @@ def _apply_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
 
 
 def _apply_base(params: RuntimePhotoParams, state: GuiState) -> None:
-    params.film_render.base = replace(state.base)
+    params.film_render.base = replace(state.film_base)
+    params.print_render.base = replace(state.print_base)
 
 
 def _apply_film_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:

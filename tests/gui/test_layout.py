@@ -348,8 +348,9 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         grain='grain',
         camera_diffusion='camera_diffusion',
         chemistry='chemistry',
-        base='base',
+        print_base='print_base',
         film_chemistry='film_chemistry',
+        film_base='film_base',
         glare='glare',
         preflashing='preflashing',
         enlarger_diffusion='enlarger_diffusion',
@@ -375,6 +376,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
     )
     assert tabs['FILM'] == (
         'film_chemistry',
+        'film_base',
         'halation',
         'couplers',
         'grain',

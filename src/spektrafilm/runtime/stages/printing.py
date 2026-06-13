@@ -92,6 +92,8 @@ class PrintingStage:
             self._film.data.channel_density,
             cmy_film_density,
             base_density=self._film.data.base_density,
+            base_density_params=self._film_render.base,
+            is_film=True,
         )
         print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
         light = density_to_light(density_spectral, print_illuminant)

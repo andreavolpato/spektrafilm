@@ -84,8 +84,8 @@ _SECTION_FIELD_SPECS = {
 _AUXILIARY_FIELD_SPECS = {
     'scan_for_print': ParamSpec(
         'scan_for_print',
-        label='Scan for print',
-        tooltip='Scan the image for print, ie white and black correction of the scanner are active, and glare is deactivated.',
+        label='Black and white correction',
+        tooltip='White and black correction of the scanner are active, and glare is deactivated.',
     ),
 }
 _SIMULATION_ACTION_BUTTON_SPECS = {
@@ -706,7 +706,7 @@ class DisplaySection(QWidget):
 
 class SimulationSection(QWidget):
     _is_params_group = True
-    _skip_auto_preview_leaves = {'auto_preview', 'scan_film'}
+    _skip_auto_preview_leaves = {'auto_preview'}
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
@@ -727,7 +727,7 @@ class SimulationSection(QWidget):
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
         self.bottom_auto_preview = self.auto_preview
-        self.bottom_scan_film = self.scan_film
+        self.bottom_workflow = self.route
         self.bottom_scan_for_print = BoolEditor()
         scan_for_print_spec = _AUXILIARY_FIELD_SPECS['scan_for_print']
         if scan_for_print_spec.tooltip:
@@ -758,18 +758,21 @@ class SimulationSection(QWidget):
             role='accentAction',
         )
 
-        scan_film_row = QHBoxLayout()
-        scan_film_row.setContentsMargins(0, 0, 0, 0)
-        scan_film_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
-        scan_film_row.addWidget(self.bottom_auto_preview)
-        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_widget_label('simulation', 'scan_film'))
-        scan_film_row.addWidget(self.bottom_scan_film)
-        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_auxiliary_label('scan_for_print'))
-        scan_film_row.addWidget(self.bottom_scan_for_print)
-        scan_film_row.addStretch(1)
+        toggles_row = QHBoxLayout()
+        toggles_row.setContentsMargins(0, 0, 0, 0)
+        toggles_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        toggles_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
+        toggles_row.addWidget(self.bottom_auto_preview)
+        toggles_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
+        toggles_row.addWidget(_build_auxiliary_label('scan_for_print'))
+        toggles_row.addWidget(self.bottom_scan_for_print)
+        toggles_row.addStretch(1)
+
+        workflow_row = QHBoxLayout()
+        workflow_row.setContentsMargins(0, 0, 0, 0)
+        workflow_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        workflow_row.addWidget(_build_widget_label('simulation', 'route'))
+        workflow_row.addWidget(self.bottom_workflow, 1)
 
         action_buttons = QWidget()
         action_buttons.setLayout(
@@ -786,7 +789,8 @@ class SimulationSection(QWidget):
         bottom_bar_layout = QVBoxLayout(self.bottom_bar)
         bottom_bar_layout.setContentsMargins(0, 0, 0, 0)
         bottom_bar_layout.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        bottom_bar_layout.addLayout(scan_film_row)
+        bottom_bar_layout.addLayout(toggles_row)
+        bottom_bar_layout.addLayout(workflow_row)
         bottom_bar_layout.addWidget(action_buttons)
         self.setLayout(_build_path_panel('Profiles', SIMULATION_PROFILE_PANEL_FIELDS, self._editors, expanded=True))
 
@@ -811,12 +815,6 @@ class SimulationSection(QWidget):
 
     def auto_preview_value(self) -> bool:
         return self.bottom_auto_preview.isChecked()
-
-    def set_scan_film_value(self, value: bool) -> None:
-        self.bottom_scan_film.setChecked(value)
-
-    def scan_film_value(self) -> bool:
-        return self.bottom_scan_film.isChecked()
 
     def bind_scan_for_print_sections(
         self,

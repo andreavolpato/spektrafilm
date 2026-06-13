@@ -83,7 +83,8 @@ class TestInitParamsDefaults:
         assert params.io.output_cctf_encoding is True
         assert params.io.crop is False
         assert params.io.upscale_factor == 1.0
-        assert params.io.scan_film is False
+        assert params.workflow.route == 'input > film > print > scan'
+        assert params.workflow.scan_film is False
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
@@ -131,11 +132,11 @@ class TestSimulatorDebugSwitches:
 class TestDigestParamsFilmDefaults:
     def test_negative_profile_keeps_explicit_scan_film_choice(self):
         params = init_params()
-        params.io.scan_film = True
+        params.workflow.route = 'input > film > scan'
 
         digest_params(params)
 
-        assert params.io.scan_film is True
+        assert params.workflow.route == 'input > film > scan'
 
     def test_halation_preset_picks_still_weak_for_kodak_gold_200(self):
         params = digest_params(init_params(film_profile='kodak_gold_200'))

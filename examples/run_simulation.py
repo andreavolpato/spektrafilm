@@ -37,7 +37,7 @@ def run_simulation():
     params.film_render.grain.rms_granularity = (28, 28, 28)
     params.io.upscale_factor = 0.5
     print_scan = simulate(image, params)
-    params.io.scan_film = True
+    params.workflow.route = "input > film > scan"
     negative_scan = simulate(image, params)
 
     save_image_oiio('print_scan_no_filter.jpg', print_scan)

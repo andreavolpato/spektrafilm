@@ -18,7 +18,7 @@ ProfileType: TypeAlias = Literal['negative', 'positive']
 ################################################################################
 # Emulsion helpers
 
-def base_density_tuning(base_density, base_density_params):
+def base_print_density_tuning(base_density, base_density_params):
     # Color: spectral base from the 3 channel mins at the status-A peaks.
     wavelengths = SPECTRAL_SHAPE.wavelengths
     status_a_max_peak = [445, 530, 610]
@@ -31,18 +31,44 @@ def base_density_tuning(base_density, base_density_params):
     sigma_points = sigma_nm / np.mean(np.diff(wavelengths))
     return gaussian_filter1d(spectral_min, sigma_points)
 
-
-def _tuned_base_density(base_density, base_density_params):
+def base_film_density_tuning(base_density, base_density_params):
+    """film base tuning"""
+    # density shift (using CMY params)
+    wavelengths = SPECTRAL_SHAPE.wavelengths
+    status_m_max_peaks = [460, 555, 650]
+    sigma_nm = 20
+    sigma_points = sigma_nm / np.mean(np.diff(wavelengths))
+    density_shift_channels = [base_density_params.yellow  -1,
+                              base_density_params.magenta -1,
+                              base_density_params.cyan    -1]
+    spectral_density_shift = np.interp(wavelengths,
+                                       status_m_max_peaks, 
+                                       density_shift_channels)   
+    density_shift = gaussian_filter1d(spectral_density_shift, sigma_points)
+    # density tilt (1.0 > +0.1 density at 650nm)
+    tilt_density_at_650 = 0.1 * base_density_params.tilt
+    tilt_slope = tilt_density_at_650 / (650 - 555)
+    density_tilt = tilt_slope * (wavelengths - 555)
+    return base_density*base_density_params.scale + density_shift + density_tilt
+    
+    
+def _tuned_base_density(base_density, base_density_params, is_film=False):
     """Apply the optional base-density tuning. With no params or tuning
     disabled, the base is used unchanged (the case for the film base on the
     film→print exposure path, where the print-paper base controls do not
     apply); neutral channels (all 1.0) skip the resample and only scale."""
     if base_density_params is None or not base_density_params.active:
         return base_density
-    if (base_density_params.cyan, base_density_params.magenta, base_density_params.yellow) == (1.0, 1.0, 1.0):
+    cmy_neutral = (base_density_params.cyan, base_density_params.magenta, base_density_params.yellow) == (1.0, 1.0, 1.0)
+    # tilt is a film-base-only knob; PrintBaseParams has no tilt field.
+    neutral = cmy_neutral and (base_density_params.tilt == 0.0 if is_film else True)
+    if neutral:
         tuned = base_density
     else:
-        tuned = base_density_tuning(base_density, base_density_params)
+        if is_film:
+            tuned = base_film_density_tuning(base_density, base_density_params)
+        else:
+            tuned = base_print_density_tuning(base_density, base_density_params)
     return tuned * base_density_params.scale
 
 
@@ -51,11 +77,12 @@ def compute_density_spectral(
     density_cmy,
     base_density=None,
     base_density_params=None,
+    is_film=False,
 ):
     density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(channel_density))
     if base_density is None:
-        return density_spectral
-    return density_spectral + _tuned_base_density(base_density, base_density_params)
+        return density_spectral     
+    return density_spectral + _tuned_base_density(base_density, base_density_params, is_film)
 
 
 # Keep black/white reference correction anchored to the stock density curves.

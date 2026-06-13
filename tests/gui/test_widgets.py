@@ -365,7 +365,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
         'saving_color_space': str,
         'saving_cctf_encoding': bool,
         'auto_preview': bool,
-        'scan_film': bool,
+        'route': str,
     }
     for field_name in tuple(spec.leaf for spec in SIMULATION_FIELDS):
         annotation = simulation_field_annotations[field_name]

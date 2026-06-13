@@ -449,7 +449,7 @@ def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
         )
         synced_state = SimpleNamespace(
             couplers=SimpleNamespace(gamma_samelayer_rgb=(0.35, 0.2275, 0.1225)),
-            simulation=SimpleNamespace(scan_film=True),
+            simulation=SimpleNamespace(route="input > film > scan"),
         )
 
         controller._apply_profile_sync_state(synced_state)

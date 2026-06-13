@@ -22,6 +22,7 @@ class ScanningStage:
         print_render_params,
         scanner_params,
         io_params,
+        workflow_params,
         settings_params,
         lut_service,
         color_reference_service,
@@ -32,6 +33,7 @@ class ScanningStage:
         self._print_render = print_render_params
         self._scanner = scanner_params
         self._io = io_params
+        self._workflow = workflow_params
         self._settings = settings_params
         self._lut_service = lut_service
         self._color_reference_service = color_reference_service
@@ -51,7 +53,7 @@ class ScanningStage:
     # private methods
 
     def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
-        if self._io.scan_film:
+        if self._workflow.scan_film:
             glare = None
             density_min = -match_channels(self._film_render.grain.density_min, density_channels.shape[-1])
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
@@ -98,15 +100,17 @@ class ScanningStage:
         return rgb
 
     def _return_callable_cmy_to_log_xyz(self):
-        if self._io.scan_film:
+        if self._workflow.scan_film:
             channel_density = self._film.data.channel_density
             base_density = self._film.data.base_density
+            base_density_params = self._film_render.base
             scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
         else:
             channel_density = self._print.data.channel_density
             base_density = self._print.data.base_density
+            base_density_params = self._print_render.base
             scan_illuminant = standard_illuminant(self._print.info.viewing_illuminant)
-            
+
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
         def cmy_to_log_xyz(density_cmy: np.ndarray) -> np.ndarray:
@@ -114,7 +118,8 @@ class ScanningStage:
                 channel_density,
                 density_cmy,
                 base_density,
-                base_density_params=self._film_render.base,
+                base_density_params=base_density_params,
+                is_film=self._workflow.scan_film,
             )
             light = density_to_light(density_spectral, scan_illuminant)
             xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization

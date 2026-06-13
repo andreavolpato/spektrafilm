@@ -62,7 +62,7 @@ def test_pipeline_returns_valid_outputs_for_edge_cases(default_params) -> None:
 
     for case in cases:
         default_params.io.upscale_factor = 1.0
-        default_params.io.scan_film = False
+        default_params.workflow.route = "input > film > print > scan"
         default_params.debug.return_film_log_raw = False
         case['configure'](default_params)
 
@@ -137,9 +137,9 @@ def test_exposure_controls_behave_consistently(default_params) -> None:
 def test_pipeline_distinguishes_major_configuration_changes(default_params) -> None:
     patch = _tile_rgb((0.30, 0.10, 0.05), 4)
 
-    default_params.io.scan_film = False
+    default_params.workflow.route = "input > film > print > scan"
     print_result = simulate(patch, default_params)
-    default_params.io.scan_film = True
+    default_params.workflow.route = "input > film > scan"
     negative_result = simulate(patch, default_params)
 
     _assert_valid_output(print_result, shape=(4, 4, 3))
@@ -147,7 +147,7 @@ def test_pipeline_distinguishes_major_configuration_changes(default_params) -> N
     assert not np.allclose(print_result, negative_result, atol=1e-3)
 
     green_patch = _tile_rgb((0.05, 0.4, 0.05), 10)
-    default_params.io.scan_film = False
+    default_params.workflow.route = "input > film > print > scan"
     result_portra = simulate(green_patch, default_params)
 
     params_fuji = make_fast_test_params(film_profile='fujifilm_c200')
@@ -188,7 +188,7 @@ def test_colour_film_onto_bw_print_uses_generalized_3d_lut() -> None:
     # crash). The final scan is still RGB.
     patch = _tile_rgb((0.30, 0.10, 0.05), 6)
     params = make_fast_test_params(film_profile='kodak_portra_400', print_profile='kodak_2302')
-    params.io.scan_film = False
+    params.workflow.route = "input > film > print > scan"
 
     result_direct = simulate(patch, params)
     _assert_valid_output(result_direct, shape=(6, 6, 3))

@@ -29,8 +29,9 @@ GUI_STATE_SECTION_NAMES = (
     'halation',
     'couplers',
     'chemistry',
-    'base',
+    'print_base',
     'film_chemistry',
+    'film_base',
     'camera',
     'enlarger_diffusion',
     'camera_diffusion',
@@ -71,8 +72,9 @@ SECTION_STATE_ACCESSORS = {
     'halation': _top_level_section_accessor('halation'),
     'couplers': _top_level_section_accessor('couplers'),
     'chemistry': _top_level_section_accessor('chemistry'),
-    'base': _top_level_section_accessor('base'),
+    'print_base': _top_level_section_accessor('print_base'),
     'film_chemistry': _top_level_section_accessor('film_chemistry'),
+    'film_base': _top_level_section_accessor('film_base'),
     'camera': _top_level_section_accessor('camera'),
     'enlarger_diffusion': _top_level_section_accessor('enlarger_diffusion'),
     'camera_diffusion': _top_level_section_accessor('camera_diffusion'),
@@ -111,7 +113,6 @@ def apply_gui_state_sections(
         _get_stateful_widget(widgets, section_name).set_state(_get_section_state(state, section_name))
     if 'simulation' in section_names:
         widgets.simulation.set_auto_preview_value(state.simulation.workflow.auto_preview)
-        widgets.simulation.set_scan_film_value(state.simulation.io.scan_film)
         widgets.simulation.reset_scan_for_print_value()
 
 
@@ -123,5 +124,4 @@ def collect_gui_state(
     for section_name in GUI_STATE_SECTION_NAMES:
         _set_section_state(gui_state, section_name, _get_stateful_widget(widgets, section_name).get_state())
     gui_state.simulation.workflow.auto_preview = widgets.simulation.auto_preview_value()
-    gui_state.simulation.io.scan_film = widgets.simulation.scan_film_value()
     return gui_state

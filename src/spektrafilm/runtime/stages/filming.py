@@ -181,5 +181,7 @@ class FilmingStage:
             self._film.data.channel_density,
             density_cmy,
             base_density=self._film.data.base_density,
+            base_density_params=self._film_render.base,
+            is_film=True,
         )
     
