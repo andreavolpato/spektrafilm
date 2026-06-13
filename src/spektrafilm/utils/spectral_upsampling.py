@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:              # pragma: no cover
     import tomli as tomllib              # Python < 3.11 fallback
 
-from spektrafilm.profiles.io import Hanatos2025SensitivityAdaptation
+from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 from spektrafilm.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
 from spektrafilm.model.illuminants import standard_illuminant

@@ -11,15 +11,19 @@ pytestmark = pytest.mark.unit
 def test_filming_tc_lut_recomputes_when_spectral_gaussian_blur_changes(monkeypatch) -> None:
     calls: list[float] = []
 
-    def fake_compute_hanatos2025_tc_lut(sensitivity, adaptation, gamut_compress=None):
-        del sensitivity, gamut_compress
-        calls.append(float(adaptation.spectral_gaussian_blur))
-        return np.full((2, 2, 3), adaptation.spectral_gaussian_blur + 1.0, dtype=float)
+    # The service dispatches the irradiance method through the generic
+    # compute_tc_lut, forwarding the adaptation via hanatos2025_adaptation=.
+    def fake_compute_tc_lut(method, sensitivity, reference_illuminant=None,
+                            spectra_lut=None, gamut_compress=None,
+                            hanatos2025_adaptation=None):
+        del method, sensitivity, reference_illuminant, spectra_lut, gamut_compress
+        calls.append(float(hanatos2025_adaptation.spectral_gaussian_blur))
+        return np.full((2, 2, 3), hanatos2025_adaptation.spectral_gaussian_blur + 1.0, dtype=float)
 
     monkeypatch.setattr(
         spectral_lut_compute_module,
-        'compute_hanatos2025_tc_lut',
-        fake_compute_hanatos2025_tc_lut,
+        'compute_tc_lut',
+        fake_compute_tc_lut,
     )
 
     service = spectral_lut_compute_module.SpectralLUTService(lut_resolution=17)
@@ -34,11 +38,11 @@ def test_filming_tc_lut_recomputes_when_spectral_gaussian_blur_changes(monkeypat
     )
 
     service.set_hanatos2025_adaptation(adaptation)
-    first = service.get_filming_tc_lut(sensitivity)
+    first = service.get_filming_tc_lut('hanatos2025', sensitivity, 'D55')
 
     adaptation.spectral_gaussian_blur = 4.0
     service.set_hanatos2025_adaptation(adaptation)
-    second = service.get_filming_tc_lut(sensitivity)
+    second = service.get_filming_tc_lut('hanatos2025', sensitivity, 'D55')
 
     assert calls == [0.0, 4.0]
     assert np.array_equal(first, second) is False

@@ -146,7 +146,11 @@ def test_compute_hanatos2025_tc_lut_normalizes_window_to_preserve_midgray(monkey
         ],
         dtype=np.float64,
     )
-    illuminant = np.array([2.0, 4.0], dtype=np.float64)
+    # White balance now references the neutral the LUT actually EMITS at the
+    # reference-illuminant chromaticity (the reconstructed smooth metamer sampled
+    # via apply_lut_cubic_2d), NOT the bare illuminant. Mock that reconstructed
+    # neutral directly and confirm the window is normalized against it.
+    neutral_sd = np.array([2.0, 4.0], dtype=np.float64)
 
     adaptation = Hanatos2025SensitivityAdaptation(
         window_params=np.array([415.0, 12.0, 667.0, 76.0], dtype=np.float64),
@@ -157,10 +161,13 @@ def test_compute_hanatos2025_tc_lut_normalizes_window_to_preserve_midgray(monkey
 
     monkeypatch.setattr(spectral_upsampling_module, 'HANATOS2025_SPECTRA_LUT', lut)
     monkeypatch.setattr(spectral_upsampling_module, 'eval_spectral_bandpass_window', lambda _params: window)
-    monkeypatch.setattr(spectral_upsampling_module, 'standard_illuminant', lambda _label: illuminant)
+    monkeypatch.setattr(spectral_upsampling_module, '_illuminant_to_xy', lambda _label: np.array([1 / 3, 1 / 3]))
+    monkeypatch.setattr(spectral_upsampling_module, 'apply_lut_cubic_2d',
+                        lambda _lut, _tc: neutral_sd.reshape(1, 1, -1))
 
     raw_lut = spectral_upsampling_module.compute_hanatos2025_tc_lut(sensitivity, adaptation)
 
-    normalization = np.sum(sensitivity * illuminant[:, None] * window, axis=0) / np.sum(sensitivity * illuminant[:, None], axis=0)
+    normalization = (np.sum(sensitivity * neutral_sd[:, None] * window, axis=0)
+                     / np.sum(sensitivity * neutral_sd[:, None], axis=0))
     expected = np.einsum('ijl,lm->ijm', lut, sensitivity * (window / normalization))
     np.testing.assert_allclose(raw_lut, expected)

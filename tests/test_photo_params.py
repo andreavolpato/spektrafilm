@@ -97,7 +97,7 @@ class TestInitParamsDefaults:
         assert params.settings.use_enlarger_lut is False
         assert params.settings.use_scanner_lut is False
         assert params.settings.lut_resolution == 17
-        assert params.settings.use_fast_stats is False
+        assert params.settings.use_fast_stats is True
         assert params.settings.preview_max_size == 640
 
 class TestSimulatorDebugSwitches:

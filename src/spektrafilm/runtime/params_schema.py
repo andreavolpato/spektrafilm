@@ -96,7 +96,7 @@ class GrainParams:
     uniformity: tuple[float, float, float] = (0.97, 0.97, 0.97)
     particle_scale_sublayers: tuple[float, float, float] = (1.0, 0.5, 0.25)
     # texture
-    blur: float = 0.8 # optimized to go with the mult usm below, see study b80
+    blur: float = 0.89 # optimized to go with the mult usm below (recovers resolution), see study b80
     mult_usm_sigma: float = 0.7 # optimized to go with the blur above, see study b80
     mult_usm_amount: float = 1.5 # Multiplicative (log-domain) density unsharp mask, see study b80
     # micro substructure
@@ -374,12 +374,7 @@ class SettingsParams:
     use_scanner_lut: bool = False
     use_convert_lut: bool = False
     lut_resolution: int = 17
-    # The convert (scan-inverse) LUT gets its own, finer grid: its input is RGB
-    # (a curved gamut inside the cube) and the print stage amplifies mid-tone
-    # density error, so it needs more nodes than the density-domain scanner/enlarger
-    # LUTs. The bake is one-time and only repeats when the scan model changes.
-    convert_lut_resolution: int = 33
-    use_fast_stats: bool = False
+    use_fast_stats: bool = True
     preview_max_size: int = 640
     preview_mode: bool = False
     neutral_print_filters_from_database: bool = True

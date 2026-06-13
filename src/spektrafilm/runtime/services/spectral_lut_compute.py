@@ -6,7 +6,7 @@ import numpy as np
 
 from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
-from spektrafilm.utils.lut import compute_with_lut
+from spektrafilm.utils.lut import compute_with_lut, compute_with_lut_1d
 from spektrafilm.utils.spectral_upsampling import compute_tc_lut, lut_descriptor
 from spektrafilm.utils.timings import timeit
 
@@ -96,13 +96,6 @@ class SpectralLUTService:
         # drives a rebuild on the next call.
         self.input_gamut_compress: InputGamutCompressSpec = InputGamutCompressSpec()
 
-<<<<<<< HEAD
-        # external memory
-        self.filming_tc_lut_memory : np.ndarray | None = None # tc_lut memory
-        self.enlarger_lut_memory : np.ndarray | None = None # enlarger lut memory
-        self.scanner_lut_memory : np.ndarray | None = None # scanner lut memory
-        self.convert_lut_memory : np.ndarray | None = None # convert (scan-inverse) lut memory
-=======
         # One memo per rgb_to_raw method (lazily created, keyed by identifier). Key
         # derivation differs by kind (reflectance vs irradiance); the caching does not.
         self._tc_lut_memos: dict[str, _MemoLUT] = {}
@@ -110,7 +103,6 @@ class SpectralLUTService:
         # Probe-validated CMY->spectral LUTs.
         self._enlarger_cache = _TestCacheLUT()
         self._scanner_cache = _TestCacheLUT()
->>>>>>> d8ad561 (feat: arctic2026alpha spectral upsampling)
 
         # local memory
         self._film_sensitivity = None # to track if tc_lut needs to be recomputed when film sensitivity changes
@@ -286,6 +278,12 @@ class SpectralLUTService:
         reused when a fixed CMY probe reproduces the stored output, i.e. the
         spectral_calculation closure is unchanged."""
         if not use_lut:
+            return spectral_calculation(cmy_data)
+        if self._is_single_channel(cmy_data):
+            # B&W: one density channel -> 1D LUT (no full-res spectral cube, and
+            # the 3D bounds path can't take a length-1 data_min/data_max).
+            return compute_with_lut_1d(cmy_data, spectral_calculation, data_min, data_max)
+        if not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
         test_results = spectral_calculation(np.array(self._cmy_test_values))
