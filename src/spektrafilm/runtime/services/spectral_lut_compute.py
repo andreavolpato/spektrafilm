@@ -110,6 +110,7 @@ class SpectralLUTService:
         self._cached_input_gamut_compress: InputGamutCompressSpec | None = None
         self._enlarger_test_results_memory = None # to test if enlarger LUTs are identical for same input
         self._scanner_test_results_memory = None # to test if scanner LUTs are identical for same input
+        self.convert_lut_memory: np.ndarray | None = None # convert (scan-inverse) lut memory
         self._convert_test_results_memory = None # to test if convert LUTs are identical for same input
         
         self._cmy_test_values = np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
@@ -162,7 +163,6 @@ class SpectralLUTService:
 
     # -- tc_luts ---------------------------------------------------------------
 
-<<<<<<< HEAD
     @timeit("spectral_compute_convert")
     def spectral_compute_convert(self,
         rgb_data,
@@ -220,14 +220,13 @@ class SpectralLUTService:
         if data_out is None:
             raise RuntimeError('LUT computation did not produce an output')
         return data_out
-=======
+
     def _tc_lut_memo(self, method: str) -> _MemoLUT:
         """The per-method memo, created on first use."""
         memo = self._tc_lut_memos.get(method)
         if memo is None:
             memo = self._tc_lut_memos[method] = _MemoLUT()
         return memo
->>>>>>> d8ad561 (feat: arctic2026alpha spectral upsampling)
 
     @timeit("get_filming_tc_lut")
     def get_filming_tc_lut(self, method, sensitivity, reference_illuminant):

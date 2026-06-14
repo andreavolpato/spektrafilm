@@ -374,6 +374,11 @@ class SettingsParams:
     use_scanner_lut: bool = False
     use_convert_lut: bool = False
     lut_resolution: int = 17
+    # The convert (scan-inverse) LUT gets its own, finer grid: its input is RGB
+    # (a curved gamut inside the cube) and the print stage amplifies mid-tone
+    # density error, so it needs more nodes than the density-domain scanner/enlarger
+    # LUTs. The bake is one-time and only repeats when the scan model changes.
+    convert_lut_resolution: int = 33
     use_fast_stats: bool = True
     preview_max_size: int = 640
     preview_mode: bool = False
