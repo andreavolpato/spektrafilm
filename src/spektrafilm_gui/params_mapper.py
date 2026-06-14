@@ -22,6 +22,7 @@ def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
     _apply_couplers(params, state)
     _apply_chemistry(params, state)
     _apply_base(params, state)
+    _apply_convert(params, state)
     _apply_film_chemistry(params, state)
     _apply_enlarger(params, state)
     _apply_scanner(params, state)
@@ -88,6 +89,10 @@ def _apply_base(params: RuntimePhotoParams, state: GuiState) -> None:
     params.print_render.base = replace(state.print_base)
 
 
+def _apply_convert(params: RuntimePhotoParams, state: GuiState) -> None:
+    params.film_render.convert = replace(state.convert)
+
+
 def _apply_film_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
     params.film_render.chemistry = replace(state.film_chemistry)
 
@@ -113,5 +118,6 @@ def _apply_settings(params: RuntimePhotoParams, state: GuiState) -> None:
     params.settings.preview_max_size = state.gui_only.display.settings.preview_max_size
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
+    params.settings.use_convert_lut = True
     params.settings.lut_resolution = 17
     params.settings.use_fast_stats = True

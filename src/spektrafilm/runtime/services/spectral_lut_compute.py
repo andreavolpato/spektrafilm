@@ -25,6 +25,7 @@ class SpectralLUTService:
         self.filming_tc_lut_memory : np.ndarray | None = None # tc_lut memory
         self.enlarger_lut_memory : np.ndarray | None = None # enlarger lut memory
         self.scanner_lut_memory : np.ndarray | None = None # scanner lut memory
+        self.convert_lut_memory : np.ndarray | None = None # convert (scan-inverse) lut memory
 
         # local memory
         self._film_sensitivity = None # to track if tc_lut needs to be recomputed when film sensitivity changes
@@ -32,6 +33,7 @@ class SpectralLUTService:
         self._cached_input_gamut_compress: InputGamutCompressSpec | None = None
         self._enlarger_test_results_memory = None # to test if enlarger LUTs are identical for same input
         self._scanner_test_results_memory = None # to test if scanner LUTs are identical for same input
+        self._convert_test_results_memory = None # to test if convert LUTs are identical for same input
         
         self._cmy_test_values = np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
                                           [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]]) # to test if LUTs are identical
@@ -184,6 +186,64 @@ class SpectralLUTService:
                                              steps=self._lut_resolution)
             self.scanner_lut_memory = lut
             self._scanner_test_results_memory = np.array(test_results, copy=True)
+
+        if data_out is None:
+            raise RuntimeError('LUT computation did not produce an output')
+        return data_out
+
+    @timeit("spectral_compute_convert")
+    def spectral_compute_convert(self,
+        rgb_data,
+        invert_fn: Callable,
+        data_min,
+        data_max,
+        *,
+        use_lut: bool = False,
+        steps: int | None = None,
+    ):
+        """Accelerate the scan-inverse (convert-film) with a 3D LUT.
+
+        ``invert_fn`` maps gained/calibration-corrected RGB ``(..., 3)`` to film
+        cmy density; ``data_min`` / ``data_max`` are the per-channel gamut bounds
+        (``FilmConverter.gamut_bounds``). The LUT is baked over that RGB box and
+        reused while the inverse is unchanged. As with the scanner / enlarger LUTs,
+        a small fixed probe detects when the underlying transform changed (i.e. the
+        scan model's illuminant / base / dye / Dmax moved) and forces a rebuild.
+
+        The device calibration and exposure gain are applied *before* this call
+        (``FilmConverter.pretransform``), so tuning them never invalidates the LUT.
+        """
+        if not use_lut:
+            return invert_fn(rgb_data)
+        # The convert input is always 3-channel RGB (a scanned negative). The
+        # cmy output may be 1 (B&W) or 3 (colour) channels; _create_lut_3d takes
+        # the output channel count from invert_fn, so both work on the 3D path.
+        if not self._supports_3d_lut(rgb_data):
+            return invert_fn(rgb_data)
+        steps = self._lut_resolution if steps is None else int(steps)
+
+        test_results = invert_fn(np.array(self._cmy_test_values))
+
+        if (
+            self.convert_lut_memory is not None
+            and self._convert_test_results_memory is not None
+            and self.convert_lut_memory.shape[0] == steps
+            and np.array_equal(test_results, self._convert_test_results_memory)
+        ):
+            data_out, _ = compute_with_lut(rgb_data,
+                                           invert_fn,
+                                           xmin=data_min,
+                                           xmax=data_max,
+                                           steps=steps,
+                                           lut=self.convert_lut_memory)
+        else:
+            data_out, lut = compute_with_lut(rgb_data,
+                                             invert_fn,
+                                             xmin=data_min,
+                                             xmax=data_max,
+                                             steps=steps)
+            self.convert_lut_memory = lut
+            self._convert_test_results_memory = np.array(test_results, copy=True)
 
         if data_out is None:
             raise RuntimeError('LUT computation did not produce an output')

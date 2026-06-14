@@ -36,20 +36,23 @@ def base_film_density_tuning(base_density, base_density_params):
     # density shift (using CMY params)
     wavelengths = SPECTRAL_SHAPE.wavelengths
     status_m_max_peaks = [460, 555, 650]
-    sigma_nm = 20
+    sigma_nm = 35
     sigma_points = sigma_nm / np.mean(np.diff(wavelengths))
-    density_shift_channels = [base_density_params.yellow  -1,
-                              base_density_params.magenta -1,
-                              base_density_params.cyan    -1]
+    density_scale_channels = [base_density_params.yellow,
+                              base_density_params.magenta,
+                              base_density_params.cyan
+                              ]
     spectral_density_shift = np.interp(wavelengths,
                                        status_m_max_peaks, 
-                                       density_shift_channels)   
-    density_shift = gaussian_filter1d(spectral_density_shift, sigma_points)
+                                       density_scale_channels)   
+    density_scale = gaussian_filter1d(spectral_density_shift, sigma_points)
     # density tilt (1.0 > +0.1 density at 650nm)
-    tilt_density_at_650 = 0.1 * base_density_params.tilt
+    tilt_density_at_650 = base_density_params.tilt
     tilt_slope = tilt_density_at_650 / (650 - 555)
-    density_tilt = tilt_slope * (wavelengths - 555)
-    return base_density*base_density_params.scale + density_shift + density_tilt
+    density_tilt = tilt_slope * (wavelengths - 555) + 1
+    density_tilt = np.clip(density_tilt, 0, np.inf)
+    density_tilt = gaussian_filter1d(density_tilt, sigma_points)
+    return base_density*base_density_params.scale*density_scale*density_tilt
     
     
 def _tuned_base_density(base_density, base_density_params, is_film=False):

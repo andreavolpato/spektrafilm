@@ -181,6 +181,45 @@ class PrintBaseParams:
 
 
 @dataclass
+class ConvertFilmParams:
+    # Settings for the "convert-film" stage of the invert workflow: convert a
+    # scanned negative (scene-referred input RGB, in io.input_color_space) back to
+    # film cmy density by inverting the scan model, so it can be injected at
+    # cmy_film and printed. Activation is governed by workflow.route (the
+    # "convert-film" routes), not a flag here. The film base / orange mask is
+    # tuned separately in FilmRenderingParams.base. See the c40_film_inversion
+    # study and its n060 (scan-illuminant design) note.
+    #
+    # scan_illuminant: the capture rig's light source — any name accepted by
+    # spektrafilm.model.illuminants.standard_illuminant() (CIE A/D/E, FL, the CIE
+    # LED-B/LED-RGB/LED-V series, measured sources, or 'BB<temp>'). It is a
+    # PHYSICAL input (set it to match the rig), not a creative knob; the base is
+    # the creative lever. The scan only sees illuminant(λ)·10^(-base(λ)), so they
+    # share one spectral axis (n060).
+    scan_illuminant: str = "D55"
+    # exposure_compensation_ev: aligns the scan's absolute level to the model's
+    # (the normalized-illuminant model has a fixed output scale; a real scan's
+    # level is set by scanner gain). A flat RGB gain -> near-uniform density
+    # offset; distinct from base, which reshapes spectrally per channel.
+    exposure_compensation_ev: float = 0.0
+    # base_percentile: the brightest pixels of a scanned negative are the clear /
+    # unexposed film (max transmission). The "Detect base" GUI action samples the
+    # mean RGB of pixels at/above this percentile and fits the film base / orange
+    # mask (FilmRenderingParams.base) so the model's cmy=0 scan reproduces it, i.e.
+    # the unexposed film maps to film density 0. 99.0 -> brightest 1%.
+    base_percentile: float = 99.0
+    # calibration: a 3x3 device-correction matrix (row-major, 9 numbers) applied
+    # to the input RGB before inversion, to undo the scanner/camera colour
+    # rendering vs the standard observer over the film dyes (the cross-channel
+    # cast the scan_illuminant + base cannot reach — see c40 s050/s051). Stored as
+    # a string so it is copy/paste-able and hand-editable; parsed by
+    # spektrafilm.model.convert.parse_calibration_matrix (identity on any parse
+    # failure). The "Blind calibration" GUI action fits it on the current image.
+    # TEMPORARY test UX; a proper calibration flow comes later.
+    calibration: str = "1 0 0  0 1 0  0 0 1"
+
+
+@dataclass
 class FilmRenderingParams:
     # Film chemistry: development_time selects which curve / base+fog column of a
     # BW development-time family to render (matched against
@@ -193,6 +232,8 @@ class FilmRenderingParams:
     glare: GlareParams = field(default_factory=GlareParams)
     # Film base density (film base + fog / orange mask) tuning.
     base: FilmBaseParams = field(default_factory=FilmBaseParams)
+    # Convert-film: scanned-negative -> film cmy conversion settings.
+    convert: ConvertFilmParams = field(default_factory=ConvertFilmParams)
 
 
 @dataclass
@@ -234,18 +275,23 @@ class IOParams:
 class WorkflowParams:
     # route selects which path the image takes through the pipeline stages.
     # Allowed values:
-    #   "input > film > scan"               — expose film, scan the negative
-    #                                          directly (old io.scan_film=True)
-    #   "input > film > print > scan"        — full chain: expose film, print,
-    #                                          scan the print
-    #   "input > convert-film > print > scan" — skip filming, convert a scene-
-    #                                          referred input (negative photo) to
-    #                                          film density, print it and scan the
-    #                                          print (invert workflow)
-    #   "input > convert-film > scan-minus-base" — convert input to film density
-    #                                          and scan it with the base removed
-    # The "convert-film" routes need the input->cmy_film bridge, which is WIP.
+    #   "input"                          (passthrough: input -> output colour space only)
+    #   "input > film > scan"
+    #   "input > film > print > scan"
+    #   "input > convert-film > print > scan"
+    #   "input > convert-film > scan-minus-base"
+    #   "input > convert-film > scan"   (convert, then scan the film WITH its base)
+    # The "convert-film" routes convert a scanned negative to film cmy density
+    # via the inverse-scan bridge (ConvertingStage / model.convert). The bare
+    # "input" route runs no film/print/scan stage: it just colour-manages the
+    # decoded input into the output colour space so it is directly viewable.
     route: str = "input > film > print > scan"
+
+    @property
+    def passthrough(self) -> bool:
+        """Whether the pipeline only colour-manages the input to the output space
+        (no film / print / scan): the bare "input" route."""
+        return self.route == "input"
 
     @property
     def do_filming(self) -> bool:
@@ -260,7 +306,11 @@ class WorkflowParams:
     @property
     def scan_film(self) -> bool:
         """Whether the final scan reads the film density rather than the print."""
-        return self.route in ("input > film > scan", "input > convert-film > scan-minus-base")
+        return self.route in (
+            "input > film > scan",
+            "input > convert-film > scan-minus-base",
+            "input > convert-film > scan",
+        )
 
     @property
     def scan_minus_base(self) -> bool:
@@ -268,14 +318,27 @@ class WorkflowParams:
         return self.route == "input > convert-film > scan-minus-base"
 
     @property
-    def full_process(self) -> bool:
-        """Whether the pipeline runs the full film-print-scan process."""
-        return self.route == "input > film > print > scan"
+    def do_convert_film(self) -> bool:
+        """Whether the front-end converts a scanned negative (input RGB) directly
+        to film cmy density (the inverse of the scan), instead of exposing and
+        developing film. True for the "convert-film" routes."""
+        return self.route in (
+            "input > convert-film > print > scan",
+            "input > convert-film > scan-minus-base",
+            "input > convert-film > scan",
+        )
 
     @property
-    def invert_film(self) -> bool:
-        """Whether the pipeline inverts the workflow by printing a scene-referred input and scanning the print."""
-        return self.route == "input > convert-film > print > scan"
+    def collect_tap(self) -> str:
+        """The pipeline's terminal tap. Every supported route ends at rgb_out."""
+        return "rgb_out"
+
+    @property
+    def do_scan(self) -> bool:
+        """Whether the pipeline runs a final scan to rgb_out. False for the bare
+        "input" passthrough, which reaches rgb_out without a scan stage."""
+        return self.collect_tap == "rgb_out" and not self.passthrough
+
 
 @dataclass
 class DebugParams:
@@ -309,7 +372,13 @@ class SettingsParams:
     spectral_gaussian_blur: float = 0.0
     use_enlarger_lut: bool = False
     use_scanner_lut: bool = False
+    use_convert_lut: bool = False
     lut_resolution: int = 17
+    # The convert (scan-inverse) LUT gets its own, finer grid: its input is RGB
+    # (a curved gamut inside the cube) and the print stage amplifies mid-tone
+    # density error, so it needs more nodes than the density-domain scanner/enlarger
+    # LUTs. The bake is one-time and only repeats when the scan model changes.
+    convert_lut_resolution: int = 33
     use_fast_stats: bool = False
     preview_max_size: int = 640
     preview_mode: bool = False

@@ -84,6 +84,40 @@ def test_uniform_gray_output_is_stable_and_artifact_free(default_params) -> None
             np.testing.assert_allclose(result_1[row, col, :], center_pixel, atol=1e-6)
 
 
+def test_input_passthrough_route_colour_manages_only(default_params) -> None:
+    """The bare "input" route runs no film/print/scan: it just colour-manages the
+    input into the output colour space (so it is directly viewable)."""
+    import colour
+
+    default_params.workflow.route = "input"
+    default_params.io.input_color_space = "ProPhoto RGB"
+    default_params.io.output_color_space = "sRGB"
+    default_params.io.input_cctf_decoding = False
+    default_params.io.output_cctf_encoding = True
+
+    img = _tile_rgb((0.18, 0.18, 0.18), 4)
+    out = simulate(img, default_params)
+    _assert_valid_output(out, shape=(4, 4, 3))
+
+    expected = colour.RGB_to_RGB(
+        np.full((1, 3), 0.18), "ProPhoto RGB", "sRGB",
+        apply_cctf_decoding=False, apply_cctf_encoding=True,
+    )[0]
+    np.testing.assert_allclose(out[0, 0, :], expected, atol=1e-5)
+
+
+def test_input_passthrough_same_space_is_identity(default_params) -> None:
+    """input == output colour space, linear in/out -> the passthrough is identity."""
+    default_params.workflow.route = "input"
+    default_params.io.input_color_space = default_params.io.output_color_space = "sRGB"
+    default_params.io.input_cctf_decoding = False
+    default_params.io.output_cctf_encoding = False
+
+    img = _tile_rgb((0.3, 0.1, 0.05), 4)
+    out = simulate(img, default_params)
+    np.testing.assert_allclose(out, img, atol=1e-4)
+
+
 def test_exposure_controls_behave_consistently(default_params) -> None:
     gray = _tile_rgb((0.18, 0.18, 0.18), 4)
     levels = [0.02, 0.05, 0.18, 0.5, 0.90]

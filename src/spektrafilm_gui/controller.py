@@ -249,6 +249,132 @@ class GuiController:
         QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{message}')
         set_status(self._viewer, 'Load raw failed')
 
+    def on_convert_action(self, action_id: str) -> None:
+        """Dispatch a Convert-panel action button (see CONVERT_MANIFEST.actions)."""
+        if action_id == 'detect_base':
+            self.run_detect_base()
+        elif action_id == 'blind_calibration':
+            self.run_blind_calibration()
+        elif action_id == 'neutralize_filters':
+            self.run_neutralize_filters()
+
+    def run_neutralize_filters(self) -> None:
+        """Solve the enlarger M/Y filter shifts so the current film + base midgray
+        prints neutral, and write them into the Enlarger panel. Image-independent."""
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        set_status(self._viewer, 'Neutralizing print filters...', timeout_ms=0)
+
+        def work():
+            from spektrafilm.runtime.print_balance import solve_neutral_filter_shifts
+            return solve_neutral_filter_shifts(params)
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_neutralize_filters_done,
+            on_error=lambda message: set_status(self._viewer, f'Neutralize print filters failed: {message}'),
+        )
+
+    def _on_neutralize_filters_done(self, shifts) -> None:
+        m_shift, y_shift = shifts
+        simulation = getattr(self._widgets, 'simulation', None)
+        if simulation is not None:
+            simulation.print_m_filter_shift.value = float(m_shift)
+            simulation.print_y_filter_shift.value = float(y_shift)
+        set_status(self._viewer, f'Print filters neutralized: M shift={m_shift:+.2f}, Y shift={y_shift:+.2f}')
+        self._request_auto_preview_if_enabled()
+
+    def run_detect_base(self) -> None:
+        """Sample the clear/unexposed film from the brightest pixels of the current
+        image and fit the film Base (orange mask) + convert exposure so the unexposed
+        film maps to density 0. Writes the fitted Base widget and the exposure field."""
+        image = self._current_input_image
+        if image is None:
+            QMessageBox.warning(dialog_parent(self._viewer), 'Detect base', 'Load an input image first.')
+            return
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        params.workflow.route = 'input > convert-film > scan'
+        percentile = float(params.film_render.convert.base_percentile)
+        set_status(self._viewer, 'Detecting film base...', timeout_ms=0)
+
+        def work():
+            from spektrafilm.model.convert import fit_base_params, sample_base_rgb
+            from spektrafilm.model.illuminants import standard_illuminant
+            from spektrafilm.runtime.pipeline import SimulationPipeline
+            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+            stage = pipeline._converting_stage
+            img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
+            base_rgb = sample_base_rgb(img, percentile)
+            data = stage._film.data
+            fitted, ev = fit_base_params(
+                base_rgb, data.channel_density, data.base_density, params.film_render.base,
+                standard_illuminant(params.film_render.convert.scan_illuminant),
+                params.io.input_color_space,
+            )
+            return fitted, float(ev), base_rgb
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_detect_base_done,
+            on_error=lambda message: set_status(self._viewer, f'Detect base failed: {message}'),
+        )
+
+    def _on_detect_base_done(self, result) -> None:
+        fitted, ev, base_rgb = result
+        base_section = getattr(self._widgets, 'film_base', None)
+        if base_section is not None:
+            base_section.set_state(fitted)
+        convert_section = getattr(self._widgets, 'convert', None)
+        if convert_section is not None:
+            convert_section.set_field('exposure_compensation_ev', ev)
+        set_status(
+            self._viewer,
+            f'Base detected (clear RGB {np.round(base_rgb, 3).tolist()}): '
+            f'cyan/magenta/yellow=({fitted.cyan:.3f}, {fitted.magenta:.3f}, {fitted.yellow:.3f}), ev={ev:+.2f}',
+        )
+        self._request_auto_preview_if_enabled()
+
+    def run_blind_calibration(self) -> None:
+        """Fit the convert calibration matrix from the current input image and
+        write it into the Convert panel's 'calibration' field. TEMPORARY test UX:
+        the fit is the c40 blind dye-gamut fit (best on a vibrant frame)."""
+        image = self._current_input_image
+        if image is None:
+            QMessageBox.warning(dialog_parent(self._viewer), 'Blind calibration', 'Load an input image first.')
+            return
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        params.workflow.route = 'input > convert-film > scan'
+        set_status(self._viewer, 'Fitting blind calibration...', timeout_ms=0)
+
+        def work() -> str:
+            from spektrafilm.model.convert import format_calibration_matrix
+            from spektrafilm.runtime.pipeline import SimulationPipeline
+            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+            stage = pipeline._converting_stage
+            img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
+            flat = img.reshape(-1, 3)
+            if len(flat) > 40000:
+                flat = flat[np.linspace(0, len(flat) - 1, 40000).astype(int)]
+            return format_calibration_matrix(stage._converter.fit_blind_calibration(flat))
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_blind_calibration_done,
+            on_error=lambda message: set_status(self._viewer, f'Blind calibration failed: {message}'),
+        )
+
+    def _on_blind_calibration_done(self, calibration: str) -> None:
+        convert_section = getattr(self._widgets, 'convert', None)
+        if convert_section is not None:
+            convert_section.set_field('calibration', calibration)
+        set_status(self._viewer, f'Blind calibration fitted: {calibration}')
+        self._request_auto_preview_if_enabled()
+
     def refresh_preview_cache(self, *_args) -> None:
         input_image = self._current_input_image
         if input_image is None:

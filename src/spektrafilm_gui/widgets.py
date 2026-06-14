@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from spektrafilm_gui.params_manifest import (
+    CONVERT_MANIFEST,
     FILM_BASE_MANIFEST,
     PRINT_BASE_MANIFEST,
     CAMERA_DIFFUSION_MANIFEST,
@@ -59,6 +60,7 @@ class WidgetBundle:
     print_base: ParamsGroupSection
     film_chemistry: ParamsGroupSection
     film_base: ParamsGroupSection
+    convert: ParamsGroupSection
     glare: ParamsGroupSection
     input_gamut_compress: ParamsGroupSection
     output_gamut_compress: ParamsGroupSection
@@ -98,6 +100,7 @@ def create_widget_bundle() -> WidgetBundle:
         print_base=ParamsGroupSection(PRINT_BASE_MANIFEST),
         film_chemistry=ParamsGroupSection(FILM_CHEMISTRY_MANIFEST),
         film_base=ParamsGroupSection(FILM_BASE_MANIFEST),
+        convert=ParamsGroupSection(CONVERT_MANIFEST),
         glare=glare,
         input_gamut_compress=ParamsGroupSection(INPUT_GAMUT_COMPRESS_MANIFEST),
         output_gamut_compress=ParamsGroupSection(OUTPUT_GAMUT_COMPRESS_MANIFEST),

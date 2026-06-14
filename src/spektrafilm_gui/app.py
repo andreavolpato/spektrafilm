@@ -221,7 +221,7 @@ def _connect_auto_preview_signal(widget: Any, callback: Callable[..., None]) -> 
             _connect_auto_preview_signal(editor, callback)
         return
 
-    for signal_name in ('toggled', 'currentTextChanged', 'valueChanged'):
+    for signal_name in ('toggled', 'currentTextChanged', 'valueChanged', 'editingFinished'):
         signal = getattr(widget, signal_name, None)
         if signal is not None and hasattr(signal, 'connect'):
             signal.connect(callback)
@@ -249,6 +249,7 @@ def connect_auto_preview_signals(controller: GuiController, widgets: WidgetBundl
 def connect_controller_signals(controller: GuiController, widgets: WidgetBundle) -> None:
     widgets.filepicker.load_requested.connect(controller.load_input_image)
     widgets.load_raw.load_requested.connect(controller.load_raw_image)
+    widgets.convert.action_triggered.connect(controller.on_convert_action)
     widgets.simulation.film_stock.textActivated.connect(controller.apply_profile_defaults)
     widgets.simulation.print_paper.textActivated.connect(controller.apply_profile_defaults)
     widgets.gui_config.save_current_as_default_requested.connect(controller.save_current_as_default)

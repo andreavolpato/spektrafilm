@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from time import perf_counter
 
+import colour
 import numpy as np
 
 from spektrafilm.model.density_curves import (
@@ -16,7 +17,7 @@ from spektrafilm.runtime.services import (
     SpectralLUTService,
     ColorReferenceService,
 )
-from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
+from spektrafilm.runtime.stages import ConvertingStage, FilmingStage, PrintingStage, ScanningStage
 from spektrafilm.runtime.topology import Node, Tap, run_topology
 from spektrafilm.utils.timings import format_timings
 
@@ -117,6 +118,12 @@ class SimulationPipeline:
             self._resize_service,
             self._color_reference_service,
         )
+        # The convert-film front-end (scanned negative -> cmy_film). Only built
+        # when the workflow route needs it; it owns no LUT service and is cheap.
+        self._converting_stage = (
+            ConvertingStage(self.film, self.film_render, self.io, self.settings, self._lut_service)
+            if self.workflow.do_convert_film else None
+        )
         self._scanning_stage = ScanningStage(
             self.film,
             self.film_render,
@@ -147,7 +154,9 @@ class SimulationPipeline:
         defaults.
         """
         inject = inject or self.taps.inject or Tap.RGB_IN
-        collect = collect or self.taps.collect or Tap.RGB_OUT
+        # Most routes end at rgb_out; routes that terminate at an intermediate tap
+        # (e.g. convert-film > scan) declare it via workflow.collect_tap.
+        collect = collect or self.taps.collect or self.workflow.collect_tap
 
         self.timings.clear()
         start = perf_counter()
@@ -221,18 +230,30 @@ class SimulationPipeline:
                 Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,  "filming.expose"),
                 Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop, "filming.develop"),
             ]
+        elif self.workflow.do_convert_film:
+            # Convert workflow: convert a scanned negative directly to film cmy.
+            nodes += [
+                Node((Tap.RGB_PRE,), (Tap.CMY_FILM,),
+                     self._converting_stage.convert, "converting.convert"),
+            ]
         if self.workflow.do_printing:
             nodes += [
                 Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
                 Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
             ]
-        if self.workflow.scan_film:
+        if self.workflow.do_scan:
+            if self.workflow.scan_film:
+                nodes += [
+                    Node((Tap.CMY_FILM,), (Tap.RGB_OUT,), s.scan, "scanning.scan_film"),
+                ]
+            else:
+                nodes += [
+                    Node((Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"),
+                ]
+        if self.workflow.passthrough:
+            # No film/print/scan: just colour-manage the input to the output space.
             nodes += [
-                Node((Tap.CMY_FILM,), (Tap.RGB_OUT,), s.scan, "scanning.scan_film"),
-            ]
-        else:
-            nodes += [
-                Node((Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"),
+                Node((Tap.RGB_PRE,), (Tap.RGB_OUT,), self._passthrough, "passthrough"),
             ]
         return nodes
 
@@ -240,6 +261,21 @@ class SimulationPipeline:
         image = np.double(np.array(image)[:, :, 0:3])
         image = self._resize_service.crop_and_rescale(image)
         return image
+
+    def _passthrough(self, image):
+        """The bare "input" route: colour-manage the (decoded) input straight into
+        the output colour space so it is directly viewable, with no film / print /
+        scan. Decodes the input CCTF if requested, converts input -> output
+        primaries (with chromatic adaptation between their white points), and
+        applies the output CCTF encoding if requested. No gamut compression — it is
+        a faithful view of the input, so out-of-output-gamut colours may clip."""
+        return colour.RGB_to_RGB(
+            np.asarray(image, dtype=float),
+            self.io.input_color_space,
+            self.io.output_color_space,
+            apply_cctf_decoding=self.io.input_cctf_decoding,
+            apply_cctf_encoding=self.io.output_cctf_encoding,
+        )
 
     def _record_node_timing(self, node: Node, elapsed: float) -> None:
         self.timings[node.label] = self.timings.get(node.label, 0.0) + elapsed

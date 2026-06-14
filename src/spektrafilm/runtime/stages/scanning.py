@@ -52,12 +52,25 @@ class ScanningStage:
 
     # private methods
 
+    def _film_scan_illuminant_name(self) -> str:
+        """Name of the illuminant lighting the film during a film scan.
+
+        For the convert-film routes the film cmy was recovered from a negative
+        captured under the user's scan illuminant (``film_render.convert.scan_illuminant``),
+        so the scan must use that same lamp for a consistent round-trip (the
+        recovered film, re-scanned, reproduces the input negative). A normal film
+        scan uses the film's own viewing illuminant.
+        """
+        if self._workflow.do_convert_film:
+            return self._film_render.convert.scan_illuminant
+        return self._film.info.viewing_illuminant
+
     def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
         if self._workflow.scan_film:
             glare = None
             density_min = -match_channels(self._film_render.grain.density_min, density_channels.shape[-1])
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
-            scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
+            scan_illuminant = standard_illuminant(self._film_scan_illuminant_name())
         else:
             glare = self._print_render.glare
             density_min = np.nanmin(self._print.data.density_curves, axis=0)
@@ -104,7 +117,14 @@ class ScanningStage:
             channel_density = self._film.data.channel_density
             base_density = self._film.data.base_density
             base_density_params = self._film_render.base
-            scan_illuminant = standard_illuminant(self._film.info.viewing_illuminant)
+            scan_illuminant = standard_illuminant(self._film_scan_illuminant_name())
+            if self._workflow.scan_minus_base:
+                # Scan the film WITHOUT its base / orange mask: drop the base
+                # term so the spectral density is the pure dye stack (Σ cmy·dye),
+                # removing the orange cast. compute_density_spectral returns the
+                # dye-only spectral density when base_density is None.
+                base_density = None
+                base_density_params = None
         else:
             channel_density = self._print.data.channel_density
             base_density = self._print.data.base_density

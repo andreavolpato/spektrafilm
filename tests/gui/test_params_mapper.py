@@ -348,9 +348,11 @@ def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None
     assert captured['gui_args'] == (digested_params, 'film-stock', 'print-paper')
 
 
-def test_digest_after_selection_sets_route_from_film_type(monkeypatch) -> None:
-    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), workflow=SimpleNamespace(route='input > film > print > scan'))
-    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), workflow=SimpleNamespace(route='input > film > print > scan'))
+def test_digest_after_selection_preserves_route(monkeypatch) -> None:
+    # The route is user-controlled: selecting a profile must not change it,
+    # regardless of whether the film is positive or negative.
+    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), workflow=SimpleNamespace(route='input > convert-film > scan-minus-base'))
+    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), workflow=SimpleNamespace(route='input > film > scan'))
     digested_params = [positive_params, negative_params]
 
     def fake_digest_params(_params):
@@ -361,8 +363,8 @@ def test_digest_after_selection_sets_route_from_film_type(monkeypatch) -> None:
     positive_result = state_module.digest_after_selection(object())
     negative_result = state_module.digest_after_selection(object())
 
-    assert positive_result.workflow.route == 'input > film > scan'
-    assert negative_result.workflow.route == 'input > film > print > scan'
+    assert positive_result.workflow.route == 'input > convert-film > scan-minus-base'
+    assert negative_result.workflow.route == 'input > film > scan'
 
 
 def test_project_default_gui_state_matches_builder() -> None:

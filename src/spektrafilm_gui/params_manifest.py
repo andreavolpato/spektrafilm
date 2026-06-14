@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spektrafilm.runtime.params_schema import (
+    ConvertFilmParams,
     FilmBaseParams,
     PrintBaseParams,
     EnlargerParams,
@@ -43,6 +44,7 @@ from spektrafilm_gui.options import (
     OutputGamutCompressAlgorithms,
     RGBColorSpaces,
     RGBtoRAWMethod,
+    ScanIlluminants,
     WorkflowRoutes,
 )
 
@@ -73,6 +75,20 @@ class ParamSpec:
     @property
     def leaf(self) -> str:
         return self.name or self.path.rsplit(".", 1)[-1]
+
+
+@dataclass(frozen=True)
+class ActionSpec:
+    """A push-button shown in a group's panel that triggers a controller action.
+
+    Unlike a ParamSpec it edits no field; clicking it emits the section's
+    ``action_triggered`` signal with ``action_id``, which the app wires to a
+    controller handler (e.g. fitting the blind calibration on the current image).
+    """
+
+    action_id: str
+    label: str
+    tooltip: str = ""
 
 
 @dataclass(frozen=True)
@@ -122,6 +138,8 @@ class GroupManifest:
     # references fields by leaf name; any field not in a subsection renders
     # loose at the top of the panel.
     subsections: tuple[SubSection, ...] = ()
+    # Optional action buttons rendered at the bottom of this group's panel.
+    actions: tuple[ActionSpec, ...] = ()
 
 
 _DC = "film_render.dir_couplers"
@@ -435,6 +453,83 @@ FILM_BASE_MANIFEST = GroupManifest(
         ParamSpec(f"{_BD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel film base density shift around 650 nm (1.0 = neutral; adds (value - 1) density)."),
         ParamSpec(f"{_BD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel film base density shift around 555 nm (1.0 = neutral; adds (value - 1) density)."),
         ParamSpec(f"{_BD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel film base density shift around 460 nm (1.0 = neutral; adds (value - 1) density)."),
+    ),
+)
+
+
+_CV = "film_render.convert"
+
+CONVERT_MANIFEST = GroupManifest(
+    title="Convert",
+    group_path=_CV,
+    group_cls=ConvertFilmParams,
+    collapsed_by_default=True,
+    fields=(
+        ParamSpec(
+            f"{_CV}.scan_illuminant",
+            label="Scan illuminant",
+            tier="basic",
+            enum=ScanIlluminants,
+            tooltip="Light source of the scanning / capture rig used to digitize the negative. "
+                    "Set it to match your rig (a physical input); the film Base is the creative "
+                    "lever. Only used by the 'convert-film' workflow routes.",
+        ),
+        ParamSpec(
+            f"{_CV}.exposure_compensation_ev",
+            label="Exposure compensation ev",
+            tier="basic",
+            min=-100,
+            max=100,
+            step=0.25,
+            tooltip="Aligns the scan's overall brightness to the model (gain = 2^ev). "
+                    "Brighter input -> less recovered film density.",
+        ),
+        ParamSpec(
+            f"{_CV}.base_percentile",
+            label="Base percentile",
+            tier="basic",
+            min=50,
+            max=100,
+            step=0.5,
+            tooltip="Brightest-pixels percentile used by 'Detect base' to sample the clear / "
+                    "unexposed film (99 = brightest 1%). Detect base fits the film Base so that "
+                    "clear film maps to density 0 (unexposed -> neutral).",
+        ),
+        ParamSpec(
+            f"{_CV}.calibration",
+            label="Calibration",
+            tier="basic",
+            tooltip="3x3 device-correction matrix (9 numbers, row-major) applied to the input "
+                    "before inversion, to undo the scanner/camera colour rendering vs the "
+                    "standard observer over the film dyes (the cross-channel cast that the scan "
+                    "illuminant and base cannot reach). Editable and copy/paste-able; an invalid "
+                    "string falls back to identity (no correction). Use 'Blind calibration' to "
+                    "fit it from the current image.",
+        ),
+    ),
+    actions=(
+        ActionSpec(
+            "detect_base",
+            label="Detect base",
+            tooltip="Sample the clear/unexposed film from the brightest pixels of the current "
+                    "image (see Base percentile) and fit the film Base + exposure so the "
+                    "unexposed film maps to density 0. Run this first.",
+        ),
+        ActionSpec(
+            "blind_calibration",
+            label="Blind calibration",
+            tooltip="Fit the Calibration matrix from the CURRENT image and write it above. "
+                    "Works best on a vibrant, colour-filled frame (it aligns the scanned "
+                    "colours to the film's dye gamut); a flat/neutral frame gives a weak fit. "
+                    "Review/edit the values afterwards.",
+        ),
+        ActionSpec(
+            "neutralize_filters",
+            label="Neutralize print filters",
+            tooltip="Solve the print enlarger M and Y filter shifts so the current film + base "
+                    "midgray prints neutral. Image-independent; run it after Detect base (a tuned "
+                    "base changes the print balance). Writes Print M/Y filter shift in Enlarger.",
+        ),
     ),
 )
 
@@ -1043,10 +1138,12 @@ SIMULATION_WORKFLOW_FIELDS = (
         label="Workflow",
         tooltip=(
             "Which path the image takes through the pipeline: "
+            "input (passthrough: just colour-manage the input to the output space for viewing), "
             "input > film > scan (scan the negative directly), "
             "input > film > print > scan (full chain), "
             "input > convert-film > print > scan (print a scene-referred input and scan it), "
-            "input > convert-film > scan-minus-base (convert input and scan with base removed)."
+            "input > convert-film > scan-minus-base (convert input and scan with base removed), "
+            "input > convert-film > scan (convert input, then scan the film with its base)."
         ),
         enum=WorkflowRoutes,
     ),
@@ -1074,6 +1171,7 @@ ALL_MANIFESTS = (
     PRINT_BASE_MANIFEST,
     FILM_CHEMISTRY_MANIFEST,
     FILM_BASE_MANIFEST,
+    CONVERT_MANIFEST,
     PREFLASHING_MANIFEST,
     CAMERA_MANIFEST,
     CAMERA_DIFFUSION_MANIFEST,

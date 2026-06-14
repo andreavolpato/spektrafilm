@@ -293,6 +293,20 @@ class EnumEditor(QtWidgets.QComboBox):
             raise ValueError(f"{value!r} is not a valid option")
 
 
+class StrEditor(QtWidgets.QLineEdit):
+    """Free-text editor for a plain ``str`` field (e.g. the calibration matrix
+    string). Emits ``editingFinished`` on commit, which the auto-preview wiring
+    listens for (so it does not re-render on every keystroke)."""
+
+    @property
+    def value(self) -> str:
+        return self.text()
+
+    @value.setter
+    def value(self, value: str) -> None:
+        self.setText("" if value is None else str(value))
+
+
 class DevelopmentTimeEditor(QtWidgets.QComboBox):
     """Dropdown of a BW stock's available development times.
 

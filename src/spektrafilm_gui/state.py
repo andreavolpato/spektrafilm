@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
+    ConvertFilmParams,
     FilmBaseParams,
     PrintBaseParams,
     CameraParams,
@@ -212,6 +213,7 @@ class GuiState:
     print_base: PrintBaseParams
     film_chemistry: FilmChemistryParams
     film_base: FilmBaseParams
+    convert: ConvertFilmParams
     camera: CameraParams
     enlarger_diffusion: DiffusionFilterParams
     camera_diffusion: DiffusionFilterParams
@@ -263,6 +265,7 @@ def clone_gui_state(state: GuiState) -> GuiState:
         print_base=clone_state_section(state.print_base),
         film_chemistry=clone_state_section(state.film_chemistry),
         film_base=clone_state_section(state.film_base),
+        convert=clone_state_section(state.convert),
         camera=clone_state_section(state.camera),
         enlarger_diffusion=clone_state_section(state.enlarger_diffusion),
         camera_diffusion=clone_state_section(state.camera_diffusion),
@@ -315,6 +318,7 @@ def gui_state_from_params(
         print_base=replace(params.print_render.base),
         film_chemistry=replace(params.film_render.chemistry),
         film_base=replace(params.film_render.base),
+        convert=replace(params.film_render.convert),
         camera=replace(params.camera),
         enlarger_diffusion=replace(params.enlarger.diffusion_filter),
         camera_diffusion=replace(params.camera.diffusion_filter),
@@ -351,7 +355,10 @@ def gui_state_from_params(
         ),
         gui_only=GuiOnlyState(
             load_raw=LoadRawState(
-                white_balance='as_shot',
+                # Daylight (D65) is the colorimetric reference the rest of the
+                # pipeline assumes; white balance is corrected downstream with the
+                # enlarger, not here. See the white_balance tooltip.
+                white_balance='daylight',
                 temperature=5500.0,
                 tint=1.0,
                 lens_correction=False,
@@ -368,13 +375,9 @@ def gui_state_from_params(
 
 
 def digest_after_selection(params: RuntimePhotoParams) -> RuntimePhotoParams:
-    params = digest_params(params)
-    # A positive (reversal) film is scanned directly; a negative goes through
-    # the print stage before scanning.
-    params.workflow.route = (
-        "input > film > scan" if params.film.is_positive else "input > film > print > scan"
-    )
-    return params
+    # The workflow route is user-controlled and intentionally left untouched here:
+    # changing the film or print profile must not switch the pipeline route.
+    return digest_params(params)
 
 
 def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:

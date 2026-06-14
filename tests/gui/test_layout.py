@@ -351,6 +351,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         print_base='print_base',
         film_chemistry='film_chemistry',
         film_base='film_base',
+        convert='convert',
         glare='glare',
         preflashing='preflashing',
         enlarger_diffusion='enlarger_diffusion',
@@ -381,4 +382,5 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         'couplers',
         'grain',
         'camera_diffusion',
+        'convert',
     )

@@ -200,11 +200,13 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         set_output_interpolation_mode=object(),
         refresh_preview_cache=object(),
         request_auto_preview=object(),
+        on_convert_action=object(),
     )
     original_connect_auto_preview_signals = app_module.connect_auto_preview_signals
     widgets = SimpleNamespace(
         filepicker=SimpleNamespace(load_requested=FakeSignal()),
         load_raw=SimpleNamespace(load_requested=FakeSignal()),
+        convert=SimpleNamespace(action_triggered=FakeSignal()),
         gui_config=SimpleNamespace(
             save_current_as_default_requested=FakeSignal(),
             save_current_to_file_requested=FakeSignal(),
@@ -235,6 +237,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
 
     assert widgets.filepicker.load_requested.connected == [controller.load_input_image]
     assert widgets.load_raw.load_requested.connected == [controller.load_raw_image]
+    assert widgets.convert.action_triggered.connected == [controller.on_convert_action]
     assert widgets.simulation.film_stock.textActivated.connected == [controller.apply_profile_defaults]
     assert widgets.simulation.print_paper.textActivated.connected == [controller.apply_profile_defaults]
     assert widgets.gui_config.save_current_as_default_requested.connected == [controller.save_current_as_default]

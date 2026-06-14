@@ -14,10 +14,28 @@ class RGBColorSpaces(Enum):
 
 
 class WorkflowRoutes(Enum):
+    input_passthrough = "input"
     input_film_scan = "input > film > scan"
     input_film_print_scan = "input > film > print > scan"
     input_convert_film_print_scan = "input > convert-film > print > scan"
     input_convert_film_scan_minus_base = "input > convert-film > scan-minus-base"
+    input_convert_film_scan = "input > convert-film > scan"
+
+
+class ScanIlluminants(Enum):
+    # Curated capture-rig light sources for the convert (scanned-negative ->
+    # film density) workflow. Values are names standard_illuminant() resolves.
+    D50 = "D50"
+    D55 = "D55"
+    D65 = "D65"
+    A = "A"
+    BB3200 = "BB3200"
+    BB5000 = "BB5000"
+    LED_B3 = "LED-B3"
+    LED_B5 = "LED-B5"
+    LED_RGB1 = "LED-RGB1"
+    LED_V2 = "LED-V2"
+    FL2 = "FL2"
 
 
 class RGBtoRAWMethod(Enum):
