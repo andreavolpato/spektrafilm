@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **I love building spektrafilm**, and I invested already hundreds of hours in it. Right now it’s a nights-and-weekends project. If it will help pay some bills, I can keep improving it for everyone. 🙂 Any **support** is really appreciated: [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
+> **I love building spektrafilm**, and I invested already hundreds of hours in it. Right now it's a nights-and-weekends project. If it will help pay some bills, I can keep improving it for everyone. 🙂 Any **support** is really appreciated: [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
 > 
 > **2026/05/28 big git history cleanup** (140MB -> 45MB) --> please reclone!
 > 
@@ -12,13 +12,13 @@
 An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
 
 Here are some useful links and spin-off projects:
-- Discussion about the project is happeing at [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
+- Discussion about the project is happening at [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
 - Join us at the official [subreddit](https://www.reddit.com/r/spektrafilm/).
 - A [high-level writeup](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/) is available as a gentle entrypoint to the spectral framework.
 - Vote [your next stock](https://discuss.pixls.us/t/2026-q2-data-sheets-digitization-campaign/58032) you would like to see in spektrafilm.
 - A blazing fast Vulkan implementation is available in [vkdt](https://jo.dreggn.org/vkdt/src/pipe/modules/filmsim/readme.html) by [hanatos](https://github.com/hanatos).
 - An [OFX plugin](https://spektrafilm.114c.de/) was developed by [Aedan](https://github.com/chaert-s).
-- A fast [rust implementaion](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
+- A fast [rust implementation](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
 - A LUT-based bridge is available in [ART](https://artraweditor.github.io/SpectralFilmSimHowto) by [agriggio](https://github.com/agriggio).
 
 
@@ -34,7 +34,7 @@ between fast(-ish) previews and more detailed final scans. Full resolution
 export is very slow at the moment.
 
 > [!IMPORTANT]
->   spektrafilm (all lower caps) is open for research, integration, and production use. The project is in rapid development, some ares are still being build and will change fast.
+>   spektrafilm (all lower caps) is open for research, integration, and production use. The project is in rapid development, some areas are still being built and will change fast.
 >
 > If you find it useful:
 >  * Acknowledge spektrafilm in plugin descriptions, marketing, or credits (e.g.
@@ -44,7 +44,7 @@ export is very slow at the moment.
 >  * Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
 >  * Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel the next all-nighter coding session :)
 >
->  *The project is GPLv3 licensed*, so any derivative work must also be open source under the same license. Derivatve work includes any software, plugin, or tool that incorporates spektrafilm code or is directly inspired by its methods.
+>  *The project is GPLv3 licensed*, so any derivative work must also be open source under the same license. Derivative work includes any software, plugin, or tool that incorporates spektrafilm code or is directly inspired by its methods.
 >
 > *JSON profiles and LUTs are CC BY-SA 4.0.*
 >  
@@ -187,14 +187,14 @@ Equivalent on the command line — color spaces accept canonical
 registry names or `short_tag` slugs (`vlog`, `srgb`, `acescg`, ...):
 
 ```bash
-spektrafilm-lut build \
-	--film kodak_portra_400 \
-	--print kodak_portra_endura \
-	--input vlog --output srgb \
-	--topology 1lut \
-   --resolution 33 \
-	--qa \
-   --ocio-config \
+spektrafilm-lut build \\
+	--film kodak_portra_400 \\
+	--print kodak_portra_endura \\
+	--input vlog --output srgb \\
+	--topology 1lut \\
+   --resolution 33 \\
+	--qa \\
+   --ocio-config \\
 	--out ./build/lut_bundles/
 
 spektrafilm-lut list film         # discover registered profiles
@@ -220,7 +220,7 @@ Dependency direction:
 > Since spektrafilm is not compatible with the latest Python version, an
 > older version like 3.13 must be used.
 
-I reccomend to install spektrafilm with `conda`+`pip` for now, just because it 
+I recommend to install spektrafilm with `conda`+`pip` for now, just because it 
 is my current workflow and thus it has more chances to be tested right after 
 commit.
 
@@ -255,7 +255,7 @@ on top of the default install.
 Under Windows you can install `uv` using the following command, which you only
 need to execute once:
 ```bash
-# ! you only need to exeucte this command the first time to install uv!
+# ! you only need to execute this command the first time to install uv!
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 Instructions for macOS and Linux are
@@ -355,7 +355,7 @@ same file and reprocess it with the new settings.
 > Hover over the widgets and controls to see a helpful tooltip.
 
 You can still load externally prepared linear images through the `file loader`.
-This is useful if you want a fully manual raw-development workflow or if you
+This is useful if you want to fully manual raw-development workflow or if you
 prefer preprocessing in another tool. For best results, keep the image
 scene-referred and linear, ideally as a 16-bit or 32-bit float TIFF/EXR in a
 wide-gamut color space such as linear Rec2020 or linear ProPhoto RGB.
