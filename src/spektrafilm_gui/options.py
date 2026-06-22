@@ -48,6 +48,8 @@ class RGBtoRAWMethod(Enum):
     arctic2026beta01 = "arctic2026beta01" # 2026-06-12
     arctic2026beta02 = "arctic2026beta02" # 2026-06-14
     arctic2026beta03 = "arctic2026beta03" # 2026-06-14
+    arctic2026beta04 = "arctic2026beta04" # 2026-06-21
+    gauss_lasers = "gauss-lasers" # 2026-06-19
 
 
 class RawWhiteBalance(Enum):
