@@ -11,6 +11,8 @@ class RGBColorSpaces(Enum):
     ITU_R_BT2020 = "ITU-R BT.2020"
     ProPhotoRGB = "ProPhoto RGB"
     ACES2065_1 = "ACES2065-1"
+    DaVinciWideGamut = "DaVinci Wide Gamut"
+    V_Gamut = "V-Gamut"
 
 
 class WorkflowRoutes(Enum):
