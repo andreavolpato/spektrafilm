@@ -23,4 +23,4 @@ bounded = false                               # unit-XYZ-sum rescale lifts narro
 [meta]
 method = "Parametric double-Gaussian rim metamer R(l) = (1-t)*G(l1,s) + t*G(l2,s): a chroma-exact single-peak BASIN, an analytic spectral-locus RIM (s at the narrow bound), seam-free purple CORRIDORS (two peaks pinned at the visible bounds), green-seam reparametrisation + per-side field relaxation, then a constant-white crossfade. Cubic-baked onto the tc grid (red/blue sides interpolated separately across the discontinuous green seam; the seam gap extrapolated from the red side)."
 source = "spektrafilm-research study c50 (c50_double_peak_spectral_upsampling, s011 -> s012); 2026-06-19"
-notes = "Shipped as the unit-brightness variant R / sum(C.R): same convention as jakob/otsu/arctic (XYZ sums to 1), so brightness comes from the scene b, not the LUT. White cell (tc≈0.472,0.479): sum(C.R)=1.000000, xy err=9.79e-03."
+notes = "Shipped as the unit-brightness variant R / sum(C.R): same convention as jakob/otsu/arctic (XYZ sums to 1), so brightness comes from the scene b, not the LUT. White cell (tc≈0.472,0.479): sum(C.R)=1.000000, xy err=9.90e-03."
