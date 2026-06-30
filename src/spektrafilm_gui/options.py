@@ -43,10 +43,10 @@ class ScanIlluminants(Enum):
 class RGBtoRAWMethod(Enum):
     arctic2026beta04 = "arctic2026beta04" # 2026-06-21
     hanatos2025 = "hanatos2025"
-    jakob2019 = "jakob2019"
-    otsu2018 = "otsu2018"
+    # jakob2019 = "jakob2019"
+    # otsu2018 = "otsu2018"
     mallett2019 = "mallett2019"
-    gauss_lasers = "gauss-lasers" # 2026-06-19
+    # gauss_lasers = "gauss-lasers" # 2026-06-19
 
 
 class RawWhiteBalance(Enum):
@@ -85,7 +85,6 @@ class DiffusionFilterFamilies(Enum):
 
 class InputGamutCompressAlgorithms(Enum):
     xy = "xy"
-    oklch = "oklch"
 
 
 class OutputGamutCompressAlgorithms(Enum):

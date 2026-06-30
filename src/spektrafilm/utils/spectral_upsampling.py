@@ -421,12 +421,17 @@ def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compre
         raw_lut *= 2**surface
 
     if gamut_compress is not None and gamut_compress.active:
-        # Bake compression into the LUT at build time. The reference
-        # illuminant matches what _rgb_to_tc_b uses at runtime, so the
-        # compression's achromatic axis is the film's white.
+        # Bake compression into the LUT at build time, centered on the fixed
+        # locus-central white D65 — NOT the film reference illuminant used for
+        # the adaptation. The compression center is independent of the film
+        # balance: the adaptation (reference_illuminant, above) sets where the
+        # neutral lands and which spectrum it recovers; the knee's identity
+        # region preserves that neutral wherever it lands, while centering on
+        # central D65 keeps the radial geometry well-behaved (matches the
+        # reflectance path's scene white). See spektrafilm-research b40 n040.
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
-        ref_xy = _illuminant_to_xy(hanatos2025_adaptation.reference_illuminant)
-        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
+        d65_xy = _illuminant_to_xy('D65')
+        raw_lut = remap_tc_lut_for_compression(raw_lut, d65_xy, gamut_compress)
 
     return raw_lut
 
@@ -568,8 +573,13 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
 
     if gamut_compress is not None and gamut_compress.active:
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
-        ref_xy = _illuminant_to_xy(reference_illuminant)
-        raw_lut = remap_tc_lut_for_compression(raw_lut, ref_xy, gamut_compress)
+        # Center on the SCENE white, not the relight illuminant: compression remaps the
+        # tc ACCESS geometry, which the runtime projects under scene_illuminant (the D55
+        # relight only scales the stored raw, not where an input addresses the LUT). This
+        # matches the contract remap_tc_lut_for_compression documents and keeps the
+        # neutral fixed regardless of reference/scene separation.
+        scene_xy = _illuminant_to_xy(scene_illuminant)
+        raw_lut = remap_tc_lut_for_compression(raw_lut, scene_xy, gamut_compress)
 
     return raw_lut
 

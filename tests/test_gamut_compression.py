@@ -21,6 +21,7 @@ from spektrafilm.utils.gamut_compression import (
     compress_rgb_oklch_chroma,
     compress_rgb_oklrab_chroma,
     compress_xy,
+    inscribed_locus_hull,
     reinhard_knee,
     remap_tc_lut_for_compression,
     spectral_locus_xy,
@@ -28,27 +29,47 @@ from spektrafilm.utils.gamut_compression import (
 
 
 class TestInputGamutCompressSpec:
-    def test_default_is_full_range_soft_knee(self):
+    def test_default_is_aces_rgc_inscribed_hull(self):
         s = InputGamutCompressSpec()
         assert s.active is True
         assert s.algorithm == "xy"
-        assert s.knee == (0.0, 1.0, 6.0)
+        assert s.boundary == "inscribed_hull"
+        # hull_detail is the smoothness<->chroma tuning knob; its exact
+        # sweet-spot value is under empirical selection (b40), so assert only
+        # that it is a valid positive value, not a specific number.
+        assert s.hull_detail > 0.0
+        assert s.knee == (0.815, 1.0, 1.2)
 
     def test_inactive_constructs(self):
         s = InputGamutCompressSpec(active=False)
         assert s.active is False
 
-    def test_oklch_algorithm_constructs(self):
-        s = InputGamutCompressSpec(algorithm="oklch")
-        assert s.algorithm == "oklch"
+    def test_locus_boundary_constructs(self):
+        s = InputGamutCompressSpec(boundary="locus")
+        assert s.boundary == "locus"
+
+    def test_custom_hull_detail_constructs(self):
+        s = InputGamutCompressSpec(hull_detail=6.0)
+        assert s.hull_detail == 6.0
 
     def test_custom_knee_constructs(self):
         s = InputGamutCompressSpec(knee=(0.7, 1.5, 1.5))
         assert s.knee == (0.7, 1.5, 1.5)
 
     def test_invalid_algorithm_raises(self):
-        with pytest.raises(ValueError, match="algorithm must be"):
-            InputGamutCompressSpec(algorithm="cam16")
+        # xy is the only input algorithm. jzazbz/cam16ucs were dropped from the
+        # input side (measurably less smooth in-locus; still valid for output).
+        for algo in ("jzazbz", "oklch", "cam16ucs"):
+            with pytest.raises(ValueError, match="algorithm must be"):
+                InputGamutCompressSpec(algorithm=algo)
+
+    def test_invalid_boundary_raises(self):
+        with pytest.raises(ValueError, match="boundary must be"):
+            InputGamutCompressSpec(boundary="hull")
+
+    def test_non_positive_hull_detail_raises(self):
+        with pytest.raises(ValueError, match="hull_detail"):
+            InputGamutCompressSpec(hull_detail=0.0)
 
     def test_threshold_out_of_range_raises(self):
         with pytest.raises(ValueError, match="threshold"):
@@ -152,9 +173,11 @@ class TestCompressXy:
         d_out = np.linalg.norm(out[0] - self.white)
         assert d_out < d_in, "OOG input should be pulled in"
 
-    def test_oklch_algorithm_works(self):
-        spec = InputGamutCompressSpec(algorithm="oklch")
+    def test_locus_boundary_works(self):
+        # boundary="locus" compresses against the raw locus polygon instead of
+        # the default inscribed hull; both are valid.
         xy = np.array([[0.7, 0.2], [0.1, 0.8]])
+        spec = InputGamutCompressSpec(boundary="locus")
         out = compress_xy(xy, self.white, spec)
         assert out.shape == xy.shape
         assert np.all(np.isfinite(out))
@@ -197,9 +220,9 @@ class TestRemapTcLutForCompression:
         )
         assert not np.array_equal(out, lut), "remap should change some cells"
 
-    def test_oklch_algorithm_works(self):
+    def test_locus_boundary_works(self):
         lut = self._dummy_lut()
-        spec = InputGamutCompressSpec(algorithm="oklch")
+        spec = InputGamutCompressSpec(boundary="locus")
         out = remap_tc_lut_for_compression(
             lut, np.array([1 / 3, 1 / 3]), spec,
         )
@@ -219,6 +242,50 @@ class TestRemapTcLutForCompression:
         assert out.shape == (H, W, 1)
         assert out.dtype == lut.dtype
         assert np.all(np.isfinite(out))
+
+
+class TestInscribedLocusHull:
+    D65 = np.array([0.3127, 0.3290])  # the fixed compression center
+
+    def test_hull_vertices_inside_locus(self):
+        from matplotlib.path import Path as MplPath
+        hull = inscribed_locus_hull(self.D65, detail=11.0)
+        locus = spectral_locus_xy()
+        inside = MplPath(locus).contains_points(hull, radius=1e-9)
+        # The hull is inscribed (R_eff <= R); only the single tightest cusp may
+        # touch the boundary, so essentially every vertex is inside.
+        assert np.mean(inside) > 0.99
+
+    def test_cached(self):
+        a = inscribed_locus_hull(self.D65, 11.0)
+        b = inscribed_locus_hull(self.D65, 11.0)
+        assert a is b, "hull should be cached per (white, detail, locus)"
+
+    def test_higher_detail_hugs_tighter(self):
+        # Larger detail keeps more modes/chroma: mean radius from white is larger.
+        tight = inscribed_locus_hull(self.D65, 20.0)
+        loose = inscribed_locus_hull(self.D65, 5.0)
+        r_tight = float(np.linalg.norm(tight - self.D65, axis=-1).mean())
+        r_loose = float(np.linalg.norm(loose - self.D65, axis=-1).mean())
+        assert r_tight > r_loose
+
+    def test_default_compression_lands_inside_locus(self):
+        # The arctic2026 gate: with no out-of-locus inpainting downstream, every
+        # compressed chromaticity must land inside the true locus. Sweep a dense
+        # grid of wide / imaginary chromaticities (covers V-Gamut, DWG, ACEScg
+        # corners and beyond).
+        from matplotlib.path import Path as MplPath
+        gx, gy = np.meshgrid(
+            np.linspace(-0.10, 0.85, 60), np.linspace(-0.15, 1.00, 60),
+        )
+        xy = np.stack([gx.ravel(), gy.ravel()], axis=-1)
+        spec = InputGamutCompressSpec()  # default: inscribed hull, (0.815,1,1.2)
+        out = compress_xy(xy, self.D65, spec)
+        inside = MplPath(spectral_locus_xy()).contains_points(out, radius=1e-6)
+        assert np.all(inside), (
+            f"{int((~inside).sum())} of {len(out)} compressed points "
+            f"landed outside the locus"
+        )
 
 
 class TestOutputGamutCompressSpec:

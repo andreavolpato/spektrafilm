@@ -57,7 +57,7 @@ def _make_state() -> GuiState:
     state.chemistry = replace(state.chemistry, gamma_factor=1.15)
     state.glare.blur = 0.8
     state.scanner = replace(state.scanner, white_correction=True, white_level=0.9, lens_blur=0.3)
-    state.input_gamut_compress = replace(state.input_gamut_compress, active=False, algorithm='oklch')
+    state.input_gamut_compress = replace(state.input_gamut_compress, active=False, boundary='locus', hull_detail=6.0)
     state.output_gamut_compress = replace(state.output_gamut_compress, algorithm='aces_rgc')
     state.simulation.enlarger.print_exposure = 1.3
     state.camera.lens_blur_um = 3.5

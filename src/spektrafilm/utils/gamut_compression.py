@@ -28,8 +28,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import colour
-import numpy as np 
-from matplotlib.path import Path as MplPath
+import numpy as np
 from scipy.ndimage import map_coordinates
 
 
@@ -51,29 +50,59 @@ class InputGamutCompressSpec:
         feature landed).
     algorithm :
         ``"xy"`` — radial compression in CIE 1931 chromaticity from the
-        film reference illuminant toward the visible spectral locus
-        (ACES RGC family). This is the production default; see n100
-        §5.1 for why it won over the alternatives on smoothness probes.
-
-        ``"oklch"`` — chroma reduction at constant Oklch (L, h) — moves
-        the chromaticity radially in OkLab space toward the locus
-        boundary. Available for inspection / per-bundle override.
+        scene white toward the visible spectral locus (ACES RGC family).
+        Preserves *dominant wavelength* and is the straightest / smoothest
+        path by construction (n100 §5.1 measured it as the smoothest input
+        path; the former ``"jzazbz"`` / ``"cam16ucs"`` perceptual input
+        options were dropped — they were measurably less smooth in-locus and
+        only well-defined near the locus. Perceptual chroma reduction remains
+        an *output*-side option, where the boundary is the RGB cube).
+    boundary :
+        Target boundary the radial knee compresses toward.
+        ``"inscribed_hull"`` (default) — a smooth star-shaped hull inscribed
+        inside the visible spectral locus (:func:`inscribed_locus_hull`),
+        which removes the locus-polygon vertex / cusp kinks and keeps every
+        compressed chromaticity strictly inside the locus (b40). ``"locus"``
+        — the raw spectral-locus polygon (kept for A/B and regression).
+    hull_detail :
+        Number of FFT modes kept when building the inscribed hull (the
+        mode-space Gaussian width). **Higher** keeps more modes → the hull hugs
+        the locus tighter (more cusp chroma) but re-admits kinks; **lower** keeps
+        fewer modes → smoother, rounding the spectral tips inward toward the
+        inscribed circle. (Note the direction: this is modes-kept, not a spatial
+        blur width — larger = *less* smoothing.) Only used when
+        ``boundary == "inscribed_hull"``.
     knee :
         ``(threshold, limit, power)`` of the Reinhard knee:
         ``d' = t + s · n / (1 + n^p)^(1/p)`` where ``n = (d - t)/s``
-        and ``s = limit - t``. Default ``(0.0, 1.0, 6.0)`` applies a
-        soft full-range roll-off that keeps the asymptote on the locus
-        boundary while avoiding a visible knee onset.
+        and ``s = limit - t``. Default ``(0.815, 1.0, 1.2)`` — the ACES RGC
+        pair: the ``0.815`` threshold leaves in-gamut / midrange colors
+        untouched, and the ``1.2`` power gives a slow asymptotic tail so
+        deep-imaginary colors keep their gradation instead of clipping to the
+        boundary. ``limit = 1.0`` puts the asymptote on the boundary (the
+        inscribed hull, inside the locus), so compressed values stay inside.
     """
 
     active: bool = True
-    algorithm: Literal["xy", "oklch"] = "xy"
-    knee: tuple[float, float, float] = (0.0, 1.0, 6.0)
+    algorithm: Literal["xy"] = "xy"
+    boundary: Literal["locus", "inscribed_hull"] = "inscribed_hull"
+    hull_detail: float = 11.0
+    knee: tuple[float, float, float] = (0.815, 1.0, 1.2)
 
     def __post_init__(self) -> None:
-        if self.algorithm not in ("xy", "oklch"):
+        valid_algos = ("xy",)
+        if self.algorithm not in valid_algos:
             raise ValueError(
-                f"algorithm must be 'xy' or 'oklch', got {self.algorithm!r}"
+                f"algorithm must be one of {valid_algos}, got {self.algorithm!r}"
+            )
+        valid_boundaries = ("locus", "inscribed_hull")
+        if self.boundary not in valid_boundaries:
+            raise ValueError(
+                f"boundary must be one of {valid_boundaries}, got {self.boundary!r}"
+            )
+        if not (self.hull_detail > 0.0):
+            raise ValueError(
+                f"hull_detail must be > 0, got {self.hull_detail}"
             )
         t, l, p = self.knee
         if not (0.0 <= t < 1.0):
@@ -349,7 +378,13 @@ def _ray_polygon_distance(
             (-ox * dy + oy * dx) / np.where(valid, denom, 1.0),
             np.inf,
         )
-        good = valid & (t > 1e-9) & (s >= 0.0) & (s <= 1.0)
+        # Small epsilon on the edge parameter so a ray passing exactly through a
+        # vertex still registers on an adjacent edge (s just outside [0, 1] by
+        # float error) instead of missing both — otherwise the ray returns inf,
+        # and compress_xy_radial's `d_compressed * boundary` becomes 0 * inf =
+        # NaN. Matters for dense polygons (the inscribed hull) whose vertices can
+        # align exactly with query directions.
+        good = valid & (t > 1e-9) & (s >= -1e-9) & (s <= 1.0 + 1e-9)
         t_min = np.where(good & (t < t_min), t, t_min)
 
     return t_min.reshape(direction.shape[:-1])
@@ -395,18 +430,92 @@ def compress_xy_radial(
 
 
 # ---------------------------------------------------------------------------
-# Oklch chroma compressor + per-illuminant C_max(L, h) cache
+# Inscribed smooth hull of the spectral locus (study b40)
+# ---------------------------------------------------------------------------
+
+# Cache key: (round(white, 6), detail, id(locus)). Built once per bundle
+# white; the build is a few FFTs + a ray-cast, but the LUT bake calls compress
+# repeatedly so caching keeps it a one-time cost.
+_INSCRIBED_HULL_CACHE: dict[tuple, np.ndarray] = {}
+
+
+def fourier_lowpass(y: np.ndarray, mode_sigma: float) -> np.ndarray:
+    """Low-pass a periodic function by attenuating FFT mode ``k`` with a Gaussian
+    ``exp(-0.5 (k/mode_sigma)^2)``.
+
+    A cusp is the highest-frequency feature of a radial boundary function, so this
+    dissolves cusps into a smooth hull. DC (mean radius) is preserved.
+    """
+    A = np.fft.rfft(y)
+    k = np.arange(A.shape[0])
+    return np.fft.irfft(A * np.exp(-0.5 * (k / mode_sigma) ** 2), len(y))
+
+
+def inscribed_locus_hull(
+    white_xy: np.ndarray,
+    detail: float,
+    locus: np.ndarray | None = None,
+    *,
+    n_theta: int = 1024,
+) -> np.ndarray:
+    """Smooth star-shaped hull inscribed *inside* the spectral locus, centered on
+    ``white_xy``, returned as a closed polygon for :func:`compress_xy_radial`.
+
+    Build: sample the locus's radial reach ``R(theta)`` from ``white_xy`` at
+    ``n_theta`` angles, FFT-low-pass it to dissolve the cusps, then scale it
+    *down* to the worst overshoot so ``R_eff <= R`` everywhere — the hull lies
+    strictly inside the true locus. Compressing radially against this hull
+    therefore lands every input inside the locus (no out-of-locus inpainting is
+    assumed downstream), while removing the locus-polygon vertex / cusp kinks
+    that a raw-polygon boundary injects into the compression field.
+
+    ``detail`` is the number of FFT modes kept (the mode-space Gaussian width
+    passed to :func:`fourier_lowpass`). It trades cusp chroma against smoothness:
+    **higher detail** keeps more modes → the hull hugs the locus tighter (more
+    cusp chroma) but re-admits kinks; **lower detail** keeps fewer modes → smoother
+    but rounds the spectral tips inward, collapsing toward the inscribed circle as
+    detail → 0. See spektrafilm-research b40 (n030/n040, s030).
+
+    Cached per ``(white_xy, detail, locus)``.
+    """
+    if locus is None:
+        locus = spectral_locus_xy()
+    white_xy = np.asarray(white_xy, dtype=float)
+    key = (round(float(white_xy[0]), 6), round(float(white_xy[1]), 6),
+           float(detail), id(locus))
+    cached = _INSCRIBED_HULL_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    theta = np.linspace(0.0, 2.0 * np.pi, n_theta, endpoint=False)
+    dirs = np.stack([np.cos(theta), np.sin(theta)], axis=-1)
+    reach = _ray_polygon_distance(white_xy, dirs, locus)
+    # Every ray from an interior white should hit the closed locus; guard the
+    # rare miss (numerical) with the median so the FFT sees a finite function.
+    reach = np.nan_to_num(reach, nan=float(np.nanmedian(reach)))
+
+    reach_lp = np.fmax(fourier_lowpass(reach, detail), 1e-12)
+    reach_eff = reach_lp * float(np.min(reach / reach_lp))   # inscribe: R_eff <= R
+    hull = white_xy + reach_eff[:, None] * dirs
+    hull = np.concatenate([hull, hull[:1]], axis=0)          # close the polygon
+
+    _INSCRIBED_HULL_CACHE[key] = hull
+    return hull
+
+
+# ---------------------------------------------------------------------------
+# Perceptual chroma compressor + C_max(L, h) bisection cache
+#
+# Shared C_max(L, h) resolution for the OUTPUT-side polar chroma compressors
+# (against the RGB cube). The input side no longer uses a perceptual C_max
+# table — its jzazbz / cam16ucs paths were removed (see InputGamutCompressSpec);
+# the input compressor is xy-radial against the spectral locus / inscribed hull.
 # ---------------------------------------------------------------------------
 
 
 _OKLCH_CMAX_TABLE_N_L = 64
 _OKLCH_CMAX_TABLE_N_H = 720
 _OKLCH_CMAX_TABLE_N_BISECT = 18
-
-# Cache key: id of the locus array. The same locus instance produces
-# the same table; users rebuilding the locus (e.g., a different observer)
-# get a fresh table.
-_OKLCH_CMAX_TABLE_CACHE: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
 
 
 def _xy_to_xyz_unit_y(xy: np.ndarray) -> np.ndarray:
@@ -418,54 +527,6 @@ def _xy_to_xyz_unit_y(xy: np.ndarray) -> np.ndarray:
     Y = np.ones_like(x)
     Z = (1.0 - x - y) / safe_y
     return np.stack([X, Y, Z], axis=-1)
-
-
-def _xyz_to_xy(xyz: np.ndarray) -> np.ndarray:
-    total = xyz.sum(axis=-1, keepdims=True)
-    return xyz[..., :2] / np.fmax(total, 1e-12)
-
-
-def _build_oklch_c_max_table(
-    locus: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Bisect to find max Oklch chroma at each (L, h) such that the
-    resulting xy is inside the spectral locus.
-
-    Returns ``(L_grid, h_grid, C_max_table)`` for use with
-    :func:`_c_max_lookup`. Computed once per locus and cached.
-    """
-    n_L = _OKLCH_CMAX_TABLE_N_L
-    n_h = _OKLCH_CMAX_TABLE_N_H
-    n_bisect = _OKLCH_CMAX_TABLE_N_BISECT
-
-    L_grid = np.linspace(0.05, 1.0, n_L)
-    h_grid = np.linspace(-np.pi, np.pi, n_h, endpoint=False)
-    L_mesh, h_mesh = np.meshgrid(L_grid, h_grid, indexing="ij")
-
-    lo = np.zeros_like(L_mesh)
-    hi = np.full_like(L_mesh, 0.5)  # 0.5 covers all realistic chromas
-
-    locus_path = MplPath(locus)
-    for _ in range(n_bisect):
-        mid = (lo + hi) * 0.5
-        a = mid * np.cos(h_mesh)
-        b = mid * np.sin(h_mesh)
-        lab = np.stack([L_mesh, a, b], axis=-1).reshape(-1, 3)
-        xyz = np.asarray(colour.Oklab_to_XYZ(lab))
-        xy = _xyz_to_xy(xyz)
-        in_locus = locus_path.contains_points(xy).reshape(L_mesh.shape)
-        lo = np.where(in_locus, mid, lo)
-        hi = np.where(in_locus, hi, mid)
-    return L_grid, h_grid, lo
-
-
-def _get_oklch_c_max_table(
-    locus: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    key = id(locus)
-    if key not in _OKLCH_CMAX_TABLE_CACHE:
-        _OKLCH_CMAX_TABLE_CACHE[key] = _build_oklch_c_max_table(locus)
-    return _OKLCH_CMAX_TABLE_CACHE[key]
 
 
 def _c_max_lookup(
@@ -497,48 +558,6 @@ def _c_max_lookup(
     )
 
 
-def compress_oklch_chroma(
-    xy: np.ndarray,
-    white_xy: np.ndarray,  # noqa: ARG001 — unused; kept for API symmetry
-    *,
-    threshold: float,
-    limit: float,
-    power: float,
-    locus: np.ndarray | None = None,
-) -> np.ndarray:
-    """CSS-Color-4-style chroma reduction in Oklch.
-
-    Convert xy (at Y = 1) → OkLab → Oklch. Compress C only, keeping L
-    and h fixed. Perceptual hue and lightness are preserved; only the
-    perceived chroma shrinks. Returns the new xy.
-    """
-    if locus is None:
-        locus = spectral_locus_xy()
-    c_max_lookup_table = _get_oklch_c_max_table(locus)
-
-    xy = np.asarray(xy, dtype=float)
-    xyz = _xy_to_xyz_unit_y(xy)
-    lab = np.asarray(colour.XYZ_to_Oklab(xyz))
-    L = lab[..., 0]
-    a = lab[..., 1]
-    b = lab[..., 2]
-    C = np.hypot(a, b)
-    h = np.arctan2(b, a)
-
-    C_max = _c_max_lookup(L, h, *c_max_lookup_table)
-    safe_C_max = np.fmax(C_max, 1e-9)
-    d_norm = C / safe_C_max
-    d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
-    )
-    C_new = d_compressed * safe_C_max
-    a_new = C_new * np.cos(h)
-    b_new = C_new * np.sin(h)
-    lab_new = np.stack([L, a_new, b_new], axis=-1)
-    xyz_new = np.asarray(colour.Oklab_to_XYZ(lab_new))
-    return _xyz_to_xy(xyz_new)
-
-
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -558,30 +577,31 @@ def compress_xy(
     xy :
         Array of CIE xy values, shape ``(..., 2)``.
     white_xy :
-        The achromatic axis around which the compression operates —
-        in the spektrafilm runtime, this is the film's reference
-        illuminant xy.
+        The achromatic axis (radial center) the compression operates
+        around — the fixed D65 compression center in the spektrafilm
+        runtime (see the bake callers; independent of the film/adaptation
+        white).
     spec :
         Configuration. With ``spec.active`` False returns ``xy``
-        unchanged.
+        unchanged. ``spec.boundary`` selects the compression target: the
+        raw spectral-locus polygon (``"locus"``) or a smooth inscribed
+        hull of it (``"inscribed_hull"``, at ``spec.hull_detail``).
     locus :
         Optional spectral locus polygon override. Defaults to
-        :func:`spectral_locus_xy` (CIE 1931 2° at 5 nm sampling).
+        :func:`spectral_locus_xy` (CIE 1931 2° at 5 nm sampling). The
+        inscribed hull, when selected, is built from this locus.
     """
     if not spec.active:
         return np.asarray(xy, dtype=float)
     threshold, limit, power = spec.knee
-    if spec.algorithm == "xy":
-        return compress_xy_radial(
-            xy, white_xy,
-            threshold=threshold, limit=limit, power=power, locus=locus,
-        )
-    if spec.algorithm == "oklch":
-        return compress_oklch_chroma(
-            xy, white_xy,
-            threshold=threshold, limit=limit, power=power, locus=locus,
-        )
-    raise ValueError(f"unknown algorithm {spec.algorithm!r}")
+    if spec.boundary == "inscribed_hull":
+        boundary = inscribed_locus_hull(white_xy, spec.hull_detail, locus=locus)
+    else:
+        boundary = locus  # None -> compress_xy_radial falls back to the locus
+    return compress_xy_radial(
+        xy, white_xy,
+        threshold=threshold, limit=limit, power=power, locus=boundary,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -648,9 +668,11 @@ def compress_rgb_aces_rgc(
 
 # ---------------------------------------------------------------------------
 # Output-side: OkLch chroma reduction to the output primaries cube.
-# Mirrors the input-side compress_oklch_chroma but with the boundary swapped
-# from the visible spectral locus (a chromaticity polygon) to the destination
-# RGB cube (the output primaries' [0, 1]³ in linear RGB).
+# Constant-lightness perceptual chroma reduction, with the boundary being the
+# destination RGB cube (the output primaries' [0, 1]³ in linear RGB) rather than
+# the visible spectral locus. Perceptual chroma reduction is an output-side-only
+# option; the input side is xy-radial against the locus / inscribed hull (see
+# InputGamutCompressSpec).
 # ---------------------------------------------------------------------------
 
 

@@ -194,14 +194,16 @@ def test_build_params_copies_input_gamut_compress_group() -> None:
     state.input_gamut_compress = replace(
         state.input_gamut_compress,
         active=False,
-        algorithm='oklch',
+        boundary='locus',
+        hull_detail=6.0,
         knee=(0.1, 1.0, 4.0),
     )
 
     params = build_params_from_state(state)
 
     assert params.io.input_gamut_compress.active is False
-    assert params.io.input_gamut_compress.algorithm == 'oklch'
+    assert params.io.input_gamut_compress.boundary == 'locus'
+    assert params.io.input_gamut_compress.hull_detail == 6.0
     assert params.io.input_gamut_compress.knee == (0.1, 1.0, 4.0)
     # mapper copies, does not alias the widget's group
     assert params.io.input_gamut_compress is not state.input_gamut_compress
