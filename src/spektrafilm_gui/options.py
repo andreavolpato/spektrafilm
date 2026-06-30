@@ -41,16 +41,11 @@ class ScanIlluminants(Enum):
 
 
 class RGBtoRAWMethod(Enum):
+    arctic2026beta04 = "arctic2026beta04" # 2026-06-21
     hanatos2025 = "hanatos2025"
     jakob2019 = "jakob2019"
     otsu2018 = "otsu2018"
     mallett2019 = "mallett2019"
-    arctic2026alpha = "arctic2026alpha" # 2026-06-10
-    arctic2026alpha02 = "arctic2026alpha02" # 2026-06-11
-    arctic2026beta01 = "arctic2026beta01" # 2026-06-12
-    arctic2026beta02 = "arctic2026beta02" # 2026-06-14
-    arctic2026beta03 = "arctic2026beta03" # 2026-06-14
-    arctic2026beta04 = "arctic2026beta04" # 2026-06-21
     gauss_lasers = "gauss-lasers" # 2026-06-19
 
 
