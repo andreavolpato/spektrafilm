@@ -204,52 +204,66 @@ class TestCanonicalXYZ:
 
 
 # ---------------------------------------------------------------------------
-# n150 — input exposure gain
+# n200 — midgray-anchored input gain
 # ---------------------------------------------------------------------------
 
 
-class TestInputExposureGain:
-    """Simple scalar gain: source encoded 1.0 lands at
-    ``0.18 * 2 ** stops_above_midgray`` in the film's frame. No log
-    shaping; mid-gray drifts with the gain."""
+class TestInputGain:
+    """Midgray-pinned gain: the input's native midgray always lands on
+    the film's 0.18; ``exposure_ev`` stacks a deliberate re-exposure."""
 
-    def test_none_returns_unit_gain(self):
-        assert cs.input_exposure_gain("sRGB", None) == 1.0
-        assert cs.input_exposure_gain("Panasonic V-Log", None) == 1.0
-        assert cs.input_exposure_gain("ACEScg", None) == 1.0
+    def test_reflectance_scale_inputs_are_identity(self):
+        # SDR, camera log, and scene-linear all decode with 0.18 ≡ midgray,
+        # so the midgray bridge is exactly 1.0 — no hidden re-exposure.
+        for name in ("sRGB", "Panasonic V-Log", "Sony S-Log3", "ACEScg"):
+            assert cs.input_midgray_gain(name) == 1.0
+            assert cs.input_gain(name) == 1.0
 
-    def test_srgb_native_gain_is_identity(self):
-        """sRGB native white sits at ≈2.47 stops above 0.18. Setting
-        stops_above_midgray to that value yields gain ≈ 1.0."""
-        native = float(np.log2(1.0 / 0.18))
-        gain = cs.input_exposure_gain("sRGB", native)
-        np.testing.assert_allclose(gain, 1.0, rtol=1e-6)
+    def test_pq_bridges_nits_to_reflectance(self):
+        # PQ decodes to absolute nits (midgray_linear = 100 under the
+        # SDR-reference-white convention) → gain 0.18/100.
+        gain = cs.input_midgray_gain("Rec.2100 PQ")
+        np.testing.assert_allclose(gain, 0.18 / 100.0, rtol=1e-9)
+        # 100 nits × gain = film midgray, by construction.
+        np.testing.assert_allclose(100.0 * gain, 0.18, rtol=1e-9)
 
-    def test_srgb_six_stops_above(self):
-        """Setting stops_above_midgray = 6 on sRGB → gain ≈ 11.5
-        (= 0.18 * 64 / 1.0)."""
-        gain = cs.input_exposure_gain("sRGB", 6.0)
-        np.testing.assert_allclose(gain, 0.18 * 2 ** 6, rtol=1e-6)
+    def test_hlg_bridges_nits_to_reflectance(self):
+        # HLG decodes to absolute nits on the 1000-nit reference display.
+        # Midgray is BT.2408's 18% grey card: HLG signal 38% → 26.24 nits.
+        mid = cs.get("Rec.2100 HLG").midgray_linear
+        np.testing.assert_allclose(mid, 26.238, rtol=1e-4)
+        # The registry midgray must encode back to exactly signal 0.38 —
+        # this pins the entry to the BT.2100 EOTF, so a colour-science
+        # convention change (peak nits, OOTF) breaks loudly here.
+        code = cs.encode_cctf(np.full((1, 3), mid), "Rec.2100 HLG")
+        np.testing.assert_allclose(np.asarray(code).ravel(), 0.38, atol=1e-6)
+        # And the bridge lands it on the film's 0.18.
+        np.testing.assert_allclose(mid * cs.input_midgray_gain("Rec.2100 HLG"), 0.18, rtol=1e-9)
 
-    def test_vlog_native_gain_is_identity(self):
-        """V-Log encoded 1.0 ≈ 46 linear (~8 stops above 0.18). Setting
-        stops_above_midgray to that value yields gain ≈ 1.0."""
-        native_white = float(np.asarray(
-            cs.decode_cctf(np.array([1.0]), "Panasonic V-Log")
-        ).flatten()[0])
-        native_stops = float(np.log2(native_white / 0.18))
-        gain = cs.input_exposure_gain("Panasonic V-Log", native_stops)
-        np.testing.assert_allclose(gain, 1.0, rtol=1e-3)
+    def test_hlg_midgray_round_trips_through_output_gain(self):
+        # Output side: film 0.18 × output_midgray_gain → 26.24 nits →
+        # HLG-encoded 0.38 (not the ~0.05 near-black the missing
+        # override used to produce).
+        out = cs.encode_cctf(
+            np.full((1, 3), 0.18 * cs.output_midgray_gain("Rec.2100 HLG")),
+            "Rec.2100 HLG",
+        )
+        np.testing.assert_allclose(np.asarray(out).ravel(), 0.38, atol=1e-6)
 
-    def test_vlog_six_stops_attenuates(self):
-        """V-Log native ≈8 stops above gray. Setting stops_above_midgray = 6
-        is a *reduction*, so gain < 1."""
-        gain = cs.input_exposure_gain("Panasonic V-Log", 6.0)
-        assert gain < 1.0
+    def test_exposure_ev_scales_gain(self):
+        np.testing.assert_allclose(cs.input_gain("sRGB", 1.0), 2.0, rtol=1e-9)
+        np.testing.assert_allclose(cs.input_gain("sRGB", -1.0), 0.5, rtol=1e-9)
+        np.testing.assert_allclose(
+            cs.input_gain("Rec.2100 PQ", 2.0), (0.18 / 100.0) * 4.0, rtol=1e-9,
+        )
 
-    def test_vlog_auto_default_is_curated_to_six_stops(self):
-        assert cs.native_stops_above_midgray("Panasonic V-Log") == 6.0
+    def test_effective_input_midgray_linear(self):
+        # The input-native linear value that lands on the film's 0.18:
+        # the registry midgray at ev=0, halved per +1 EV.
+        assert cs.effective_input_midgray_linear("Panasonic V-Log") == pytest.approx(0.18)
+        assert cs.effective_input_midgray_linear("Rec.2100 PQ") == pytest.approx(100.0)
+        assert cs.effective_input_midgray_linear("sRGB", 1.0) == pytest.approx(0.09)
 
     def test_unknown_input_color_space_raises(self):
         with pytest.raises(KeyError, match="Unknown color space"):
-            cs.input_exposure_gain("Not A Real Space", 6.0)
+            cs.input_gain("Not A Real Space", 6.0)

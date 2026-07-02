@@ -25,26 +25,6 @@ VERSION = "0.1.0"
 _ALLOWED_KINDS = frozenset({"linear", "encoded_sdr", "log"})
 _ALLOWED_ROLES = frozenset({"input", "output"})
 
-# Default headroom for ``scene_referred_input=True`` linear spaces under
-# ``stops_above_midgray="auto"``. Places source encoded 1.0 at +6 stops above
-# the film's 0.18 midgray, well into the shoulder. The matching linear gain
-# drifts the input's 0.18 midgray up by ~3.5 stops in the film's frame —
-# the simple-multiplication trade-off described on
-# :attr:`spektrafilm_lut_creator.bundles.BundleSpec.stops_above_midgray`.
-SCENE_REFERRED_DEFAULT_STOPS = 6.0
-
-# Default headroom for ``kind="encoded_sdr"`` spaces (sRGB, Adobe RGB,
-# Rec.709, Rec.2020 BT.1886, …) under ``stops_above_midgray="auto"``.
-# Their physical native headroom is only ≈2.47 stops above mid, which
-# puts encoded 1.0 below the film's shoulder and yields "film color, no
-# rolloff". Bumping to +4 lands encoded 1.0 squarely on the shoulder so
-# the rolloff engages on tone-mapped SDR sources, at the cost of midgray
-# drifting up by ~1.53 stops in the film's frame (the simple-gain
-# trade-off). This is an aesthetic interpretation, not a measurement —
-# encoded SDR sources are usually tone-mapped deliveries whose encoded
-# 1.0 represents a bright scene highlight rather than literal display white.
-ENCODED_SDR_DEFAULT_STOPS = 4.0
-
 _BT2100_PQ_CCTF = "ITU-R BT.2100 PQ"
 _BT2100_HLG_CCTF = "ITU-R BT.2100 HLG"
 
@@ -89,8 +69,15 @@ class ColorSpaceEntry:
     nits puts midgray near PQ-encoded 0.508, so the film's useful
     range (~7 stops above midgray) maps to roughly the upper half
     of the input cube and the LUT samples sensibly across the
-    encoded domain. Consumed by :func:`native_stops_above_midgray`
-    and the ``stops_above_midgray="auto"`` sentinel on :class:`BundleSpec`."""
+    encoded domain.
+
+    For Rec.2100 HLG this is ``26.238`` — BT.2408's 18% grey card
+    (HLG signal 38%) evaluated through the BT.2100 EOTF on the
+    1000-nit reference display. That anchors midgray at HLG-encoded
+    0.38, in line with the camera-log entries (0.33–0.46).
+
+    Consumed by :func:`input_midgray_gain` and
+    :func:`output_midgray_gain`."""
     scene_referred_input: bool = False
     """Mark a ``kind="linear"`` entry as a scene-referred working space
     (ACEScg, ACES2065-1, OpenEXR-style scene-linear, …) rather than
@@ -98,20 +85,12 @@ class ColorSpaceEntry:
     rejects it on encoded/log entries (where headroom is already baked
     into the curve).
 
-    When ``True``, :func:`native_stops_above_midgray` returns
-    :data:`SCENE_REFERRED_DEFAULT_STOPS` instead of the display-white
-    computation. Under ``stops_above_midgray="auto"`` this gives the LUT
-    input domain meaningful highlight headroom (encoded 1.0 → +6 stops
-    in the film's frame) so scene highlights aren't clipped at the
-    diffuse-white ceiling. The simple linear gain drifts midgray upward
-    by ~3.5 stops as a side effect — see the
-    ``stops_above_midgray`` docstring on :class:`BundleSpec`."""
-    auto_stops_above_midgray: float | None = None
-    """Optional curated ``stops_above_midgray="auto"`` resolution.
-
-    Use when published camera guidance or product behavior should win over
-    the literal ``decode_cctf(1.0)`` headroom math. ``None`` means the
-    entry falls back to the usual kind-based logic / native computation."""
+    Scene-referred linear entries are silenced as bundle inputs: a
+    uniform [0, 1] cube domain clips their highlights at diffuse white,
+    and giving them headroom through a plain linear gain would shift
+    midgray — the LUT layer pins midgray by construction and refuses
+    that trade. They become inputs when the log-anchored input shaper
+    lands (see n150)."""
 
 
 _REGISTRY: dict[str, ColorSpaceEntry] = {}
@@ -279,9 +258,7 @@ def from_xyz(xyz, name: str) -> np.ndarray:
 # entries stay in the registry so internal color-space math still
 # resolves these names; ``list_input_spaces()`` hides them and
 # ``BundleBuilder`` rejects them via the ``"input" in entry.role`` check.
-# When n150 lands, restore ``role=("input",)`` and the
-# ``scene_referred_input=True`` flag will steer ``"auto"`` toward
-# :data:`SCENE_REFERRED_DEFAULT_STOPS`.
+# When n150 lands, restore ``role=("input",)``.
 register(ColorSpaceEntry("ACES2065-1",       "ACES2065-1",   None, "linear", (),
                          short_tag="aces20651",
                          ocio_alias="ACES - ACES2065-1",
@@ -359,13 +336,7 @@ register(ColorSpaceEntry("Sony S-Log3 (S-Gamut3.Cine)", "S-Gamut3.Cine",   "S-Lo
 register(ColorSpaceEntry("Panasonic V-Log",          "V-Gamut",            "V-Log",
                          "log", ("input",),
                          short_tag="vlog",
-                         ocio_alias="Panasonic V-Log - V-Gamut",
-                         auto_stops_above_midgray=6.0,
-                         notes=(
-                             "Auto stops default is curated to +6 above middle gray "
-                             "to match Panasonic V-Log exposure guidance rather than "
-                             "the raw decode_cctf(1.0) headroom."
-                         )))
+                         ocio_alias="Panasonic V-Log - V-Gamut"))
 register(ColorSpaceEntry("Fujifilm F-Log",           "F-Gamut",            "F-Log",
                          "log", ("input",),
                          short_tag="flog"))
@@ -406,7 +377,8 @@ register(ColorSpaceEntry("Rec.2100 PQ", "ITU-R BT.2020", "ITU-R BT.2100 PQ", "lo
 register(ColorSpaceEntry("Rec.2100 HLG", "ITU-R BT.2020", "ITU-R BT.2100 HLG", "log", ("input", "output"),
                          short_tag="rec2100hlg",
                          ocio_alias="Rec.2100-HLG - Display",
-                         notes="HDR broadcast (BBC/NHK/EBU live, YouTube HDR). HLG bakes OOTF + nominal peak luminance; not portable across display peaks the way PQ is."))
+                         midgray_linear=26.238265737,
+                         notes="HDR broadcast (BBC/NHK/EBU live, YouTube HDR). HLG bakes OOTF + nominal peak luminance; not portable across display peaks the way PQ is. Midgray is BT.2408's 18% grey card: HLG signal 38% -> 26.24 nits on the 1000-nit reference display (= eotf_BT2100_HLG(0.38))."))
 
 # ---------------------------------------------------------------------------
 # v2 Tier 2 additions (n060 §3).
@@ -483,19 +455,18 @@ register(ColorSpaceEntry("Nikon N-Log", "ITU-R BT.2020", "N-Log",
 
 
 # ---------------------------------------------------------------------------
-# Input exposure gain (n150 revised) — simple linear scaling.
+# Input gain — midgray-anchored (n200 revised).
 #
-# A bundle can specify how many stops above middle gray (0.18 linear)
-# the source's encoded 1.0 should land at in the film's frame. The bake
-# computes the native "encoded 1.0 → linear" mapping for the input
-# color space and applies a uniform linear gain so the post-decode
-# values get re-scaled accordingly. No log shaping; the trade-off is
-# that mid-gray drifts with the gain (a single multiplication cannot
-# both pin mid-gray and reposition white, by construction).
-#
-# When the bundle leaves the field at ``None``, no gain is applied and
-# the film sees the input's native dynamic range — which is the strict
-# colorimetric default that works predictably in any host.
+# The bake applies one linear gain to post-decode input values, anchored
+# on middle gray: the input's native midgray (``entry.midgray_linear``)
+# always lands exactly on the film's 0.18. For SDR / camera-log / linear
+# inputs (midgray_linear = 0.18) the gain is identity; for PQ / HLG
+# (midgray in nits) it bridges the absolute-luminance scale down to
+# reflectance. A deliberate re-exposure can be stacked on top via
+# ``BundleSpec.exposure_ev`` (× 2**ev) — disclosed in the bundle, never
+# implicit. White placement is whatever the curve natively encodes;
+# repositioning white without moving midgray would require log shaping,
+# which the LUT layer deliberately rules out (n150).
 # ---------------------------------------------------------------------------
 
 
@@ -504,22 +475,22 @@ _MID_GRAY_LINEAR = 0.18
 
 def encode_qa_input(
     linear_reflectance, input_color_space: str,
-    stops_above_midgray: float | None,
+    exposure_ev: float = 0.0,
 ) -> np.ndarray:
     """Encode a reflectance-scale linear RGB stimulus into the input
     color space's encoded code values for QA, accounting for the LUT's
-    input exposure gain.
+    input gain.
 
     QA stimulus generators (OkLab patches, neutral ramps, Planckian
     sweeps) produce linear RGB in 0..1 reflectance scale where 0.18 ≡
-    midgray. For SDR/log inputs with no gain set this is identical to
-    :func:`encode_cctf`. For HDR inputs under ``stops_above_midgray="auto"``
-    (gain ≪ 1), this multiplies by ``1/gain`` first so the LUT's
-    pre-pipeline scaling lands the stimulus at the intended reflectance
-    in the film's frame — otherwise OkLab patches would all collapse
-    into the deep shadow region of the input encoding.
+    midgray. For SDR/log inputs at ``exposure_ev=0`` this is identical
+    to :func:`encode_cctf`. For HDR inputs (gain ≪ 1), this multiplies
+    by ``1/gain`` first so the LUT's pre-pipeline scaling lands the
+    stimulus at the intended reflectance in the film's frame —
+    otherwise OkLab patches would all collapse into the deep shadow
+    region of the input encoding.
     """
-    gain = input_exposure_gain(input_color_space, stops_above_midgray)
+    gain = input_gain(input_color_space, exposure_ev)
     arr = np.asarray(linear_reflectance, dtype=float) / gain
     return encode_cctf(arr, input_color_space)
 
@@ -549,23 +520,18 @@ def to_xyz_qa(encoded_rgb, output_color_space: str) -> np.ndarray:
 
 
 def effective_input_midgray_linear(
-    input_color_space: str, stops_above_midgray: float | None,
+    input_color_space: str, exposure_ev: float = 0.0,
 ) -> float:
     """Linear value (in the input space's native scale) that the LUT
-    treats as midgray after its input exposure gain.
+    treats as midgray after its input gain.
 
-    Computed as ``0.18 / input_exposure_gain(input_cs, stops_above_midgray)``.
-    For SDR/log inputs with no stops override this is just ``0.18``.
-    For HDR inputs under ``stops_above_midgray="auto"`` (or any non-``None``
-    ``stops_above_midgray``), this is the linear value that — after the
-    LUT's pre-pipeline scaling — lands on the film's 0.18 midgray.
-
-    QA exposure-ramp patterns anchor their stop=0 around this value so
-    the sweep tests the LUT *as configured*, not at the input space's
-    bare 0.18-linear reflectance point (which lands deep in the
-    shadows for HDR inputs).
+    Computed as ``0.18 / input_gain(input_cs, exposure_ev)``, which
+    reduces to ``entry.midgray_linear / 2**exposure_ev``. At
+    ``exposure_ev=0`` this is exactly the registry midgray (0.18 for
+    SDR/log, the reference-white nits for PQ/HLG) — the value that
+    lands on the film's 0.18 after the LUT's pre-pipeline scaling.
     """
-    gain = input_exposure_gain(input_color_space, stops_above_midgray)
+    gain = input_gain(input_color_space, exposure_ev)
     return _MID_GRAY_LINEAR / gain
 
 
@@ -591,85 +557,37 @@ def output_midgray_gain(output_color_space: str) -> float:
     return float(entry.midgray_linear / _MID_GRAY_LINEAR)
 
 
-def native_stops_above_midgray(input_color_space: str) -> float:
-    """Stops between this input's midgray and the LUT input ceiling.
+def input_midgray_gain(input_color_space: str) -> float:
+    """Linear gain to apply after :func:`decode_cctf` so the input's
+    native midgray lands on the film's reflectance-scale 0.18.
 
-    Default computation is ``log2(decode_cctf(1.0) / entry.midgray_linear)``
-    — the input's literal native headroom. Two kinds of entry override
-    that with an aesthetically-chosen value so ``"auto"`` produces a
-    more useful default than the literal one:
+    Mirror of :func:`output_midgray_gain`: ``0.18 / entry.midgray_linear``.
+    For SDR / camera-log / linear inputs whose CCTFs are designed in
+    reflectance scale this is ``1.0`` (identity — a properly-exposed
+    18% gray decodes to 0.18 and passes straight through). For
+    HDR-encoded inputs (PQ / HLG) whose CCTFs return absolute luminance
+    in nits, this bridges the scale so the convention's midgray-nits
+    value (100 for PQ) lands on the film's 0.18.
 
-    - **Encoded SDR** (``kind="encoded_sdr"``: sRGB, Adobe RGB,
-      Rec.709, Rec.2020 BT.1886, …): returns
-      :data:`ENCODED_SDR_DEFAULT_STOPS` (4.0). Native headroom is only
-      ≈2.47, which leaves the film's shoulder unused on tone-mapped
-      SDR sources. Bumping to +4 engages the shoulder; midgray drifts
-      ~1.5 stops as a side effect of the linear-gain model.
-    - **Scene-referred linear** (entries with
-      :attr:`ColorSpaceEntry.scene_referred_input` set): returns
-      :data:`SCENE_REFERRED_DEFAULT_STOPS` (6.0) so the LUT's [0, 1]
-      input domain carries highlight headroom past diffuse white
-      rather than clipping scene values at +2.47.
-        - **Curated overrides** (entries with
-            :attr:`ColorSpaceEntry.auto_stops_above_midgray` set): returns that
-            explicit value. Panasonic V-Log uses ``6.0`` here so bundle defaults
-            follow Panasonic's exposure guidance instead of the raw encoded-1.0
-            decode headroom.
-
-        Everything else — camera log (S-Log3 ≈ 7.6, ACEScct ≈ 8, ...),
-    HDR PQ (≈6.64 for Rec.2100 PQ under the 100-nit midgray convention),
-    plain linear entries with no scene-referred flag — gets the
-    physical headroom from the registry math.
-
-    Used as the ``stops_above_midgray`` resolved value when the spec is
-    constructed with ``stops_above_midgray="auto"``. For log inputs the
-    resulting gain is usually 1.0 (identity) unless an entry provides a
-    curated override; for SDR / scene-linear the gain drifts midgray
-    upward as documented on :class:`BundleSpec`; for HDR PQ it lands the
-    convention's midgray on the film's 0.18.
+    Midgray is pinned by construction: this gain never re-exposes the
+    image. Deliberate re-exposure is a separate, disclosed knob —
+    ``BundleSpec.exposure_ev``, composed in :func:`input_gain`.
     """
     entry = get(input_color_space)
-    if entry.auto_stops_above_midgray is not None:
-        return float(entry.auto_stops_above_midgray)
-    if entry.scene_referred_input:
-        return SCENE_REFERRED_DEFAULT_STOPS
-    if entry.kind == "encoded_sdr":
-        return ENCODED_SDR_DEFAULT_STOPS
-    native_white = float(np.asarray(
-        decode_cctf(np.array([1.0]), input_color_space)
-    ).flatten()[0])
-    return float(np.log2(native_white / entry.midgray_linear))
+    return float(_MID_GRAY_LINEAR / entry.midgray_linear)
 
 
-def input_exposure_gain(
-    input_color_space: str, stops_above_midgray: float | None,
-) -> float:
-    """Return the linear gain that places source white at
-    ``0.18 * 2 ** stops_above_midgray`` in the film's frame.
+def input_gain(input_color_space: str, exposure_ev: float = 0.0) -> float:
+    """Total linear gain applied to post-decode input values:
+    ``input_midgray_gain(input_cs) * 2**exposure_ev``.
 
-    ``None`` → ``1.0`` (no transformation, native behavior).
-
-    Otherwise: the input's native "encoded 1.0 → linear" value is read
-    from :func:`decode_cctf` (1.0 for sRGB / linear inputs, ≈46 for
-    V-Log, …) and the returned gain rescales linear so encoded 1.0
-    lands at the requested number of stops above mid-gray.
-
-    Parameters
-    ----------
-    input_color_space :
-        Registry name of the bundle's input color space. Used to look
-        up the native white-to-linear mapping via :func:`decode_cctf`.
-    stops_above_midgray :
-        Target stops above middle gray for source encoded 1.0, or
-        ``None`` to skip the transformation.
+    At ``exposure_ev=0`` (the default) midgray maps exactly to the
+    film's 0.18 and the LUT is colorimetrically neutral in exposure.
+    A non-zero ``exposure_ev`` is the LUT-level equivalent of the
+    camera's exposure-compensation dial: +1.0 brightens the source one
+    stop in the film's frame, midgray included.
     """
-    if stops_above_midgray is None:
-        return 1.0
-    native_white = float(np.asarray(
-        decode_cctf(np.array([1.0]), input_color_space)
-    ).flatten()[0])
-    target_white = _MID_GRAY_LINEAR * (2.0 ** float(stops_above_midgray))
-    return target_white / native_white
+    return input_midgray_gain(input_color_space) * float(2.0 ** float(exposure_ev))
 
 
 @dataclass(frozen=True)
@@ -677,40 +595,37 @@ class BakeFrame:
     """Bundle's gain context for a bake or QA run.
 
     Computed once via :meth:`from_spec` and passed through QA call
-    sites instead of threading loose ``stops_above_midgray`` everywhere.
+    sites instead of threading loose ``exposure_ev`` everywhere.
     Hides the scale-bridging math behind :meth:`encode_input` and
     :meth:`decode_output_to_xyz` so viz/test code never has to remember
     whether to use :func:`encode_cctf` vs :func:`encode_qa_input`, or
     :func:`to_xyz` vs :func:`to_xyz_qa`.
 
-    For SDR specs both gains collapse to ``1.0`` and the methods are
-    identical to their non-QA counterparts.
+    For SDR specs at ``exposure_ev=0`` both gains collapse to ``1.0``
+    and the methods are identical to their non-QA counterparts.
     """
     input_color_space: str
     output_color_space: str
-    stops_above_midgray: float | None
+    exposure_ev: float
     input_gain: float
     output_gain: float
     input_midgray_linear: float
     """Effective linear midgray in the input's native scale
-    (``0.18 / input_gain``). For HDR inputs under
-    ``stops_above_midgray="auto"`` this is the registry's
-    :attr:`ColorSpaceEntry.midgray_linear`. QA exposure-ramp anchors
-    use this value."""
+    (``0.18 / input_gain`` = ``entry.midgray_linear / 2**exposure_ev``).
+    At ``exposure_ev=0`` this is the registry's
+    :attr:`ColorSpaceEntry.midgray_linear`."""
 
     @classmethod
     def from_spec(cls, spec) -> "BakeFrame":
         """Build the frame from a :class:`BundleSpec`-shaped object
         (anything exposing ``input_color_space`` / ``output_color_space``
-        / ``stops_above_midgray``)."""
-        in_gain = input_exposure_gain(
-            spec.input_color_space, spec.stops_above_midgray,
-        )
+        / ``exposure_ev``)."""
+        in_gain = input_gain(spec.input_color_space, spec.exposure_ev)
         out_gain = output_midgray_gain(spec.output_color_space)
         return cls(
             input_color_space=spec.input_color_space,
             output_color_space=spec.output_color_space,
-            stops_above_midgray=spec.stops_above_midgray,
+            exposure_ev=float(spec.exposure_ev),
             input_gain=float(in_gain),
             output_gain=float(out_gain),
             input_midgray_linear=_MID_GRAY_LINEAR / float(in_gain),
@@ -720,7 +635,7 @@ class BakeFrame:
         """Reflectance-scale linear RGB → input-encoded code values.
 
         Equivalent to :func:`encode_qa_input` but with the gain held
-        on ``self`` so callers don't pass ``stops_above_midgray`` around.
+        on ``self`` so callers don't pass ``exposure_ev`` around.
         """
         arr = np.asarray(linear_reflectance, dtype=float) / self.input_gain
         return encode_cctf(arr, self.input_color_space)

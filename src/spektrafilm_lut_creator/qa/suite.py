@@ -65,7 +65,7 @@ class QAContext:
         context bound to encode-input / decode-output convenience
         methods. Tests use ``ctx.frame.encode_input(...)`` /
         ``ctx.frame.decode_output_to_xyz(...)`` instead of threading
-        ``stops_above_midgray`` through each helper.
+        ``exposure_ev`` through each helper.
     out_dir
         Root output directory for this QA pass.
     figures_dir

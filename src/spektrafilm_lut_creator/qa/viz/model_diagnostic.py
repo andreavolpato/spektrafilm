@@ -352,33 +352,45 @@ def dynamic_range_curve(
     """Density vs scene-linear log E (stops), the canonical film
     characteristic plot.
 
-    Four layers:
+    Layers:
 
     1. The main curve — output density ``D = -log10(Y)`` vs input
        stops above middle gray. Y axis inverted so D=0 (white) sits
        at the top, high D (black) at the bottom — film datasheet
-       convention.
-    2. **Encoding-clip shading + dashed bars**: warm-tinted shaded
+       convention. The actual sampled stops are drawn as explicit
+       data-point markers along the curve.
+    2. **Midgray exposure readout** (the headline diagnostic): a
+       vertical line at stop 0 = the camera's true 18% gray input, a
+       horizontal dashed line at the *ideal* output density
+       ``-log10(0.18) ≈ 0.745``, and a ringed marker where the LUT
+       actually renders that gray. The vertical gap between marker and
+       ideal line is the baked-in exposure shift — green when within
+       ±0.25 stop, red when it isn't. A correctly-exposed log LUT lands
+       the marker on the ideal line.
+    3. **90% diffuse-white marker** at stop +2.32 — the other classic
+       exposure reference.
+    4. **Encoding-clip shading + dashed bars**: warm-tinted shaded
        regions covering the *full extent* of stops the input encoding
-       can't represent (clipped to 0 or 1 at the input), with a dashed
-       vertical line at each clip threshold for precise reading. Stops
-       inside these shaded regions are "the input encoding's fault" —
-       the LUT was fed the same clip-boundary value for every stop in
-       that range, so the curve is necessarily flat there.
-    3. **Toe / shoulder shading**: light gray bands at the bottom
-       and top of the rendered range where slope falls below the
-       active threshold. These are the model's compression decisions.
-    4. **'x' markers** on the clipped-stop samples to make the flat
-       segment legible even where it overlaps with shading.
+       can't represent (clipped to 0 or 1 at the input).
+    5. **Toe / shoulder shading**: light gray bands where slope falls
+       below the active threshold — the model's compression decisions.
 
-    A small text box prints the summary numbers (encoded range,
-    active range, collapsed toe/shoulder) so the figure is
-    self-contained.
+    The x-axis spans the **full input ramp** (every probed stop, including
+    the encoding-clipped flats at both ends) and the full output density
+    range. The toe / shoulder / encoding-clip shading marks which part of
+    that full span the LUT actually renders, so the effective range stays
+    legible without cropping the curve.
+
+    A small text box prints the summary numbers (midgray offset,
+    encoded range, active range, collapsed toe/shoulder) so the figure
+    is self-contained.
     """
     stops = np.asarray(stops, dtype=float).ravel()
     output_y = np.asarray(output_y, dtype=float).ravel()
     encoded_clip_mask = np.asarray(encoded_clip_mask, dtype=bool).ravel()
     density = -np.log10(np.clip(output_y, 1e-4, None))
+    IDEAL_MID_D = -np.log10(0.18)  # ≈ 0.745, output density of a faithful 18% gray
+    WHITE_STOPS = float(np.log2(0.90 / 0.18))  # 90% diffuse white ≈ +2.32 EV
 
     fig, ax = plt.subplots(figsize=(12, 7), facecolor=BG, layout="constrained")
     ax.set_facecolor(BG)
@@ -423,38 +435,67 @@ def dynamic_range_curve(
         ax.axvline(enc_lo_x, color=WARN, lw=1.0, ls="--", alpha=0.7)
         ax.axvline(enc_hi_x, color=WARN, lw=1.0, ls="--", alpha=0.7)
 
-    # Main curve.
-    ax.plot(stops, density, color=HI, lw=2.4, zorder=5)
+    # Main curve, with the actual sampled stops drawn as explicit data
+    # points (subsampled so the markers stay legible at n≈257).
+    markevery = max(1, stops.size // 48)
+    ax.plot(stops, density, color=HI, lw=2.0, zorder=5,
+            marker="o", ms=3.5, markevery=markevery,
+            markerfacecolor=HI, markeredgecolor=BG, markeredgewidth=0.4,
+            label="LUT samples")
     # Mark where input is clipped — render those segments dimmer.
     if np.any(encoded_clip_mask):
         ax.plot(stops[encoded_clip_mask], density[encoded_clip_mask],
                 color=DIM, lw=1.6, marker="x", ms=4, ls="None", zorder=4,
                 label="encoded-clipped stops")
 
-    # Reference line at middle gray.
-    ax.axvline(0, color="#555555", lw=0.8, alpha=0.6)
-    ax.text(0.05, 0.02, "middle gray", color=DIM, fontsize=9,
+    # ---- Midgray exposure readout (the headline diagnostic) ----------
+    midgray_offset = float(stats.get("midgray_offset_stops", 0.0))
+    midgray_y = float(stats.get("midgray_output_y", 0.18))
+    midgray_D = -np.log10(max(midgray_y, 1e-4))
+    on_target = abs(midgray_offset) <= 0.25
+    mid_color = GREEN if on_target else RED
+    # Ideal output density for a faithful 18% gray (where the marker
+    # *should* sit).
+    ax.axhline(IDEAL_MID_D, color=GREEN, lw=1.0, ls=":", alpha=0.7,
+               label="ideal 18% out (D=0.74)")
+    # The camera's true 18% gray input.
+    ax.axvline(0, color="#777777", lw=0.9, alpha=0.7)
+    ax.text(0.04, 0.02, "camera 18% gray (input)", color=DIM, fontsize=9,
+            transform=ax.get_xaxis_transform())
+    # Where it actually renders, ringed so it reads against the curve.
+    ax.plot([0.0], [midgray_D], marker="o", ms=11, markerfacecolor="none",
+            markeredgecolor=mid_color, markeredgewidth=2.2, zorder=7,
+            label=f"rendered 18% → {midgray_offset:+.2f} stops")
+    # A short connector showing the gap from ideal when it's off.
+    if not on_target:
+        ax.annotate("", xy=(0.0, midgray_D), xytext=(0.0, IDEAL_MID_D),
+                    arrowprops=dict(arrowstyle="->", color=mid_color, lw=1.6),
+                    zorder=6)
+
+    # 90% diffuse-white reference.
+    ax.axvline(WHITE_STOPS, color="#555555", lw=0.8, ls="--", alpha=0.5)
+    ax.text(WHITE_STOPS + 0.05, 0.02, "90% white", color=DIM, fontsize=9,
             transform=ax.get_xaxis_transform())
 
-    ax.set_xlabel("scene-linear stops above middle gray  (log₂(linear / 0.18))",
+    ax.set_xlabel("scene-linear stops above camera middle gray  (log₂(linear / 0.18))",
                   color=FG)
     ax.set_ylabel("D = -log₁₀(output Y)   (film density convention)", color=FG)
     ax.set_ylim(0, float(density.max()) * 1.05)
     ax.invert_yaxis()
-    # Frame on the input encoding's representable range — the stops the
-    # LUT actually sees as distinct values. Outside this range the input
-    # encoding clipped to 0 or 1 and the curve is necessarily flat, so
-    # including it just compresses the meaningful portion of the plot.
-    enc_idx_all = np.where(~encoded_clip_mask)[0]
-    if enc_idx_all.size >= 2:
-        ax.set_xlim(stops[enc_idx_all[0]], stops[enc_idx_all[-1]])
-    else:
-        ax.set_xlim(stops[0], stops[-1])
+    # Show the *full* input ramp and output range — every stop the ramp
+    # probed, including the encoding-clipped flats at both ends. The
+    # toe/shoulder/encoding-clip shading (above) marks which part of this
+    # full span the LUT actually renders, so the effective range is still
+    # legible without cropping the curve.
+    ax.set_xlim(stops[0], stops[-1])
     _setup_2d(ax)
 
     # Headline summary in the upper-left of the plot — film-datasheet
-    # vibe ("Effective: 5.3 stops").
+    # vibe ("Effective: 5.3 stops"). Midgray offset leads, since it's the
+    # exposure-correctness readout.
+    mid_tag = "OK" if on_target else "OFF"
     summary_lines = [
+        f"midgray offset:         {midgray_offset:+.2f} stops [{mid_tag}]",
         f"input encoding range:   {stats.get('encoded_range_stops', 0):.1f} stops",
         f"active rendering range: {stats.get('active_range_stops', 0):.1f} stops",
         f"  toe collapsed:        {stats.get('toe_collapsed_stops', 0):.1f} stops",
@@ -464,7 +505,7 @@ def dynamic_range_curve(
     ax.text(0.02, 0.98, "\n".join(summary_lines),
             transform=ax.transAxes, color=FG, fontsize=10, family="monospace",
             va="top", ha="left",
-            bbox=dict(facecolor="#1a1a1a", edgecolor="#555555",
+            bbox=dict(facecolor="#1a1a1a", edgecolor=mid_color,
                       alpha=0.92, boxstyle="round,pad=0.5"))
 
     ax.set_title(

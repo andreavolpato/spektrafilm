@@ -80,9 +80,10 @@ def _cache_key(spec: BundleSpec, bundle: Bundle, print_index: int) -> str:
     h = hashlib.sha256()
     # Bump when the reference-compute semantics change (gain plumbing,
     # encoding scale, etc.) so stale .npz caches don't poison QA figures
-    # after a code update. "2" = input_exposure_gain + output_midgray_gain
-    # are now applied in the reference path, matching the builder.
-    h.update(b"qa_reference_v2|")
+    # after a code update. "3" = midgray-pinned input gain (n200):
+    # input_gain + output_midgray_gain applied in the reference path,
+    # matching the builder.
+    h.update(b"qa_reference_v3|")
     h.update(repr(asdict(spec)).encode("utf-8"))
     if bundle.meta.stocks is not None:
         print_name = bundle.meta.stocks.prints[print_index]
@@ -165,12 +166,13 @@ def _compute(
 
     rng = np.random.default_rng(rng_seed)
     rng_samples_encoded = rng.uniform(0.0, 1.0, size=(n_samples, 3)).astype(np.float32)
-    # Match the builder: decode, then apply the input exposure gain so
-    # the pipeline sees the same linear values the baked LUT was built
-    # from. Without this, a stops_above_midgray bundle's reference diverges
-    # from the LUT and every comparison figure (drift maps, exposure
-    # sweeps, ΔE plots) looks broken. BakeFrame holds the precomputed
-    # gains so we don't re-derive them at every QA call site.
+    # Match the builder: decode, then apply the input gain (midgray
+    # bridge × exposure_ev) so the pipeline sees the same linear values
+    # the baked LUT was built from. Without this, an HDR or re-exposed
+    # bundle's reference diverges from the LUT and every comparison
+    # figure (drift maps, exposure sweeps, ΔE plots) looks broken.
+    # BakeFrame holds the precomputed gains so we don't re-derive them
+    # at every QA call site.
     frame = spec.bake_frame()
     rng_samples_linear = (
         decode_cctf(rng_samples_encoded, spec.input_color_space) * frame.input_gain

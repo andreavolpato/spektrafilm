@@ -103,11 +103,26 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     if params.debug.lut_mode:
         params.debug.deactivate_spatial_effects = True
         params.debug.deactivate_stochastic_effects = True
+        # exposure control
         params.camera.auto_exposure = False
+        params.camera.exposure_compensation_ev = 0.0
+        params.enlarger.print_exposure_compensation = False
+        params.enlarger.print_exposure = 1.0
+        # Highlight boost normalizes by the image-wide max (np.max(x)), so it is
+        # an image-global transform — the same input value maps to different
+        # outputs depending on the rest of the frame. That cannot be represented
+        # by a static 3D LUT (a bake would freeze in the cube grid's max), so it
+        # must be off in lut_mode, exactly like auto_exposure above.
+        params.film_render.halation.boost_ev = 0.0
         params.scanner.white_correction = False
         params.scanner.black_correction = False
 
     if params.debug.deactivate_spatial_effects:
+        # Halation is fully spatial (scatter + back-reflection blurs); kill it
+        # at the active flag as well as zeroing the kernel sigmas, so it stays
+        # a no-op even if a future sigma-independent term is added inside
+        # apply_halation_um.
+        params.film_render.halation.active = False
         params.film_render.halation.scatter_core_um = (0.0, 0.0, 0.0)
         params.film_render.halation.scatter_tail_um = (0.0, 0.0, 0.0)
         params.film_render.halation.halation_first_sigma_um = (0.0, 0.0, 0.0)

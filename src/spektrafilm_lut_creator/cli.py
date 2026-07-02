@@ -112,10 +112,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="On-disk packaging (default: directory).",
     )
     build.add_argument(
-        "--stops-above-gray", type=float, metavar="STOPS",
+        "--exposure-ev", type=float, metavar="EV",
         help=(
-            "Linear gain placing source encoded 1.0 at "
-            "0.18 * 2**STOPS in the film's frame (default: native)."
+            "Deliberate exposure baked into the LUT, in stops. "
+            "Default 0: midgray-pinned colorimetric behavior."
         ),
     )
     build.add_argument(
@@ -249,7 +249,7 @@ def _merge_cli_overrides(fields: dict, args: argparse.Namespace) -> None:
         "resolution": "resolution",
         "target": "target",
         "container": "container",
-        "stops_above_midgray": "stops_above_midgray",
+        "exposure_ev": "exposure_ev",
         "qa_print_index": "qa_print_index",
     }
     for cli_attr, field_name in cli_to_field.items():

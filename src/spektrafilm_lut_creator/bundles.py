@@ -80,73 +80,32 @@ class BundleSpec:
     dataclass) for custom knee tuning or to disable via ``active=False``.
     The chosen spec is forwarded to ``params.io.input_gamut_compress``
     so GUI users and bundle bakes share the same code path."""
-    stops_above_midgray: float | str | None = "auto"
-    """How many stops above midgray (0.18 linear) the source's
-    encoded 1.0 should correspond to in the film's frame.
+    exposure_ev: float = 0.0
+    """Deliberate exposure adjustment baked into the LUT, in stops (EV).
 
-    Default ``"auto"`` resolves from the input color space's registry
-    entry via
-    :func:`spektrafilm_lut_creator.color_spaces.native_stops_above_midgray`.
-    Behavior by input kind:
+    Midgray is pinned by construction (n200): the bake always applies
+    :func:`spektrafilm_lut_creator.color_spaces.input_midgray_gain`
+    (``0.18 / entry.midgray_linear`` — identity for SDR / camera-log /
+    linear inputs, the nits-to-reflectance bridge for PQ / HLG) so a
+    properly-exposed source midgray lands exactly on the film's 0.18.
+    A camera-log 18% gray (V-Log code 0.4233, S-Log3 code 0.411, …)
+    therefore always hits the film's midgray, and an sRGB source maps
+    1:1 in linear reflectance.
 
-    - **Encoded SDR** (sRGB / Adobe RGB / Rec.709 / Rec.2020 BT.1886 / …):
-      resolves to
-      :data:`spektrafilm_lut_creator.color_spaces.ENCODED_SDR_DEFAULT_STOPS`
-      (4.0). Encoded 1.0 lands on the film's shoulder so the highlight
-      rolloff engages on tone-mapped SDR deliveries (the literal
-      ≈2.47 native headroom would leave the shoulder unused). Midgray
-      drifts upward ~1.5 stops in the film's frame as a side effect
-      of the linear gain — image comes out slightly brighter than
-      its source preview.
-        - **Camera log** (V-Log / S-Log3 / ACEScct / LogC / …): resolves
-            to a curated per-space default when one is registered, otherwise
-            to the curve's native headroom. Panasonic V-Log uses +6.0 to match
-            Panasonic exposure guidance; many other log curves still resolve to
-            their native ≈7–8 stop headroom and therefore keep gain at 1.0.
-    - **Scene-referred linear** (ACEScg, ACES2065-1, Rec.2020 Linear,
-      sRGB Linear, P3-D65 Linear, … — registry entries marked
-      ``scene_referred_input=True``): resolves to
-      :data:`spektrafilm_lut_creator.color_spaces.SCENE_REFERRED_DEFAULT_STOPS`
-      (6.0). Encoded 1.0 maps to +6 stops in the film's frame so scene
-      highlights past diffuse white actually reach the LUT input
-      domain instead of clipping at ≈+2.47. Midgray drifts ~3.5 stops.
-      (Currently silenced as bundle inputs pending a log shaper —
-      see [n150](studies/a40_lut_system/n150_input_log_anchored_shaper.md).)
-    - **HDR PQ** (Rec.2100 PQ / P3-D65 PQ): resolves to ≈6.64 stops,
-      pulling the peak-anchored signal down so the 100-nit (SDR-ref)
-      midgray convention lands on the film's 0.18 and PQ-encoded
-      space samples evenly around midgray.
+    ``exposure_ev`` multiplies a further ``2**exposure_ev`` on top —
+    the LUT-level equivalent of the camera's exposure-compensation
+    dial. ``+1.0`` brightens the source one stop in the film's frame,
+    midgray included; use it to deliberately push a source into the
+    film's shoulder (e.g. tone-mapped SDR deliveries whose encoded 1.0
+    sits only ≈2.47 stops above mid, short of the shoulder).
 
-    ``__post_init__`` replaces ``"auto"`` with the resolved float, so
-    every downstream consumer sees a concrete number.
+    Default ``0.0`` — the LUT is a strict colorimetric transform in
+    exposure. Non-zero values are disclosed in ``bundle.json``
+    (``input_exposure``) and the bundle README.
 
-    Implemented as a plain linear gain — no log shaping. The bake
-    computes the input's native white-to-midgray ratio (from
-    :func:`decode_cctf`), then scales the linear values so source
-    encoded 1.0 lands at ``0.18 × 2 ** stops_above_midgray`` in the
-    film's frame. Midgray drifts as a side effect of the single
-    gain (this is the simple-multiplication trade-off; recovering
-    fixed midgray *and* configurable headroom would require log
-    shaping, which this design deliberately rules out).
-
-    ``None`` leaves the input linear scale untouched — the film sees the
-    source's native dynamic range with no gain applied. Equivalent to
-    ``"auto"`` for SDR / camera-log inputs; for HDR PQ it leaves the
-    peak-anchored scale unshifted (film walks well past its shoulder).
-
-    Set to a number to override. Examples:
-
-    - ``2.47`` on sRGB input ≈ identity (matches native).
-    - ``6.0`` on sRGB input → gain ≈ 11.5 → film sees source white
-      at +6 stops above 0.18; the rest of the source slides up the
-      exposure axis with it, so midgray ends up at +3.5 stops in
-      the film's frame and the film walks well into its shoulder.
-    - ``6.0`` on V-Log input → gain ≈ 0.25 → V-Log gets attenuated
-      so its native ≈8-stop white sits at +6 stops above 0.18.
-
-    With an explicit override the LUT is no longer a strict
-    colorimetric round-trip; the bundle README discloses the
-    effective gain."""
+    White placement follows from the input curve's native headroom;
+    repositioning white independently of midgray would require log
+    shaping, which the LUT layer deliberately rules out (n150)."""
     output_gamut_compress: OutputGamutCompressSpec | str = field(
         default_factory=lambda: OutputGamutCompressSpec(algorithm="cam16ucs")
     )
@@ -181,22 +140,16 @@ class BundleSpec:
         # Accept either canonical registry names ("Rec.2100 PQ") or the
         # entry's short_tag slug ("rec2100pq"); normalize to canonical
         # so every downstream consumer sees the same string.
-        from spektrafilm_lut_creator.color_spaces import (
-            native_stops_above_midgray as _native_stops,
-            resolve as _resolve_cs,
-        )
+        from spektrafilm_lut_creator.color_spaces import resolve as _resolve_cs
         object.__setattr__(self, "input_color_space", _resolve_cs(self.input_color_space))
         object.__setattr__(self, "output_color_space", _resolve_cs(self.output_color_space))
-        if isinstance(self.stops_above_midgray, str):
-            if self.stops_above_midgray != "auto":
-                raise ValueError(
-                    f"stops_above_midgray must be a float, None, or 'auto'; "
-                    f"got {self.stops_above_midgray!r}"
-                )
-            object.__setattr__(
-                self, "stops_above_midgray",
-                _native_stops(self.input_color_space),
+        if isinstance(self.exposure_ev, bool) or not isinstance(
+            self.exposure_ev, (int, float)
+        ):
+            raise ValueError(
+                f"exposure_ev must be a number (stops); got {self.exposure_ev!r}"
             )
+        object.__setattr__(self, "exposure_ev", float(self.exposure_ev))
         if isinstance(self.output_gamut_compress, str):
             object.__setattr__(
                 self,

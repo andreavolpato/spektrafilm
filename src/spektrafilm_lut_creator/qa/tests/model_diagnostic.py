@@ -165,7 +165,7 @@ def planckian_sweep(ctx: "QAContext") -> Result:
     """
     spec = ctx.spec
     samples_encoded, cct = patterns.planckian_sweep(
-        spec.input_color_space, n=16, stops_above_midgray=ctx.frame.stops_above_midgray,
+        spec.input_color_space, n=16, exposure_ev=ctx.frame.exposure_ev,
     )
 
     # Apply the LUT (cheap) — that's what users will see.
@@ -308,8 +308,20 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
     """
     in_cs = ctx.spec.input_color_space
     out_cs = ctx.spec.output_color_space
+    entry = color_spaces.get(in_cs)
+    # Anchor the exposure ramp at the camera's *true* native middle gray —
+    # the linear value the input encoding assigns to an 18% gray card
+    # (``entry.midgray_linear``: 0.18 for SDR/log, the reference-white nits
+    # for PQ/HLG). NOT ``ctx.frame.input_midgray_linear`` (= 0.18 / input
+    # gain), which moves the anchor *with* the LUT's exposure gain and so
+    # pre-cancels it: stop 0 then means "whatever input happens to land on
+    # film midgray," which silently re-centers any exposure error and makes
+    # the curve look correct even when a properly-exposed gray renders dark.
+    # With the true anchor, stop 0 IS the camera's 18% gray, so where it
+    # lands in output density is an honest exposure readout (see n200).
+    native_midgray = float(entry.midgray_linear)
     stops, encoded_in, encoded_clip_mask = patterns.dynamic_range_neutral_ramp(
-        in_cs, middle_gray_linear=ctx.frame.input_midgray_linear,
+        in_cs, middle_gray_linear=native_midgray,
     )
 
     # Apply the LUT (already composed if 2-LUT) at the encoded inputs.
@@ -326,18 +338,38 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
     y_out = np.clip(y_out, 1e-6, None)
 
     stats = metrics.dynamic_range_stats(stops, y_out, encoded_clip_mask)
+    # Midgray exposure readout: where does the camera's 18% gray (stop 0)
+    # actually render? Ideal is output Y ≈ 0.18 (offset 0). Midgray is
+    # pinned by construction (n200), so any offset beyond the film's own
+    # rendering of 18% gray is either the spec's deliberate exposure_ev
+    # or a bug. Either way: report it loudly.
+    midgray_y = float(np.interp(0.0, stops, y_out))
+    midgray_offset_stops = float(np.log2(midgray_y / 0.18))
+    stats["midgray_output_y"] = midgray_y
+    stats["midgray_offset_stops"] = midgray_offset_stops
+
     fig = viz.dynamic_range_curve(
         stops, y_out, encoded_clip_mask, stats,
         in_cs=in_cs, out_cs=out_cs,
     )
     path = _save(ctx, fig, "dynamic_range_usage")
 
+    drift = (
+        "on target" if abs(midgray_offset_stops) <= 0.25
+        else f"{midgray_offset_stops:+.2f} stops off"
+    )
     return Result(
         name="dynamic_range_usage",
         summary=stats,
         figure_path=path,
         units="stops",
         interpretation=(
+            f"Midgray exposure: the camera's 18% gray renders at "
+            f"{midgray_offset_stops:+.2f} stops vs the ideal 0.18 output "
+            f"({drift}). Midgray is pinned by construction, so this should "
+            f"be ≈0 (plus the film's own rendering of 18% gray) unless the "
+            f"spec bakes a deliberate exposure_ev — anything else means "
+            f"the LUT is re-exposing midgray.\n"
             "The 'active rendering range' is how many input stops the "
             "LUT distinguishes — slope above 0.10 D/stop. Below that "
             "threshold, an input stop change barely moves the output, "

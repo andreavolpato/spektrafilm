@@ -21,7 +21,10 @@ from typing import Any
 from spektrafilm_lut_creator.wires import DensityWire, LogEWire
 
 
-SCHEMA_VERSION = 1
+# 2: input_exposure records exposure_ev (midgray-pinned model, n200)
+# instead of stops_above_midgray; params_snapshot keys exposure_ev /
+# input_gain replace stops_above_midgray / input_exposure_gain.
+SCHEMA_VERSION = 2
 
 _PROJECT_URL = "https://github.com/andreavolpato/spektrafilm"
 _LUT_LICENSE_URL = "https://github.com/andreavolpato/spektrafilm/blob/main/SPEKTRAFILM_LICENSE.txt"
@@ -159,17 +162,17 @@ class LutFileMeta:
 
 @dataclass(frozen=True)
 class InputExposureMeta:
-    """Bundle-level record of the active input exposure gain (n150).
+    """Bundle-level record of a deliberate baked-in exposure (n200).
 
-    Stored on :class:`BundleMeta` whenever the bundle was baked with
-    a non-``None`` ``BundleSpec.stops_above_midgray``. Consumers reading
-    ``bundle.json`` see both the requested target and the resulting
-    linear gain so they can reverse the operation if needed. Omitted
-    (the ``BundleMeta.input_exposure`` field stays ``None``) when the
-    bundle used the native input dynamic range.
+    Stored on :class:`BundleMeta` whenever the bundle was baked with a
+    non-zero ``BundleSpec.exposure_ev``. Consumers reading
+    ``bundle.json`` see both the EV and the resulting linear gain so
+    they can reverse the operation if needed. Omitted (the
+    ``BundleMeta.input_exposure`` field stays ``None``) for the default
+    midgray-pinned colorimetric behavior.
     """
-    stops_above_midgray: float
-    gain: float  # linear multiplier applied to post-decode_cctf values
+    exposure_ev: float
+    gain: float  # 2**exposure_ev, applied on top of the midgray bridge
 
 
 @dataclass

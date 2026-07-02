@@ -22,7 +22,7 @@ from spektrafilm_lut_creator.bundles import BundleSpec
 from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
     encode_cctf,
-    input_exposure_gain,
+    input_gain,
 )
 from spektrafilm_lut_creator.formats import get_format
 from spektrafilm_lut_creator.grid import cube_grid, grid_as_image
@@ -33,7 +33,7 @@ from .factories import make_bundle_spec
 
 
 _RESOLUTION = 5  # small enough to run quickly, large enough to exercise the cube layout
-_INPUT_CS = "ACEScct"  # log; identity gain under stops_above_midgray="auto"
+_INPUT_CS = "ACEScct"  # log; identity gain (midgray pinned, exposure_ev=0)
 _OUTPUT_CS = "sRGB"    # encoded SDR
 _LUT_LICENSE_PATH = Path(__file__).resolve().parents[2] / "SPEKTRAFILM_LICENSE.txt"
 
@@ -116,7 +116,7 @@ class TestBuildResult:
     def test_metadata_records_topology_and_resolution(self, built):
         assert built.meta.topology == "1lut"
         assert built.meta.resolution == _RESOLUTION
-        assert built.meta.schema_version == 1
+        assert built.meta.schema_version == 2
 
     def test_metadata_records_color_spaces(self, built):
         cs = built.meta.color_spaces
@@ -198,13 +198,12 @@ class TestBuildEndToEndAgreesWithPipeline:
         samples_encoded = grid[flat_indices]
         # Reshape to a tiny image (3, 1, 3) so the pipeline accepts it.
         image_encoded = samples_encoded.reshape(len(flat_indices), 1, 3)
-        # n150: the bake applies the input exposure gain after
-        # decode_cctf when stops_above_midgray is set. The fixture uses
-        # the default (None → gain 1.0), so the call below is identity;
-        # keeping it mirrors the bake's call shape for parity in case
-        # the fixture is later configured with a non-None value.
+        # The bake applies the input gain after decode_cctf. The fixture
+        # is a log input at exposure_ev=0 → identity; keeping the call
+        # mirrors the bake's shape for parity in case the fixture is
+        # later configured with a non-zero exposure_ev.
         image_linear = decode_cctf(image_encoded, _INPUT_CS)
-        gain = input_exposure_gain(_INPUT_CS, None)
+        gain = input_gain(_INPUT_CS)
         image_linear = (image_linear * gain).astype(np.float32)
         live_linear_out = pipeline.process(image_linear)
         live_encoded_out = encode_cctf(np.asarray(live_linear_out, dtype=float), _OUTPUT_CS)
@@ -301,7 +300,7 @@ class TestMultiPrintOneLut:
 class TestBundleSpecMisc:
     """Miscellaneous BundleSpec construction-time validation and
     auto-resolution behavior: color-space tag normalization,
-    ``stops_above_midgray`` sentinels, output-encoding smoke checks.
+    ``exposure_ev`` validation, output-encoding smoke checks.
     """
 
     def test_bundle_spec_accepts_short_tag_color_spaces(self):
@@ -313,28 +312,17 @@ class TestBundleSpecMisc:
         assert spec.input_color_space == "ACEScg"
         assert spec.output_color_space == "Rec.2100 PQ"
 
-    def test_stops_above_midgray_auto_resolves_to_native_stops_for_pq(self):
+    def test_pq_input_gain_bridges_nits_to_reflectance(self):
+        from spektrafilm_lut_creator.color_spaces import input_gain
         spec = make_bundle_spec(
             name="pq_auto",
             input_color_space="rec2100pq",
             output_color_space="rec709",
-            stops_above_midgray="auto",
         )
-        # 100-nit (SDR ref white) midgray on a 10000-nit peak → log2(100) ≈ 6.64 stops.
-        # This puts midgray near PQ-encoded 0.5, where the LUT cube samples sensibly.
-        assert spec.stops_above_midgray == pytest.approx(6.64, abs=0.05)
-
-    def test_stops_above_midgray_auto_for_encoded_sdr(self):
-        # Encoded SDR inputs (sRGB, Adobe RGB, Rec.709, Rec.2020) resolve
-        # to ENCODED_SDR_DEFAULT_STOPS (4.0): native headroom is only ≈2.47,
-        # which leaves the film shoulder unused; bumping to +4 engages it.
-        spec = make_bundle_spec(
-            name="srgb_auto",
-            input_color_space="sRGB",
-            output_color_space="sRGB",
-            stops_above_midgray="auto",
-        )
-        assert spec.stops_above_midgray == pytest.approx(4.0, abs=0.001)
+        # 100-nit (SDR ref white) midgray lands on the film's 0.18 by
+        # construction: gain = 0.18 / 100.
+        gain = input_gain(spec.input_color_space, spec.exposure_ev)
+        assert gain == pytest.approx(0.18 / 100.0, rel=1e-9)
 
     def test_pq_output_bake_is_not_crushed_black(self):
         # Regression: encoding film output (reflectance scale) through
@@ -346,7 +334,6 @@ class TestBundleSpecMisc:
             name="pq_out_smoke",
             input_color_space="rec2100pq",
             output_color_space="rec2100pq",
-            stops_above_midgray="auto",
         )
         bundle = BundleBuilder(spec).build()
         rgb_lut = bundle.luts[0][1]
@@ -360,13 +347,31 @@ class TestBundleSpecMisc:
             f"median={float(np.median(cube_values)):.4f}"
         )
 
-    def test_stops_above_midgray_rejects_unknown_sentinel(self):
-        with pytest.raises(ValueError, match="must be a float, None, or 'auto'"):
+    def test_hlg_output_bake_is_not_crushed_black(self):
+        # Same failure mode as the PQ case: without the HLG midgray_linear
+        # override (26.24 nits, BT.2408 18% grey card), film output in
+        # reflectance scale was encoded as *nits* — 0.18 nits → HLG code
+        # ≈0.05, an essentially black cube.
+        spec = make_bundle_spec(
+            name="hlg_out_smoke",
+            input_color_space="rec2100hlg",
+            output_color_space="rec2100hlg",
+        )
+        bundle = BundleBuilder(spec).build()
+        rgb_lut = bundle.luts[0][1]
+        cube_values = np.asarray(rgb_lut.table).reshape(-1, 3)
+        assert float(np.median(cube_values)) > 0.15, (
+            f"HLG-output cube looks crushed black: "
+            f"median={float(np.median(cube_values)):.4f}"
+        )
+
+    def test_exposure_ev_rejects_non_numeric(self):
+        with pytest.raises(ValueError, match="exposure_ev must be a number"):
             make_bundle_spec(
-                name="bad_sentinel",
+                name="bad_ev",
                 input_color_space="rec2100pq",
                 output_color_space="rec709",
-                stops_above_midgray="native",  # type: ignore[arg-type]
+                exposure_ev="auto",  # type: ignore[arg-type]
             )
 
     def test_bundle_spec_rejects_unknown_color_space(self):
@@ -747,10 +752,10 @@ class TestTwoLutBundle:
         n = self._TWO_LUT_RES
         grid = cube_grid(n)
         image_enc = grid.reshape(1, n ** 3, 3)
-        # n150: mirror the bake's input transform (decode + exposure gain).
-        # Fixture is ACEScct under stops_above_midgray="auto" → identity gain.
+        # Mirror the bake's input transform (decode + input gain).
+        # Fixture is ACEScct at exposure_ev=0 → identity gain.
         image_lin = decode_cctf(image_enc, _INPUT_CS)
-        image_lin = (image_lin * input_exposure_gain(_INPUT_CS, None)).astype(np.float32)
+        image_lin = (image_lin * input_gain(_INPUT_CS)).astype(np.float32)
         cmy_film = np.asarray(pipeline.process(image_lin, collect="cmy_film"),
                               dtype=float).reshape(n ** 3, 3)
 
@@ -796,10 +801,10 @@ class TestTwoLutBundle:
         samples_encoded = rng.uniform(0.0, 1.0, size=(200, 3)).astype(np.float32)
 
         # Live pipeline end-to-end:
-        # n150: mirror the bake's decode + exposure-gain path.
-        # Fixture is ACEScct under stops_above_midgray="auto" → identity gain.
+        # Mirror the bake's decode + input-gain path.
+        # Fixture is ACEScct at exposure_ev=0 → identity gain.
         samples_linear = decode_cctf(samples_encoded, _INPUT_CS)
-        samples_linear = (samples_linear * input_exposure_gain(_INPUT_CS, None)).astype(np.float32)
+        samples_linear = (samples_linear * input_gain(_INPUT_CS)).astype(np.float32)
         live_rgb_linear = np.asarray(
             pipeline.process(samples_linear.reshape(1, -1, 3)),
             dtype=float,
@@ -1148,10 +1153,10 @@ class TestFourLutBundle:
 
         rng = np.random.default_rng(20260516)
         samples_encoded = rng.uniform(0.0, 1.0, size=(200, 3)).astype(np.float32)
-        # n150: mirror the bake's decode + exposure-gain path.
-        # Fixture is ACEScct under stops_above_midgray="auto" → identity gain.
+        # Mirror the bake's decode + input-gain path.
+        # Fixture is ACEScct at exposure_ev=0 → identity gain.
         samples_linear = decode_cctf(samples_encoded, _INPUT_CS)
-        samples_linear = (samples_linear * input_exposure_gain(_INPUT_CS, None)).astype(np.float32)
+        samples_linear = (samples_linear * input_gain(_INPUT_CS)).astype(np.float32)
         live_rgb_linear = np.asarray(
             pipeline.process(samples_linear.reshape(1, -1, 3)),
             dtype=float,
@@ -1245,46 +1250,36 @@ class TestBundleSpecQaFields:
         assert spec.qa_print_index == 0
 
 
-class TestBundleSpecStopsAboveGray:
-    """``BundleSpec.stops_above_midgray`` defaults to ``"auto"``, which
-    ``__post_init__`` resolves to a concrete float via
-    :func:`native_stops_above_midgray` — different per input kind. Passing
-    ``None`` skips the gain entirely; passing a float overrides."""
+class TestBundleSpecExposureEv:
+    """``BundleSpec.exposure_ev`` defaults to 0.0 (midgray pinned by
+    construction — identity input gain for every reflectance-scale
+    input kind). A non-zero value is a deliberate, disclosed
+    re-exposure."""
 
-    @pytest.mark.parametrize("input_cs,expected", [
-        ("Rec.2020",        4.0),    # encoded_sdr → ENCODED_SDR_DEFAULT_STOPS
-        ("sRGB",            4.0),    # encoded_sdr → ENCODED_SDR_DEFAULT_STOPS
-        ("ACEScct",         pytest.approx(10.27, abs=0.05)),  # log: encoded 1.0 → 65504 linear
-        ("Panasonic V-Log", 6.0),                             # curated V-Log default
+    @pytest.mark.parametrize("input_cs", [
+        "Rec.2020", "sRGB", "ACEScct", "Panasonic V-Log",
     ])
-    def test_auto_default_resolves_per_kind(self, input_cs, expected):
+    def test_default_is_midgray_pinned_identity(self, input_cs):
+        from spektrafilm_lut_creator.color_spaces import input_gain
         spec = BundleSpec(
             film_profile="kodak_portra_400",
             print_profiles=("kodak_portra_endura",),
             input_color_space=input_cs,
             output_color_space="sRGB",
         )
-        assert spec.stops_above_midgray == expected
+        assert spec.exposure_ev == 0.0
+        assert input_gain(spec.input_color_space, spec.exposure_ev) == 1.0
 
-    def test_explicit_none_is_preserved(self):
+    def test_explicit_value_is_preserved_as_float(self):
         spec = BundleSpec(
             film_profile="kodak_portra_400",
             print_profiles=("kodak_portra_endura",),
             input_color_space="sRGB",
             output_color_space="sRGB",
-            stops_above_midgray=None,
+            exposure_ev=1.5,
         )
-        assert spec.stops_above_midgray is None
-
-    def test_explicit_value_is_preserved(self):
-        spec = BundleSpec(
-            film_profile="kodak_portra_400",
-            print_profiles=("kodak_portra_endura",),
-            input_color_space="sRGB",
-            output_color_space="sRGB",
-            stops_above_midgray=6.0,
-        )
-        assert spec.stops_above_midgray == 6.0
+        assert spec.exposure_ev == 1.5
+        assert isinstance(spec.exposure_ev, float)
 
 
 class TestDefaultOutputDirectory:

@@ -36,7 +36,7 @@ from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
     encode_cctf,
     output_midgray_gain,
-    input_exposure_gain,
+    input_gain,
     get as get_color_space,
 )
 from spektrafilm_lut_creator.formats import Lut, get_format
@@ -116,20 +116,18 @@ from spektrafilm_lut_creator.bundle_text import (
 
 
 def _input_exposure_meta(spec: BundleSpec) -> InputExposureMeta | None:
-    """Build the bundle.json record for the active input exposure gain.
+    """Build the bundle.json record for a deliberate baked-in exposure.
 
-    Returns ``None`` when ``spec.stops_above_midgray`` is ``None`` (native
-    behavior, no gain applied) — there's nothing creative baked into
-    the LUT to disclose. Otherwise records the target stops-above-gray
-    and the resulting linear gain so consumers can see exactly what
-    multiplication the LUT internally absorbed.
+    Returns ``None`` when ``spec.exposure_ev`` is ``0`` (midgray-pinned
+    colorimetric behavior) — there's nothing creative baked into the
+    LUT to disclose. The midgray scale bridge for HDR inputs is not
+    creative and is recorded in the params snapshot instead.
     """
-    if spec.stops_above_midgray is None:
+    if spec.exposure_ev == 0.0:
         return None
-    gain = input_exposure_gain(spec.input_color_space, spec.stops_above_midgray)
     return InputExposureMeta(
-        stops_above_midgray=float(spec.stops_above_midgray),
-        gain=float(gain),
+        exposure_ev=float(spec.exposure_ev),
+        gain=float(2.0 ** spec.exposure_ev),
     )
 
 
@@ -163,9 +161,9 @@ def _params_snapshot_for_print(
         "lut_mode": True,
         "input_gamut_compress": asdict(spec.input_gamut_compress),
         "output_gamut_compress": asdict(spec.output_gamut_compress),
-        "stops_above_midgray": spec.stops_above_midgray,
-        "input_exposure_gain": float(
-            input_exposure_gain(spec.input_color_space, spec.stops_above_midgray)
+        "exposure_ev": spec.exposure_ev,
+        "input_gain": float(
+            input_gain(spec.input_color_space, spec.exposure_ev)
         ),
         "resolution": spec.resolution,
         "topology": spec.topology,
@@ -807,11 +805,11 @@ class BundleBuilder:
         probe_grid = cube_grid(n_probe)
         probe_image_enc = grid_as_image(probe_grid, n_probe)
         probe_image_lin = decode_cctf(probe_image_enc, spec.input_color_space)
-        # n150: apply the input exposure gain so the wire measurement
-        # reflects the LUT's actual exposure (otherwise d_max would be
-        # measured at the input's native range and the wire would be
-        # too narrow for the post-gain probe values).
-        gain = input_exposure_gain(spec.input_color_space, spec.stops_above_midgray)
+        # Apply the input gain (midgray bridge × exposure_ev) so the wire
+        # measurement reflects the LUT's actual exposure (otherwise d_max
+        # would be measured at the input's native range and the wire would
+        # be too narrow for the post-gain probe values).
+        gain = input_gain(spec.input_color_space, spec.exposure_ev)
         probe_image_lin = (probe_image_lin * gain).astype(np.float32)
         # Collect the cmy_film tap directly.
         cmy_film = np.asarray(
@@ -854,10 +852,10 @@ class BundleBuilder:
         probe_image_lin = decode_cctf(
             probe_image_enc, spec.input_color_space,
         )
-        # n150: same input-exposure plumb as _compute_density_wire —
-        # the log_e span here must reflect the post-gain probe values
-        # or the wire collapses to the input's native range.
-        gain = input_exposure_gain(spec.input_color_space, spec.stops_above_midgray)
+        # Same input-gain plumb as _compute_density_wire — the log_e
+        # span here must reflect the post-gain probe values or the wire
+        # collapses to the input's native range.
+        gain = input_gain(spec.input_color_space, spec.exposure_ev)
         probe_image_lin = (probe_image_lin * gain).astype(np.float32)
         log_e = np.asarray(
             pipeline.process(probe_image_lin, collect=tap),
@@ -891,12 +889,10 @@ class BundleBuilder:
         if inject_tap == "rgb_in":
             image_enc = grid_as_image(code_grid, n)
             image_lin = decode_cctf(image_enc, spec.input_color_space)
-            # n150: simple linear gain that places source white at
-            # 0.18 * 2**spec.stops_above_midgray in the film's frame
-            # (gain = 1.0 when stops_above_midgray is None — native).
-            gain = input_exposure_gain(
-                spec.input_color_space, spec.stops_above_midgray,
-            )
+            # Midgray-anchored input gain (n200): the input's native
+            # midgray lands on the film's 0.18 (identity for SDR/log),
+            # times 2**exposure_ev for a deliberate re-exposure.
+            gain = input_gain(spec.input_color_space, spec.exposure_ev)
             image_lin = image_lin * gain
             return image_lin.astype(np.float32)
         if inject_tap == "log_e_film":

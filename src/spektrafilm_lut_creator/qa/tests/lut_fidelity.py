@@ -138,8 +138,8 @@ def monotonicity(ctx: "QAContext") -> Result:
 
     # Midgray-encoded for the LUT *as configured*: the BakeFrame's
     # input_midgray_linear is 0.18 / input_gain — for an HDR PQ bundle
-    # with stops_above_midgray="auto" it lands at 100 nits, not at 0.18
-    # linear (which sits 9 stops below midgray in PQ's container).
+    # it lands at 100 nits, not at 0.18 linear (which sits 9 stops
+    # below midgray in PQ's container).
     mid_gray_linear = np.full((1, 3), ctx.frame.input_midgray_linear, dtype=float)
     mid_gray_encoded = encode_cctf(mid_gray_linear, ctx.frame.input_color_space)
     pin = float(np.asarray(mid_gray_encoded).flatten()[0])
