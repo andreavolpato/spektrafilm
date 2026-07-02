@@ -532,10 +532,11 @@ def get_lut_spectra(identifier):
 
 def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
                                spectra_lut=None, gamut_compress=None):
-    """(S, S, 3) raw LUT for any REFLECTANCE-family method, selected by `identifier`.
+    """(S, S, C) raw LUT for any REFLECTANCE-family method, selected by `identifier`
+    (C = 3 for colour film, 1 for a black-and-white emulsion).
 
     Relight the reflectance by the film reference illuminant, integrate against the film
-    sensitivity, self-normalize PER CHANNEL on the descriptor's midgray neutral (so a neutral
+    sensitivity, self-normalize PER CHANNEL on the method's own emitted neutral (so a neutral
     surface -> gray (1,1,1) raw, matching the white-balance convention the hanatos2025 window
     preserves), and optionally bake input gamut compression (build-time remap, keeping the
     per-pixel hot path compression-agnostic). The decoupled-illuminant structure (the Hanika
@@ -547,29 +548,26 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
                          f"'reflectance' (cannot relight a non-reflectance LUT)")
     if spectra_lut is None:
         spectra_lut = get_lut_spectra(identifier)
-    midgray = float(descriptor['reflectance']['midgray'])
     E_ref = standard_illuminant(reference_illuminant)[:]               # (81,)
     relit = spectra_lut * E_ref[None, None, :]                        # (S,S,81)
-    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)             # (S,S,3)
-    # White balance: a neutral input must map to gray (1,1,1), matching the convention the
-    # hanatos2025 windowed path now sits on. GREEN sets the midgray exposure anchor (flat 0.184
-    # under E_ref -> green 1, method-independent so exposure is consistent across methods). R/B
-    # are balanced against the METHOD'S OWN emitted neutral — its recovered reflectance at the
-    # SCENE-illuminant chromaticity, i.e. exactly where a neutral lands (rgb_to_raw_reflectance
-    # projects under the scene white, so the neutral sits at the D65 cell, NOT the D55 relight
-    # white) — so methods whose recovered neutral is NOT perfectly flat (otsu) still resolve to
-    # gray, not just the flat-neutral ones. (Was green-only, which left the film's reference-
-    # illuminant cast in every neutral.)
+    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)             # (S,S,C)
+    # White balance: a neutral input must map to gray (1,...,1), matching the convention the
+    # hanatos2025 windowed path sits on. Normalize each channel by the METHOD'S OWN emitted
+    # neutral — its recovered reflectance at the SCENE-illuminant chromaticity, relit by E_ref,
+    # i.e. exactly where a neutral input lands (rgb_to_raw_reflectance projects under the scene
+    # white, so the neutral sits at the scene cell, NOT the D55 relight white). Dividing by that
+    # response sends the reconstructed neutral to (1,...,1), so methods whose recovered neutral
+    # is NOT perfectly flat still resolve to gray, not just the flat-neutral ones. This is
+    # purely per channel with no green anchor, so a single-channel B&W emulsion (C=1) balances
+    # exactly like colour (C=3) — the same per-channel neutral normalization hanatos2025 uses.
     scene_illuminant = descriptor['reflectance']['scene_illuminant']
-    raw_midgray_green = np.einsum('l,lm->m', midgray * E_ref, sensitivity)[1]
     white_tc = _tri2quad(_illuminant_to_xy(scene_illuminant))
     # sample with the SAME cubic interpolator the runtime uses (apply_lut_cubic_2d), so the
     # normalization neutral matches the sampled neutral exactly even for LUTs with sharp
     # near-white structure (arctic), not just smooth ones.
     neutral_refl = apply_lut_cubic_2d(spectra_lut, np.asarray(white_tc).reshape(1, 1, 2))[0, 0]
-    raw_neutral = np.einsum('l,lm->m', neutral_refl * E_ref, sensitivity)   # its film response (3,)
-    chroma = raw_neutral / raw_neutral[1]                             # neutral chroma, green = 1
-    raw_lut = raw_lut / (chroma * raw_midgray_green)                  # gray neutral, green-anchored
+    raw_neutral = np.einsum('l,lm->m', neutral_refl * E_ref, sensitivity)   # its film response (C,)
+    raw_lut = raw_lut / raw_neutral                  # reconstructed neutral -> (1,...,1), per channel
 
     if gamut_compress is not None and gamut_compress.active:
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
