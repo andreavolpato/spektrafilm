@@ -366,7 +366,7 @@ class TapsParams:
 
 @dataclass
 class SettingsParams:
-    rgb_to_raw_method: str = "arctic2026beta04"
+    rgb_to_raw_method: str = "hanatos2025"
     apply_hanatos2025_adaptation_window: bool = True
     apply_hanatos2025_adaptation_surface: bool = False
     spectral_gaussian_blur: float = 0.0

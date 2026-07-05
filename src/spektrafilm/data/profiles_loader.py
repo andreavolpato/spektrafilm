@@ -415,16 +415,6 @@ def _validate_profile(profile, stock):
     if not valid:
         raise ValueError(f"Invalid profile '{stock}'")
 
-def save_profile(profile, suffix=''):
-    profile = copy.deepcopy(profile)
-    profile.info.stock = profile.info.stock + suffix
-    package = pkg_resources.files('spektrafilm.data.profiles')
-    filename = profile.info.stock + '.json'
-    resource = package / filename
-    print('Saving profile to:', filename)
-    with resource.open("w") as file:
-        json.dump(_json_safe(profile_to_dict(profile)), file, indent=4, allow_nan=False)
-
 def list_profiles():
     """Return the sorted slugs of all bundled profiles (the JSON file
     stems under ``spektrafilm.data.profiles``)."""
@@ -446,9 +436,8 @@ def load_profile(stock):
     return profile
 
 
-# Split-architecture aliases.
+# Split-architecture alias.
 load_processed_profile = load_profile
-save_processed_profile = save_profile
 
 __all__ = [
     "DensityCurvesModel",
@@ -465,7 +454,5 @@ __all__ = [
     "profile_to_dict",
     "list_profiles",
     "load_profile",
-    "save_profile",
     "load_processed_profile",
-    "save_processed_profile",
 ]
