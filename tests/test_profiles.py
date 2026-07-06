@@ -109,13 +109,17 @@ class TestLoadProfile:
 
         profile_rt = profile_from_dict(json.loads(payload))
 
+        # Saved floats are quantized to 6 decimals (see _json_safe), so the
+        # round trip is exact to half a unit in the last place.
         np.testing.assert_allclose(
             profile_rt.data.hanatos2025_adaptation_window_params,
             portra_400_profile.data.hanatos2025_adaptation_window_params,
+            rtol=0, atol=5e-7,
         )
         np.testing.assert_allclose(
             profile_rt.data.hanatos2025_adaptation_surface_params,
             portra_400_profile.data.hanatos2025_adaptation_surface_params,
+            rtol=0, atol=5e-7,
         )
 
     def test_profile_constructor_rejects_dict_payloads(self):

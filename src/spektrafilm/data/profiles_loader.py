@@ -325,6 +325,13 @@ def profile_to_dict(data):
     return data
 
 
+# Saved floats are rounded to 6 decimals: two orders of magnitude below any
+# physically meaningful figure (datasheet digitization and densitometry sit
+# at ~1e-2 density) yet exact to ~1e-6 through the parametric-model round
+# trip, and it keeps regeneration diffs free of full-precision float noise.
+_JSON_FLOAT_DECIMALS = 6
+
+
 def _json_safe(data):
     if isinstance(data, dict):
         return {k: _json_safe(v) for k, v in data.items()}
@@ -334,8 +341,10 @@ def _json_safe(data):
         return [_json_safe(v) for v in data]
     if isinstance(data, np.ndarray):
         return _json_safe(data.tolist())
-    if isinstance(data, float) and np.isnan(data):
-        return None
+    if isinstance(data, float):
+        if np.isnan(data):
+            return None
+        return round(data, _JSON_FLOAT_DECIMALS)
     return data
 
 
@@ -415,6 +424,11 @@ def _validate_profile(profile, stock):
     if not valid:
         raise ValueError(f"Invalid profile '{stock}'")
 
+# The runtime's own profile collection. The loaders below default to it but
+# accept any package of profile JSONs (e.g. the staging package's stocks).
+DEFAULT_PROFILES_PACKAGE = 'spektrafilm.data.profiles'
+
+
 def _scan_profile_resources(directory, resources):
     for entry in directory.iterdir():
         if entry.is_dir():
@@ -422,42 +436,42 @@ def _scan_profile_resources(directory, resources):
         elif entry.name.endswith('.json'):
             stock = entry.name[:-len('.json')]
             if stock in resources:
-                raise ValueError(f'Duplicate profile found in bundled data: {stock!r}')
+                raise ValueError(f'Duplicate profile found in {directory}: {stock!r}')
             resources[stock] = entry
 
 
-def _profile_resources():
-    """Map stock -> profile JSON resource, scanning ``spektrafilm.data.profiles``
-    recursively: profiles can be organized in subfolders, the stem is the stock
-    regardless of nesting."""
+def _profile_resources(package=DEFAULT_PROFILES_PACKAGE):
+    """Map stock -> profile JSON resource, scanning ``package`` recursively:
+    profiles can be organized in subfolders, the stem is the stock regardless
+    of nesting."""
     resources = {}
-    _scan_profile_resources(pkg_resources.files('spektrafilm.data.profiles'), resources)
+    _scan_profile_resources(pkg_resources.files(package), resources)
     return dict(sorted(resources.items()))
 
 
-def list_profiles():
-    """Return the sorted slugs of all bundled profiles (the JSON file stems
-    under ``spektrafilm.data.profiles``, subfolders included)."""
-    return list(_profile_resources())
+def list_profiles(package=DEFAULT_PROFILES_PACKAGE):
+    """Return the sorted slugs of all profiles in ``package`` (the JSON file
+    stems, subfolders included; default: the bundled profiles)."""
+    return list(_profile_resources(package))
 
 
-def load_profile_infos():
-    """Return ``{stock: ProfileInfo}`` for every bundled profile, sorted by
-    stock. This is the data-derived stock catalog: consumers split it by
-    ``info.stage`` ('filming'/'printing'), so adding a profile never touches
-    code."""
+def load_profile_infos(package=DEFAULT_PROFILES_PACKAGE):
+    """Return ``{stock: ProfileInfo}`` for every profile in ``package``,
+    sorted by stock (default: the bundled profiles). This is the data-derived
+    stock catalog: consumers split it by ``info.stage`` ('filming'/'printing'),
+    so adding a profile never touches code."""
     infos = {}
-    for stock, resource in _profile_resources().items():
+    for stock, resource in _profile_resources(package).items():
         with resource.open('r') as file:
             info_payload = json.load(file).get('info', {})
         infos[stock] = ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, 'info'))
     return infos
 
 
-def load_profile(stock):
-    resource = _profile_resources().get(stock)
+def load_profile(stock, package=DEFAULT_PROFILES_PACKAGE):
+    resource = _profile_resources(package).get(stock)
     if resource is None:
-        raise FileNotFoundError(f'No bundled profile found for stock {stock!r}')
+        raise FileNotFoundError(f'No profile found for stock {stock!r} in {package!r}')
     with resource.open("r") as file:
         profile = profile_from_dict(json.load(file))
     _validate_profile(profile, stock)

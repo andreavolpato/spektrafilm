@@ -2,6 +2,28 @@ from __future__ import annotations
 
 from enum import Enum
 
+from spektrafilm.data.profiles_loader import load_profile_infos
+
+
+# Film / print stock selector choices: one member per bundled profile, split
+# by the profile's processing stage. Derived from the profile library so the
+# dropdowns always match it (mirrors CameraColorFilters): adding a stock is a
+# data change, never a code change.
+def _dropdown_order(item):
+    stock, info = item
+    # still before cine, negative before positive, color before bw, then alphabetical
+    return (info.use != 'still', info.type != 'negative', info.channel_model != 'color', stock)
+
+
+_profile_infos = sorted(load_profile_infos().items(), key=_dropdown_order)
+FilmStocks = Enum('FilmStocks', {
+    stock: stock for stock, info in _profile_infos if info.stage == 'filming'
+})
+PrintStocks = Enum('PrintStocks', {
+    stock: stock for stock, info in _profile_infos if info.stage == 'printing'
+})
+del _profile_infos
+
 
 class RGBColorSpaces(Enum):
     sRGB = "sRGB"

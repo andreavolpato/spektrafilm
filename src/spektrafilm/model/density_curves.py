@@ -172,12 +172,13 @@ def select_development_time(profile_data, development_time):
     all of them — curves, layer slice, base+fog, the development_time entry, and
     the model row — leaving a normal single-curve profile (1-D base) for every
     downstream consumer. ``development_time`` None means "no choice made": the
-    representative middle development is used (floor-middle when even). No-op for
-    color / single-curve stocks (no development_time, or a single column).
+    representative middle development is used (floor-middle when even). No-op
+    for color stocks (no development_time); an N=1 family still collapses so
+    its per-column base+fog becomes the 1-D base consumers expect.
     """
     times = profile_data.development_time
     curves = profile_data.density_curves
-    if times is None or curves is None or np.asarray(curves).shape[1] <= 1:
+    if times is None or curves is None:
         return profile_data
     times = np.asarray(times, dtype=float)
     if development_time is None:
