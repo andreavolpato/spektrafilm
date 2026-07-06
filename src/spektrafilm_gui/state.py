@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, TypeVar
 
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
     ConvertFilmParams,
@@ -386,7 +386,7 @@ def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
 
 
 DEFAULT_FILM_STOCK = FilmStocks.kodak_gold_200.value
-DEFAULT_PRINT_PAPER = PrintPapers.kodak_supra_endura.value
+DEFAULT_PRINT_PAPER = PrintStocks.kodak_supra_endura.value
 PROJECT_DEFAULT_GUI_STATE = build_default_gui_state(
     film_stock=DEFAULT_FILM_STOCK,
     print_paper=DEFAULT_PRINT_PAPER,

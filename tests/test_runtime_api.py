@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 
 from spektrafilm import AgXPhoto, Simulator, photo_params, simulate
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.runtime import pipeline as pipeline_module
 from spektrafilm.runtime import process as process_module
 
@@ -143,8 +142,8 @@ class TestRuntimeApi:
         """reference this https://github.com/artraweditor/ART/blob/master/tools/extlut/spektrafilm_mklut.py"""
         def make_art_params():
             params = photo_params(
-                FilmStocks.kodak_portra_400.value,
-                PrintPapers.kodak_portra_endura.value,
+                'kodak_portra_400',
+                'kodak_portra_endura',
             )
             params.camera.auto_exposure = False
             params.camera.auto_exposure_method = 'median'

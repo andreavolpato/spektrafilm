@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from spektrafilm.model.illuminants import Illuminants
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
+from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm_gui.params_mapper import build_params_from_state
 import spektrafilm_gui.state as state_module
 from spektrafilm_gui.state import (
@@ -227,14 +227,14 @@ def test_build_params_copies_output_gamut_compress_group() -> None:
 def test_gui_state_from_params_mirrors_input_gamut_compress_group() -> None:
     params = init_params(
         film_profile=FilmStocks.kodak_gold_200.value,
-        print_profile=PrintPapers.kodak_supra_endura.value,
+        print_profile=PrintStocks.kodak_supra_endura.value,
     )
     params.io.input_gamut_compress = InputGamutCompressSpec(active=False)
 
     state = gui_state_from_params(
         params,
         film_stock=FilmStocks.kodak_gold_200.value,
-        print_paper=PrintPapers.kodak_supra_endura.value,
+        print_paper=PrintStocks.kodak_supra_endura.value,
     )
 
     assert state.input_gamut_compress.active is False
@@ -251,7 +251,7 @@ def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
 
     params = digest_params(init_params(
         film_profile=FilmStocks.kodak_doublex.value,
-        print_profile=PrintPapers.kodak_2302.value,
+        print_profile=PrintStocks.kodak_2302.value,
     ))
     # precondition: the runtime grain genuinely carries None padding for B&W
     assert any(c is None for c in params.film_render.grain.uniformity)
@@ -259,7 +259,7 @@ def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
     state = gui_state_from_params(
         params,
         film_stock=FilmStocks.kodak_doublex.value,
-        print_paper=PrintPapers.kodak_2302.value,
+        print_paper=PrintStocks.kodak_2302.value,
     )
 
     for field_name in ('rms_granularity', 'uniformity', 'density_min'):
@@ -272,7 +272,7 @@ def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
 def test_build_default_gui_state_uses_runtime_defaults() -> None:
     state = build_default_gui_state(
         film_stock=FilmStocks.kodak_gold_200.value,
-        print_paper=PrintPapers.kodak_supra_endura.value,
+        print_paper=PrintStocks.kodak_supra_endura.value,
     )
 
     assert state.grain.blur == 0.89

@@ -415,21 +415,49 @@ def _validate_profile(profile, stock):
     if not valid:
         raise ValueError(f"Invalid profile '{stock}'")
 
+def _scan_profile_resources(directory, resources):
+    for entry in directory.iterdir():
+        if entry.is_dir():
+            _scan_profile_resources(entry, resources)
+        elif entry.name.endswith('.json'):
+            stock = entry.name[:-len('.json')]
+            if stock in resources:
+                raise ValueError(f'Duplicate profile found in bundled data: {stock!r}')
+            resources[stock] = entry
+
+
+def _profile_resources():
+    """Map stock -> profile JSON resource, scanning ``spektrafilm.data.profiles``
+    recursively: profiles can be organized in subfolders, the stem is the stock
+    regardless of nesting."""
+    resources = {}
+    _scan_profile_resources(pkg_resources.files('spektrafilm.data.profiles'), resources)
+    return dict(sorted(resources.items()))
+
+
 def list_profiles():
-    """Return the sorted slugs of all bundled profiles (the JSON file
-    stems under ``spektrafilm.data.profiles``)."""
-    package = pkg_resources.files('spektrafilm.data.profiles')
-    return sorted(
-        entry.name[:-len('.json')]
-        for entry in package.iterdir()
-        if entry.name.endswith('.json')
-    )
+    """Return the sorted slugs of all bundled profiles (the JSON file stems
+    under ``spektrafilm.data.profiles``, subfolders included)."""
+    return list(_profile_resources())
+
+
+def load_profile_infos():
+    """Return ``{stock: ProfileInfo}`` for every bundled profile, sorted by
+    stock. This is the data-derived stock catalog: consumers split it by
+    ``info.stage`` ('filming'/'printing'), so adding a profile never touches
+    code."""
+    infos = {}
+    for stock, resource in _profile_resources().items():
+        with resource.open('r') as file:
+            info_payload = json.load(file).get('info', {})
+        infos[stock] = ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, 'info'))
+    return infos
 
 
 def load_profile(stock):
-    package = pkg_resources.files('spektrafilm.data.profiles')
-    filename = stock + '.json'
-    resource = package / filename
+    resource = _profile_resources().get(stock)
+    if resource is None:
+        raise FileNotFoundError(f'No bundled profile found for stock {stock!r}')
     with resource.open("r") as file:
         profile = profile_from_dict(json.load(file))
     _validate_profile(profile, stock)
@@ -454,5 +482,6 @@ __all__ = [
     "profile_to_dict",
     "list_profiles",
     "load_profile",
+    "load_profile_infos",
     "load_processed_profile",
 ]

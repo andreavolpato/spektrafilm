@@ -33,15 +33,16 @@ from spektrafilm.runtime.params_schema import (
 from spektrafilm.runtime.params_schema import CameraParams
 from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.model.color_filters import CameraColorFilters
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
 from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 from spektrafilm_gui.options import (
     AutoExposureMethods,
     DiffusionFilterFamilies,
+    FilmStocks,
     InputGamutCompressAlgorithms,
     NapariInterpolationModes,
     OutputGamutCompressAlgorithms,
+    PrintStocks,
     RGBColorSpaces,
     RGBtoRAWMethod,
     ScanIlluminants,
@@ -1078,7 +1079,7 @@ DISPLAY_PANEL_FIELDS = (
 
 SIMULATION_PROFILE_PANEL_FIELDS = (
     ParamSpec("selection.film_stock", label="Film profile", tooltip="Film stock to simulate", enum=FilmStocks),
-    ParamSpec("selection.print_paper", label="Print profile", tooltip="Print paper to simulate", enum=PrintPapers),
+    ParamSpec("selection.print_paper", label="Print profile", tooltip="Print stock to simulate", enum=PrintStocks),
 )
 
 SIMULATION_SPECIAL_BORROWED_FIELDS = (

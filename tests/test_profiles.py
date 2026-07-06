@@ -1,10 +1,7 @@
 import json
 import numpy as np
 import pytest
-import ast
-import inspect
 
-from spektrafilm.model import stocks
 from spektrafilm.data.profiles_loader import (
     Profile,
     ProfileData,
@@ -243,19 +240,6 @@ class TestFlexibleProfileData:
             profile = profile_from_dict(payload)
         assert not hasattr(profile.data, 'experimental_curve')
         np.testing.assert_array_equal(profile.data.wavelengths, [380.0])
-
-
-class TestDependencyBoundaries:
-    def test_stocks_module_has_no_top_level_process_import(self):
-        tree = ast.parse(inspect.getsource(stocks))
-        for node in tree.body:
-            if isinstance(node, ast.ImportFrom):
-                assert node.module != 'spektrafilm.runtime.process'
-
-    def test_stocks_module_has_no_main_script_block(self):
-        tree = ast.parse(inspect.getsource(stocks))
-        for node in tree.body:
-            assert not isinstance(node, ast.If)
 
 
 

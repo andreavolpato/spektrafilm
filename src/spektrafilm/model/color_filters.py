@@ -191,7 +191,8 @@ def color_filter_transmittance(key):
 
 
 # GUI selector choices: "none" first, then one member per library entry. Derived
-# from the library so the dropdown always matches it (mirrors FilmStocks).
+# from the library so the dropdown always matches it (as the stock enums in
+# spektrafilm_gui.options are derived from the profile library).
 CameraColorFilters = Enum(
     'CameraColorFilters',
     {NO_COLOR_FILTER: NO_COLOR_FILTER, **{spec.key: spec.key for spec in COLOR_FILTER_LIBRARY}},
