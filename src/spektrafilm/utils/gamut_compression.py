@@ -86,7 +86,7 @@ class InputGamutCompressSpec:
     active: bool = True
     algorithm: Literal["xy"] = "xy"
     boundary: Literal["locus", "inscribed_hull"] = "inscribed_hull"
-    hull_detail: float = 11.0
+    hull_detail: float = 5.0
     knee: tuple[float, float, float] = (0.815, 1.0, 1.2)
 
     def __post_init__(self) -> None:
@@ -226,21 +226,14 @@ class OutputGamutCompressSpec:
     algorithm: Literal[
         "off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs",
     ] = "oklch"
-    knee: tuple[float, float, float] = (0.0, 1.0, 6.0)
+    knee: tuple[float, float, float] = (0.95, 1.0, 1.6)
     # One-sided soft compression on the perceptual lightness coordinate
     # (L for oklch/oklrab, Jz for jzazbz, Jp for cam16ucs), rolling
     # super-bright highlights smoothly down into [0, white]. The chroma
     # knee above only touches chromaticity; pixels with lightness above
     # the output whitepoint are otherwise left out-of-cube because C_max
-    # collapses to zero there. This closes that loop. Parameters are in
-    # *normalized* units where 1.0 = the output color space's perceptual
-    # white; with the default (0.7, 1.0, 2.2) the roll-off is identity
-    # below 0.7·white and asymptotes exactly at white. Black is anchored:
-    # an input of 0 stays 0 (it sits below the threshold). Set to None to
-    # disable; with no downstream clip in the runtime, disabling this
-    # means above-white lightness escapes the cube. Not applied to
-    # algorithm="aces_rgc" (no perceptual lightness axis).
-    lightness_compression: tuple[float, float, float] | None = (0.7, 1.0, 2.2)
+    # collapses to zero there.
+    lightness_compression: tuple[float, float, float] | None = (0.95, 1.0, 1.6)
 
     def __post_init__(self) -> None:
         valid_algos = ("off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs")
