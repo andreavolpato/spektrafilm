@@ -5,7 +5,7 @@ from opt_einsum import contract
 
 from spektrafilm.model.diffusion import match_channels
 from spektrafilm.model.diffusion import apply_diffusion_filter_um
-from spektrafilm.model.develop import compute_density_spectral, develop_print_morph, develop_simple
+from spektrafilm.model.develop import compute_density_spectral, develop_print_morph, develop_simple, exposure_factor
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.conversions import density_to_light
 
@@ -112,10 +112,10 @@ class PrintingStage:
         return np.zeros((sensitivity.shape[1],))
 
     def _compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
-        factor_midgray = _exposure_factor(sensitivity, print_illuminant, self._enlarger_service.density_spectral_midgray)
+        factor_midgray = exposure_factor(sensitivity, print_illuminant, self._enlarger_service.density_spectral_midgray)
         if self._enlarger_service.density_spectral_midgray_comp is not None:
-            factor_midgray_comp = _exposure_factor(sensitivity, print_illuminant,
-                                                    self._enlarger_service.density_spectral_midgray_comp)
+            factor_midgray_comp = exposure_factor(sensitivity, print_illuminant,
+                                                  self._enlarger_service.density_spectral_midgray_comp)
         else:
             factor_midgray_comp = 1.0
         if self._enlarger.print_exposure_compensation and not self._enlarger.normalize_print_exposure:
@@ -126,11 +126,3 @@ class PrintingStage:
             return factor_midgray
         else:
             return 1.0
-
-def _exposure_factor(sensitivity, print_illuminant, density_spectral_midgray):
-    light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
-    raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
-    raw_midgray = np.fmax(raw_midgray, 1e-10)
-    # use the geometric mean to normalize the exposure
-    raw_midgray_geomean = np.exp(np.mean(np.log(raw_midgray), axis=2, keepdims=True))
-    return 1 / raw_midgray_geomean

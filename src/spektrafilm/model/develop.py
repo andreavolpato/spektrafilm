@@ -9,6 +9,7 @@ from spektrafilm.model.density_curves import interpolate_exposure_to_density
 from spektrafilm.model.grain import apply_grain
 from spektrafilm.data.profiles_loader import DensityCurvesModel
 from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
+from spektrafilm.utils.conversions import density_to_light
 from spektrafilm.utils.morph_curves import apply_print_curves_morph, PrintChemistryParams
 from spektrafilm.config import SPECTRAL_SHAPE
 
@@ -84,8 +85,21 @@ def compute_density_spectral(
 ):
     density_spectral = contract('ijk, lk->ijl', density_cmy, np.asarray(channel_density))
     if base_density is None:
-        return density_spectral     
+        return density_spectral
     return density_spectral + _tuned_base_density(base_density, base_density_params, is_film)
+
+
+def exposure_factor(sensitivity, print_illuminant, density_spectral_midgray):
+    """Print-exposure normalization factor: the reciprocal geometric-mean
+    exposure of a reference midgray spectral density under the filtered
+    enlarger light. Shared by the printing stage and the profile creator's
+    print refinement."""
+    light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
+    raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
+    raw_midgray = np.fmax(raw_midgray, 1e-10)
+    # use the geometric mean to normalize the exposure
+    raw_midgray_geomean = np.exp(np.mean(np.log(raw_midgray), axis=2, keepdims=True))
+    return 1 / raw_midgray_geomean
 
 
 # Keep black/white reference correction anchored to the stock density curves.
