@@ -57,8 +57,10 @@ def test_convert_lut_matches_solver(route) -> None:
     assert np.all(np.isfinite(out_lut))
     # Imperceptible on a realistic negative (c40: dE mean ~0.03). The recovered-
     # density discrepancy lives in ill-conditioned directions that barely move RGB.
-    assert np.mean(np.abs(out_lut - out_solver)) < 6e-3
-    assert np.max(np.abs(out_lut - out_solver)) < 3e-2
+    # Bound sized for the near-boundary output knee (4260c7b): its curvature above
+    # 0.95 of the gamut boundary raises the print route's mean to ~7e-3.
+    assert np.mean(np.abs(out_lut - out_solver)) < 8e-3
+    assert np.max(np.abs(out_lut - out_solver)) < 4e-2
 
 
 def test_convert_lut_off_is_exact_solver() -> None:

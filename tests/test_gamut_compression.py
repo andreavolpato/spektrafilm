@@ -289,14 +289,16 @@ class TestInscribedLocusHull:
 
 
 class TestOutputGamutCompressSpec:
-    def test_default_is_oklch_with_full_range_soft_knee(self):
+    def test_default_is_oklch_with_near_boundary_soft_knee(self):
         """Default is the OkLab (oklch) perceptual-chroma algorithm with the
-        current full-range soft knee. Other algorithms (aces_rgc, cam16ucs,
-        jzazbz, oklrab) remain available as opt-in overrides."""
+        near-boundary soft knee tuned in 4260c7b (identity below 0.95 of the
+        gamut boundary). Other algorithms (aces_rgc, cam16ucs, jzazbz,
+        oklrab) remain available as opt-in overrides."""
         s = OutputGamutCompressSpec()
         assert s.active is True
         assert s.algorithm == "oklch"
-        assert s.knee == (0.0, 1.0, 6.0)
+        assert s.knee == (0.95, 1.0, 1.6)
+        assert s.lightness_compression == (0.95, 1.0, 1.6)
 
     def test_aces_rgc_constructs(self):
         s = OutputGamutCompressSpec(algorithm="aces_rgc")
