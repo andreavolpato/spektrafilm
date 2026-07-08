@@ -116,6 +116,26 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.halation.boost_ev = 0.0
         params.scanner.white_correction = False
         params.scanner.black_correction = False
+        # Per-image trims: representable in a LUT, but semantically corrections
+        # for one specific negative — a LUT is image-agnostic, so they bake
+        # neutral. Exposure intent enters only via the LUT creator's own
+        # exposure_ev input gain (b60/n010 §9).
+        params.enlarger.y_filter_shift = 0.0
+        params.enlarger.m_filter_shift = 0.0
+        params.enlarger.preflash_exposure = 0.0
+        params.enlarger.preflash_y_filter_shift = 0.0
+        params.enlarger.preflash_m_filter_shift = 0.0
+        # Framing / resampling operate on the incoming image — under LUT
+        # sampling that image is the cube grid itself, so either would
+        # silently deform the LUT domain.
+        params.io.crop = False
+        params.io.upscale_factor = 1.0
+        # Exact spectral compute: the internal acceleration LUTs exist for
+        # interactive speed and would bake their interpolation error into
+        # the sampled transform (double interpolation). Bake grids are small,
+        # exact compute is affordable (same call as print_balance).
+        params.settings.use_enlarger_lut = False
+        params.settings.use_scanner_lut = False
 
     if params.debug.deactivate_spatial_effects:
         # Halation is fully spatial (scatter + back-reflection blurs); kill it

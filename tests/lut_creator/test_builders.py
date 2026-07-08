@@ -116,7 +116,7 @@ class TestBuildResult:
     def test_metadata_records_topology_and_resolution(self, built):
         assert built.meta.topology == "1lut"
         assert built.meta.resolution == _RESOLUTION
-        assert built.meta.schema_version == 2
+        assert built.meta.schema_version == 3
 
     def test_metadata_records_color_spaces(self, built):
         cs = built.meta.color_spaces

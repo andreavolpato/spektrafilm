@@ -234,6 +234,14 @@ class Bundle:
     relative to the bundle's root directory and is the on-disk location
     of the LUT file when written. ``meta`` is the typed metadata payload
     that becomes ``bundle.json`` on disk.
+
+    ``baked_params`` maps each print stock to the **digested**
+    ``RuntimePhotoParams`` its cubes were baked with. It is the single
+    source of truth for anything that needs the bake's simulator again —
+    the QA reference pipeline reads it instead of reconstructing params
+    from the spec, so reference and bake cannot diverge. Runtime-only
+    (not serialized); ``bundle.json`` carries the asdict snapshot.
     """
     luts: list[tuple[str, Lut]] = field(default_factory=list)
     meta: BundleMeta = field(default_factory=BundleMeta)
+    baked_params: dict = field(default_factory=dict)

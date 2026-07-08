@@ -24,7 +24,11 @@ from spektrafilm_lut_creator.wires import DensityWire, LogEWire
 # 2: input_exposure records exposure_ev (midgray-pinned model, n200)
 # instead of stops_above_midgray; params_snapshot keys exposure_ev /
 # input_gain replace stops_above_midgray / input_exposure_gain.
-SCHEMA_VERSION = 2
+# 3: params_snapshot values are the full digested RuntimePhotoParams tree
+# (profiles reduced to stock + version identity) plus digest_changes —
+# what the lut_mode digest neutralized relative to the caller's params
+# (b60/n010 §4.6, §9).
+SCHEMA_VERSION = 3
 
 _PROJECT_URL = "https://github.com/andreavolpato/spektrafilm"
 _LUT_LICENSE_URL = "https://github.com/andreavolpato/spektrafilm/blob/main/SPEKTRAFILM_LICENSE.txt"

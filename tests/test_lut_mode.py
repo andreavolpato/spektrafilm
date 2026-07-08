@@ -51,12 +51,23 @@ def _lut_mode_params(film_profile="kodak_portra_400", print_profile="kodak_portr
     p.film_render.halation.boost_ev = 8.0   # normalised by np.max(image)
     p.camera.auto_exposure = True            # meters the whole frame
     p.enlarger.print_exposure_compensation = True
-    # Keep geometry identity so output shape == input and pixels are not
-    # resampled (resampling mixes neighbours and would confound the test).
-    p.io.upscale_factor = 1.0
-    p.io.crop = False
-    p.settings.use_enlarger_lut = False
-    p.settings.use_scanner_lut = False
+    # Per-image trims (neutral-bake contract, b60/n010 §9): representable in
+    # a LUT but semantically corrections for one specific negative.
+    p.camera.exposure_compensation_ev = 1.5
+    p.enlarger.print_exposure = 2.0
+    p.enlarger.y_filter_shift = 12.0
+    p.enlarger.m_filter_shift = -8.0
+    p.enlarger.preflash_exposure = 0.2
+    p.enlarger.preflash_y_filter_shift = 5.0
+    p.enlarger.preflash_m_filter_shift = -3.0
+    # Framing / resampling — under LUT sampling the incoming image is the
+    # cube grid itself; the gates must force these off or the domain deforms.
+    p.io.upscale_factor = 2.0
+    p.io.crop = True
+    # Acceleration LUTs — must not bake their interpolation error into the
+    # sampled transform.
+    p.settings.use_enlarger_lut = True
+    p.settings.use_scanner_lut = True
     p.debug.lut_mode = True
     return digest_params(p)
 
@@ -103,6 +114,20 @@ def test_lut_mode_digest_disables_every_dangerous_effect():
     assert p.enlarger.print_exposure_compensation is False
     assert p.scanner.white_correction is False
     assert p.scanner.black_correction is False
+    # per-image trims baked neutral (b60/n010 §9)
+    assert p.camera.exposure_compensation_ev == 0.0
+    assert p.enlarger.print_exposure == 1.0
+    assert p.enlarger.y_filter_shift == 0.0
+    assert p.enlarger.m_filter_shift == 0.0
+    assert p.enlarger.preflash_exposure == 0.0
+    assert p.enlarger.preflash_y_filter_shift == 0.0
+    assert p.enlarger.preflash_m_filter_shift == 0.0
+    # framing / resampling forced to identity
+    assert p.io.crop is False
+    assert p.io.upscale_factor == 1.0
+    # exact spectral compute (no acceleration-LUT double interpolation)
+    assert p.settings.use_enlarger_lut is False
+    assert p.settings.use_scanner_lut is False
 
 
 def test_lut_mode_pipeline_is_deterministic():

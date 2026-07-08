@@ -31,6 +31,7 @@ from pathlib import Path
 
 import numpy as np
 
+from spektrafilm_lut_creator import bake
 from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
 from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
@@ -130,52 +131,6 @@ def _input_exposure_meta(spec: BundleSpec) -> InputExposureMeta | None:
         gain=float(2.0 ** spec.exposure_ev),
     )
 
-
-def _params_snapshot_for_print(
-    spec: BundleSpec, in_entry, out_entry, print_stock: str,
-) -> dict:
-    """Snapshot the per-print runtime configuration the LUT creator
-    feeds to the pipeline.
-
-    Captures every knob ``_make_pipeline`` sets on ``RuntimePhotoParams``
-    plus the surrounding spec context, so a future bake can be
-    reproduced from ``bundle.json`` alone. Film and print profile *data*
-    (sensitivities, density curves) isn't dumped — they live on disk
-    under the profile name and are reproducible from name + spektrafilm
-    version.
-
-    Stored at ``BundleMeta.params_snapshot[<print_profile>]``.
-    """
-    from dataclasses import asdict
-    return {
-        "film_profile": spec.film_profile,
-        "print_profile": print_stock,
-        "input_color_space": spec.input_color_space,
-        "output_color_space": spec.output_color_space,
-        "input_color_space": in_entry.primaries,
-        "output_color_space": out_entry.primaries,
-        "input_cctf": in_entry.cctf,
-        "output_cctf": out_entry.cctf,
-        "input_cctf_decoding": False,
-        "output_cctf_encoding": False,
-        "lut_mode": True,
-        "input_gamut_compress": asdict(spec.input_gamut_compress),
-        "output_gamut_compress": asdict(spec.output_gamut_compress),
-        "exposure_ev": spec.exposure_ev,
-        "input_gain": float(
-            input_gain(spec.input_color_space, spec.exposure_ev)
-        ),
-        "resolution": spec.resolution,
-        "topology": spec.topology,
-    }
-
-
-def _params_snapshot_for_spec(spec: BundleSpec, in_entry, out_entry) -> dict:
-    """Build ``{<print_profile>: <snapshot>}`` for every print in ``spec``."""
-    return {
-        print_stock: _params_snapshot_for_print(spec, in_entry, out_entry, print_stock)
-        for print_stock in spec.print_profiles
-    }
 
 # Default base directory for `BundleBuilder.write(bundle)` when no out_dir
 # is provided. Resolved against `Path.cwd()` at write time, so running a
@@ -336,10 +291,22 @@ class BundleBuilder:
 
     Supports ``topology="1lut"`` (combined), ``"2lut"`` (film+print
     chain) and ``"4lut"`` (full L1/L2/L3/L4 chain).
+
+    ``base_params`` optionally supplies the caller's ``RuntimePhotoParams``
+    (pre-digest) as the simulator configuration — chemistry, bases,
+    couplers, gamut compression, enlarger look all flow into the bake, so
+    the LUT reproduces the simulator the caller is looking at. ``None``
+    keeps the historical behavior: ``init_params`` defaults plus the
+    spec's gamut-compression fields. See :mod:`spektrafilm_lut_creator.bake`.
     """
 
-    def __init__(self, spec: BundleSpec):
+    def __init__(self, spec: BundleSpec, base_params=None):
         self.spec = spec
+        self.base_params = base_params
+        # print stock -> (digested params, digest disclosure), filled as
+        # pipelines are constructed; feeds Bundle.baked_params and the
+        # meta params_snapshot.
+        self._baked: dict[str, tuple] = {}
 
     def build(self) -> Bundle:
         spec = self.spec
@@ -398,7 +365,7 @@ class BundleBuilder:
         bundle_luts: list[tuple[str, Lut]] = []
         lut_metas: list[LutFileMeta] = []
         for print_stock in spec.print_profiles:
-            pipeline = self._make_pipeline(spec, in_entry, out_entry, print_stock)
+            pipeline = self._make_pipeline(spec, print_stock)
             path_lut = self._bake_canonical(
                 "combined", pipeline, spec, wires, version_tag, print_stock,
             )
@@ -432,9 +399,9 @@ class BundleBuilder:
             },
             luts=tuple(lut_metas),
             input_exposure=_input_exposure_meta(spec),
-            params_snapshot=_params_snapshot_for_spec(spec, in_entry, out_entry),
+            params_snapshot=self._snapshot_meta(),
         )
-        return Bundle(luts=bundle_luts, meta=meta)
+        return Bundle(luts=bundle_luts, meta=meta, baked_params=self._baked_params())
 
     # ---- 2-LUT (M5) ------------------------------------------------------
 
@@ -464,7 +431,7 @@ class BundleBuilder:
         # only a function of film + input, so the choice of print here
         # is immaterial.
         first_print = spec.print_profiles[0]
-        pipeline = self._make_pipeline(spec, in_entry, out_entry, first_print)
+        pipeline = self._make_pipeline(spec, first_print)
         density_wire = self._compute_density_wire(pipeline, spec)
         wires = BoundaryWires(cmy_film=density_wire)
         film_lut = self._bake_canonical("film", pipeline, spec, wires, version_tag)
@@ -482,7 +449,7 @@ class BundleBuilder:
         # which spans rgb_in → rgb_out and therefore depends on the print
         # stock) live alongside the per-print print LUT.
         for print_profile in spec.print_profiles:
-            pipeline = self._make_pipeline(spec, in_entry, out_entry, print_profile)
+            pipeline = self._make_pipeline(spec, print_profile)
             print_lut = self._bake_canonical(
                 "print", pipeline, spec, wires, version_tag, print_profile,
             )
@@ -521,9 +488,9 @@ class BundleBuilder:
             wires=WiresMeta(cmy_film=density_wire),
             luts=tuple(lut_metas),
             input_exposure=_input_exposure_meta(spec),
-            params_snapshot=_params_snapshot_for_spec(spec, in_entry, out_entry),
+            params_snapshot=self._snapshot_meta(),
         )
-        return Bundle(luts=bundle_luts, meta=meta)
+        return Bundle(luts=bundle_luts, meta=meta, baked_params=self._baked_params())
 
     # ---- 3-LUT ------------------------------------------------------
 
@@ -561,7 +528,7 @@ class BundleBuilder:
         # Shared pipeline: filming.* stages are print-independent, so the
         # choice of print for the shared pass is just a convenient anchor.
         first_print = spec.print_profiles[0]
-        pipeline_shared = self._make_pipeline(spec, in_entry, out_entry, first_print)
+        pipeline_shared = self._make_pipeline(spec, first_print)
 
         # Probe wires from the same 9³ pass (cheap; pipeline runs sub-second).
         log_e_film_wire = self._compute_log_e_wire(pipeline_shared, spec, tap="log_e_film")
@@ -592,7 +559,7 @@ class BundleBuilder:
         # role differs to stay consistent with the numbered-cube convention
         # we use for topologies with ≥3 cubes.
         for print_profile in spec.print_profiles:
-            pipeline_print = self._make_pipeline(spec, in_entry, out_entry, print_profile)
+            pipeline_print = self._make_pipeline(spec, print_profile)
             l3 = self._bake_canonical(
                 "l3_combined", pipeline_print, spec, wires, version_tag, print_profile,
             )
@@ -636,9 +603,9 @@ class BundleBuilder:
             ),
             luts=tuple(lut_metas),
             input_exposure=_input_exposure_meta(spec),
-            params_snapshot=_params_snapshot_for_spec(spec, in_entry, out_entry),
+            params_snapshot=self._snapshot_meta(),
         )
-        return Bundle(luts=bundle_luts, meta=meta)
+        return Bundle(luts=bundle_luts, meta=meta, baked_params=self._baked_params())
 
     # ---- 4-LUT (M6) ------------------------------------------------------
 
@@ -685,7 +652,7 @@ class BundleBuilder:
         # identical output regardless of which print we attach here, so
         # we use the first print as a convenient anchor.
         first_print = spec.print_profiles[0]
-        pipeline_shared = self._make_pipeline(spec, in_entry, out_entry, first_print)
+        pipeline_shared = self._make_pipeline(spec, first_print)
 
         # Probe wires from a single 9³ pass.
         log_e_film_wire = self._compute_log_e_wire(pipeline_shared, spec, tap="log_e_film")
@@ -719,7 +686,7 @@ class BundleBuilder:
         # Bake L3 + L4 per print, then the per-print combinations against
         # the same per-print pipeline (l23, l34, l123, l234, l1234).
         for print_profile in spec.print_profiles:
-            pipeline_print = self._make_pipeline(spec, in_entry, out_entry, print_profile)
+            pipeline_print = self._make_pipeline(spec, print_profile)
             l3 = self._bake_canonical("l3", pipeline_print, spec, wires, version_tag, print_profile)
             l4 = self._bake_canonical("l4", pipeline_print, spec, wires, version_tag, print_profile)
             bundle_luts.extend([l3, l4])
@@ -763,34 +730,48 @@ class BundleBuilder:
             ),
             luts=tuple(lut_metas),
             input_exposure=_input_exposure_meta(spec),
-            params_snapshot=_params_snapshot_for_spec(spec, in_entry, out_entry),
+            params_snapshot=self._snapshot_meta(),
         )
-        return Bundle(luts=bundle_luts, meta=meta)
+        return Bundle(luts=bundle_luts, meta=meta, baked_params=self._baked_params())
 
     # ---- shared helpers --------------------------------------------------
 
-    def _make_pipeline(self, spec, in_entry, out_entry, print_stock):
+    def _make_pipeline(self, spec, print_stock):
         """Construct a ``SimulationPipeline`` configured for LUT baking.
 
-        ``lut_mode`` switches the pipeline into deterministic
-        per-pixel mode (all spatial / stochastic effects off);
-        ``input_cctf_decoding`` and ``output_cctf_encoding`` stay
-        False because the LUT creator owns the transport encoding.
+        One call through :func:`bake.bake_params` — the single recipe
+        shared with the QA reference path. The digested params and the
+        digest disclosure are stashed per print for ``Bundle.baked_params``
+        and the meta snapshot.
         """
-        # Deferred runtime imports per the README boundary contract.
-        from spektrafilm.runtime.params_builder import digest_params, init_params
+        # Deferred runtime import per the README boundary contract.
         from spektrafilm.runtime.pipeline import SimulationPipeline
 
-        params = init_params(film_profile=spec.film_profile, print_profile=print_stock)
-        params.debug.lut_mode = True
-        params.io.input_color_space = in_entry.primaries
-        params.io.output_color_space = out_entry.primaries
-        params.io.input_cctf_decoding = False
-        params.io.output_cctf_encoding = False
-        params.io.input_gamut_compress = spec.input_gamut_compress
-        params.io.output_gamut_compress = spec.output_gamut_compress
-        params = digest_params(params)
+        params, digest_changes = bake.bake_params(spec, print_stock, self.base_params)
+        self._baked[print_stock] = (params, digest_changes)
         return SimulationPipeline(params)
+
+    def _snapshot_meta(self) -> dict:
+        """``{print_stock: full params snapshot}`` for every baked print.
+
+        The snapshot is the digested params tree (profiles reduced to
+        identity) plus the digest disclosure and the spec's exposure
+        context — everything needed to reproduce or audit the bake from
+        ``bundle.json`` alone.
+        """
+        spec = self.spec
+        gain = float(input_gain(spec.input_color_space, spec.exposure_ev))
+        snapshots = {}
+        for print_stock, (params, digest_changes) in self._baked.items():
+            snapshot = bake.params_snapshot(params, digest_changes)
+            snapshot["exposure_ev"] = spec.exposure_ev
+            snapshot["input_gain"] = gain
+            snapshots[print_stock] = snapshot
+        return snapshots
+
+    def _baked_params(self) -> dict:
+        """``{print_stock: digested RuntimePhotoParams}`` for the bundle."""
+        return {stock: params for stock, (params, _) in self._baked.items()}
 
     def _compute_density_wire(self, pipeline, spec) -> DensityWire:
         """Measure per-channel max cmy_film density via a small input pass.
@@ -1212,7 +1193,12 @@ class BundleBuilder:
 
 
 def _json_default(value):
-    """Fallback JSON encoder for tuple-of-tuple wire constants etc."""
+    """Fallback JSON encoder for tuple-of-tuple wire constants, numpy
+    scalars/arrays that may ride in the params snapshot, etc."""
     if isinstance(value, tuple):
         return list(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
     raise TypeError(f"object of type {type(value).__name__} is not JSON-serializable")
