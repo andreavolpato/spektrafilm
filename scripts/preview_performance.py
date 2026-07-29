@@ -28,6 +28,7 @@ Usage:
     python scripts/preview_performance.py --preview-size 1024
     python scripts/preview_performance.py --soft            # soft_update path
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,12 +37,11 @@ from time import perf_counter
 
 import numpy as np
 
+from spektrafilm.runtime import digest_params, init_params
+from spektrafilm.runtime.process import Simulator
 from spektrafilm.utils.io import load_image_oiio
 from spektrafilm.utils.numba_warmup import warmup
 from spektrafilm.utils.preview import resize_for_preview
-from spektrafilm.runtime import init_params, digest_params
-from spektrafilm.runtime.process import Simulator
-
 
 IMAGE_PATH = "img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif"
 
@@ -83,16 +83,32 @@ def pct(values, p):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("-n", "--iterations", type=int, default=40,
-                    help="number of preview refreshes to simulate")
-    ap.add_argument("--warmup-iters", type=int, default=3,
-                    help="refreshes to discard before steady-state stats "
-                         "(absorbs the cold LUT bake and JIT settle)")
-    ap.add_argument("--preview-size", type=int, default=None,
-                    help="override preview_max_size (default: the params value)")
-    ap.add_argument("--soft", action="store_true",
-                    help="use soft_update (cheap exposure-only path) instead of "
-                         "the full update_params rebuild")
+    ap.add_argument(
+        "-n",
+        "--iterations",
+        type=int,
+        default=40,
+        help="number of preview refreshes to simulate",
+    )
+    ap.add_argument(
+        "--warmup-iters",
+        type=int,
+        default=3,
+        help="refreshes to discard before steady-state stats "
+        "(absorbs the cold LUT bake and JIT settle)",
+    )
+    ap.add_argument(
+        "--preview-size",
+        type=int,
+        default=None,
+        help="override preview_max_size (default: the params value)",
+    )
+    ap.add_argument(
+        "--soft",
+        action="store_true",
+        help="use soft_update (cheap exposure-only path) instead of "
+        "the full update_params rebuild",
+    )
     args = ap.parse_args()
 
     print("Warming up numba / libraries...")
@@ -104,9 +120,13 @@ def main() -> None:
     full = np.double(load_image_oiio(IMAGE_PATH))
     image = resize_for_preview(full, preview_size)
     del full
-    print(f"Preview image: {image.shape}  (max edge {preview_size}px, preview_mode=True)")
-    print(f"Refreshes: {args.iterations}   update path: "
-          f"{'soft_update' if args.soft else 'update_params (full rebuild)'}\n")
+    print(
+        f"Preview image: {image.shape}  (max edge {preview_size}px, preview_mode=True)"
+    )
+    print(
+        f"Refreshes: {args.iterations}   update path: "
+        f"{'soft_update' if args.soft else 'update_params (full rebuild)'}\n"
+    )
 
     simulator = Simulator(digest_params(build_base_params()))
 
@@ -144,8 +164,10 @@ def main() -> None:
             rep_timings = simulator.format_timings()
 
         tag = "  (cold)" if i == 0 else ""
-        print(f"  refresh {i:3d}   update {u:7.1f} ms   process {p:7.1f} ms   "
-              f"total {u + p:7.1f} ms{tag}")
+        print(
+            f"  refresh {i:3d}   update {u:7.1f} ms   process {p:7.1f} ms   "
+            f"total {u + p:7.1f} ms{tag}"
+        )
         del result
 
     # ---- steady-state summary ----------------------------------------------
@@ -155,20 +177,30 @@ def main() -> None:
     st_process = process_ms[w:]
 
     print("\n" + "=" * 64)
-    print(f"COLD FIRST REFRESH: {total_ms[0]:.1f} ms "
-          f"(update {update_ms[0]:.1f} + process {process_ms[0]:.1f}) "
-          f"— one-time LUT bake, paid on image/profile change only")
+    print(
+        f"COLD FIRST REFRESH: {total_ms[0]:.1f} ms "
+        f"(update {update_ms[0]:.1f} + process {process_ms[0]:.1f}) "
+        f"— one-time LUT bake, paid on image/profile change only"
+    )
     print("=" * 64)
-    print(f"STEADY STATE (refreshes {w}..{args.iterations - 1}, the per-slider latency)")
+    print(
+        f"STEADY STATE (refreshes {w}..{args.iterations - 1}, the per-slider latency)"
+    )
     print("=" * 64)
     if st_total:
         fps = 1000.0 / mean(st_total) if mean(st_total) > 0 else float("inf")
-        print(f"  total    mean {mean(st_total):7.1f}  median {median(st_total):7.1f}  "
-              f"p95 {pct(st_total, 95):7.1f}  min {min(st_total):7.1f} ms")
-        print(f"  update   mean {mean(st_update):7.1f}  median {median(st_update):7.1f} ms"
-              f"   ({100 * mean(st_update) / mean(st_total):.0f}% of total)")
-        print(f"  process  mean {mean(st_process):7.1f}  median {median(st_process):7.1f} ms"
-              f"   ({100 * mean(st_process) / mean(st_total):.0f}% of total)")
+        print(
+            f"  total    mean {mean(st_total):7.1f}  median {median(st_total):7.1f}  "
+            f"p95 {pct(st_total, 95):7.1f}  min {min(st_total):7.1f} ms"
+        )
+        print(
+            f"  update   mean {mean(st_update):7.1f}  median {median(st_update):7.1f} ms"
+            f"   ({100 * mean(st_update) / mean(st_total):.0f}% of total)"
+        )
+        print(
+            f"  process  mean {mean(st_process):7.1f}  median {median(st_process):7.1f} ms"
+            f"   ({100 * mean(st_process) / mean(st_total):.0f}% of total)"
+        )
         print(f"  -> {fps:.1f} preview updates/sec")
         if mean(st_total) > 100:
             print("  note: >100 ms/refresh feels laggy when dragging a slider.")

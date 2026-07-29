@@ -21,6 +21,7 @@ Usage:
     python scripts/runtime_process_memory.py --preview       # preview-size path
     python scripts/runtime_process_memory.py --no-mutate     # repeat identical params
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,12 +32,11 @@ from collections import Counter
 import numpy as np
 import psutil
 
+from spektrafilm.runtime import digest_params, init_params
+from spektrafilm.runtime.process import Simulator
 from spektrafilm.utils.io import load_image_oiio
 from spektrafilm.utils.numba_warmup import warmup
 from spektrafilm.utils.preview import resize_for_preview
-from spektrafilm.runtime import init_params, digest_params
-from spektrafilm.runtime.process import Simulator
-
 
 IMAGE_PATH = "img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif"
 
@@ -103,23 +103,39 @@ def gc_type_histogram() -> Counter:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("-n", "--iterations", type=int, default=40)
-    ap.add_argument("--warmup-iters", type=int, default=5,
-                    help="iterations to run before taking the memory baseline "
-                         "(lets one-time caches/JIT settle)")
-    ap.add_argument("--preview", action="store_true",
-                    help="run the preview-sized path instead of a full-res scan")
-    ap.add_argument("--no-mutate", action="store_true",
-                    help="repeat identical params instead of nudging one each iter")
-    ap.add_argument("--checkpoints", type=int, default=4,
-                    help="number of tracemalloc compare checkpoints")
+    ap.add_argument(
+        "--warmup-iters",
+        type=int,
+        default=5,
+        help="iterations to run before taking the memory baseline "
+        "(lets one-time caches/JIT settle)",
+    )
+    ap.add_argument(
+        "--preview",
+        action="store_true",
+        help="run the preview-sized path instead of a full-res scan",
+    )
+    ap.add_argument(
+        "--no-mutate",
+        action="store_true",
+        help="repeat identical params instead of nudging one each iter",
+    )
+    ap.add_argument(
+        "--checkpoints",
+        type=int,
+        default=4,
+        help="number of tracemalloc compare checkpoints",
+    )
     args = ap.parse_args()
 
     # Keep at least two post-warmup samples so the trend/report is defined,
     # even for tiny runs like `-n 4` (which is below the default warmup of 5).
     warmup_iters = min(args.warmup_iters, max(0, args.iterations - 2))
     if warmup_iters != args.warmup_iters:
-        print(f"(warmup window clamped {args.warmup_iters} -> {warmup_iters} "
-              f"to fit {args.iterations} iterations)")
+        print(
+            f"(warmup window clamped {args.warmup_iters} -> {warmup_iters} "
+            f"to fit {args.iterations} iterations)"
+        )
 
     print("Warming up numba / libraries...")
     warmup()
@@ -185,14 +201,23 @@ def main() -> None:
     print("RSS TREND (after warmup window)")
     print("=" * 64)
     if not pm:
-        print("  not enough post-warmup samples to compute a trend; "
-              "increase -n or lower --warmup-iters")
+        print(
+            "  not enough post-warmup samples to compute a trend; "
+            "increase -n or lower --warmup-iters"
+        )
         tracemalloc.stop()
         return
-    print(f"  first {pm[0]:8.1f} MB   last {pm[-1]:8.1f} MB   delta {total_growth:+8.1f} MB")
-    print(f"  slope {slope:+.3f} MB / iteration "
-          f"({slope * 1000:+.1f} MB per 1000 scans)")
-    verdict = "LEAK LIKELY" if slope > 0.5 else ("possible drift" if slope > 0.1 else "flat / no runtime leak")
+    print(
+        f"  first {pm[0]:8.1f} MB   last {pm[-1]:8.1f} MB   delta {total_growth:+8.1f} MB"
+    )
+    print(
+        f"  slope {slope:+.3f} MB / iteration ({slope * 1000:+.1f} MB per 1000 scans)"
+    )
+    verdict = (
+        "LEAK LIKELY"
+        if slope > 0.5
+        else ("possible drift" if slope > 0.1 else "flat / no runtime leak")
+    )
     print(f"  verdict: {verdict}")
 
     # ---- tracemalloc top growth --------------------------------------------
@@ -203,8 +228,10 @@ def main() -> None:
         print("=" * 64)
         for s in top_tracemalloc_growth(snap_baseline, last_snap):
             frame = s.traceback[0]
-            print(f"  {s.size_diff/1024:+9.1f} KB  (count {s.count_diff:+6d})  "
-                  f"{frame.filename}:{frame.lineno}")
+            print(
+                f"  {s.size_diff / 1024:+9.1f} KB  (count {s.count_diff:+6d})  "
+                f"{frame.filename}:{frame.lineno}"
+            )
 
     # ---- gc object-type growth ---------------------------------------------
     if gc_baseline is not None:
@@ -227,8 +254,10 @@ def main() -> None:
         print(f"\n  WARNING: gc.garbage holds {len(gc.garbage)} uncollectable objects")
 
     tracemalloc.stop()
-    print("\nDone. If the slope is flat here but the GUI still grows, the leak "
-          "is in the napari/Qt layer, not the runtime pipeline.")
+    print(
+        "\nDone. If the slope is flat here but the GUI still grows, the leak "
+        "is in the napari/Qt layer, not the runtime pipeline."
+    )
 
 
 if __name__ == "__main__":

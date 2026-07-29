@@ -30,8 +30,10 @@ from spektrafilm_gui.controller_layers import (
 )
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.persistence import load_default_gui_state
-from spektrafilm_gui.polaroid_animation import prepare_polaroid_state, render_polaroid_frame
-
+from spektrafilm_gui.polaroid_animation import (
+    prepare_polaroid_state,
+    render_polaroid_frame,
+)
 
 DEFAULT_IMAGE_PATH = Path("img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif")
 
@@ -42,7 +44,12 @@ def _mean_ms(samples: list[float]) -> float:
 
 def _build_frame_times() -> np.ndarray:
     frame_count = max(
-        int(np.ceil(float(OUTPUT_LAYER_ANIMATION_DURATION_MS) / float(max(OUTPUT_LAYER_ANIMATION_INTERVAL_MS, 1)))),
+        int(
+            np.ceil(
+                float(OUTPUT_LAYER_ANIMATION_DURATION_MS)
+                / float(max(OUTPUT_LAYER_ANIMATION_INTERVAL_MS, 1))
+            )
+        ),
         2,
     )
     return np.linspace(0.0, 1.0, num=frame_count, dtype=np.float32)
@@ -102,7 +109,9 @@ def benchmark_warm_import_path(
         timings["load_image_oiio_ms"].append((time.perf_counter() - start) * 1000.0)
 
         start = time.perf_counter()
-        preview_source = resize_for_preview(image, state.gui_only.display.preview_max_size)
+        preview_source = resize_for_preview(
+            image, state.gui_only.display.preview_max_size
+        )
         timings["resize_for_preview_ms"].append((time.perf_counter() - start) * 1000.0)
 
         start = time.perf_counter()
@@ -112,7 +121,9 @@ def benchmark_warm_import_path(
             apply_cctf_decoding=state.input_image.apply_cctf_decoding,
             colour_module=colour,
         )
-        timings["prepare_input_preview_ms"].append((time.perf_counter() - start) * 1000.0)
+        timings["prepare_input_preview_ms"].append(
+            (time.perf_counter() - start) * 1000.0
+        )
 
         start = time.perf_counter()
         params = build_params_from_state(state)
@@ -126,7 +137,9 @@ def benchmark_warm_import_path(
         start = time.perf_counter()
         simulator.update_params(digested)
         scan = np.asarray(simulator.process(preview_source), dtype=np.float32)
-        timings["simulator_update_process_ms"].append((time.perf_counter() - start) * 1000.0)
+        timings["simulator_update_process_ms"].append(
+            (time.perf_counter() - start) * 1000.0
+        )
 
         start = time.perf_counter()
         output_display, _ = controller_runtime.prepare_output_display_image(
@@ -137,15 +150,21 @@ def benchmark_warm_import_path(
             colour_module=colour,
             pil_image_module=PILImage,
         )
-        timings["prepare_output_display_ms"].append((time.perf_counter() - start) * 1000.0)
+        timings["prepare_output_display_ms"].append(
+            (time.perf_counter() - start) * 1000.0
+        )
 
         start = time.perf_counter()
         polaroid_state = prepare_polaroid_state(output_display)
-        timings["prepare_polaroid_state_ms"].append((time.perf_counter() - start) * 1000.0)
+        timings["prepare_polaroid_state_ms"].append(
+            (time.perf_counter() - start) * 1000.0
+        )
 
         start = time.perf_counter()
         render_polaroid_frame(polaroid_state, float(frame_times[0]))
-        timings["first_polaroid_frame_ms"].append((time.perf_counter() - start) * 1000.0)
+        timings["first_polaroid_frame_ms"].append(
+            (time.perf_counter() - start) * 1000.0
+        )
 
         frame_samples: list[float] = []
         all_frames_start = time.perf_counter()
@@ -153,13 +172,16 @@ def benchmark_warm_import_path(
             frame_start = time.perf_counter()
             render_polaroid_frame(polaroid_state, float(frame_t))
             frame_samples.append((time.perf_counter() - frame_start) * 1000.0)
-        timings["all_polaroid_frames_ms"].append((time.perf_counter() - all_frames_start) * 1000.0)
-        timings["per_polaroid_frame_avg_ms"].append(float(statistics.mean(frame_samples)))
+        timings["all_polaroid_frames_ms"].append(
+            (time.perf_counter() - all_frames_start) * 1000.0
+        )
+        timings["per_polaroid_frame_avg_ms"].append(
+            float(statistics.mean(frame_samples))
+        )
         timings["per_polaroid_frame_max_ms"].append(max(frame_samples))
 
     summary: dict[str, float | tuple[int, ...] | int] = {
-        key: round(_mean_ms(values), 3)
-        for key, values in timings.items()
+        key: round(_mean_ms(values), 3) for key, values in timings.items()
     }
     summary["preview_source_shape"] = tuple(int(v) for v in preview_source.shape)
     summary["output_display_shape"] = tuple(int(v) for v in output_display.shape)
@@ -200,8 +222,12 @@ def benchmark_napari_layer_service(
                 service.remove_layer(layer_name)
 
             start = time.perf_counter()
-            service.set_or_add_input_preview_layer(preview_display, white_padding=state.gui_only.display.white_padding)
-            timings["first_input_stack_ms"].append((time.perf_counter() - start) * 1000.0)
+            service.set_or_add_input_preview_layer(
+                preview_display, white_padding=state.gui_only.display.white_padding
+            )
+            timings["first_input_stack_ms"].append(
+                (time.perf_counter() - start) * 1000.0
+            )
 
             service.set_or_add_output_layer(
                 output_display,
@@ -212,8 +238,12 @@ def benchmark_napari_layer_service(
             )
 
             start = time.perf_counter()
-            service.set_or_add_input_preview_layer(preview_display, white_padding=state.gui_only.display.white_padding)
-            timings["repeat_input_stack_ms"].append((time.perf_counter() - start) * 1000.0)
+            service.set_or_add_input_preview_layer(
+                preview_display, white_padding=state.gui_only.display.white_padding
+            )
+            timings["repeat_input_stack_ms"].append(
+                (time.perf_counter() - start) * 1000.0
+            )
 
             start = time.perf_counter()
             service.set_or_add_output_layer(
@@ -223,7 +253,9 @@ def benchmark_napari_layer_service(
                 output_cctf_encoding=True,
                 use_display_transform=False,
             )
-            timings["hidden_output_reshow_ms"].append((time.perf_counter() - start) * 1000.0)
+            timings["hidden_output_reshow_ms"].append(
+                (time.perf_counter() - start) * 1000.0
+            )
 
             start = time.perf_counter()
             service.set_or_add_output_layer(
@@ -233,7 +265,9 @@ def benchmark_napari_layer_service(
                 output_cctf_encoding=True,
                 use_display_transform=False,
             )
-            timings["visible_output_refresh_ms"].append((time.perf_counter() - start) * 1000.0)
+            timings["visible_output_refresh_ms"].append(
+                (time.perf_counter() - start) * 1000.0
+            )
     finally:
         controller_layers_module.OUTPUT_LAYER_ANIMATION_MAX_PIXELS = original_max_pixels
         close = getattr(viewer, "close", None)
@@ -241,8 +275,7 @@ def benchmark_napari_layer_service(
             close()
 
     summary: dict[str, float | tuple[int, ...] | str] = {
-        key: round(_mean_ms(values), 3)
-        for key, values in timings.items()
+        key: round(_mean_ms(values), 3) for key, values in timings.items()
     }
     summary["preview_display_shape"] = tuple(int(v) for v in preview_display.shape)
     summary["output_display_shape"] = tuple(int(v) for v in output_display.shape)
@@ -270,7 +303,10 @@ def print_report(core: dict[str, Any], napari_summary: dict[str, Any]) -> None:
     import_to_animation_end_ms = round(
         import_to_white_border_ms
         + white_border_to_animation_start_ms
-        + max(float(core["animation_budget_total_ms"]), float(core["all_polaroid_frames_ms"])),
+        + max(
+            float(core["animation_budget_total_ms"]),
+            float(core["all_polaroid_frames_ms"]),
+        ),
         3,
     )
 
@@ -316,9 +352,18 @@ def print_report(core: dict[str, Any], napari_summary: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Profile warm GUI import-to-animation timings.")
-    parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE_PATH, help="Image to load for the benchmark.")
-    parser.add_argument("--iterations", type=int, default=4, help="Number of warm-path iterations.")
+    parser = argparse.ArgumentParser(
+        description="Profile warm GUI import-to-animation timings."
+    )
+    parser.add_argument(
+        "--image",
+        type=Path,
+        default=DEFAULT_IMAGE_PATH,
+        help="Image to load for the benchmark.",
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=4, help="Number of warm-path iterations."
+    )
     parser.add_argument(
         "--use-display-transform",
         action="store_true",

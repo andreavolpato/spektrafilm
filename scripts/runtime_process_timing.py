@@ -1,17 +1,18 @@
 import matplotlib.pyplot as plt
+
+from spektrafilm.runtime import init_params, simulate
 from spektrafilm.utils.io import load_image_oiio
 from spektrafilm.utils.numba_warmup import warmup
-from spektrafilm.runtime import init_params, simulate
 
 warmup()
 
 # image = load_image_oiio('img/targets/cc_halation.png')
 # image = plt.imread('img/targets/it87_test_chart_2.jpg')
 # image = np.double(image[:,:,:3])/255
-image = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
+image = load_image_oiio("img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif")
 # image = [[[0.184,0.184,0.184]]]
 # image = [[[0,0,0], [0.184,0.184,0.184], [1,1,1]]]
-params = init_params(print_profile='kodak_portra_endura')
+params = init_params(print_profile="kodak_portra_endura")
 params.io.input_cctf_decoding = False
 params.print_render.glare.active = True
 params.debug.deactivate_stochastic_effects = False
