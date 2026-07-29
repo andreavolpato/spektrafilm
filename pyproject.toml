@@ -59,25 +59,6 @@ dev = ["opencolorio~=2.5", "pytest", "pytest-cov"]
 requires      = ["hatch-vcs", "hatchling"]
 build-backend = "hatchling.build"
 
-[tool.committed]
-style               = "conventional"
-line_length         = 80
-merge_commit        = false
-no_fixup            = false
-subject_capitalized = false
-allowed_types       = [
-  "fix",
-  "feat",
-  "chore",
-  "docs",
-  "style",
-  "refactor",
-  "perf",
-  "test",
-  "release",
-]
-ignore_author_re    = "(?i)^.*\\[bot\\] <.*>$"
-
 [tool.coverage.run]
 source = ["src"]
 omit   = ["tests/*", "**/__init__.py"]
