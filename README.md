@@ -2,27 +2,41 @@
 
 > [!WARNING]
 >
-> **I love building spektrafilm**, and I invested already hundreds of hours in it. Right now it’s a nights-and-weekends project. If it will help pay some bills, I can keep improving it for everyone. 🙂 Any **support** is really appreciated: [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
-> 
+> **I love building spektrafilm**, and I invested already hundreds of hours in
+> it. Right now it's a nights-and-weekends project. If it will help pay some
+> bills, I can keep improving it for everyone. 🙂 Any **support** is really
+> appreciated: [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
+>
 > **2026/05/28 big git history cleanup** (140MB -> 45MB) --> please reclone!
-> 
+>
 
 # Spectral film simulations of analog photography
 
-An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
+An exploration of how to make good use of spectroscopic data from manufacturer
+datasheets in an end-to-end, physically based model with spectral calculations,
+with the goal of turning that data into convincing film, print, and scan
+renderings that can be explored interactively.
 
 Here are some useful links and spin-off projects:
-- Discussion about the project is happeing at [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
+
+- Discussion about the project is happening at [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
 - Join us at the official [subreddit](https://www.reddit.com/r/spektrafilm/).
-- A [high-level writeup](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/) is available as a gentle entrypoint to the spectral framework.
+- A [high-level writeup](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/)
+  is available as a gentle entrypoint to the spectral framework.
 - Vote [your next stock](https://discuss.pixls.us/t/2026-q2-data-sheets-digitization-campaign/58032) you would like to see in spektrafilm.
 - A blazing fast Vulkan implementation is available in [vkdt](https://jo.dreggn.org/vkdt/src/pipe/modules/filmsim/readme.html) by [hanatos](https://github.com/hanatos).
 - An [OFX plugin](https://spektrafilm.114c.de/) was developed by [Aedan](https://github.com/chaert-s).
-- A fast [rust implementaion](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
+- A fast [rust implementation](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
 - A LUT-based bridge is available in [ART](https://artraweditor.github.io/SpectralFilmSimHowto) by [agriggio](https://github.com/agriggio).
 
-
-In practice, this Python repository is **the reference implementation** for other developments, and the place where I am growing the underlying model. It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that is grounded in measurements and predicts real-world behaviors of photographic materials.
+In practice, this Python repository is **the reference implementation** for
+other developments, and the place where I am growing the underlying model. It
+lets you start from a camera image, pass it through a virtual negative, print,
+and scan pipeline, and inspect how film-stock data, couplers, enlarger settings,
+grain, halation, and other photographic effects shape the final result. The aim
+is not just to imitate a generic "film look," but to build a model that is
+grounded in measurements and predicts real-world behaviors of photographic
+materials.
 
 ![Example of GUI interface with color test
 image.](img/readme/gui_screenshot.png)
@@ -34,28 +48,33 @@ between fast(-ish) previews and more detailed final scans. Full resolution
 export is very slow at the moment.
 
 > [!IMPORTANT]
->   spektrafilm (all lower caps) is open for research, integration, and production use. The project is in rapid development, some ares are still being build and will change fast.
+> spektrafilm (all lower caps) is open for research, integration, and production
+> use. The project is in rapid development, some ares are still being build and
+> will change fast.
 >
 > If you find it useful:
->  * Acknowledge spektrafilm in plugin descriptions, marketing, or credits (e.g.
+>
+> - Acknowledge spektrafilm in plugin descriptions, marketing, or credits (e.g.
 >    "film modeling powered by `spektrafilm`" or "film modeling inspired by
 >    `spektrafilm`", see `CITATION.cff`).
->  * Consider starring the repo or sharing your results.
->  * Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
->  * Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel the next all-nighter coding session :)
+> - Consider starring the repo or sharing your results.
+> - Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
+> - Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel the next all-nighter coding session :)
 >
->  *The project is GPLv3 licensed*, so any derivative work must also be open source under the same license. Derivatve work includes any software, plugin, or tool that incorporates spektrafilm code or is directly inspired by its methods.
+>  *The project is GPLv3 licensed*, so any derivative work must also be open
+> source under the same license. Derivatve work includes any software, plugin,
+> or tool that incorporates spektrafilm code or is directly inspired by its
+> methods.
 >
 > *JSON profiles and LUTs are CC BY-SA 4.0.*
->  
+>
 >  If *GPLv3 is not compatible with your project*, please reach out to discuss
 >  alternative options. I am very open to collaboration and integration, but I
->  want to ensure that spektrafilm remains open source and for the community. 
+>  want to ensure that spektrafilm remains open source and for the community.
 >
 > LUTs are on a strict "*commercial use, free share, no resale*" custom [license](SPEKTRAFILM_LICENSE.txt).
 >
 >  This helps sustain open color science. Thanks!
-
 
 ## Introduction
 
@@ -177,7 +196,7 @@ spec = BundleSpec(
       resolution=33,
       ocio_config=True,   # opt-in: also emit a standalone OCIO 2 config
       qa=True,            # opt-in: run the QA suite and emit report.html
-      target="lumix_reatlime_vlog",  # special .cube files for lumix realtime 
+      target="lumix_reatlime_vlog",  # special .cube files for lumix realtime
 )
 builder = BundleBuilder(spec)
 builder.write(builder.build())   # lands in build/lut_bundles/<auto-name>/
@@ -216,12 +235,12 @@ Dependency direction:
 
 ## Installation
 
-> [!NOTE] 
+> [!NOTE]
 > Since spektrafilm is not compatible with the latest Python version, an
 > older version like 3.13 must be used.
 
-I reccomend to install spektrafilm with `conda`+`pip` for now, just because it 
-is my current workflow and thus it has more chances to be tested right after 
+I recommend to install spektrafilm with `conda`+`pip` for now, just because it
+is my current workflow and thus it has more chances to be tested right after
 commit.
 
 ### Using `uv`
@@ -236,6 +255,7 @@ uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git sp
 ```
 
 Or from a local working copy:
+
 ```bash
 uvx --python 3.13 --from /path/to/local/working_copy spektrafilm
 ```
@@ -254,13 +274,14 @@ on top of the default install.
 
 Under Windows you can install `uv` using the following command, which you only
 need to execute once:
+
 ```bash
-# ! you only need to exeucte this command the first time to install uv!
+# ! you only need to execute this command the first time to install uv!
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
-Instructions for macOS and Linux are
-[here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
+Instructions for macOS and Linux are
+[available in the uv documentation](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
 ### Using `pip`
 
@@ -276,10 +297,12 @@ pip install -e .
 # run
 spektrafilm
 ```
+
 I recommend creating a clean virtual environment to install the dependencies,
 for example by using `conda`.
 
 #### Using `conda`
+
 From a terminal:
 
 ```bash
@@ -293,12 +316,15 @@ folder and running:
 ```bash
 pip install -e .
 ```
+
 Launch the GUI by activating the environment and:
 
 ```bash
 spektrafilm
 ```
+
 To remove the environment:
+
 ```bash
 conda env remove -n spektrafilm
 ```
@@ -337,6 +363,7 @@ python scripts/regenerate_test_baselines.py
 Snapshot files are never updated automatically during pytest runs.
 
 ## GUI
+
 When launching the GUI, a `napari` window should appear. Note that `napari` is
 not color-managed. The way I work is to set the screen and operating system
 color profile to sRGB, and I set the output color space of the simulation to
@@ -351,7 +378,7 @@ importer uses `rawpy` and converts the image to the current `input color space`
 and `apply CCTF decoding` settings. You can use `reprocess raw` to reload the
 same file and reprocess it with the new settings.
 
-> [!TIP] 
+> [!TIP]
 > Hover over the widgets and controls to see a helpful tooltip.
 
 You can still load externally prepared linear images through the `file loader`.
@@ -360,7 +387,7 @@ prefer preprocessing in another tool. For best results, keep the image
 scene-referred and linear, ideally as a 16-bit or 32-bit float TIFF/EXR in a
 wide-gamut color space such as linear Rec2020 or linear ProPhoto RGB.
 
-> [!IMPORTANT] 
+> [!IMPORTANT]
 > The `file loader` imports 16-bit and 32-bit image files as new
 > layers using OpenImageIo. PNG, TIFF, and EXR are known to work, and other
 > formats may work too.
@@ -426,7 +453,12 @@ video](https://github.com/user-attachments/assets/534746b5-87ec-4bd0-96c9-5214ef
 
 ## Support
 
-spektrafilm is developed in my free time, often during late nights after my research work at KTH. If you'd like to support continued development and help fuel the next all-nighter coding session, consider [buying me a coffee](https://buymeacoffee.com/andreavolpato). Your contributions help me dedicate more time to the project and giving back to the [pixls.us](https://discuss.pixls.us/) community.
+spektrafilm is developed in my free time, often during late nights after my
+research work at KTH. If you'd like to support continued development and help
+fuel the next all-nighter coding session, consider
+[buying me a coffee](https://buymeacoffee.com/andreavolpato).Your contributions
+help me dedicate more time to the project and giving back to the
+[pixls.us](https://discuss.pixls.us/) community.
 
 ## References
 
@@ -438,5 +470,3 @@ spektrafilm is developed in my free time, often during late nights after my rese
 
 Sample images are from
 [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
-
-
