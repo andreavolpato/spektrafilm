@@ -94,10 +94,52 @@ target-version = "py313"
 
   [tool.ruff.lint]
   select = ["E", "F", "I", "N", "W", "UP"]
-  ignore = ["E501"]
+  ignore = [
+    "E402",
+    "E501",
+    "N806",
+  ]
+
+    [tool.ruff.lint.isort]
+    split-on-trailing-comma = false
+
+    [tool.ruff.lint.pep8-naming]
+    extend-ignore-names = [
+      "_cam16ucs_white_Jp",
+      "_jzazbz_white_Jz",
+      "_midgray_output_Y",
+      "_oklab_L_to_oklrab_Lr",
+      "_oklrab_Lr_to_oklab_L",
+      "_remove_sRGB_cctf",
+      "B1",
+      "B2",
+      "B3",
+      "B",
+      "C",
+      "C_max_table",
+      "Ecmfs",
+      "H",
+      "L",
+      "L_grid",
+      "L_slice",
+      "L_white",
+      "Lr",
+      "M",
+      "mid_L",
+      "N_arr",
+      "OpenImageIO",
+      "PyOpenColorIO",
+      "RGB",
+      "S",
+      "sRGB",
+      "test_OOG_xy_pulled_inside_locus",
+      "W",
+      "XYZ_target",
+    ]
 
   [tool.ruff.format]
-  quote-style = "double"
+  quote-style               = "double"
+  skip-magic-trailing-comma = false
 
 [tool.ty]
   [tool.ty.environment]
