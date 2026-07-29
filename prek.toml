@@ -110,6 +110,15 @@ hooks = [
 repo  = "local"
 hooks = [
   {
+    id             = "vale",
+    name           = "vale",
+    entry          = "vale",
+    args           = ["--no-global", "--output=line", "--minAlertLevel=error"],
+    language       = "system",
+    types          = ["markdown"],
+    require_serial = true,
+  },
+  {
     id             = "check-gitignore",
     name           = "Check no gitignored files are tracked",
     entry          = "bash",
