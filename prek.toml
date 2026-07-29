@@ -37,7 +37,7 @@ hooks = [
 
 [[repos]]
 repo  = "https://github.com/tombi-toml/tombi-pre-commit"
-rev   = "v0.9.9"
+rev   = "v1.2.4"
 hooks = [
   { id = "tombi-format", exclude = '(^|/)Cargo\.lock$' },
   { id = "tombi-lint" },
@@ -45,7 +45,7 @@ hooks = [
 
 [[repos]]
 repo  = "https://github.com/astral-sh/ruff-pre-commit"
-rev   = "v0.15.11"
+rev   = "v0.16.0"
 hooks = [
   { id = "ruff", args = ["--fix", "--exit-non-zero-on-fix"] },
   { id = "ruff-format" },
@@ -67,7 +67,7 @@ hooks = [
 
 [[repos]]
 repo  = "https://github.com/rvben/rumdl-pre-commit"
-rev   = "v0.2.27"
+rev   = "v0.2.45"
 hooks = [
   { id = "rumdl" },
   { id = "rumdl-fmt" },
@@ -75,7 +75,7 @@ hooks = [
 
 [[repos]]
 repo  = "https://github.com/crate-ci/typos"
-rev   = "v1.45.1"
+rev   = "v1.48.0"
 hooks = [
   {
     id = "typos",
@@ -94,14 +94,14 @@ hooks = [
 
 [[repos]]
 repo  = "https://github.com/scop/pre-commit-shfmt"
-rev   = "v3.12.0-2"
+rev   = "v3.13.1-1"
 hooks = [
   { id = "shfmt" },
 ]
 
 [[repos]]
 repo  = "https://github.com/betterleaks/betterleaks"
-rev   = "v1.6.1"
+rev   = "v1.7.2"
 hooks = [
   { id = "betterleaks" },
 ]
