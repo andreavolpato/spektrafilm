@@ -1,0 +1,26 @@
+[tools]
+# Language and runtimes
+"core:python" = "3.13"
+
+# Package management
+"aqua:astral-sh/uv"              = "0.11"
+
+# Version management
+"aqua:crate-ci/committed" = "1"
+"aqua:j178/prek"          = "0.4"
+
+# Language tooling
+"aqua:astral-sh/ruff"   = "0.15"
+"aqua:astral-sh/ty"     = "0.0"
+"aqua:biomejs/biome"    = "2"
+"aqua:casey/just"       = "1"
+"aqua:crate-ci/typos"   = "1"
+"aqua:tombi-toml/tombi" = "1"
+"aqua:vale-cli/vale"    = "3"
+"github:rvben/rumdl"    = "v0.2"
+
+[settings]
+experimental = true
+
+  [settings.python]
+  uv_venv_auto = "create|source"
