@@ -2,11 +2,13 @@
 
 See studies/a40_lut_system/n020_dispatcher_design.md for the design rationale.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, Callable
+from typing import Any
 
 
 class Tap:
@@ -16,13 +18,14 @@ class Tap:
     attribute name follows PEP 8 for class-level constants; the lowercase
     string value is the wire identifier used in state dicts.
     """
-    RGB_IN       = "rgb_in"
-    RGB_PRE      = "rgb_pre"
-    LOG_E_FILM   = "log_e_film"
-    CMY_FILM     = "cmy_film"
-    LOG_E_PRINT  = "log_e_print"
-    CMY_PRINT    = "cmy_print"
-    RGB_OUT      = "rgb_out"
+
+    RGB_IN = "rgb_in"
+    RGB_PRE = "rgb_pre"
+    LOG_E_FILM = "log_e_film"
+    CMY_FILM = "cmy_film"
+    LOG_E_PRINT = "log_e_print"
+    CMY_PRINT = "cmy_print"
+    RGB_OUT = "rgb_out"
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class Node:
     that performs the transform. Single-write nodes have ``run`` return a
     value; multi-write nodes return a tuple aligned with ``writes``.
     """
+
     reads: tuple[str, ...]
     writes: tuple[str, ...]
     run: Callable[..., Any]
@@ -81,6 +85,4 @@ def run_topology(
                 on_fire(node, elapsed)
             if collect in state:
                 return state[collect]
-    raise RuntimeError(
-        f"no node path reaches tap {collect!r} from {inject!r}"
-    )
+    raise RuntimeError(f"no node path reaches tap {collect!r} from {inject!r}")

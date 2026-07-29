@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 
 from spektrafilm_gui.params_manifest import (
-    CONVERT_MANIFEST,
-    FILM_BASE_MANIFEST,
-    PRINT_BASE_MANIFEST,
     CAMERA_DIFFUSION_MANIFEST,
     CAMERA_MANIFEST,
     CHEMISTRY_MANIFEST,
+    CONVERT_MANIFEST,
     DIR_COUPLERS_MANIFEST,
     ENLARGER_DIFFUSION_MANIFEST,
+    FILM_BASE_MANIFEST,
     FILM_CHEMISTRY_MANIFEST,
     GLARE_MANIFEST,
     GRAIN_MANIFEST,
@@ -16,11 +15,11 @@ from spektrafilm_gui.params_manifest import (
     INPUT_GAMUT_COMPRESS_MANIFEST,
     OUTPUT_GAMUT_COMPRESS_MANIFEST,
     PREFLASHING_MANIFEST,
+    PRINT_BASE_MANIFEST,
     SCANNER_MANIFEST,
 )
 from spektrafilm_gui.widget_primitives import CollapsibleSection, platform_default_font
 from spektrafilm_gui.widget_sections import (
-    ParamsGroupSection,
     DisplaySection,
     EnlargerSection,
     FilePickerSection,
@@ -28,18 +27,18 @@ from spektrafilm_gui.widget_sections import (
     InputImageSection,
     LoadRawSection,
     OutputSection,
+    ParamsGroupSection,
     PreviewCropSection,
     SimulationSection,
     SpecialSection,
     SpectralUpsamplingSection,
 )
 
-
 __all__ = (
-    'CollapsibleSection',
-    'WidgetBundle',
-    'create_widget_bundle',
-    'platform_default_font',
+    "CollapsibleSection",
+    "WidgetBundle",
+    "create_widget_bundle",
+    "platform_default_font",
 )
 
 

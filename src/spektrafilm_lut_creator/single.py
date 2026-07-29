@@ -16,6 +16,7 @@ Multi-print bundles keep using :class:`BundleSpec` +
 See spektrafilm-research/studies/b00/b60_lut_compute_with_params/n010
 §6/§8.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ class LutSpec:
     the ``RuntimePhotoParams`` passed to :func:`build_luts`. Field
     semantics match their :class:`BundleSpec` counterparts.
     """
+
     input_color_space: str
     output_color_space: str
     topology: str = "1lut"
@@ -93,5 +95,6 @@ def write_bundle(bundle: Bundle, params, spec: LutSpec, out_dir=None):
     ``bundle.baked_params``, the digested params of the bake.
     """
     return BundleBuilder(_bundle_spec(params, spec), base_params=params).write(
-        bundle, out_dir,
+        bundle,
+        out_dir,
     )

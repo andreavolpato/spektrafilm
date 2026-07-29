@@ -104,7 +104,9 @@ def write_image_metadata(
     destination_exif = destination.exifData()
 
     destination_exif["Exif.Image.Orientation"] = 1
-    destination_exif["Exif.Image.DateTime"] = datetime.datetime.now().strftime("%Y:%m:%d %H:%M:%S")
+    destination_exif["Exif.Image.DateTime"] = datetime.datetime.now().strftime(
+        "%Y:%m:%d %H:%M:%S"
+    )
     destination_exif["Exif.Image.Software"] = "spektrafilm"
     destination_exif["Exif.Photo.PixelXDimension"] = spec.width
     destination_exif["Exif.Photo.PixelYDimension"] = spec.height
@@ -152,7 +154,9 @@ def _load_icc_profile(color_space: str, cctf_encoding: bool) -> bytes | None:
     relative_path = _ICC_FILENAMES.get((color_space, cctf_encoding))
     if relative_path is None:
         return None
-    resource = pkg_resources.files("spektrafilm.data.icc").joinpath(*relative_path.split("/"))
+    resource = pkg_resources.files("spektrafilm.data.icc").joinpath(
+        *relative_path.split("/")
+    )
     try:
         return resource.read_bytes()
     except (FileNotFoundError, OSError):
@@ -160,8 +164,8 @@ def _load_icc_profile(color_space: str, cctf_encoding: bool) -> bytes | None:
 
 
 def _set_color_space_tags(
-    exif_data: "exiv2.ExifData",
-    xmp_data: "exiv2.XmpData",
+    exif_data: exiv2.ExifData,
+    xmp_data: exiv2.XmpData,
     saving_color_space: str,
     saving_cctf_encoding: bool,
 ) -> None:
@@ -174,7 +178,9 @@ def _set_color_space_tags(
     else:
         exif_data["Exif.Photo.ColorSpace"] = _EXIF_COLORSPACE_UNCALIBRATED
 
-    profile_name = saving_color_space if saving_cctf_encoding else f"{saving_color_space} (linear)"
+    profile_name = (
+        saving_color_space if saving_cctf_encoding else f"{saving_color_space} (linear)"
+    )
     xmp_data["Xmp.photoshop.ICCProfile"] = profile_name
 
 
@@ -182,18 +188,19 @@ def _set_color_space_tags(
 # 16-bit PNG I/O
 ################################################################################
 
+
 def load_image_oiio(filename):
     # Open the image file
     in_img = oiio.ImageInput.open(filename)
     if not in_img:
-        raise IOError("Could not open image file: " + filename)
-    
+        raise OSError("Could not open image file: " + filename)
+
     try:
         spec = in_img.spec()
-        
+
         # Determine the native pixel format:
         # Use "uint16" for PNG and "half" for EXR if applicable.
-        if spec.format == oiio.TypeDesc("uint8"): # for compatibility
+        if spec.format == oiio.TypeDesc("uint8"):  # for compatibility
             read_type = oiio.TypeDesc("uint8")
         elif spec.format == oiio.TypeDesc("uint16"):
             read_type = oiio.TypeDesc("uint16")
@@ -204,24 +211,25 @@ def load_image_oiio(filename):
         else:
             # Fallback: use "uint16" by default. You might choose "float" if desired.
             read_type = oiio.TypeDesc("uint16")
-        
+
         # Read the image data using the chosen type
         pixels = in_img.read_image(read_type)
         if pixels is None:
             raise Exception("Failed to read image data from " + filename)
-        
+
         # Convert the raw data to a NumPy array and reshape it
         np_pixels = np.array(pixels)
         np_pixels = np_pixels.reshape(spec.height, spec.width, spec.nchannels)
-        
+
         if spec.format == oiio.TypeDesc("uint16"):
-            np_pixels = np.double(np_pixels)/(2**16-1)
+            np_pixels = np.double(np_pixels) / (2**16 - 1)
         if spec.format == oiio.TypeDesc("uint8"):
-            np_pixels = np.double(np_pixels)/(2**8-1)
-        
+            np_pixels = np.double(np_pixels) / (2**8 - 1)
+
         return np_pixels
     finally:
         in_img.close()
+
 
 def save_image_oiio(
     filename,
@@ -280,8 +288,8 @@ def save_image_oiio(
     height, width, nchannels = image_data.shape
 
     # Determine file type based on extension
-    ext = filename.split('.')[-1].lower()
-    
+    ext = filename.split(".")[-1].lower()
+
     # Create an ImageSpec with the proper data type
     if ext == "png":
         # Assume image_data is in [0, 1]: scale to 8-bit unsigned integers.
@@ -294,13 +302,13 @@ def save_image_oiio(
         img_uint8 = img_uint8.astype(np.uint8)
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("uint8"))
         data_to_write = img_uint8
-    elif ext=="exr" and bit_depth==16:
+    elif ext == "exr" and bit_depth == 16:
         # Convert the image data to 16-bit half precision.
         # Note: numpy's float16 is used here; OpenImageIO accepts "half" for 16-bit floats.
         img_half = image_data.astype(np.float16)
         spec = oiio.ImageSpec(width, height, nchannels, oiio.TypeDesc("half"))
         data_to_write = img_half
-    elif ext=='exr' and bit_depth==32:
+    elif ext == "exr" and bit_depth == 32:
         # Convert the image data to 32-bit float precision.
         # Note: numpy's float32 is used here; OpenImageIO accepts "float" for 32-bit floats.
         img_float = image_data.astype(np.float32)
@@ -338,8 +346,8 @@ def save_image_oiio(
     # Create an ImageOutput for writing the file
     out = oiio.ImageOutput.create(filename)
     if not out:
-        raise IOError("Could not create output image: " + filename)
-    
+        raise OSError("Could not create output image: " + filename)
+
     try:
         out.open(filename, spec)
         # Write the image data; write_image accepts the NumPy array directly.
@@ -347,49 +355,65 @@ def save_image_oiio(
     finally:
         out.close()
 
+
 ################################################################################
 # Neutral filter values
 ################################################################################
 
-NEUTRAL_PRINT_FILTERS_FILENAME = 'neutral_print_filters.json'
+NEUTRAL_PRINT_FILTERS_FILENAME = "neutral_print_filters.json"
 
 
 def read_neutral_print_filters():
-    package = pkg_resources.files('spektrafilm.data.filters')
+    package = pkg_resources.files("spektrafilm.data.filters")
     resource = package / NEUTRAL_PRINT_FILTERS_FILENAME
     with resource.open("r") as file:
         return json.load(file)
+
 
 ################################################################################
 # Profiles
 ################################################################################
 
-def load_dichroic_filters(wavelengths, brand='thorlabs'):
-    channels = ['c','m','y']
+
+def load_dichroic_filters(wavelengths, brand="thorlabs"):
+    channels = ["c", "m", "y"]
     filters = np.zeros((np.size(wavelengths), 3))
     for i, channel in enumerate(channels):
-        package = pkg_resources.files('spektrafilm.data.filters.dichroics')
-        filename = brand+'/filter_'+channel+'.csv'
+        package = pkg_resources.files("spektrafilm.data.filters.dichroics")
+        filename = brand + "/filter_" + channel + ".csv"
         resource = package / filename
         with resource.open("r") as file:
-            data = np.loadtxt(file, delimiter=',')
-            unique_index = np.unique(data[:,0], return_index=True)[1]
-            data = data[unique_index,:]
+            data = np.loadtxt(file, delimiter=",")
+            unique_index = np.unique(data[:, 0], return_index=True)[1]
+            data = data[unique_index, :]
             # filters[:,i] = scipy.interpolate.CubicSpline(data[:,0], data[:,1]/100)(wavelengths)
-            filters[:,i] = scipy.interpolate.Akima1DInterpolator(data[:,0], data[:,1]/100)(wavelengths)
+            filters[:, i] = scipy.interpolate.Akima1DInterpolator(
+                data[:, 0], data[:, 1] / 100
+            )(wavelengths)
     return filters
 
-def load_filter(wavelengths, name='KG3', brand='schott', filter_type='heat_absorbing', percent_transmittance=False):
+
+def load_filter(
+    wavelengths,
+    name="KG3",
+    brand="schott",
+    filter_type="heat_absorbing",
+    percent_transmittance=False,
+):
     transmittance = np.zeros_like(wavelengths)
-    package = pkg_resources.files('spektrafilm.data.filters.'+filter_type)
-    filename = brand+'/'+name+'.csv'
+    package = pkg_resources.files("spektrafilm.data.filters." + filter_type)
+    filename = brand + "/" + name + ".csv"
     resource = package / filename
-    if percent_transmittance: scale = 100
-    else: scale = 1
+    if percent_transmittance:
+        scale = 100
+    else:
+        scale = 1
     with resource.open("r") as file:
-        data = np.loadtxt(file, delimiter=',')
-        unique_index = np.unique(data[:,0], return_index=True)[1]
-        data = data[unique_index,:]
+        data = np.loadtxt(file, delimiter=",")
+        unique_index = np.unique(data[:, 0], return_index=True)[1]
+        data = data[unique_index, :]
         # transmittance = scipy.interpolate.CubicSpline(data[:,0], data[:,1]/scale)(wavelengths)
-        transmittance = scipy.interpolate.Akima1DInterpolator(data[:,0], data[:,1]/scale)(wavelengths)
+        transmittance = scipy.interpolate.Akima1DInterpolator(
+            data[:, 0], data[:, 1] / scale
+        )(wavelengths)
     return transmittance

@@ -12,16 +12,23 @@ from spektrafilm.data.profiles_loader import load_profile_infos
 def _dropdown_order(item):
     stock, info = item
     # still before cine, negative before positive, color before bw, then alphabetical
-    return (info.use != 'still', info.type != 'negative', info.channel_model != 'color', stock)
+    return (
+        info.use != "still",
+        info.type != "negative",
+        info.channel_model != "color",
+        stock,
+    )
 
 
 _profile_infos = sorted(load_profile_infos().items(), key=_dropdown_order)
-FilmStocks = Enum('FilmStocks', {
-    stock: stock for stock, info in _profile_infos if info.stage == 'filming'
-})
-PrintStocks = Enum('PrintStocks', {
-    stock: stock for stock, info in _profile_infos if info.stage == 'printing'
-})
+FilmStocks = Enum(
+    "FilmStocks",
+    {stock: stock for stock, info in _profile_infos if info.stage == "filming"},
+)
+PrintStocks = Enum(
+    "PrintStocks",
+    {stock: stock for stock, info in _profile_infos if info.stage == "printing"},
+)
 del _profile_infos
 
 
@@ -63,7 +70,7 @@ class ScanIlluminants(Enum):
 
 
 class RGBtoRAWMethod(Enum):
-    arctic2026beta04 = "arctic2026beta04" # 2026-06-21
+    arctic2026beta04 = "arctic2026beta04"  # 2026-06-21
     hanatos2025 = "hanatos2025"
     # jakob2019 = "jakob2019"
     # otsu2018 = "otsu2018"
@@ -116,5 +123,3 @@ class OutputGamutCompressAlgorithms(Enum):
     oklrab = "oklrab"
     jzazbz = "jzazbz"
     cam16ucs = "cam16ucs"
-
-

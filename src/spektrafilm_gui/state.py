@@ -3,30 +3,37 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, TypeVar
 
-from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
-    ConvertFilmParams,
-    FilmBaseParams,
-    PrintBaseParams,
     CameraParams,
+    ConvertFilmParams,
     DiffusionFilterParams,
     DirCouplersParams,
     EnlargerParams,
+    FilmBaseParams,
     GlareParams,
     GrainParams,
     HalationParams,
     IOParams,
+    PrintBaseParams,
     RuntimePhotoParams,
     ScannerParams,
     SettingsParams,
 )
-from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
+from spektrafilm.utils.gamut_compression import (
+    InputGamutCompressSpec,
+    OutputGamutCompressSpec,
+)
 from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
-from spektrafilm_gui.params_manifest import DISPLAY_PANEL_FIELDS, INPUT_IMAGE_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
+from spektrafilm_gui.options import FilmStocks, PrintStocks
+from spektrafilm_gui.params_manifest import (
+    DISPLAY_PANEL_FIELDS,
+    INPUT_IMAGE_FIELDS,
+    SIMULATION_FIELDS,
+    SPECIAL_FIELDS,
+)
 
-
-StateSection = TypeVar('StateSection')
+StateSection = TypeVar("StateSection")
 
 
 @dataclass(slots=True)
@@ -72,23 +79,27 @@ class SimulationWorkflowState:
 
 @dataclass(slots=True)
 class SimulationState:
-    selection: SelectionState = field(default_factory=lambda: SelectionState(film_stock='', print_paper=''))
+    selection: SelectionState = field(
+        default_factory=lambda: SelectionState(film_stock="", print_paper="")
+    )
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
     io: IOParams = field(default_factory=IOParams)
     # Pipeline route selector (mirrors WorkflowParams.route). The footer
     # "Workflow" dropdown binds to this; params_mapper copies it straight
     # through to params.workflow.route.
     route: str = "input > film > print > scan"
-    workflow: SimulationWorkflowState = field(default_factory=lambda: SimulationWorkflowState(
-        saving_color_space='sRGB',
-        saving_cctf_encoding=True,
-        auto_preview=True,
-    ))
+    workflow: SimulationWorkflowState = field(
+        default_factory=lambda: SimulationWorkflowState(
+            saving_color_space="sRGB",
+            saving_cctf_encoding=True,
+            auto_preview=True,
+        )
+    )
 
 
 def _read_attr_path(root: Any, path: str) -> object:
     obj = root
-    for part in path.split('.'):
+    for part in path.split("."):
         obj = getattr(obj, part)
     return obj
 
@@ -109,24 +120,28 @@ def simulation_to_dict(state: SimulationState) -> dict[str, object]:
 
 
 def display_to_dict(state: DisplayState) -> dict[str, object]:
-    return {spec.leaf: _read_attr_path(state, spec.path) for spec in DISPLAY_PANEL_FIELDS}
+    return {
+        spec.leaf: _read_attr_path(state, spec.path) for spec in DISPLAY_PANEL_FIELDS
+    }
 
 
 _INPUT_IMAGE_LEGACY_ALIASES = {
-    'apply_cctf_decoding': 'input_cctf_decoding',
-    'spectral_upsampling_method': 'rgb_to_raw_method',
+    "apply_cctf_decoding": "input_cctf_decoding",
+    "spectral_upsampling_method": "rgb_to_raw_method",
 }
 
 
 def normalize_input_image_dict(data: dict[str, Any]) -> dict[str, Any]:
-    if 'io' in data or 'settings' in data:
+    if "io" in data or "settings" in data:
         return dict(data)
     # Legacy / flat dict (keyed by runtime leaf, or a pre-refactor GUI alias)
     # -> nested {io: {...}, settings: {...}}, derived from the manifest paths.
-    nested: dict[str, dict[str, Any]] = {'io': {}, 'settings': {}}
+    nested: dict[str, dict[str, Any]] = {"io": {}, "settings": {}}
     for spec in INPUT_IMAGE_FIELDS:
-        group, _, leaf = spec.path.partition('.')
-        legacy = [old for old, new in _INPUT_IMAGE_LEGACY_ALIASES.items() if new == leaf]
+        group, _, leaf = spec.path.partition(".")
+        legacy = [
+            old for old, new in _INPUT_IMAGE_LEGACY_ALIASES.items() if new == leaf
+        ]
         for key in (leaf, *legacy):
             if key in data:
                 nested[group][leaf] = data[key]
@@ -135,54 +150,101 @@ def normalize_input_image_dict(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_special_dict(data: dict[str, Any]) -> dict[str, Any]:
-    if 'film_render' in data:
+    if "film_render" in data:
         return dict(data)
     return {
-        'film_channel_swap': data.get('film_channel_swap', (0, 1, 2)),
-        'print_channel_swap': data.get('print_channel_swap', (0, 1, 2)),
+        "film_channel_swap": data.get("film_channel_swap", (0, 1, 2)),
+        "print_channel_swap": data.get("print_channel_swap", (0, 1, 2)),
     }
 
 
 def normalize_simulation_dict(data: dict[str, Any]) -> dict[str, Any]:
-    if 'enlarger' in data or 'io' in data or 'workflow' in data:
+    if "enlarger" in data or "io" in data or "workflow" in data:
         return dict(data)
     return {
-        'selection': {
-            'film_stock': data.get('film_stock', PROJECT_DEFAULT_GUI_STATE.selection.film_stock),
-            'print_paper': data.get('print_paper', PROJECT_DEFAULT_GUI_STATE.selection.print_paper),
+        "selection": {
+            "film_stock": data.get(
+                "film_stock", PROJECT_DEFAULT_GUI_STATE.selection.film_stock
+            ),
+            "print_paper": data.get(
+                "print_paper", PROJECT_DEFAULT_GUI_STATE.selection.print_paper
+            ),
         },
-        'enlarger': {
-            'illuminant': data.get('print_illuminant', PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.illuminant),
-            'print_exposure': data.get('print_exposure', PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure),
-            'print_exposure_compensation': data.get('print_exposure_compensation', PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure_compensation),
-            'y_filter_shift': data.get('print_y_filter_shift', PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.y_filter_shift),
-            'm_filter_shift': data.get('print_m_filter_shift', PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.m_filter_shift),
+        "enlarger": {
+            "illuminant": data.get(
+                "print_illuminant",
+                PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.illuminant,
+            ),
+            "print_exposure": data.get(
+                "print_exposure",
+                PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure,
+            ),
+            "print_exposure_compensation": data.get(
+                "print_exposure_compensation",
+                PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure_compensation,
+            ),
+            "y_filter_shift": data.get(
+                "print_y_filter_shift",
+                PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.y_filter_shift,
+            ),
+            "m_filter_shift": data.get(
+                "print_m_filter_shift",
+                PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.m_filter_shift,
+            ),
         },
-        'io': {
-            'output_color_space': data.get('output_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space),
+        "io": {
+            "output_color_space": data.get(
+                "output_color_space",
+                PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space,
+            ),
         },
         # Back-compat: legacy states stored a boolean scan_film instead of a route.
-        'route': data.get('route') or (
-            'input > film > scan' if data.get('scan_film') else PROJECT_DEFAULT_GUI_STATE.simulation.route
+        "route": data.get("route")
+        or (
+            "input > film > scan"
+            if data.get("scan_film")
+            else PROJECT_DEFAULT_GUI_STATE.simulation.route
         ),
-        'workflow': {
-            'saving_color_space': data.get('saving_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_color_space),
-            'saving_cctf_encoding': data.get('saving_cctf_encoding', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_cctf_encoding),
-            'auto_preview': data.get('auto_preview', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.auto_preview),
+        "workflow": {
+            "saving_color_space": data.get(
+                "saving_color_space",
+                PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_color_space,
+            ),
+            "saving_cctf_encoding": data.get(
+                "saving_cctf_encoding",
+                PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_cctf_encoding,
+            ),
+            "auto_preview": data.get(
+                "auto_preview",
+                PROJECT_DEFAULT_GUI_STATE.simulation.workflow.auto_preview,
+            ),
         },
     }
 
 
 def normalize_display_dict(data: dict[str, Any]) -> dict[str, Any]:
-    if 'settings' in data:
+    if "settings" in data:
         return dict(data)
     return {
-        'use_display_transform': data.get('use_display_transform', PROJECT_DEFAULT_GUI_STATE.gui_only.display.use_display_transform),
-        'gray_18_canvas': data.get('gray_18_canvas', PROJECT_DEFAULT_GUI_STATE.gui_only.display.gray_18_canvas),
-        'white_padding': data.get('white_padding', PROJECT_DEFAULT_GUI_STATE.gui_only.display.white_padding),
-        'output_interpolation': data.get('output_interpolation', PROJECT_DEFAULT_GUI_STATE.gui_only.display.output_interpolation),
-        'settings': {
-            'preview_max_size': data.get('preview_max_size', PROJECT_DEFAULT_GUI_STATE.gui_only.display.settings.preview_max_size),
+        "use_display_transform": data.get(
+            "use_display_transform",
+            PROJECT_DEFAULT_GUI_STATE.gui_only.display.use_display_transform,
+        ),
+        "gray_18_canvas": data.get(
+            "gray_18_canvas", PROJECT_DEFAULT_GUI_STATE.gui_only.display.gray_18_canvas
+        ),
+        "white_padding": data.get(
+            "white_padding", PROJECT_DEFAULT_GUI_STATE.gui_only.display.white_padding
+        ),
+        "output_interpolation": data.get(
+            "output_interpolation",
+            PROJECT_DEFAULT_GUI_STATE.gui_only.display.output_interpolation,
+        ),
+        "settings": {
+            "preview_max_size": data.get(
+                "preview_max_size",
+                PROJECT_DEFAULT_GUI_STATE.gui_only.display.settings.preview_max_size,
+            ),
         },
     }
 
@@ -192,7 +254,7 @@ class DisplayState:
     use_display_transform: bool
     gray_18_canvas: bool
     white_padding: float
-    output_interpolation: str = 'spline36'
+    output_interpolation: str = "spline36"
     settings: SettingsParams = field(default_factory=SettingsParams)
 
 
@@ -232,9 +294,11 @@ class GuiState:
 
 def clone_state_section(section: StateSection) -> StateSection:
     if not is_dataclass(section):
-        raise TypeError('Expected a dataclass instance to clone.')
+        raise TypeError("Expected a dataclass instance to clone.")
     if isinstance(section, InputImageState):
-        return replace(section, io=replace(section.io), settings=replace(section.settings))
+        return replace(
+            section, io=replace(section.io), settings=replace(section.settings)
+        )
     if isinstance(section, SimulationState):
         return replace(
             section,
@@ -294,8 +358,12 @@ def _fill_channel_padding(grain):
     for f in fields(grain):
         value = getattr(grain, f.name)
         if isinstance(value, tuple) and any(component is None for component in value):
-            fill = next((component for component in value if component is not None), 0.0)
-            changes[f.name] = tuple(fill if component is None else component for component in value)
+            fill = next(
+                (component for component in value if component is not None), 0.0
+            )
+            changes[f.name] = tuple(
+                fill if component is None else component for component in value
+            )
     return replace(grain, **changes)
 
 
@@ -358,7 +426,7 @@ def gui_state_from_params(
                 # Daylight (D65) is the colorimetric reference the rest of the
                 # pipeline assumes; white balance is corrected downstream with the
                 # enlarger, not here. See the white_balance tooltip.
-                white_balance='daylight',
+                white_balance="daylight",
                 temperature=5500.0,
                 tint=1.0,
                 lens_correction=False,
@@ -366,9 +434,11 @@ def gui_state_from_params(
             display=DisplayState(
                 use_display_transform=True,
                 gray_18_canvas=True,
-                output_interpolation='spline36',
+                output_interpolation="spline36",
                 white_padding=0.03,
-                settings=SettingsParams(preview_max_size=params.settings.preview_max_size),
+                settings=SettingsParams(
+                    preview_max_size=params.settings.preview_max_size
+                ),
             ),
         ),
     )
@@ -381,7 +451,9 @@ def digest_after_selection(params: RuntimePhotoParams) -> RuntimePhotoParams:
 
 
 def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
-    params = digest_after_selection(init_params(film_profile=film_stock, print_profile=print_paper))
+    params = digest_after_selection(
+        init_params(film_profile=film_stock, print_profile=print_paper)
+    )
     return gui_state_from_params(params, film_stock=film_stock, print_paper=print_paper)
 
 

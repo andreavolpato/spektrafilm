@@ -17,6 +17,13 @@ from spektrafilm_gui.controller_layers import (
     INPUT_PREVIEW_LAYER_NAME,
     ViewerLayerService,
 )
+from spektrafilm_gui.napari_layout import (
+    dialog_parent,
+    reset_viewer_camera,
+    set_canvas_background,
+    set_status,
+)
+from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     load_dialog_dir,
@@ -25,11 +32,14 @@ from spektrafilm_gui.persistence import (
     save_dialog_dir,
     save_gui_state_to_path,
 )
-from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
-from spektrafilm_gui.napari_layout import dialog_parent, reset_viewer_camera, set_canvas_background, set_status
-from spektrafilm_gui.params_mapper import build_params_from_state
+from spektrafilm_gui.state import (
+    PROJECT_DEFAULT_GUI_STATE,
+    digest_after_selection,
+    gui_state_from_params,
+)
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
+
 
 def _family_development_times(profile) -> np.ndarray:
     """A stock's development-time choices as a 1-D array, always non-empty.
@@ -44,18 +54,18 @@ def _family_development_times(profile) -> np.ndarray:
     return np.asarray(profile.data.development_time, dtype=float)
 
 
-OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
-OUTPUT_COLOR_SPACE_KEY = 'pipeline_output_color_space'
-OUTPUT_CCTF_ENCODING_KEY = 'pipeline_output_cctf_encoding'
-OUTPUT_DISPLAY_TRANSFORM_KEY = 'pipeline_use_display_transform'
+OUTPUT_FLOAT_DATA_KEY = "pipeline_float_output"
+OUTPUT_COLOR_SPACE_KEY = "pipeline_output_color_space"
+OUTPUT_CCTF_ENCODING_KEY = "pipeline_output_cctf_encoding"
+OUTPUT_DISPLAY_TRANSFORM_KEY = "pipeline_use_display_transform"
 PROFILE_SYNC_SECTION_NAMES = profile_sync.PROFILE_SYNC_SECTION_NAMES
 if TYPE_CHECKING:
     import napari
     from napari.layers import Image as NapariImageLayer
 
 
-QThreadPool = getattr(QtCore, 'QThreadPool')
-QTimer = getattr(QtCore, 'QTimer')
+QThreadPool = getattr(QtCore, "QThreadPool")
+QTimer = getattr(QtCore, "QTimer")
 QFileDialog = QtWidgets.QFileDialog
 QMessageBox = QtWidgets.QMessageBox
 SimulationRequest = runtime.SimulationRequest
@@ -101,27 +111,27 @@ class _LazyModuleProxy:
 
 
 def _import_colour_module():
-    return import_module('colour')
+    return import_module("colour")
 
 
 def _import_pil_image_module():
-    return import_module('PIL.Image')
+    return import_module("PIL.Image")
 
 
 def _import_imagecms_module():
-    return import_module('PIL.ImageCms')
+    return import_module("PIL.ImageCms")
 
 
 def runtime_simulator(*args, **kwargs):
-    return import_module('spektrafilm.runtime.api').Simulator(*args, **kwargs)
+    return import_module("spektrafilm.runtime.api").Simulator(*args, **kwargs)
 
 
 def digest_params(*args, **kwargs):
-    return import_module('spektrafilm.runtime.api').digest_params(*args, **kwargs)
+    return import_module("spektrafilm.runtime.api").digest_params(*args, **kwargs)
 
 
 def load_image_oiio(*args, **kwargs):
-    return import_module('spektrafilm.utils.io').load_image_oiio(*args, **kwargs)
+    return import_module("spektrafilm.utils.io").load_image_oiio(*args, **kwargs)
 
 
 def save_image_oiio(*args, **kwargs):
@@ -137,11 +147,15 @@ def write_image_metadata(*args, **kwargs):
 
 
 def load_and_process_raw_file(*args, **kwargs):
-    return import_module('spektrafilm.utils.raw_file_processor').load_and_process_raw_file(*args, **kwargs)
+    return import_module(
+        "spektrafilm.utils.raw_file_processor"
+    ).load_and_process_raw_file(*args, **kwargs)
 
 
 def resize_for_preview(*args, **kwargs):
-    return import_module('spektrafilm.utils.preview').resize_for_preview(*args, **kwargs)
+    return import_module("spektrafilm.utils.preview").resize_for_preview(
+        *args, **kwargs
+    )
 
 
 colour = _LazyModuleProxy(_import_colour_module)
@@ -183,10 +197,18 @@ class GuiController:
         state = collect_gui_state(widgets=self._widgets)
         preview_height = max(int(state.gui_only.display.settings.preview_max_size), 1)
         preview_width = max(
-            int(round(preview_height * STARTUP_PREVIEW_ASPECT_RATIO[1] / STARTUP_PREVIEW_ASPECT_RATIO[0])),
+            int(
+                round(
+                    preview_height
+                    * STARTUP_PREVIEW_ASPECT_RATIO[1]
+                    / STARTUP_PREVIEW_ASPECT_RATIO[0]
+                )
+            ),
             1,
         )
-        placeholder_preview = np.zeros((preview_height, preview_width, 3), dtype=np.uint8)
+        placeholder_preview = np.zeros(
+            (preview_height, preview_width, 3), dtype=np.uint8
+        )
         self._layers.set_or_add_input_preview_layer(
             placeholder_preview,
             watermark_source_size=(preview_height, preview_width),
@@ -224,21 +246,28 @@ class GuiController:
             )
 
         self._jobs.submit(
-            'raw',
+            "raw",
             decode_raw,
             on_done=lambda image: self._on_raw_loaded(
-                image, path=path, lens_info=lens_info, lens_correction=load_raw.lens_correction
+                image,
+                path=path,
+                lens_info=lens_info,
+                lens_correction=load_raw.lens_correction,
             ),
             on_error=self._on_raw_failed,
         )
 
-    def _on_raw_loaded(self, image, *, path: str, lens_info: dict[str, str], lens_correction: bool) -> None:
+    def _on_raw_loaded(
+        self, image, *, path: str, lens_info: dict[str, str], lens_correction: bool
+    ) -> None:
         self._current_input_path = path
         self._set_or_add_input_stack(image)
 
-        lens_summary = lens_info.get('summary')
+        lens_summary = lens_info.get("summary")
         if lens_summary:
-            set_status(self._viewer, f"Loaded raw and applied lens correction: {lens_summary}")
+            set_status(
+                self._viewer, f"Loaded raw and applied lens correction: {lens_summary}"
+            )
         elif lens_correction:
             set_status(self._viewer, "Loaded raw, lens correction not applied")
         else:
@@ -246,16 +275,20 @@ class GuiController:
         self._request_auto_preview_if_enabled()
 
     def _on_raw_failed(self, message: str) -> None:
-        QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{message}')
-        set_status(self._viewer, 'Load raw failed')
+        QMessageBox.critical(
+            dialog_parent(self._viewer),
+            "Load raw",
+            f"Failed to load RAW image.\n\n{message}",
+        )
+        set_status(self._viewer, "Load raw failed")
 
     def on_convert_action(self, action_id: str) -> None:
         """Dispatch a Convert-panel action button (see CONVERT_MANIFEST.actions)."""
-        if action_id == 'detect_base':
+        if action_id == "detect_base":
             self.run_detect_base()
-        elif action_id == 'blind_calibration':
+        elif action_id == "blind_calibration":
             self.run_blind_calibration()
-        elif action_id == 'neutralize_filters':
+        elif action_id == "neutralize_filters":
             self.run_neutralize_filters()
 
     def run_neutralize_filters(self) -> None:
@@ -263,26 +296,32 @@ class GuiController:
         prints neutral, and write them into the Enlarger panel. Image-independent."""
         state = collect_gui_state(widgets=self._widgets)
         params = build_params_from_state(state)
-        set_status(self._viewer, 'Neutralizing print filters...', timeout_ms=0)
+        set_status(self._viewer, "Neutralizing print filters...", timeout_ms=0)
 
         def work():
             from spektrafilm.runtime.print_balance import solve_neutral_filter_shifts
+
             return solve_neutral_filter_shifts(params)
 
         self._jobs.submit(
-            'calibration',
+            "calibration",
             work,
             on_done=self._on_neutralize_filters_done,
-            on_error=lambda message: set_status(self._viewer, f'Neutralize print filters failed: {message}'),
+            on_error=lambda message: set_status(
+                self._viewer, f"Neutralize print filters failed: {message}"
+            ),
         )
 
     def _on_neutralize_filters_done(self, shifts) -> None:
         m_shift, y_shift = shifts
-        simulation = getattr(self._widgets, 'simulation', None)
+        simulation = getattr(self._widgets, "simulation", None)
         if simulation is not None:
             simulation.print_m_filter_shift.value = float(m_shift)
             simulation.print_y_filter_shift.value = float(y_shift)
-        set_status(self._viewer, f'Print filters neutralized: M shift={m_shift:+.2f}, Y shift={y_shift:+.2f}')
+        set_status(
+            self._viewer,
+            f"Print filters neutralized: M shift={m_shift:+.2f}, Y shift={y_shift:+.2f}",
+        )
         self._request_auto_preview_if_enabled()
 
     def run_detect_base(self) -> None:
@@ -291,49 +330,59 @@ class GuiController:
         film maps to density 0. Writes the fitted Base widget and the exposure field."""
         image = self._current_input_image
         if image is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Detect base', 'Load an input image first.')
+            QMessageBox.warning(
+                dialog_parent(self._viewer), "Detect base", "Load an input image first."
+            )
             return
         state = collect_gui_state(widgets=self._widgets)
         params = build_params_from_state(state)
-        params.workflow.route = 'input > convert-film > scan'
+        params.workflow.route = "input > convert-film > scan"
         percentile = float(params.film_render.convert.base_percentile)
-        set_status(self._viewer, 'Detecting film base...', timeout_ms=0)
+        set_status(self._viewer, "Detecting film base...", timeout_ms=0)
 
         def work():
             from spektrafilm.model.convert import fit_base_params, sample_base_rgb
             from spektrafilm.model.illuminants import standard_illuminant
             from spektrafilm.runtime.pipeline import SimulationPipeline
-            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+
+            pipeline = SimulationPipeline(
+                digest_params(params, apply_stocks_specifics=True)
+            )
             stage = pipeline._converting_stage
             img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
             base_rgb = sample_base_rgb(img, percentile)
             data = stage._film.data
             fitted, ev = fit_base_params(
-                base_rgb, data.channel_density, data.base_density, params.film_render.base,
+                base_rgb,
+                data.channel_density,
+                data.base_density,
+                params.film_render.base,
                 standard_illuminant(params.film_render.convert.scan_illuminant),
                 params.io.input_color_space,
             )
             return fitted, float(ev), base_rgb
 
         self._jobs.submit(
-            'calibration',
+            "calibration",
             work,
             on_done=self._on_detect_base_done,
-            on_error=lambda message: set_status(self._viewer, f'Detect base failed: {message}'),
+            on_error=lambda message: set_status(
+                self._viewer, f"Detect base failed: {message}"
+            ),
         )
 
     def _on_detect_base_done(self, result) -> None:
         fitted, ev, base_rgb = result
-        base_section = getattr(self._widgets, 'film_base', None)
+        base_section = getattr(self._widgets, "film_base", None)
         if base_section is not None:
             base_section.set_state(fitted)
-        convert_section = getattr(self._widgets, 'convert', None)
+        convert_section = getattr(self._widgets, "convert", None)
         if convert_section is not None:
-            convert_section.set_field('exposure_compensation_ev', ev)
+            convert_section.set_field("exposure_compensation_ev", ev)
         set_status(
             self._viewer,
-            f'Base detected (clear RGB {np.round(base_rgb, 3).tolist()}): '
-            f'cyan/magenta/yellow=({fitted.cyan:.3f}, {fitted.magenta:.3f}, {fitted.yellow:.3f}), ev={ev:+.2f}',
+            f"Base detected (clear RGB {np.round(base_rgb, 3).tolist()}): "
+            f"cyan/magenta/yellow=({fitted.cyan:.3f}, {fitted.magenta:.3f}, {fitted.yellow:.3f}), ev={ev:+.2f}",
         )
         self._request_auto_preview_if_enabled()
 
@@ -343,36 +392,47 @@ class GuiController:
         the fit is the c40 blind dye-gamut fit (best on a vibrant frame)."""
         image = self._current_input_image
         if image is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Blind calibration', 'Load an input image first.')
+            QMessageBox.warning(
+                dialog_parent(self._viewer),
+                "Blind calibration",
+                "Load an input image first.",
+            )
             return
         state = collect_gui_state(widgets=self._widgets)
         params = build_params_from_state(state)
-        params.workflow.route = 'input > convert-film > scan'
-        set_status(self._viewer, 'Fitting blind calibration...', timeout_ms=0)
+        params.workflow.route = "input > convert-film > scan"
+        set_status(self._viewer, "Fitting blind calibration...", timeout_ms=0)
 
         def work() -> str:
             from spektrafilm.model.convert import format_calibration_matrix
             from spektrafilm.runtime.pipeline import SimulationPipeline
-            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+
+            pipeline = SimulationPipeline(
+                digest_params(params, apply_stocks_specifics=True)
+            )
             stage = pipeline._converting_stage
             img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
             flat = img.reshape(-1, 3)
             if len(flat) > 40000:
                 flat = flat[np.linspace(0, len(flat) - 1, 40000).astype(int)]
-            return format_calibration_matrix(stage._converter.fit_blind_calibration(flat))
+            return format_calibration_matrix(
+                stage._converter.fit_blind_calibration(flat)
+            )
 
         self._jobs.submit(
-            'calibration',
+            "calibration",
             work,
             on_done=self._on_blind_calibration_done,
-            on_error=lambda message: set_status(self._viewer, f'Blind calibration failed: {message}'),
+            on_error=lambda message: set_status(
+                self._viewer, f"Blind calibration failed: {message}"
+            ),
         )
 
     def _on_blind_calibration_done(self, calibration: str) -> None:
-        convert_section = getattr(self._widgets, 'convert', None)
+        convert_section = getattr(self._widgets, "convert", None)
         if convert_section is not None:
-            convert_section.set_field('calibration', calibration)
-        set_status(self._viewer, f'Blind calibration fitted: {calibration}')
+            convert_section.set_field("calibration", calibration)
+        set_status(self._viewer, f"Blind calibration fitted: {calibration}")
         self._request_auto_preview_if_enabled()
 
     def refresh_preview_cache(self, *_args) -> None:
@@ -442,12 +502,14 @@ class GuiController:
     def _run_preview(self, *, report_status: bool) -> None:
         self._start_simulation(
             source_layer_name=INPUT_PREVIEW_LAYER_NAME,
-            mode_label='Preview',
+            mode_label="Preview",
             report_status=report_status,
         )
 
     def run_scan(self) -> None:
-        self._start_simulation(source_layer_name=INPUT_LAYER_NAME, mode_label='Scan', channel='scan')
+        self._start_simulation(
+            source_layer_name=INPUT_LAYER_NAME, mode_label="Scan", channel="scan"
+        )
 
     def request_auto_preview(self, *_args) -> None:
         if self._auto_preview_scheduled:
@@ -463,7 +525,10 @@ class GuiController:
     def report_display_transform_status(self, enabled: bool) -> None:
         if enabled and not self.sync_display_transform_availability(report_status=True):
             return
-        set_status(self._viewer, runtime.display_transform_status_message(enabled, imagecms_module=ImageCms))
+        set_status(
+            self._viewer,
+            runtime.display_transform_status_message(enabled, imagecms_module=ImageCms),
+        )
 
     def set_gray_18_canvas_enabled(self, enabled: bool) -> None:
         set_canvas_background(self._viewer, gray_18_canvas=enabled)
@@ -480,25 +545,32 @@ class GuiController:
 
         self._set_display_transform_checked(False)
         if report_status:
-            set_status(self._viewer, 'Display transform unavailable: no display profile detected, disabled')
+            set_status(
+                self._viewer,
+                "Display transform unavailable: no display profile detected, disabled",
+            )
         return False
 
     def save_output_layer(self) -> None:
         output_layer = self._output_layer()
         if output_layer is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Save output', 'Run a simulation before saving the output layer.')
+            QMessageBox.warning(
+                dialog_parent(self._viewer),
+                "Save output",
+                "Run a simulation before saving the output layer.",
+            )
             return
 
         if self._current_input_path is not None:
-            default_name = Path(self._current_input_path).stem + '.jpg'
+            default_name = Path(self._current_input_path).stem + ".jpg"
         else:
-            default_name = 'output.jpg'
+            default_name = "output.jpg"
 
-        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
+        filepath, _ = _DirMemoryDialog("save_output").get_save_file_name(
             dialog_parent(self._viewer),
-            'Save output image',
+            "Save output image",
             default_name,
-            'Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
+            "Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)",
         )
         if not filepath:
             return
@@ -506,7 +578,9 @@ class GuiController:
         gui_state = collect_gui_state(widgets=self._widgets)
         float_image_data = self._output_layer_float_data()
         if float_image_data is None:
-            image_data = runtime.normalized_image_data(np.asarray(output_layer.data)[..., :3])
+            image_data = runtime.normalized_image_data(
+                np.asarray(output_layer.data)[..., :3]
+            )
         else:
             image_data = np.asarray(float_image_data)[..., :3]
 
@@ -546,7 +620,11 @@ class GuiController:
                 cctf_encoding=saving_cctf_encoding,
             )
         except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
+            QMessageBox.critical(
+                dialog_parent(self._viewer),
+                "Save output",
+                f"Failed to save output image.\n\n{exc}",
+            )
             return
 
         metadata_write_error = None
@@ -583,7 +661,7 @@ class GuiController:
         persistence_actions.save_current_state_to_file(
             viewer=self._viewer,
             widgets=self._widgets,
-            file_dialog=_DirMemoryDialog('gui_state'),
+            file_dialog=_DirMemoryDialog("gui_state"),
             collect_gui_state_fn=collect_gui_state,
             save_gui_state_to_path_fn=save_gui_state_to_path,
             set_status_fn=set_status,
@@ -595,7 +673,7 @@ class GuiController:
         persistence_actions.load_state_from_file(
             viewer=self._viewer,
             widgets=self._widgets,
-            file_dialog=_DirMemoryDialog('gui_state'),
+            file_dialog=_DirMemoryDialog("gui_state"),
             load_gui_state_from_path_fn=load_gui_state_from_path,
             apply_gui_state_fn=apply_gui_state,
             sync_canvas_background_fn=self._sync_canvas_background,
@@ -659,7 +737,9 @@ class GuiController:
         hide_output: bool,
     ) -> None:
         state = collect_gui_state(widgets=self._widgets)
-        preview_image = self._resize_for_preview(image, max_size=state.gui_only.display.settings.preview_max_size)
+        preview_image = self._resize_for_preview(
+            image, max_size=state.gui_only.display.settings.preview_max_size
+        )
         preview_display_image = self._prepare_input_color_preview_image(
             preview_image,
             input_color_space=state.input_image.io.input_color_space,
@@ -669,7 +749,9 @@ class GuiController:
         self._current_preview_image = preview_image
         self._layers.set_or_add_input_preview_layer(
             preview_display_image,
-            watermark_source_size=tuple(int(dimension) for dimension in image.shape[:2]),
+            watermark_source_size=tuple(
+                int(dimension) for dimension in image.shape[:2]
+            ),
             white_padding=state.gui_only.display.white_padding,
             hide_output=hide_output,
             set_active=home_input_stack or self._output_layer() is None,
@@ -694,8 +776,8 @@ class GuiController:
         return None
 
     def _auto_preview_enabled(self) -> bool:
-        simulation_section = getattr(self._widgets, 'simulation', None)
-        auto_preview_value = getattr(simulation_section, 'auto_preview_value', None)
+        simulation_section = getattr(self._widgets, "simulation", None)
+        auto_preview_value = getattr(simulation_section, "auto_preview_value", None)
         return bool(auto_preview_value()) if callable(auto_preview_value) else False
 
     def _run_scheduled_auto_preview(self) -> None:
@@ -731,22 +813,26 @@ class GuiController:
         output_layer = self._output_layer()
         if output_layer is None:
             return default_color_space, default_cctf_encoding
-        color_space = output_layer.metadata.get(OUTPUT_COLOR_SPACE_KEY, default_color_space)
-        cctf_encoding = output_layer.metadata.get(OUTPUT_CCTF_ENCODING_KEY, default_cctf_encoding)
+        color_space = output_layer.metadata.get(
+            OUTPUT_COLOR_SPACE_KEY, default_color_space
+        )
+        cctf_encoding = output_layer.metadata.get(
+            OUTPUT_CCTF_ENCODING_KEY, default_cctf_encoding
+        )
         return str(color_space), bool(cctf_encoding)
 
     def _output_interpolation_mode(self) -> str:
-        display_section = getattr(self._widgets, 'display', None)
-        editor = getattr(display_section, 'output_interpolation', None)
-        value = getattr(editor, 'value', None)
+        display_section = getattr(self._widgets, "display", None)
+        editor = getattr(display_section, "output_interpolation", None)
+        value = getattr(editor, "value", None)
         if isinstance(value, str) and value:
             return value
-        current_text = getattr(editor, 'currentText', None)
+        current_text = getattr(editor, "currentText", None)
         if callable(current_text):
             text = current_text()
             if isinstance(text, str) and text:
                 return text
-        return 'spline36'
+        return "spline36"
 
     @staticmethod
     def _resize_for_preview(image_data: np.ndarray, *, max_size: int) -> np.ndarray:
@@ -805,13 +891,13 @@ class GuiController:
             raise
 
     def _set_display_transform_checked(self, enabled: bool) -> None:
-        display_section = getattr(self._widgets, 'display', None)
-        toggle = getattr(display_section, 'use_display_transform', None)
+        display_section = getattr(self._widgets, "display", None)
+        toggle = getattr(display_section, "use_display_transform", None)
         if toggle is None:
             return
 
-        block_signals = getattr(toggle, 'blockSignals', None)
-        set_checked = getattr(toggle, 'setChecked', None)
+        block_signals = getattr(toggle, "blockSignals", None)
+        set_checked = getattr(toggle, "setChecked", None)
         if not callable(set_checked):
             return
 
@@ -825,12 +911,16 @@ class GuiController:
                 block_signals(bool(previous_block_state))
 
     def _sync_canvas_background(self) -> None:
-        display_section = getattr(self._widgets, 'display', None)
-        toggle = getattr(display_section, 'gray_18_canvas', None)
-        is_checked = getattr(toggle, 'isChecked', None)
-        self.set_gray_18_canvas_enabled(bool(is_checked()) if callable(is_checked) else False)
+        display_section = getattr(self._widgets, "display", None)
+        toggle = getattr(display_section, "gray_18_canvas", None)
+        is_checked = getattr(toggle, "isChecked", None)
+        self.set_gray_18_canvas_enabled(
+            bool(is_checked()) if callable(is_checked) else False
+        )
 
-    def _execute_simulation_request(self, request: SimulationRequest) -> SimulationResult:
+    def _execute_simulation_request(
+        self, request: SimulationRequest
+    ) -> SimulationResult:
         # Preview and Scan run on independent channels and can therefore be in
         # flight on two worker threads at once; the lock serializes their use of
         # the single shared runtime simulator (and the display path).
@@ -843,8 +933,8 @@ class GuiController:
 
     @staticmethod
     def _configure_simulation_params(params, *, source_layer_name: str):
-        settings = getattr(params, 'settings', None)
-        if settings is not None and hasattr(settings, 'preview_mode'):
+        settings = getattr(params, "settings", None)
+        if settings is not None and hasattr(settings, "preview_mode"):
             settings.preview_mode = source_layer_name == INPUT_PREVIEW_LAYER_NAME
         return params
 
@@ -854,11 +944,15 @@ class GuiController:
         source_layer_name: str,
         mode_label: str,
         report_status: bool = True,
-        channel: str = 'simulation',
+        channel: str = "simulation",
     ) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(
+                dialog_parent(self._viewer),
+                "Run simulation",
+                "Load an input image before running the simulation.",
+            )
             return
 
         state = collect_gui_state(widgets=self._widgets)
@@ -880,15 +974,21 @@ class GuiController:
         # Button state is driven centrally by the runner's busy listener
         # (_set_busy); submitting here disables the controls as a side effect.
         if report_status:
-            set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
+            set_status(self._viewer, f"Computing {mode_label.lower()}...", timeout_ms=0)
         self._jobs.submit(
             channel,
             lambda: self._execute_simulation_request(request),
-            on_done=lambda result: self._on_simulation_finished(result, report_status=report_status),
-            on_error=lambda message: self._on_simulation_failed(message, mode_label=mode_label),
+            on_done=lambda result: self._on_simulation_finished(
+                result, report_status=report_status
+            ),
+            on_error=lambda message: self._on_simulation_failed(
+                message, mode_label=mode_label
+            ),
         )
 
-    def _on_simulation_finished(self, result: SimulationResult, *, report_status: bool = True) -> None:
+    def _on_simulation_finished(
+        self, result: SimulationResult, *, report_status: bool = True
+    ) -> None:
         self._set_or_add_output_layer(
             result.display_image,
             float_image=result.float_image,
@@ -897,11 +997,19 @@ class GuiController:
             use_display_transform=result.use_display_transform,
         )
         if report_status:
-            set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
+            set_status(
+                self._viewer, f"{result.mode_label} completed. {result.status_message}"
+            )
 
-    def _on_simulation_failed(self, message: str, *, mode_label: str = 'Simulation') -> None:
-        QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
-        set_status(self._viewer, f'{mode_label} failed')
+    def _on_simulation_failed(
+        self, message: str, *, mode_label: str = "Simulation"
+    ) -> None:
+        QMessageBox.critical(
+            dialog_parent(self._viewer),
+            "Run simulation",
+            f"Simulation failed.\n\n{message}",
+        )
+        set_status(self._viewer, f"{mode_label} failed")
 
     def _set_busy(self, busy: bool) -> None:
         """Called by the runner whenever the working thread becomes engaged or
@@ -910,12 +1018,12 @@ class GuiController:
         self._set_simulation_controls_enabled(not busy)
 
     def _set_simulation_controls_enabled(self, enabled: bool) -> None:
-        simulation_section = getattr(self._widgets, 'simulation', None)
+        simulation_section = getattr(self._widgets, "simulation", None)
         if simulation_section is None:
             return
-        for button_name in ('preview_button', 'scan_button', 'save_button'):
+        for button_name in ("preview_button", "scan_button", "save_button"):
             button = getattr(simulation_section, button_name, None)
-            set_enabled = getattr(button, 'setEnabled', None)
+            set_enabled = getattr(button, "setEnabled", None)
             if callable(set_enabled):
                 set_enabled(enabled)
 
@@ -924,18 +1032,22 @@ class GuiController:
         usable immediately while libraries / JIT / the first pipeline build
         prime in the background. The action buttons gray out (busy listener)
         and the status bar shows progress until it finishes."""
-        set_status(self._viewer, 'Switching on the safe-light...', timeout_ms=0)
+        set_status(self._viewer, "Switching on the safe-light...", timeout_ms=0)
         self._jobs.submit(
-            'warmup',
+            "warmup",
             warmup_fn,
-            on_done=lambda _result: set_status(self._viewer, 'Ready'),
-            on_error=lambda _message: set_status(self._viewer, 'Ready'),
+            on_done=lambda _result: set_status(self._viewer, "Ready"),
+            on_error=lambda _message: set_status(self._viewer, "Ready"),
         )
 
     def _run_simulation(self, *, source_layer_name: str) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(
+                dialog_parent(self._viewer),
+                "Run simulation",
+                "Load an input image before running the simulation.",
+            )
             return
 
         state = collect_gui_state(widgets=self._widgets)

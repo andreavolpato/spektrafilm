@@ -12,11 +12,16 @@ helper) live in :mod:`._helpers` and are re-exported here so external
 consumers (notably the rosette-alignment regression test) can keep using
 ``qa.tests.<name>``.
 """
+
 from __future__ import annotations
 
 from spektrafilm_lut_creator.qa.tests._helpers import (
     MIDGRAY_18_OKLAB_L,
     _save,
+)
+from spektrafilm_lut_creator.qa.tests.gamut_compression import (
+    input_gamut_compression_preview,
+    input_gamut_compression_smoothness,
 )
 from spektrafilm_lut_creator.qa.tests.lut_fidelity import (
     jacobian_condition,
@@ -32,10 +37,6 @@ from spektrafilm_lut_creator.qa.tests.model_diagnostic import (
     planckian_sweep,
     spectral_locus_envelope,
 )
-from spektrafilm_lut_creator.qa.tests.gamut_compression import (
-    input_gamut_compression_preview,
-    input_gamut_compression_smoothness,
-)
 from spektrafilm_lut_creator.qa.tests.picture_style import (
     _polar_oklch_input_samples,
     noise_gradient,
@@ -43,7 +44,6 @@ from spektrafilm_lut_creator.qa.tests.picture_style import (
     output_gamut_edge_stress,
     rg_plane_slices,
 )
-
 
 DEFAULT_TESTS = (
     off_grid_identity,

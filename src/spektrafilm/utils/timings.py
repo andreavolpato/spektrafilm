@@ -1,7 +1,7 @@
-import time
 import functools
-import matplotlib.pyplot as plt
+import time
 
+import matplotlib.pyplot as plt
 
 ANSI_RED = "\033[31m"
 ANSI_RESET = "\033[0m"
@@ -19,7 +19,9 @@ def timeit(label=None, *, include_class=True):
                 key = f"{self.__class__.__name__}.{key}"
             self.timings[key] = elapsed
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -53,13 +55,22 @@ def format_timings(timings, total_elapsed_time=None, header="Simulation timings"
     rows.extend(stage_rows)
 
     highlighted_keys = {
-        key for key, _label, _elapsed in sorted(stage_rows, key=lambda row: row[2], reverse=True)[:3]
+        key
+        for key, _label, _elapsed in sorted(
+            stage_rows, key=lambda row: row[2], reverse=True
+        )[:3]
     }
-    percentage_total = total_elapsed_time if total_elapsed_time is not None else sum(
-        elapsed for _key, _label, elapsed in rows
+    percentage_total = (
+        total_elapsed_time
+        if total_elapsed_time is not None
+        else sum(elapsed for _key, _label, elapsed in rows)
     )
     label_width = max(len("Total"), *(len(label) for label in timings))
-    values = [format_elapsed_time(total_elapsed_time)] if total_elapsed_time is not None else []
+    values = (
+        [format_elapsed_time(total_elapsed_time)]
+        if total_elapsed_time is not None
+        else []
+    )
     values.extend(format_elapsed_time(elapsed) for elapsed in timings.values())
     value_width = max(len(value) for value in values)
     percentage_values = []
@@ -86,19 +97,20 @@ def format_timings(timings, total_elapsed_time=None, header="Simulation timings"
             )
     return "\n".join(lines)
 
+
 def plot_timings(timings):
     labels = list(timings.keys())
     values = [timings[label] for label in labels]
     x_positions = list(range(len(labels)))
-    
+
     fig, ax = plt.subplots(figsize=(8, 4))
     bar_width = 0.8
-    ax.bar(x_positions, values, color='skyblue', align='edge', width=bar_width)
+    ax.bar(x_positions, values, color="skyblue", align="edge", width=bar_width)
     ax.set_xlabel("Function")
     ax.set_ylabel("Time (s)")
     ax.set_title("Execution Time per Function")
     # Adjust tick positions to be at the center of each bar:
-    ax.set_xticks([x + bar_width/2 for x in x_positions])
-    ax.set_xticklabels(labels, rotation=45, ha='right')
+    ax.set_xticks([x + bar_width / 2 for x in x_positions])
+    ax.set_xticklabels(labels, rotation=45, ha="right")
     plt.tight_layout()
     plt.show()

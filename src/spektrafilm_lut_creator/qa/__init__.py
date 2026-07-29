@@ -23,6 +23,7 @@ Writes ``report.md``, ``figures/*.png``, and ``cache/*.npz`` under
 ``out_dir``. The cache holds pipeline ground-truth samples and is the
 single expensive build artifact; everything else is cheap.
 """
+
 from __future__ import annotations
 
 from spektrafilm_lut_creator.qa.result import Result
@@ -32,7 +33,6 @@ from spektrafilm_lut_creator.qa.suite import (
     list_tests,
     run,
 )
-
 
 __all__ = (
     "DEFAULT_SUITE",

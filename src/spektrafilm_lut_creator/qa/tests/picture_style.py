@@ -1,18 +1,16 @@
 """Picture-style QA diagnostics — noise, gamut edge stress, R-G slices."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
+import colour
 import numpy as np
 
-import colour
 import spektrafilm_lut_creator.color_spaces as color_spaces
-
-from spektrafilm_lut_creator.color_spaces import to_xyz
-from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, reference, viz
+from spektrafilm_lut_creator.qa import evaluators, metrics, viz
 from spektrafilm_lut_creator.qa.result import Result
-from spektrafilm_lut_creator.qa.tests._helpers import _save, MIDGRAY_18_OKLAB_L
+from spektrafilm_lut_creator.qa.tests._helpers import MIDGRAY_18_OKLAB_L, _save
 
 if TYPE_CHECKING:
     from spektrafilm_lut_creator.qa.suite import QAContext
@@ -54,8 +52,9 @@ def _polar_oklch_input_samples(
     pts_oklab_arr = np.asarray(pts_oklab, dtype=float)
     xyz = np.asarray(colour.Oklab_to_XYZ(pts_oklab_arr), dtype=float)
     rgb_linear = np.asarray(
-        colour.XYZ_to_RGB(xyz, colourspace=in_entry.primaries,
-                          apply_cctf_encoding=False),
+        colour.XYZ_to_RGB(
+            xyz, colourspace=in_entry.primaries, apply_cctf_encoding=False
+        ),
         dtype=float,
     )
     in_gamut = np.all((rgb_linear >= 0.0) & (rgb_linear <= 1.0), axis=-1)
@@ -65,7 +64,8 @@ def _polar_oklch_input_samples(
     # is two-sided everywhere.
     pad = 6e-3
     boundary_ok = np.all(
-        (rgb_encoded > pad) & (rgb_encoded < 1.0 - pad), axis=-1,
+        (rgb_encoded > pad) & (rgb_encoded < 1.0 - pad),
+        axis=-1,
     )
     rgb_encoded = rgb_encoded[boundary_ok]
     keep = np.where(in_gamut)[0][boundary_ok]
@@ -76,11 +76,16 @@ def _polar_oklch_input_samples(
         "ring_idx": np.asarray(ring_idx, dtype=int)[keep],
     }
 
+
 def _noise_gain_heatmap(
-    table: np.ndarray, frame,
+    table: np.ndarray,
+    frame,
     *,
-    L: float, extent: float, n_grid: int,
-    sigma_in_encoded: float, eps: float,
+    L: float,
+    extent: float,
+    n_grid: int,
+    sigma_in_encoded: float,
+    eps: float,
 ) -> dict:
     """Compute σ₁(J) on a dense OkLab a*b* grid at constant L for the
     heatmap panel. Out-of-input-gamut cells return NaN (rendered as
@@ -90,12 +95,14 @@ def _noise_gain_heatmap(
     bb = np.linspace(-extent, extent, n_grid)
     A, B = np.meshgrid(aa, bb, indexing="xy")
     oklab_grid = np.stack(
-        [np.full_like(A, L), A, B], axis=-1,
+        [np.full_like(A, L), A, B],
+        axis=-1,
     ).reshape(-1, 3)
     xyz = np.asarray(colour.Oklab_to_XYZ(oklab_grid), dtype=float)
     rgb_linear = np.asarray(
-        colour.XYZ_to_RGB(xyz, colourspace=in_entry.primaries,
-                          apply_cctf_encoding=False),
+        colour.XYZ_to_RGB(
+            xyz, colourspace=in_entry.primaries, apply_cctf_encoding=False
+        ),
         dtype=float,
     )
     pad = 6e-3
@@ -104,19 +111,26 @@ def _noise_gain_heatmap(
     rgb_encoded = frame.encode_input(rgb_linear_safe)
     rgb_encoded = np.clip(rgb_encoded, pad, 1.0 - pad)
     field = metrics.noise_sensitivity_field(
-        table, rgb_encoded,
-        in_cs=frame.input_color_space, out_cs=frame.output_color_space,
-        sigma_in_encoded=sigma_in_encoded, eps=eps,
+        table,
+        rgb_encoded,
+        in_cs=frame.input_color_space,
+        out_cs=frame.output_color_space,
+        sigma_in_encoded=sigma_in_encoded,
+        eps=eps,
     )
     sigma1 = field["sigma1"].copy()
     sigma1[~in_gamut] = np.nan
     return {
-        "aa": aa, "bb": bb,
+        "aa": aa,
+        "bb": bb,
         "sigma1_grid": sigma1.reshape(n_grid, n_grid),
         "in_gamut_grid": in_gamut.reshape(n_grid, n_grid),
     }
 
-def _encoded_image_to_srgb_display(image_encoded: np.ndarray, cs_name: str) -> np.ndarray:
+
+def _encoded_image_to_srgb_display(
+    image_encoded: np.ndarray, cs_name: str
+) -> np.ndarray:
     """Convert an encoded RGB image in ``cs_name`` to display-ready sRGB.
 
     Uses ``to_xyz_qa`` so HDR outputs (PQ / HLG) get normalized back to
@@ -124,10 +138,12 @@ def _encoded_image_to_srgb_display(image_encoded: np.ndarray, cs_name: str) -> n
     Y values (in nits) blow past 1.0 and the entire preview clips white.
     """
     xyz = color_spaces.to_xyz_qa(
-        np.asarray(image_encoded, dtype=float).reshape(-1, 3), cs_name,
+        np.asarray(image_encoded, dtype=float).reshape(-1, 3),
+        cs_name,
     )
     srgb = color_spaces.from_xyz(xyz, "sRGB")
     return np.clip(np.asarray(srgb, dtype=float), 0.0, 1.0).reshape(image_encoded.shape)
+
 
 def _build_oklab_noise_gradient_input(
     frame,
@@ -155,7 +171,9 @@ def _build_oklab_noise_gradient_input(
     oklab = np.zeros((height, width, 3), dtype=float)
     for row, (L_row, sat_row) in enumerate(zip(L_rows, sat_weight, strict=True)):
         outline, _ = viz.oklab_gamut_slice_outline(
-            frame.input_color_space, L=float(L_row), n_hues=width,
+            frame.input_color_space,
+            L=float(L_row),
+            n_hues=width,
         )
         chroma_max = np.sqrt(outline[:-1, 1] ** 2 + outline[:-1, 2] ** 2)
         chroma = rim_scale * sat_row * chroma_max
@@ -176,7 +194,8 @@ def _build_oklab_noise_gradient_input(
         "mid_L": float(MIDGRAY_18_OKLAB_L),
     }
 
-def noise_sensitivity(ctx: "QAContext") -> Result:
+
+def noise_sensitivity(ctx: QAContext) -> Result:
     """Propagate isotropic input noise through the LUT and visualize
     how much noise comes out, and *in which direction*.
 
@@ -240,12 +259,18 @@ def noise_sensitivity(ctx: "QAContext") -> Result:
     n_heatmap_grid = 96
 
     samples = _polar_oklch_input_samples(
-        ctx.frame, L=L_slice, chroma_rings=chroma_rings, n_hues=n_hues,
+        ctx.frame,
+        L=L_slice,
+        chroma_rings=chroma_rings,
+        n_hues=n_hues,
     )
     field = metrics.noise_sensitivity_field(
-        ctx.lut.table, samples["input_encoded"],
-        in_cs=in_cs, out_cs=out_cs,
-        sigma_in_encoded=sigma_in_encoded, eps=eps,
+        ctx.lut.table,
+        samples["input_encoded"],
+        in_cs=in_cs,
+        out_cs=out_cs,
+        sigma_in_encoded=sigma_in_encoded,
+        eps=eps,
     )
 
     # Heatmap extent sized from the larger constant-L gamut slice so the
@@ -253,17 +278,26 @@ def noise_sensitivity(ctx: "QAContext") -> Result:
     # projected-primary triangle blowing the view out.
     out_slice_oklab, _ = viz.oklab_gamut_slice_outline(out_cs, L=L_slice)
     in_slice_oklab, _ = viz.oklab_gamut_slice_outline(in_cs, L=L_slice)
-    extent = float(max(
-        np.abs(out_slice_oklab[:, 1]).max(),
-        np.abs(out_slice_oklab[:, 2]).max(),
-        np.abs(in_slice_oklab[:, 1]).max(),
-        np.abs(in_slice_oklab[:, 2]).max(),
-    )) * 1.15
+    extent = (
+        float(
+            max(
+                np.abs(out_slice_oklab[:, 1]).max(),
+                np.abs(out_slice_oklab[:, 2]).max(),
+                np.abs(in_slice_oklab[:, 1]).max(),
+                np.abs(in_slice_oklab[:, 2]).max(),
+            )
+        )
+        * 1.15
+    )
     extent = max(extent, 0.30)
     heatmap = _noise_gain_heatmap(
-        ctx.lut.table, ctx.frame,
-        L=L_slice, extent=extent, n_grid=n_heatmap_grid,
-        sigma_in_encoded=sigma_in_encoded, eps=eps,
+        ctx.lut.table,
+        ctx.frame,
+        L=L_slice,
+        extent=extent,
+        n_grid=n_heatmap_grid,
+        sigma_in_encoded=sigma_in_encoded,
+        eps=eps,
     )
 
     # Rosette — pull the middle chroma ring out of the sample field.
@@ -308,8 +342,11 @@ def noise_sensitivity(ctx: "QAContext") -> Result:
     anisotropy = field["anisotropy"]
 
     fig = viz.noise_sensitivity(
-        field=field, heatmap=heatmap, rosette=rosette,
-        in_cs=in_cs, out_cs=out_cs,
+        field=field,
+        heatmap=heatmap,
+        rosette=rosette,
+        in_cs=in_cs,
+        out_cs=out_cs,
         L_slice=L_slice,
         sigma_in_encoded=sigma_in_encoded,
         ellipse_display_scale=ellipse_display_scale,
@@ -326,7 +363,9 @@ def noise_sensitivity(ctx: "QAContext") -> Result:
             "p99_sigma1": float(np.nanpercentile(sigma1, 99)) if sigma1.size else 0.0,
             "p50_sigma1": float(np.nanpercentile(sigma1, 50)) if sigma1.size else 0.0,
             "max_anisotropy": float(np.nanmax(anisotropy)) if anisotropy.size else 0.0,
-            "p99_anisotropy": float(np.nanpercentile(anisotropy, 99)) if anisotropy.size else 0.0,
+            "p99_anisotropy": float(np.nanpercentile(anisotropy, 99))
+            if anisotropy.size
+            else 0.0,
             "max_hue_rotation_deg": worst_hue_rotation,
             "worst_hue_deg": worst_hue_in,
             "ellipse_display_scale": ellipse_display_scale,
@@ -350,7 +389,8 @@ def noise_sensitivity(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def noise_gradient(ctx: "QAContext") -> Result:
+
+def noise_gradient(ctx: QAContext) -> Result:
     """Continuous OkLab hue gradient with seeded encoded-input noise.
 
     Intended as the visual companion to :func:`noise_sensitivity`.
@@ -378,14 +418,17 @@ def noise_gradient(ctx: "QAContext") -> Result:
     rng = np.random.default_rng(rng_seed)
     input_noisy = np.clip(
         input_clean + rng.normal(0.0, sigma_in_encoded, size=input_clean.shape),
-        0.0, 1.0,
+        0.0,
+        1.0,
     )
 
     output_clean = evaluators.apply_trilinear(
-        ctx.lut.table, input_clean.reshape(-1, 3),
+        ctx.lut.table,
+        input_clean.reshape(-1, 3),
     ).reshape(height, width, 3)
     output_noisy = evaluators.apply_trilinear(
-        ctx.lut.table, input_noisy.reshape(-1, 3),
+        ctx.lut.table,
+        input_noisy.reshape(-1, 3),
     ).reshape(height, width, 3)
     clean_display = _encoded_image_to_srgb_display(output_clean, out_cs)
     noisy_display = _encoded_image_to_srgb_display(output_noisy, out_cs)
@@ -426,6 +469,7 @@ def noise_gradient(ctx: "QAContext") -> Result:
         ),
         passed=None,
     )
+
 
 def _build_gamut_edge_stress_panel(
     target_cs: str,
@@ -480,7 +524,10 @@ def _build_gamut_edge_stress_panel(
     the pipeline handles those pixels without clipping.
     """
     from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf, get as get_cs,
+        decode_cctf,
+    )
+    from spektrafilm_lut_creator.color_spaces import (
+        get as get_cs,
     )
 
     W, H = width, height
@@ -492,15 +539,15 @@ def _build_gamut_edge_stress_panel(
     f = (t - np.floor(t)).astype(float)
     sat = np.zeros((W, 3), dtype=float)
     builders = (
-        lambda f: np.stack([np.ones_like(f),  f,                  np.zeros_like(f)], axis=-1),
-        lambda f: np.stack([1.0 - f,          np.ones_like(f),    np.zeros_like(f)], axis=-1),
-        lambda f: np.stack([np.zeros_like(f), np.ones_like(f),    f                ], axis=-1),
-        lambda f: np.stack([np.zeros_like(f), 1.0 - f,            np.ones_like(f) ], axis=-1),
-        lambda f: np.stack([f,                np.zeros_like(f),   np.ones_like(f) ], axis=-1),
-        lambda f: np.stack([np.ones_like(f),  np.zeros_like(f),   1.0 - f         ], axis=-1),
+        lambda f: np.stack([np.ones_like(f), f, np.zeros_like(f)], axis=-1),
+        lambda f: np.stack([1.0 - f, np.ones_like(f), np.zeros_like(f)], axis=-1),
+        lambda f: np.stack([np.zeros_like(f), np.ones_like(f), f], axis=-1),
+        lambda f: np.stack([np.zeros_like(f), 1.0 - f, np.ones_like(f)], axis=-1),
+        lambda f: np.stack([f, np.zeros_like(f), np.ones_like(f)], axis=-1),
+        lambda f: np.stack([np.ones_like(f), np.zeros_like(f), 1.0 - f], axis=-1),
     )
     for s, build in enumerate(builders):
-        m = (seg == s)
+        m = seg == s
         if m.any():
             sat[m] = build(f[m])
 
@@ -509,7 +556,7 @@ def _build_gamut_edge_stress_panel(
     # the ramp is perceptually uniform — the LUT-Inspector convention.
     v = np.linspace(0.0, 1.0, H)
     w_white = np.maximum(0.0, 1.0 - 2.0 * v).reshape(H, 1, 1)
-    w_sat   = (1.0 - np.abs(2.0 * v - 1.0)).reshape(H, 1, 1)
+    w_sat = (1.0 - np.abs(2.0 * v - 1.0)).reshape(H, 1, 1)
     # w_black contributes zero so omitted.
     image_target_encoded = w_white + w_sat * sat[None, :, :]
 
@@ -527,14 +574,16 @@ def _build_gamut_edge_stress_panel(
             target_entry.primaries,
             in_entry.primaries,
             chromatic_adaptation_transform="CAT16",
-        ), dtype=float,
+        ),
+        dtype=float,
     )
 
     # OOG-to-input diagnostic: how much of the target gradient sits
     # outside the bundle's declared input primaries cube. Computed
     # purely for the stat; the pipeline doesn't need it.
     oog_mask = np.any(
-        (input_linear < 0.0) | (input_linear > 1.0), axis=-1,
+        (input_linear < 0.0) | (input_linear > 1.0),
+        axis=-1,
     )
 
     # Run the gradient through the actual runtime pipeline. Pipeline
@@ -543,7 +592,8 @@ def _build_gamut_edge_stress_panel(
     # bundle's output primaries.
     image_in = input_linear.reshape(1, H * W, 3).astype(np.float32)
     image_out_linear = np.asarray(
-        pipeline.process(image_in), dtype=float,
+        pipeline.process(image_in),
+        dtype=float,
     ).reshape(H, W, 3)
 
     # Display conversion: CAT from bundle output primaries to sRGB
@@ -561,7 +611,8 @@ def _build_gamut_edge_stress_panel(
             out_entry.primaries,
             "sRGB",
             chromatic_adaptation_transform="CAT16",
-        ), dtype=float,
+        ),
+        dtype=float,
     )
     srgb_encoded = np.asarray(
         colour.cctf_encoding(np.clip(srgb_linear, 0.0, 1.0), function="sRGB"),
@@ -576,7 +627,8 @@ def _build_gamut_edge_stress_panel(
     }
     return srgb_encoded, stats
 
-def output_gamut_edge_stress(ctx: "QAContext") -> Result:
+
+def output_gamut_edge_stress(ctx: QAContext) -> Result:
     """Granger-style RGB stress chart at the edges of three target
     color spaces, rendered through the actual runtime pipeline.
 
@@ -622,7 +674,8 @@ def output_gamut_edge_stress(ctx: "QAContext") -> Result:
     out_entry = get_color_space(out_cs)
     print_profile = (
         ctx.bundle.meta.stocks.prints[ctx.print_index]
-        if ctx.bundle.meta.stocks else spec.print_profiles[ctx.print_index]
+        if ctx.bundle.meta.stocks
+        else spec.print_profiles[ctx.print_index]
     )
 
     # Build the runtime pipeline once and share it across the three
@@ -647,10 +700,14 @@ def output_gamut_edge_stress(ctx: "QAContext") -> Result:
     for cs in target_spaces:
         img, stats = _build_gamut_edge_stress_panel(cs, in_cs, out_cs, pipeline)
         panels.append((cs, img, stats))
-        summary[f"{cs}_oog_fraction_saturated_row"] = stats["oog_fraction_saturated_row"]
+        summary[f"{cs}_oog_fraction_saturated_row"] = stats[
+            "oog_fraction_saturated_row"
+        ]
 
     fig = viz.gamut_edge_stress(
-        panels, in_cs=in_cs, out_cs=out_cs,
+        panels,
+        in_cs=in_cs,
+        out_cs=out_cs,
         gamut_compress=spec.output_gamut_compress,
     )
     path = _save(ctx, fig, "output_gamut_edge_stress")
@@ -685,7 +742,8 @@ def output_gamut_edge_stress(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def rg_plane_slices(ctx: "QAContext") -> Result:
+
+def rg_plane_slices(ctx: QAContext) -> Result:
     """R-G cube slices at evenly-spaced B-input values, displayed in sRGB.
 
     Each panel shows the LUT's R-G response at one B input level. The
@@ -695,7 +753,9 @@ def rg_plane_slices(ctx: "QAContext") -> Result:
     regardless of the bundle's output space.
     """
     fig = viz.rg_plane_slices(
-        ctx.lut.table, ctx.lut.resolution, ctx.spec.output_color_space,
+        ctx.lut.table,
+        ctx.lut.resolution,
+        ctx.spec.output_color_space,
     )
     path = _save(ctx, fig, "rg_plane_slices")
 

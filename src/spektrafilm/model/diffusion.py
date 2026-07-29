@@ -1,17 +1,21 @@
 import numpy as np
 import scipy.ndimage
-from spektrafilm.utils.fast_gaussian_filter import fast_exponential_filter, fast_gaussian_filter
-from spektrafilm.utils.numba_boost_hightlights import boost_highlights
+
+from spektrafilm.utils.fast_gaussian_filter import (
+    fast_exponential_filter,
+    fast_gaussian_filter,
+)
+
 
 def apply_unsharp_mask(image, sigma=0.0, amount=0.0):
     """
     Apply an unsharp mask to an image.
-    
+
     Parameters:
     image (ndarray): The input image to be processed.
     sigma (float, optional): The standard deviation for the Gaussian sharp filter. Leave 0 if not wanted.
     amount (float, optional): The strength of the sharpening effect. Leave 0 if not wanted.
-    
+
     Returns:
     ndarray: The processed image after applying the unsharp mask.
     """
@@ -44,7 +48,7 @@ def apply_multiplicative_unsharp_mask(image, sigma=0.0, amount=0.0, eps=1e-6):
         return image
     D = np.maximum(image, 0.0)
     blur = np.maximum(fast_gaussian_filter(D, sigma), eps)
-    out = np.where(D <= 0.0, 0.0, np.maximum(D, eps) ** (1.0 + amount) / blur ** amount)
+    out = np.where(D <= 0.0, 0.0, np.maximum(D, eps) ** (1.0 + amount) / blur**amount)
     # Per-channel scalar mass renormalization (preserves positivity).
     if out.ndim == 3:
         for c in range(out.shape[-1]):
@@ -107,18 +111,22 @@ def apply_halation_um(raw, halation, pixel_size_um):
     s_amount = float(halation.scatter_amount)
     s_scale = float(halation.scatter_spatial_scale)
     w_s = match_channels(halation.scatter_tail_weight, n_ch)
-    sigma_c_px = match_channels(halation.scatter_core_um, n_ch) * s_scale / pixel_size_um
-    lambda_t_px = match_channels(halation.scatter_tail_um, n_ch) * s_scale / pixel_size_um
+    sigma_c_px = (
+        match_channels(halation.scatter_core_um, n_ch) * s_scale / pixel_size_um
+    )
+    lambda_t_px = (
+        match_channels(halation.scatter_tail_um, n_ch) * s_scale / pixel_size_um
+    )
     if s_amount > 0 and (np.any(sigma_c_px > 0) or np.any(lambda_t_px > 0)):
         # scattered = (1 - w_s) * core + w_s * tail, folded into `core`.
         core = fast_gaussian_filter(raw, np.maximum(sigma_c_px, 1e-6))
         tail = fast_exponential_filter(raw, np.maximum(lambda_t_px, 1e-6))
-        core *= (1.0 - w_s)
+        core *= 1.0 - w_s
         tail *= w_s
         core += tail
         del tail
         # raw = (1 - s) * raw + s * scattered, folded into `raw`.
-        raw *= (1.0 - s_amount)
+        raw *= 1.0 - s_amount
         core *= s_amount
         raw += core
         del core
@@ -130,7 +138,9 @@ def apply_halation_um(raw, halation, pixel_size_um):
     h_amount = float(halation.halation_amount)
     h_scale = float(halation.halation_spatial_scale)
     a_tot = match_channels(halation.halation_strength, n_ch) * h_amount
-    sigma_h_px = match_channels(halation.halation_first_sigma_um, n_ch) * h_scale / pixel_size_um
+    sigma_h_px = (
+        match_channels(halation.halation_first_sigma_um, n_ch) * h_scale / pixel_size_um
+    )
     N = int(halation.halation_n_bounces)
     rho = float(halation.halation_bounce_decay)
     if N >= 1 and np.any(a_tot > 0) and np.any(sigma_h_px > 0):
@@ -153,9 +163,10 @@ def apply_halation_um(raw, halation, pixel_size_um):
         raw += halation_blur
         del halation_blur
         if halation.halation_renormalize:
-            raw /= (1.0 + a_tot)
+            raw /= 1.0 + a_tot
 
     return raw
+
 
 def apply_gaussian_blur(data, sigma):
     if sigma > 0:
@@ -165,7 +176,8 @@ def apply_gaussian_blur(data, sigma):
         return fast_gaussian_filter(data, sigma)
     else:
         return data
-    
+
+
 def apply_gaussian_blur_um(data, sigma_um, pixel_size_um):
     # Spatial-off short-circuit: when sigma_um is 0 (e.g. under
     # debug.lut_mode, which disables all spatial effects), pixel_size_um
@@ -179,25 +191,36 @@ def apply_gaussian_blur_um(data, sigma_um, pixel_size_um):
         return fast_gaussian_filter(data, sigma)
     return data
 
+
 def apply_diffusion_filter_mm(data, diffusion_filter_params, pixel_size_um):
     diffusion_fraction, sigma_mm, iterations, growth, decay = diffusion_filter_params
     iterations = int(iterations)
     sigma = sigma_mm * 1000 / pixel_size_um
     if sigma_mm <= 0 or sigma <= 0 or diffusion_fraction <= 0 or iterations <= 0:
         return data
-    
+
     max_sigma = sigma * (growth ** max(iterations - 1, 0))
     image_size = min(data.shape[:2])
     if max_sigma > image_size / 6:
-        print(f"Warning: diffusion filter size {max_sigma:.1f} pixels is too large for the image size {image_size}. Capping it to {image_size / 6:.1f} pixels.")
+        print(
+            f"Warning: diffusion filter size {max_sigma:.1f} pixels is too large for the image size {image_size}. Capping it to {image_size / 6:.1f} pixels."
+        )
         max_sigma = image_size / 6
-    
+
     radius = max(int(np.ceil(max_sigma * 3)), 0)
-    result = np.pad(data, ((radius, radius), (radius, radius), (0, 0)), mode='reflect') if radius > 0 else data.copy()
+    result = (
+        np.pad(data, ((radius, radius), (radius, radius), (0, 0)), mode="reflect")
+        if radius > 0
+        else data.copy()
+    )
     result_fft = np.fft.fft2(result, axes=(0, 1))
     for _ in range(iterations):
-        blurred_fft = scipy.ndimage.fourier_gaussian(result_fft, sigma=(sigma, sigma, 0))
-        result_fft = diffusion_fraction * blurred_fft + (1 - diffusion_fraction) * result_fft
+        blurred_fft = scipy.ndimage.fourier_gaussian(
+            result_fft, sigma=(sigma, sigma, 0)
+        )
+        result_fft = (
+            diffusion_fraction * blurred_fft + (1 - diffusion_fraction) * result_fft
+        )
         sigma *= growth
         diffusion_fraction *= decay
     result = np.fft.ifft2(result_fft, axes=(0, 1)).real
@@ -208,7 +231,6 @@ def apply_diffusion_filter_mm(data, diffusion_filter_params, pixel_size_um):
 
 
 from scipy.signal import fftconvolve
-
 
 # Per-family strength-independent PSF shape, as three groups
 # {core, halo, bloom} each expanded into a small geometric progression of
@@ -271,12 +293,14 @@ _DIFFUSION_FILTER_SHAPES: dict[str, dict] = {
     # bluish flares are specular artifacts not modelled here). The user
     # character: subtle micro-contrast smoothing, almost no veiling,
     # blacks intact, but a measurable long decay around bright sources.
-    'glimmerglass': {
-        'core':  {'lambda_um':  10.0, 'spread': 1.5, 'n_components': 2},
-        'halo':  {'lambda_um':  50.0, 'spread': 2.0, 'n_components': 3},
-        'bloom': {'lambda_um': 260.0, 'spread': 2.5, 'n_components': 4, 'alpha': 3.2},
-        'w_c': 0.60, 'w_h': 0.30, 'w_b': 0.10,
-        'halo_warmth_base': 0.0,
+    "glimmerglass": {
+        "core": {"lambda_um": 10.0, "spread": 1.5, "n_components": 2},
+        "halo": {"lambda_um": 50.0, "spread": 2.0, "n_components": 3},
+        "bloom": {"lambda_um": 260.0, "spread": 2.5, "n_components": 4, "alpha": 3.2},
+        "w_c": 0.60,
+        "w_h": 0.30,
+        "w_b": 0.10,
+        "halo_warmth_base": 0.0,
     },
     # Black Pro-Mist — "concentrated punchy halo, fast falloff, deep blacks".
     # Halo-dominant: more weight in halo than in bloom, with a tighter halo
@@ -284,24 +308,28 @@ _DIFFUSION_FILTER_SHAPES: dict[str, dict] = {
     # stays close to the highlight rather than veiling the frame. Warm
     # outer halo / cool inner core with the slight yellow-green bias the
     # empirical tests pick up around practical lights.
-    'black_pro_mist': {
-        'core':  {'lambda_um':  16.0, 'spread': 1.5, 'n_components': 2},
-        'halo':  {'lambda_um':  95.0, 'spread': 2.0, 'n_components': 3},
-        'bloom': {'lambda_um': 380.0, 'spread': 2.5, 'n_components': 4, 'alpha': 3.5},
-        'w_c': 0.40, 'w_h': 0.47, 'w_b': 0.13,
-        'halo_warmth_base': 0.65,
+    "black_pro_mist": {
+        "core": {"lambda_um": 16.0, "spread": 1.5, "n_components": 2},
+        "halo": {"lambda_um": 95.0, "spread": 2.0, "n_components": 3},
+        "bloom": {"lambda_um": 380.0, "spread": 2.5, "n_components": 4, "alpha": 3.5},
+        "w_c": 0.40,
+        "w_h": 0.47,
+        "w_b": 0.13,
+        "halo_warmth_base": 0.65,
     },
     # Classic Pro-Mist — "atmospheric pastel, broad halo, balanced veil".
     # Halo broader than BPM, bloom heavier than BPM, balanced halo-and-
     # bloom weight split. Less localised than BPM, less frame-wide than
     # cinebloom; the look is a soft pastel mid-air haze. Warm outer halo
     # moderate.
-    'pro_mist': {
-        'core':  {'lambda_um':  14.0, 'spread': 1.5, 'n_components': 2},
-        'halo':  {'lambda_um': 150.0, 'spread': 2.0, 'n_components': 3},
-        'bloom': {'lambda_um': 650.0, 'spread': 2.5, 'n_components': 4, 'alpha': 2.9},
-        'w_c': 0.28, 'w_h': 0.42, 'w_b': 0.30,
-        'halo_warmth_base': 0.40,
+    "pro_mist": {
+        "core": {"lambda_um": 14.0, "spread": 1.5, "n_components": 2},
+        "halo": {"lambda_um": 150.0, "spread": 2.0, "n_components": 3},
+        "bloom": {"lambda_um": 650.0, "spread": 2.5, "n_components": 4, "alpha": 2.9},
+        "w_c": 0.28,
+        "w_h": 0.42,
+        "w_b": 0.30,
+        "halo_warmth_base": 0.40,
     },
     # CineBloom — "frame-wide reach, slow tail, retro veil".
     # Bloom-dominant: bloom carries roughly half of the scattered energy,
@@ -311,12 +339,14 @@ _DIFFUSION_FILTER_SHAPES: dict[str, dict] = {
     # smaller w_h share) — the reference images show a halo that "spreads
     # rather than punches". Warmest outer rim with the strongest yellow
     # lean. The tail does most of the visual work.
-    'cinebloom': {
-        'core':  {'lambda_um':  20.0, 'spread': 1.5, 'n_components': 2},
-        'halo':  {'lambda_um': 200.0, 'spread': 2.0, 'n_components': 3},
-        'bloom': {'lambda_um': 1000.0, 'spread': 2.5, 'n_components': 4, 'alpha': 2.5},
-        'w_c': 0.22, 'w_h': 0.30, 'w_b': 0.48,
-        'halo_warmth_base': 0.85,
+    "cinebloom": {
+        "core": {"lambda_um": 20.0, "spread": 1.5, "n_components": 2},
+        "halo": {"lambda_um": 200.0, "spread": 2.0, "n_components": 3},
+        "bloom": {"lambda_um": 1000.0, "spread": 2.5, "n_components": 4, "alpha": 2.5},
+        "w_c": 0.22,
+        "w_h": 0.30,
+        "w_b": 0.48,
+        "halo_warmth_base": 0.85,
     },
 }
 
@@ -330,10 +360,10 @@ _DIFFUSION_FILTER_SHAPES: dict[str, dict] = {
 # pro_mist's gain so its strength=2 setting stays usable: at high p_s the
 # very wide / shallow-tailed bloom would otherwise wash the frame.
 _DIFFUSION_FAMILY_TOTAL_GAIN: dict[str, float] = {
-    'glimmerglass':   0.65,
-    'black_pro_mist': 0.75,
-    'pro_mist':       1.05,
-    'cinebloom':      1.00,
+    "glimmerglass": 0.65,
+    "black_pro_mist": 0.75,
+    "pro_mist": 1.05,
+    "cinebloom": 1.00,
 }
 
 DIFFUSION_FILTER_FAMILIES: tuple[str, ...] = tuple(_DIFFUSION_FILTER_SHAPES)
@@ -343,8 +373,12 @@ DIFFUSION_FILTER_FAMILIES: tuple[str, ...] = tuple(_DIFFUSION_FILTER_SHAPES)
 # and log2-interpolated. Matches the saturation progression listed in plan
 # §5 (BPM column, since the table was originally calibrated for the
 # scattered+absorbed total).
-_DIFFUSION_STRENGTH_BREAKPOINTS = np.array([0.125, 0.25, 0.5, 1.0, 2.0], dtype=np.float64)
-_DIFFUSION_STRENGTH_TOTAL_FRACTION = np.array([0.10, 0.20, 0.35, 0.55, 0.75], dtype=np.float64)
+_DIFFUSION_STRENGTH_BREAKPOINTS = np.array(
+    [0.125, 0.25, 0.5, 1.0, 2.0], dtype=np.float64
+)
+_DIFFUSION_STRENGTH_TOTAL_FRACTION = np.array(
+    [0.10, 0.20, 0.35, 0.55, 0.75], dtype=np.float64
+)
 
 
 def _strength_to_scatter(strength: float, family: str) -> float:
@@ -362,7 +396,9 @@ def _strength_to_scatter(strength: float, family: str) -> float:
         return 0.0
     log_strength = np.log2(np.clip(strength, 1e-6, None))
     log_breaks = np.log2(_DIFFUSION_STRENGTH_BREAKPOINTS)
-    base_total = float(np.interp(log_strength, log_breaks, _DIFFUSION_STRENGTH_TOTAL_FRACTION))
+    base_total = float(
+        np.interp(log_strength, log_breaks, _DIFFUSION_STRENGTH_TOTAL_FRACTION)
+    )
     gain = _DIFFUSION_FAMILY_TOTAL_GAIN.get(family, 1.0)
     return float(np.clip(base_total * gain, 0.0, 0.99))
 
@@ -378,18 +414,20 @@ def _expand_group(group_cfg: dict, *, kind: str) -> tuple[np.ndarray, np.ndarray
       - power-law w_k ∝ lambda_k**(2 - alpha) for `bloom`, so the
         assembled bloom decays as r**(-alpha) at large r.
     """
-    lambda_center = float(group_cfg['lambda_um'])
-    spread = float(group_cfg.get('spread', 1.0))
-    n = max(int(group_cfg.get('n_components', 1)), 1)
+    lambda_center = float(group_cfg["lambda_um"])
+    spread = float(group_cfg.get("spread", 1.0))
+    n = max(int(group_cfg.get("n_components", 1)), 1)
     if n == 1 or spread <= 1.0:
-        return np.array([lambda_center], dtype=np.float64), np.array([1.0], dtype=np.float64)
+        return np.array([lambda_center], dtype=np.float64), np.array(
+            [1.0], dtype=np.float64
+        )
 
     log_lo = np.log(lambda_center / spread)
     log_hi = np.log(lambda_center * spread)
     lambdas = np.exp(np.linspace(log_lo, log_hi, n))
 
-    if kind == 'bloom':
-        alpha = float(group_cfg.get('alpha', 3.0))
+    if kind == "bloom":
+        alpha = float(group_cfg.get("alpha", 3.0))
         weights = lambdas ** (2.0 - alpha)
     else:
         weights = np.ones_like(lambdas)
@@ -473,41 +511,54 @@ def _resolve_family_cfg(family: str, overrides: dict | None = None) -> dict:
     base = _DIFFUSION_FILTER_SHAPES[family]
     if overrides is None:
         return base
-    ci = float(overrides.get('core_intensity', 1.0))
-    hi = float(overrides.get('halo_intensity', 1.0))
-    bi = float(overrides.get('bloom_intensity', 1.0))
-    cs = float(overrides.get('core_size', 1.0))
-    hs = float(overrides.get('halo_size', 1.0))
-    bs = float(overrides.get('bloom_size', 1.0))
+    ci = float(overrides.get("core_intensity", 1.0))
+    hi = float(overrides.get("halo_intensity", 1.0))
+    bi = float(overrides.get("bloom_intensity", 1.0))
+    cs = float(overrides.get("core_size", 1.0))
+    hs = float(overrides.get("halo_size", 1.0))
+    bs = float(overrides.get("bloom_size", 1.0))
     if ci == 1.0 and hi == 1.0 and bi == 1.0 and cs == 1.0 and hs == 1.0 and bs == 1.0:
         return base
-    w_c = float(base['w_c']) * max(ci, 0.0)
-    w_h = float(base['w_h']) * max(hi, 0.0)
-    w_b = float(base['w_b']) * max(bi, 0.0)
+    w_c = float(base["w_c"]) * max(ci, 0.0)
+    w_h = float(base["w_h"]) * max(hi, 0.0)
+    w_b = float(base["w_b"]) * max(bi, 0.0)
     total = w_c + w_h + w_b
     if total <= 0.0:
         return base
     return {
         **base,
-        'core':  {**base['core'],  'lambda_um': float(base['core']['lambda_um'])  * max(cs, 1e-6)},
-        'halo':  {**base['halo'],  'lambda_um': float(base['halo']['lambda_um'])  * max(hs, 1e-6)},
-        'bloom': {**base['bloom'], 'lambda_um': float(base['bloom']['lambda_um']) * max(bs, 1e-6)},
-        'w_c': w_c / total,
-        'w_h': w_h / total,
-        'w_b': w_b / total,
+        "core": {
+            **base["core"],
+            "lambda_um": float(base["core"]["lambda_um"]) * max(cs, 1e-6),
+        },
+        "halo": {
+            **base["halo"],
+            "lambda_um": float(base["halo"]["lambda_um"]) * max(hs, 1e-6),
+        },
+        "bloom": {
+            **base["bloom"],
+            "lambda_um": float(base["bloom"]["lambda_um"]) * max(bs, 1e-6),
+        },
+        "w_c": w_c / total,
+        "w_h": w_h / total,
+        "w_b": w_b / total,
     }
 
 
 def _bloom_max_lambda_um(family: str, overrides: dict | None = None) -> float:
     """Largest lambda in the bloom progression for a family (image-plane μm)."""
     cfg = _resolve_family_cfg(family, overrides)
-    bloom = cfg['bloom']
-    return float(bloom['lambda_um']) * float(bloom.get('spread', 1.0))
+    bloom = cfg["bloom"]
+    return float(bloom["lambda_um"]) * float(bloom.get("spread", 1.0))
 
 
 _OVERRIDE_KEYS = (
-    'core_intensity', 'halo_intensity', 'bloom_intensity',
-    'core_size', 'halo_size', 'bloom_size',
+    "core_intensity",
+    "halo_intensity",
+    "bloom_intensity",
+    "core_size",
+    "halo_size",
+    "bloom_size",
 )
 
 
@@ -548,9 +599,9 @@ def _radial_components(
     cfg = _resolve_family_cfg(family, overrides)
     spatial_scale = max(float(spatial_scale), 1e-6)
 
-    core_lambdas, core_weights = _expand_group(cfg['core'], kind='core')
-    halo_lambdas, halo_weights = _expand_group(cfg['halo'], kind='halo')
-    bloom_lambdas, bloom_weights = _expand_group(cfg['bloom'], kind='bloom')
+    core_lambdas, core_weights = _expand_group(cfg["core"], kind="core")
+    halo_lambdas, halo_weights = _expand_group(cfg["halo"], kind="halo")
+    bloom_lambdas, bloom_weights = _expand_group(cfg["bloom"], kind="bloom")
 
     halo_per_ch = _halo_channel_weights(halo_weights, halo_warmth)
 
@@ -564,24 +615,24 @@ def _radial_components(
         total = np.zeros_like(r)
         for wk, lk in zip(weights, lambdas_px):
             lk = max(float(lk), 1e-6)
-            total += wk * np.exp(-r / lk) / (2.0 * np.pi * lk ** 2)
+            total += wk * np.exp(-r / lk) / (2.0 * np.pi * lk**2)
         return total
 
-    core = cfg['w_c'] * _exp_sum(core_lambdas_px, core_weights)
-    bloom = cfg['w_b'] * _exp_sum(bloom_lambdas_px, bloom_weights)
+    core = cfg["w_c"] * _exp_sum(core_lambdas_px, core_weights)
+    bloom = cfg["w_b"] * _exp_sum(bloom_lambdas_px, bloom_weights)
 
     halo_channels = np.stack(
-        [cfg['w_h'] * _exp_sum(halo_lambdas_px, halo_per_ch[c]) for c in range(3)],
+        [cfg["w_h"] * _exp_sum(halo_lambdas_px, halo_per_ch[c]) for c in range(3)],
         axis=0,
     )
 
-    return {'core': core, 'halo': halo_channels, 'bloom': bloom}
+    return {"core": core, "halo": halo_channels, "bloom": bloom}
 
 
 def diffusion_filter_radial_profile(
     radius_um: np.ndarray,
     *,
-    family: str = 'black_pro_mist',
+    family: str = "black_pro_mist",
     spatial_scale: float = 1.0,
     halo_warmth: float = 0.0,
     overrides: dict | None = None,
@@ -597,10 +648,12 @@ def diffusion_filter_radial_profile(
     keys as `_resolve_family_cfg`.
     """
     if family not in _DIFFUSION_FILTER_SHAPES:
-        raise ValueError(f"Unknown diffusion filter family: {family!r}; "
-                         f"available: {list(_DIFFUSION_FILTER_SHAPES)}")
+        raise ValueError(
+            f"Unknown diffusion filter family: {family!r}; "
+            f"available: {list(_DIFFUSION_FILTER_SHAPES)}"
+        )
     cfg = _resolve_family_cfg(family, overrides)
-    effective_warmth = float(cfg.get('halo_warmth_base', 0.0)) + float(halo_warmth)
+    effective_warmth = float(cfg.get("halo_warmth_base", 0.0)) + float(halo_warmth)
     parts = _radial_components(
         np.asarray(radius_um, dtype=np.float64),
         family=family,
@@ -609,12 +662,14 @@ def diffusion_filter_radial_profile(
         halo_warmth=effective_warmth,
         overrides=overrides,
     )
-    total_per_channel = parts['halo'] + parts['core'][None, ...] + parts['bloom'][None, ...]
+    total_per_channel = (
+        parts["halo"] + parts["core"][None, ...] + parts["bloom"][None, ...]
+    )
     return {
-        'core': parts['core'],
-        'halo': parts['halo'],
-        'bloom': parts['bloom'],
-        'total_per_channel': total_per_channel,
+        "core": parts["core"],
+        "halo": parts["halo"],
+        "bloom": parts["bloom"],
+        "total_per_channel": total_per_channel,
     }
 
 
@@ -637,12 +692,14 @@ def diffusion_filter_psf(
     `_resolve_family_cfg`.
     """
     if family not in _DIFFUSION_FILTER_SHAPES:
-        raise ValueError(f"Unknown diffusion filter family: {family!r}; "
-                         f"available: {list(_DIFFUSION_FILTER_SHAPES)}")
+        raise ValueError(
+            f"Unknown diffusion filter family: {family!r}; "
+            f"available: {list(_DIFFUSION_FILTER_SHAPES)}"
+        )
     cfg = _resolve_family_cfg(family, overrides)
-    effective_warmth = float(cfg.get('halo_warmth_base', 0.0)) + float(halo_warmth)
+    effective_warmth = float(cfg.get("halo_warmth_base", 0.0)) + float(halo_warmth)
 
-    y, x = np.ogrid[:kernel_shape[0], :kernel_shape[1]]
+    y, x = np.ogrid[: kernel_shape[0], : kernel_shape[1]]
     cy, cx = kernel_shape[0] // 2, kernel_shape[1] // 2
     r = np.sqrt((x - cx) ** 2 + (y - cy) ** 2).astype(np.float64)
 
@@ -656,7 +713,7 @@ def diffusion_filter_psf(
     )
     psf = np.empty((kernel_shape[0], kernel_shape[1], 3), dtype=np.float64)
     for c in range(3):
-        psf[..., c] = parts['core'] + parts['halo'][c] + parts['bloom']
+        psf[..., c] = parts["core"] + parts["halo"][c] + parts["bloom"]
         psf[..., c] /= psf[..., c].sum()
     return psf
 
@@ -676,8 +733,10 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
         return image
     family = diffusion_filter.filter_family
     if family not in _DIFFUSION_FILTER_SHAPES:
-        raise ValueError(f"Unknown diffusion filter family: {family!r}; "
-                         f"available: {list(_DIFFUSION_FILTER_SHAPES)}")
+        raise ValueError(
+            f"Unknown diffusion filter family: {family!r}; "
+            f"available: {list(_DIFFUSION_FILTER_SHAPES)}"
+        )
 
     p_s = _strength_to_scatter(diffusion_filter.strength, family)
     if p_s <= 0:
@@ -691,13 +750,15 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
     # outermost sub-component carries a small but non-negligible weight
     # for shallow alpha, so 8 lambda_max is the right truncation budget.
     bloom_max_lambda_px = (
-        _bloom_max_lambda_um(family, overrides) * diffusion_filter.spatial_scale / pixel_size_um
+        _bloom_max_lambda_um(family, overrides)
+        * diffusion_filter.spatial_scale
+        / pixel_size_um
     )
     radius = int(np.ceil(max(8.0 * bloom_max_lambda_px, 5.0)))
     radius = min(radius, max(min(image.shape[:2]) // 2 - 1, 1))
 
     psf_shape = (2 * radius + 1, 2 * radius + 1)
-    halo_warmth = float(getattr(diffusion_filter, 'halo_warmth', 0.0))
+    halo_warmth = float(getattr(diffusion_filter, "halo_warmth", 0.0))
     psf_per_channel = diffusion_filter_psf(
         psf_shape,
         family=family,
@@ -717,7 +778,8 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
     work_dtype = np.float32
     padded = np.pad(
         image.astype(work_dtype, copy=False),
-        ((radius, radius), (radius, radius), (0, 0)), mode='reflect',
+        ((radius, radius), (radius, radius), (0, 0)),
+        mode="reflect",
     )
     psf_per_channel = psf_per_channel.astype(work_dtype, copy=False)
     # Output is image-sized (not padded): crop each channel as it comes out,
@@ -725,7 +787,9 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
     blurred = np.empty(image.shape, dtype=work_dtype)
     for channel in range(image.shape[2]):
         conv = fftconvolve(
-            padded[:, :, channel], psf_per_channel[..., channel], mode='same',
+            padded[:, :, channel],
+            psf_per_channel[..., channel],
+            mode="same",
         )
         blurred[:, :, channel] = conv[radius:-radius, radius:-radius]
     del padded
@@ -737,6 +801,3 @@ def apply_diffusion_filter_um(image, diffusion_filter, pixel_size_um):
     result = image * (1.0 - p_s)
     result += blurred
     return result
-
-
-

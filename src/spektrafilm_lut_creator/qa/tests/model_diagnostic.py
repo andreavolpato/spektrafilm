@@ -1,24 +1,24 @@
 """Model-diagnostic QA tests — does the spektrafilm pipeline itself produce sensible output."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import colour
 import matplotlib.pyplot as plt
 import numpy as np
 
-import colour
 import spektrafilm_lut_creator.color_spaces as color_spaces
-
-from spektrafilm_lut_creator.color_spaces import to_xyz, to_xyz_qa
-from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, reference, viz
+from spektrafilm_lut_creator.color_spaces import to_xyz_qa
+from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, viz
 from spektrafilm_lut_creator.qa.result import Result
-from spektrafilm_lut_creator.qa.tests._helpers import _save, MIDGRAY_18_OKLAB_L
+from spektrafilm_lut_creator.qa.tests._helpers import _save
 
 if TYPE_CHECKING:
     from spektrafilm_lut_creator.qa.suite import QAContext
 
 
-def characteristic_curve(ctx: "QAContext") -> Result:
+def characteristic_curve(ctx: QAContext) -> Result:
     """Pipeline response in the density domain — coupler diagnostic.
 
     Reads complementary to ``monotonicity``: that test measures
@@ -73,7 +73,8 @@ def characteristic_curve(ctx: "QAContext") -> Result:
     t_probe = np.linspace(0.0, 1.0, n_neutral_probe).astype(np.float32)
     neutral_probe_in = np.stack([t_probe, t_probe, t_probe], axis=-1)
     neutral_probe_out = np.asarray(
-        evaluators.apply_trilinear(table, neutral_probe_in), dtype=float,
+        evaluators.apply_trilinear(table, neutral_probe_in),
+        dtype=float,
     )
     neutral_d = -np.log10(
         np.clip(np.mean(neutral_probe_out, axis=-1), 1e-4, 1.0),
@@ -112,7 +113,9 @@ def characteristic_curve(ctx: "QAContext") -> Result:
 
     fig = viz.density_transfer_curves(
         sweep_x,
-        r_sweep_data, g_sweep_data, b_sweep_data,
+        r_sweep_data,
+        g_sweep_data,
+        b_sweep_data,
         neutral_samples,
     )
     path = _save(ctx, fig, "characteristic_curve")
@@ -125,8 +128,9 @@ def characteristic_curve(ctx: "QAContext") -> Result:
     log_in = np.log10(axis_codes)
     log_out = np.log10(np.clip(np.mean(neutral_out, axis=-1), 1e-4, 1.0))
     # Local slope at mid via central difference.
-    gamma_mid = float((log_out[mid + 1] - log_out[mid - 1]) /
-                      (log_in[mid + 1] - log_in[mid - 1]))
+    gamma_mid = float(
+        (log_out[mid + 1] - log_out[mid - 1]) / (log_in[mid + 1] - log_in[mid - 1])
+    )
 
     # Channel divergence at mid: how far the three CMY densities spread.
     densities = -np.log10(np.clip(neutral_out, 1e-4, 1.0))
@@ -150,7 +154,8 @@ def characteristic_curve(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def planckian_sweep(ctx: "QAContext") -> Result:
+
+def planckian_sweep(ctx: QAContext) -> Result:
     """Pipeline response to white surfaces under daylight illuminants.
 
     A spektrafilm bundle should send "white under D55", "white under
@@ -165,7 +170,9 @@ def planckian_sweep(ctx: "QAContext") -> Result:
     """
     spec = ctx.spec
     samples_encoded, cct = patterns.planckian_sweep(
-        spec.input_color_space, n=16, exposure_ev=ctx.frame.exposure_ev,
+        spec.input_color_space,
+        n=16,
+        exposure_ev=ctx.frame.exposure_ev,
     )
 
     # Apply the LUT (cheap) — that's what users will see.
@@ -212,7 +219,8 @@ def planckian_sweep(ctx: "QAContext") -> Result:
         passed=passed,
     )
 
-def hue_twist_oklab(ctx: "QAContext") -> Result:
+
+def hue_twist_oklab(ctx: QAContext) -> Result:
     """Maximum hue rotation per saturation band, in OkLab.
 
     Reported as **informational** for v1: spektrafilm is a film
@@ -275,7 +283,8 @@ def hue_twist_oklab(ctx: "QAContext") -> Result:
         passed=None,  # informational; no absolute threshold pre-baselines
     )
 
-def dynamic_range_usage(ctx: "QAContext") -> Result:
+
+def dynamic_range_usage(ctx: QAContext) -> Result:
     """How many input stops does the LUT actually render — in the
     colorist's unit (scene-linear stops above middle gray).
 
@@ -321,7 +330,8 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
     # lands in output density is an honest exposure readout (see n200).
     native_midgray = float(entry.midgray_linear)
     stops, encoded_in, encoded_clip_mask = patterns.dynamic_range_neutral_ramp(
-        in_cs, middle_gray_linear=native_midgray,
+        in_cs,
+        middle_gray_linear=native_midgray,
     )
 
     # Apply the LUT (already composed if 2-LUT) at the encoded inputs.
@@ -349,13 +359,18 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
     stats["midgray_offset_stops"] = midgray_offset_stops
 
     fig = viz.dynamic_range_curve(
-        stops, y_out, encoded_clip_mask, stats,
-        in_cs=in_cs, out_cs=out_cs,
+        stops,
+        y_out,
+        encoded_clip_mask,
+        stats,
+        in_cs=in_cs,
+        out_cs=out_cs,
     )
     path = _save(ctx, fig, "dynamic_range_usage")
 
     drift = (
-        "on target" if abs(midgray_offset_stops) <= 0.25
+        "on target"
+        if abs(midgray_offset_stops) <= 0.25
         else f"{midgray_offset_stops:+.2f} stops off"
     )
     return Result(
@@ -382,7 +397,8 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def spectral_locus_envelope(ctx: "QAContext") -> Result:
+
+def spectral_locus_envelope(ctx: QAContext) -> Result:
     """Full chromaticity map of the LUT cube — every cube cell as a
     dot in xy, colored by its actual output RGB.
 
@@ -428,13 +444,15 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
     # 4) Output primaries + white for the reference frame.
     out_primaries = colour.RGB_COLOURSPACES[
         __import__("spektrafilm_lut_creator.color_spaces", fromlist=["get"])
-            .get(out_cs).primaries
+        .get(out_cs)
+        .primaries
     ]
     out_white = np.asarray(out_primaries.whitepoint, dtype=float)
     out_tri = np.asarray(out_primaries.primaries, dtype=float)
 
     # 5) Spectral locus for the outer reference.
     from spektrafilm.utils.gamut_compression import spectral_locus_xy
+
     locus = spectral_locus_xy()
 
     # ``accent`` is the yellow-ish color used for the input-gamut
@@ -450,30 +468,63 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
     ax.grid(True, alpha=0.08, color=accent)
 
     # Reference frame — drawn before scatter so dots sit on top.
-    ax.plot(locus[:, 0], locus[:, 1], color=dim, lw=1.0, alpha=0.5,
-            label="visible spectral locus")
+    ax.plot(
+        locus[:, 0],
+        locus[:, 1],
+        color=dim,
+        lw=1.0,
+        alpha=0.5,
+        label="visible spectral locus",
+    )
     locus_fill = plt.Polygon(
-        locus, closed=True, facecolor="#cccccc",
-        alpha=0.015, edgecolor="none",
+        locus,
+        closed=True,
+        facecolor="#cccccc",
+        alpha=0.015,
+        edgecolor="none",
     )
     ax.add_patch(locus_fill)
 
     tri = np.vstack([out_tri, out_tri[:1]])
-    ax.plot(tri[:, 0], tri[:, 1], color=fg, lw=1.6, alpha=0.85,
-            label=f"{out_cs} gamut")
+    ax.plot(tri[:, 0], tri[:, 1], color=fg, lw=1.6, alpha=0.85, label=f"{out_cs} gamut")
     primary_colors = ["#ff5566", "#66ff88", "#5599ff"]
     primary_labels = ["R", "G", "B"]
     for (px, py), pcol, plab in zip(out_tri, primary_colors, primary_labels):
-        ax.plot(px, py, "o", color=pcol, markersize=10,
-                markeredgecolor=bg, markeredgewidth=1.5, zorder=4)
+        ax.plot(
+            px,
+            py,
+            "o",
+            color=pcol,
+            markersize=10,
+            markeredgecolor=bg,
+            markeredgewidth=1.5,
+            zorder=4,
+        )
         offset = np.array([px, py]) - out_white
         norm = np.linalg.norm(offset) + 1e-9
         lx, ly = np.array([px, py]) + 0.035 * offset / norm
-        ax.text(lx, ly, plab, color=pcol, ha="center", va="center",
-                fontsize=12, fontweight="bold", zorder=5)
-    ax.plot(out_white[0], out_white[1], "D", color=fg, markersize=9,
-            markeredgecolor=bg, markeredgewidth=1.2,
-            label=f"{out_cs} white", zorder=4)
+        ax.text(
+            lx,
+            ly,
+            plab,
+            color=pcol,
+            ha="center",
+            va="center",
+            fontsize=12,
+            fontweight="bold",
+            zorder=5,
+        )
+    ax.plot(
+        out_white[0],
+        out_white[1],
+        "D",
+        color=fg,
+        markersize=9,
+        markeredgecolor=bg,
+        markeredgewidth=1.2,
+        label=f"{out_cs} white",
+        zorder=4,
+    )
 
     # The main event — every cube cell as a dot at its xy position,
     # colored by its own encoded output RGB. Two layers:
@@ -495,14 +546,22 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
         s_dot = max(2.0, 12.0 / np.sqrt(n / 17.0))
         a_dot = 0.55
         ax.scatter(
-            xy_valid[:, 0], xy_valid[:, 1],
-            c=rgb_color, s=s_glow, alpha=a_glow,
-            edgecolors="none", zorder=2.5,
+            xy_valid[:, 0],
+            xy_valid[:, 1],
+            c=rgb_color,
+            s=s_glow,
+            alpha=a_glow,
+            edgecolors="none",
+            zorder=2.5,
         )
         ax.scatter(
-            xy_valid[:, 0], xy_valid[:, 1],
-            c=rgb_color, s=s_dot, alpha=a_dot,
-            edgecolors="none", zorder=3,
+            xy_valid[:, 0],
+            xy_valid[:, 1],
+            c=rgb_color,
+            s=s_dot,
+            alpha=a_dot,
+            edgecolors="none",
+            zorder=3,
         )
 
     # Stats — quantify how much of the cube ends up where.
@@ -518,7 +577,8 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
     if n_pts > 0:
         dist_to_locus = np.min(
             np.linalg.norm(
-                xy_valid[:, None, :] - locus[None, :, :], axis=-1,
+                xy_valid[:, None, :] - locus[None, :, :],
+                axis=-1,
             ),
             axis=1,
         )
@@ -533,22 +593,36 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
         f"print:     {ctx.print_name}\n"
         f"\n"
         f"cube res:  {n}³ = {n**3} cells\n"
-        f"valid:     {n_total} ({n_total/max(n**3,1):.0%})\n"
+        f"valid:     {n_total} ({n_total / max(n**3, 1):.0%})\n"
         f"inside gamut: {inside_fraction:.1%}\n"
         f"near locus:   {rim_fraction:.1%}"
     )
     ax.text(
-        0.02, 0.98, text,
-        transform=ax.transAxes, va="top", ha="left",
-        color=fg, family="monospace", fontsize=9,
-        bbox=dict(facecolor="#1a1a1a", edgecolor="#555555",
-                  alpha=0.92, boxstyle="round,pad=0.5"),
+        0.02,
+        0.98,
+        text,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        color=fg,
+        family="monospace",
+        fontsize=9,
+        bbox=dict(
+            facecolor="#1a1a1a",
+            edgecolor="#555555",
+            alpha=0.92,
+            boxstyle="round,pad=0.5",
+        ),
         zorder=10,
     )
 
-    leg = ax.legend(loc="upper right", fontsize=8,
-                    facecolor="#1a1a1a", edgecolor="#555555",
-                    labelcolor=fg)
+    leg = ax.legend(
+        loc="upper right",
+        fontsize=8,
+        facecolor="#1a1a1a",
+        edgecolor="#555555",
+        labelcolor=fg,
+    )
     leg.get_frame().set_alpha(0.9)
 
     ax.set_xlim(-0.05, 0.85)
@@ -558,7 +632,9 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
     ax.set_aspect("equal")
     ax.set_title(
         f"LUT chromaticity map — {ctx.spec.input_color_space} → {out_cs}",
-        color=viz.HI, fontsize=viz.SUPTITLE_FS, pad=viz.SUPTITLE_PAD,
+        color=viz.HI,
+        fontsize=viz.SUPTITLE_FS,
+        pad=viz.SUPTITLE_PAD,
     )
 
     path = _save(ctx, fig, "spectral_locus_envelope")
@@ -567,7 +643,7 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
         name="spectral_locus_envelope",
         summary={
             "cube_resolution": int(n),
-            "cube_cells": int(n ** 3),
+            "cube_cells": int(n**3),
             "valid_cells": int(n_total),
             "inside_output_gamut_fraction": float(inside_fraction),
             "near_locus_fraction": float(rim_fraction),
@@ -588,9 +664,11 @@ def spectral_locus_envelope(ctx: "QAContext") -> Result:
         passed=None,
     )
 
+
 def _in_triangle(xy: np.ndarray, tri: np.ndarray) -> np.ndarray:
     """Vectorized point-in-triangle test for the output primaries triangle."""
     from matplotlib.path import Path as MplPath
+
     path = MplPath(np.vstack([tri, tri[:1]]))
     return path.contains_points(xy)
 

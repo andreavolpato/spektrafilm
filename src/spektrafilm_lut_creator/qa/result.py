@@ -4,6 +4,7 @@ Every QA test returns one ``Result``. The suite assembles them into a
 markdown report. Keeping this dataclass small and uniform is what lets
 the QA module stay minimal in code while admitting any kind of test.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -57,6 +58,7 @@ class Result:
         Units string for ``summary`` values where relevant
         (``"deltaITP"``, ``"log10(cond)"``, ``"ΔE2000"``).
     """
+
     name: str
     summary: dict[str, float] = field(default_factory=dict)
     scalar_field: np.ndarray | None = None

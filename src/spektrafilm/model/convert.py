@@ -26,6 +26,7 @@ base / orange mask is the creative lever. Both only enter through the product
 illuminant(λ)·10^(−base(λ)), so they share one spectral axis (see the c40 n060
 design note).
 """
+
 from __future__ import annotations
 
 import re
@@ -77,8 +78,15 @@ def sample_base_rgb(image, percentile: float = 99.0) -> np.ndarray:
     return bright.mean(axis=0) if len(bright) else rgb.mean(axis=0)
 
 
-def fit_base_params(target_rgb, channel_density, base_density, base_params,
-                    scan_illuminant, output_colourspace, w_ridge=0.02):
+def fit_base_params(
+    target_rgb,
+    channel_density,
+    base_density,
+    base_params,
+    scan_illuminant,
+    output_colourspace,
+    w_ridge=0.02,
+):
     """Fit the film base / orange-mask tint so the cmy=0 scan reproduces a target RGB.
 
     Solves the base ``cyan/magenta/yellow`` tuning (and an exposure EV for the
@@ -101,19 +109,27 @@ def fit_base_params(target_rgb, channel_density, base_density, base_params,
     norm = float(np.sum(illum * cmfs[:, 1]))
     illum_xy = colour.XYZ_to_xy((illum @ cmfs) / norm)
     M = colour.XYZ_to_RGB(
-        np.eye(3), colourspace=output_colourspace,
-        apply_cctf_encoding=False, illuminant=illum_xy,
-    ).T                                                                  # (3,3)
+        np.eye(3),
+        colourspace=output_colourspace,
+        apply_cctf_encoding=False,
+        illuminant=illum_xy,
+    ).T  # (3,3)
     valid_dye = np.all(np.isfinite(dye), axis=1)
 
     def forward_zero(cmy3):
-        params = replace(base_params, active=True,
-                         cyan=float(cmy3[0]), magenta=float(cmy3[1]), yellow=float(cmy3[2]))
+        params = replace(
+            base_params,
+            active=True,
+            cyan=float(cmy3[0]),
+            magenta=float(cmy3[1]),
+            yellow=float(cmy3[2]),
+        )
         offset = compute_density_spectral(
-            dye, np.zeros((1, 1, 3)), base, base_density_params=params, is_film=True)[0, 0]
+            dye, np.zeros((1, 1, 3)), base, base_density_params=params, is_film=True
+        )[0, 0]
         valid = valid_dye & np.isfinite(offset)
         L = np.where(valid, illum, 0.0) * 10.0 ** (-np.where(valid, offset, 0.0))
-        return ((L @ cmfs) / norm) @ M.T                                # (3,)
+        return ((L @ cmfs) / norm) @ M.T  # (3,)
 
     def gain_for(f):
         denom = float(target @ target)
@@ -127,8 +143,13 @@ def fit_base_params(target_rgb, channel_density, base_density, base_params,
     sol = least_squares(resid, x0, method="lm")
     f = forward_zero(sol.x)
     ev = float(np.log2(max(gain_for(f), 1e-9)))
-    fitted = replace(base_params, active=True,
-                     cyan=float(sol.x[0]), magenta=float(sol.x[1]), yellow=float(sol.x[2]))
+    fitted = replace(
+        base_params,
+        active=True,
+        cyan=float(sol.x[0]),
+        magenta=float(sol.x[1]),
+        yellow=float(sol.x[2]),
+    )
     return fitted, ev
 
 
@@ -153,47 +174,62 @@ class FilmConverter:
     dtype : working precision (float32 is exact to ~1e-4 in cmy; dE ≈ 0).
     """
 
-    def __init__(self, channel_density, base_density, base_params, scan_illuminant,
-                 output_colourspace, cmy_max, exposure_ev=0.0, calibration=None,
-                 dtype=np.float32):
+    def __init__(
+        self,
+        channel_density,
+        base_density,
+        base_params,
+        scan_illuminant,
+        output_colourspace,
+        cmy_max,
+        exposure_ev=0.0,
+        calibration=None,
+        dtype=np.float32,
+    ):
         self.dtype = dtype
-        cmfs = np.asarray(STANDARD_OBSERVER_CMFS[:], float)                 # (Nw,3)
-        illum = np.asarray(scan_illuminant, float)                          # (Nw,)
-        dye = np.asarray(channel_density, float)                            # (Nw,3)
+        cmfs = np.asarray(STANDARD_OBSERVER_CMFS[:], float)  # (Nw,3)
+        illum = np.asarray(scan_illuminant, float)  # (Nw,)
+        dye = np.asarray(channel_density, float)  # (Nw,3)
         self._norm = float(np.sum(illum * cmfs[:, 1]))
         illum_xy = colour.XYZ_to_xy((illum @ cmfs) / self._norm)
 
         # base offset exactly as the scan stage applies it (incl. base tuning)
         base_offset = compute_density_spectral(
-            dye, np.zeros((1, 1, 3)), np.asarray(base_density, float),
+            dye,
+            np.zeros((1, 1, 3)),
+            np.asarray(base_density, float),
             base_density_params=base_params,
             is_film=True,
-        )[0, 0]                                                             # (Nw,)
+        )[0, 0]  # (Nw,)
         # invalid wavelengths (NaN dye/base) contribute no light, matching
         # density_to_light's NaN handling in the forward stage.
         valid = np.all(np.isfinite(dye), axis=1) & np.isfinite(base_offset)
 
         dye = np.where(valid[:, None], dye, 0.0)
-        self.dyeT = np.ascontiguousarray(dye.T, dtype=dtype)                # (3,Nw)
-        self.cmfs = np.ascontiguousarray(cmfs, dtype=dtype)                 # (Nw,3)
+        self.dyeT = np.ascontiguousarray(dye.T, dtype=dtype)  # (3,Nw)
+        self.cmfs = np.ascontiguousarray(cmfs, dtype=dtype)  # (Nw,3)
         self.norm = dtype(self._norm)
-        self.illum_valid = np.where(valid, illum, 0.0).astype(dtype)        # (Nw,)
-        self.base_safe = np.where(valid, base_offset, 0.0).astype(dtype)    # (Nw,)
+        self.illum_valid = np.where(valid, illum, 0.0).astype(dtype)  # (Nw,)
+        self.base_safe = np.where(valid, base_offset, 0.0).astype(dtype)  # (Nw,)
         # linear XYZ -> input-space RGB operator (CAT + matrix, no offset)
         self._M = colour.XYZ_to_RGB(
-            np.eye(3), colourspace=output_colourspace,
-            apply_cctf_encoding=False, illuminant=illum_xy,
-        ).T.astype(dtype)                                                   # (3,3)
+            np.eye(3),
+            colourspace=output_colourspace,
+            apply_cctf_encoding=False,
+            illuminant=illum_xy,
+        ).T.astype(dtype)  # (3,3)
         # Jacobian kernel W[w,c,k] = dye[w,c]·cmf[w,k] -> (Nw,9): lets dXYZ be
         # one matmul (L @ W) instead of an (N,Nw,3) tensor.
         self._W = np.ascontiguousarray(
-            (dye[:, :, None] * cmfs[:, None, :]).reshape(dye.shape[0], 9), dtype=dtype)
+            (dye[:, :, None] * cmfs[:, None, :]).reshape(dye.shape[0], 9), dtype=dtype
+        )
 
         self.x_lo = np.zeros(3, dtype)
         self.x_hi = np.asarray(cmy_max, dtype)
-        self.gain = dtype(2.0 ** exposure_ev)
+        self.gain = dtype(2.0**exposure_ev)
         self.calibration = np.ascontiguousarray(
-            np.eye(3) if calibration is None else np.asarray(calibration), dtype=dtype)  # (3,3)
+            np.eye(3) if calibration is None else np.asarray(calibration), dtype=dtype
+        )  # (3,3)
         self._refresh_seed()
 
     # -- analytic log-linear seed ---------------------------------------------
@@ -201,7 +237,7 @@ class FilmConverter:
         self._cmy0 = 0.5 * (self.x_lo + self.x_hi)
         rgb0, J0 = self._forward_jac(self._cmy0[None, :])
         self._logrgb0 = np.log10(np.clip(rgb0[0], 1e-12, None))
-        G = -(J0[0] / (np.clip(rgb0[0], 1e-12, None)[:, None] * LN10))      # (3,3)
+        G = -(J0[0] / (np.clip(rgb0[0], 1e-12, None)[:, None] * LN10))  # (3,3)
         self._Ginv = np.linalg.pinv(G)
 
     def _seed(self, rgb):
@@ -212,16 +248,16 @@ class FilmConverter:
     # -- vectorised forward + Jacobian ----------------------------------------
     def _forward_jac(self, cmy, need_jac=True):
         with np.errstate(over="ignore", invalid="ignore"):
-            D = self.base_safe + cmy @ self.dyeT                            # (N,Nw)
+            D = self.base_safe + cmy @ self.dyeT  # (N,Nw)
             L = self.illum_valid * np.exp((-LN10) * D)
             L = np.nan_to_num(L, nan=0.0, posinf=1e12, neginf=0.0)
-            xyz = (L @ self.cmfs) / self.norm                              # (N,3)
-            rgb = xyz @ self._M.T                                          # (N,3)
+            xyz = (L @ self.cmfs) / self.norm  # (N,3)
+            rgb = xyz @ self._M.T  # (N,3)
             if not need_jac:
                 return rgb, None
-            dxyz_ck = (L @ self._W).reshape(-1, 3, 3)                       # (N,3,3) [n,c,k]
-            dxyz = (-LN10 / self.norm) * np.transpose(dxyz_ck, (0, 2, 1))   # [n,k,c]
-            J = np.einsum("ik,nkc->nic", self._M, dxyz)                     # (N,3,3)
+            dxyz_ck = (L @ self._W).reshape(-1, 3, 3)  # (N,3,3) [n,c,k]
+            dxyz = (-LN10 / self.norm) * np.transpose(dxyz_ck, (0, 2, 1))  # [n,k,c]
+            J = np.einsum("ik,nkc->nic", self._M, dxyz)  # (N,3,3)
         return rgb, J
 
     # -- the solve ------------------------------------------------------------
@@ -312,7 +348,9 @@ class FilmConverter:
         gain = float(self.gain)
         lum = pix @ np.array([0.2, 0.7, 0.1])
         base_obs = pix[lum >= np.quantile(lum, 0.99)].mean(0)
-        base_true = self._forward_jac(np.zeros((1, 3), self.dtype), need_jac=False)[0][0].astype(np.float64)
+        base_true = self._forward_jac(np.zeros((1, 3), self.dtype), need_jac=False)[0][
+            0
+        ].astype(np.float64)
         eye = np.eye(3)
 
         def resid(x):
@@ -320,11 +358,13 @@ class FilmConverter:
             corr = (pix @ M) * gain
             cmy = self._invert(np.clip(corr, 0.0, None).astype(self.dtype))
             rgb_hat = self._forward_jac(cmy, need_jac=False)[0].astype(np.float64)
-            return np.concatenate([
-                (corr - rgb_hat).ravel(),
-                w_anchor * ((base_obs @ M) * gain - base_true),
-                w_ridge * (M - eye).ravel(),
-            ])
+            return np.concatenate(
+                [
+                    (corr - rgb_hat).ravel(),
+                    w_anchor * ((base_obs @ M) * gain - base_true),
+                    w_ridge * (M - eye).ravel(),
+                ]
+            )
 
         sol = least_squares(resid, eye.ravel(), method="lm", max_nfev=300)
         return sol.x.reshape(3, 3)

@@ -10,17 +10,21 @@ from spektrafilm.model.density_curves import (
     refresh_density_curves_from_model,
     select_development_time,
 )
-from spektrafilm.utils.morph_curves import apply_print_curves_morph_with_layers
 from spektrafilm.runtime.services import (
+    ColorReferenceService,
     EnlargerService,
     ResizingService,
     SpectralLUTService,
-    ColorReferenceService,
 )
-from spektrafilm.runtime.stages import ConvertingStage, FilmingStage, PrintingStage, ScanningStage
+from spektrafilm.runtime.stages import (
+    ConvertingStage,
+    FilmingStage,
+    PrintingStage,
+    ScanningStage,
+)
 from spektrafilm.runtime.topology import Node, Tap, run_topology
+from spektrafilm.utils.morph_curves import apply_print_curves_morph_with_layers
 from spektrafilm.utils.timings import format_timings
-
 
 
 class SimulationPipeline:
@@ -60,7 +64,9 @@ class SimulationPipeline:
         # development time; collapse the film to the one chemistry.development_time
         # selects, so every downstream consumer sees a single curve and a 1-D base.
         if self.film is not None:
-            select_development_time(self.film.data, self.film_render.chemistry.development_time)
+            select_development_time(
+                self.film.data, self.film_render.chemistry.development_time
+            )
             # Bake the film chemistry morph (gamma / developer exhaustion) into the
             # curves, regenerating the grain sublayers from the same morphed params
             # so grain stays consistent. Replaces the old density_curve_gamma; an
@@ -75,12 +81,16 @@ class SimulationPipeline:
                     profile_type=self.film.info.type,
                 )
                 film_data.density_curves = total
-                film_data.density_curves_layers = layers if film_model.n_layers > 1 else None
+                film_data.density_curves_layers = (
+                    layers if film_model.n_layers > 1 else None
+                )
         # The print can likewise be a BW development-time family (e.g. a BW print
         # film); collapse it to the chosen development. Its morph is applied in
         # the printing stage, so only the family selection happens here.
         if self.print is not None:
-            select_development_time(self.print.data, self.print_render.chemistry.development_time)
+            select_development_time(
+                self.print.data, self.print_render.chemistry.development_time
+            )
 
         self.timings = {}
         self._last_elapsed_time = None
@@ -89,11 +99,18 @@ class SimulationPipeline:
         if not update_params:
             self._lut_service = SpectralLUTService(self.settings.lut_resolution)
         self._enlarger_service = EnlargerService(self.enlarger)
-        self._color_reference_service = ColorReferenceService(self.film, self.film_render,
-                                                              self.print, self.print_render,
-                                                              self.scanner.black_correction, self.scanner.white_correction,
-                                                              self.scanner.black_level, self.scanner.white_level,
-                                                              self.io, self.workflow)
+        self._color_reference_service = ColorReferenceService(
+            self.film,
+            self.film_render,
+            self.print,
+            self.print_render,
+            self.scanner.black_correction,
+            self.scanner.white_correction,
+            self.scanner.black_level,
+            self.scanner.white_level,
+            self.io,
+            self.workflow,
+        )
 
         self._filming_stage = FilmingStage(
             self.film,
@@ -121,8 +138,11 @@ class SimulationPipeline:
         # The convert-film front-end (scanned negative -> cmy_film). Only built
         # when the workflow route needs it; it owns no LUT service and is cheap.
         self._converting_stage = (
-            ConvertingStage(self.film, self.film_render, self.io, self.settings, self._lut_service)
-            if self.workflow.do_convert_film else None
+            ConvertingStage(
+                self.film, self.film_render, self.io, self.settings, self._lut_service
+            )
+            if self.workflow.do_convert_film
+            else None
         )
         self._scanning_stage = ScanningStage(
             self.film,
@@ -162,7 +182,10 @@ class SimulationPipeline:
         start = perf_counter()
         try:
             return run_topology(
-                self._topology, inject, collect, image,
+                self._topology,
+                inject,
+                collect,
+                image,
                 on_fire=self._record_node_timing,
             )
         finally:
@@ -187,14 +210,16 @@ class SimulationPipeline:
         """Update params and re-initialize stages that depend on them."""
         self.__init__(params, update_params=True)
 
-    def soft_update(self,
-                    exposure_compensation_ev=None,
-                    print_exposure=None,
-                    c_filter_neutral=None,
-                    m_filter_neutral=None,
-                    y_filter_neutral=None,
-                    film_density_curves=None,
-                    print_density_curves=None,):
+    def soft_update(
+        self,
+        exposure_compensation_ev=None,
+        print_exposure=None,
+        c_filter_neutral=None,
+        m_filter_neutral=None,
+        y_filter_neutral=None,
+        film_density_curves=None,
+        print_density_curves=None,
+    ):
         invalidates_print_balance_reference = False
         if exposure_compensation_ev is not None:
             self.camera.exposure_compensation_ev = exposure_compensation_ev
@@ -227,19 +252,25 @@ class SimulationPipeline:
         ]
         if self.workflow.do_filming:
             nodes += [
-                Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,  "filming.expose"),
-                Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop, "filming.develop"),
+                Node((Tap.RGB_PRE,), (Tap.LOG_E_FILM,), f.expose, "filming.expose"),
+                Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,), f.develop, "filming.develop"),
             ]
         elif self.workflow.do_convert_film:
             # Convert workflow: convert a scanned negative directly to film cmy.
             nodes += [
-                Node((Tap.RGB_PRE,), (Tap.CMY_FILM,),
-                     self._converting_stage.convert, "converting.convert"),
+                Node(
+                    (Tap.RGB_PRE,),
+                    (Tap.CMY_FILM,),
+                    self._converting_stage.convert,
+                    "converting.convert",
+                ),
             ]
         if self.workflow.do_printing:
             nodes += [
-                Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
-                Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
+                Node((Tap.CMY_FILM,), (Tap.LOG_E_PRINT,), p.expose, "printing.expose"),
+                Node(
+                    (Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,), p.develop, "printing.develop"
+                ),
             ]
         if self.workflow.do_scan:
             if self.workflow.scan_film:
@@ -248,7 +279,9 @@ class SimulationPipeline:
                 ]
             else:
                 nodes += [
-                    Node((Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"),
+                    Node(
+                        (Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"
+                    ),
                 ]
         if self.workflow.passthrough:
             # No film/print/scan: just colour-manage the input to the output space.

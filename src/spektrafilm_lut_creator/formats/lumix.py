@@ -27,15 +27,15 @@ lives in the sibling ``bundle.json``.
 See [n080](../../../../spektrafilm-research/studies/a40_lut_system/n080_lut_quality_and_visualization.md)
 for the broader LUT-export plan.
 """
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 import numpy as np
 
 from spektrafilm_lut_creator.formats import Lut, register
-
 
 # Registry color-space name → Lumix photo-style tag. Add new entries
 # only after a real camera has accepted them; the inventory is
@@ -66,7 +66,7 @@ class LumixCubeFormat:
     ) -> None:
         del header_lines  # Lumix-strict mode: no extra comments
         n = lut.resolution
-        flat = np.asarray(lut.table, dtype=float).reshape(n ** 3, 3)
+        flat = np.asarray(lut.table, dtype=float).reshape(n**3, 3)
         lines: list[str] = []
         if lut.title:
             lines.append(f'TITLE "{lut.title}"')
@@ -88,6 +88,7 @@ class LumixCubeFormat:
         # Lumix files are valid Adobe-spec cubes (the photo-style tag is
         # a comment to the spec). Delegate to the base reader.
         from spektrafilm_lut_creator.formats.cube import CubeFormat
+
         return CubeFormat().read(path)
 
 

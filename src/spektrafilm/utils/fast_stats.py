@@ -1,6 +1,8 @@
+from math import exp, sqrt
+
 import numpy as np
 from numba import njit, prange
-from math import sqrt, exp
+
 
 @njit(parallel=True, cache=True)
 def fast_binomial(N_arr, p_arr):
@@ -71,10 +73,13 @@ def fast_binomial(N_arr, p_arr):
                     while cdf < u and k <= n_val:
                         cdf += prob
                         if k < n_val:
-                            prob = prob * ((n_val - k) / (k + 1)) * (p_val / (1.0 - p_val))
+                            prob = (
+                                prob * ((n_val - k) / (k + 1)) * (p_val / (1.0 - p_val))
+                            )
                         k += 1
                     flat_result[i] = k - 1
     return result
+
 
 @njit(parallel=True, cache=True)
 def fast_poisson(lam_arr):
@@ -127,6 +132,7 @@ def fast_poisson(lam_arr):
             flat_result[i] = sample_int
     return result
 
+
 @njit(parallel=True, cache=True)
 def fast_lognormal(mu_arr, sigma_arr):
     """
@@ -166,6 +172,7 @@ def fast_lognormal(mu_arr, sigma_arr):
             flat_result[i] = exp(mu_val + sigma_val * z)
     return result
 
+
 @njit(parallel=True, cache=True)
 def fast_lognormal_from_mean_std(mean_arr, std_arr):
     """
@@ -173,10 +180,10 @@ def fast_lognormal_from_mean_std(mean_arr, std_arr):
 
     For a lognormal distribution with underlying normal parameters μ and σ,
     the linear-space mean (m) and standard deviation (s) are related as:
-    
+
          m = exp(μ + σ²/2)
          s² = (exp(σ²) - 1) * exp(2μ + σ²)
-    
+
     These relations are inverted to compute:
          σ = sqrt( ln(1 + (s²/m²)) )
          μ = ln(m) - σ²/2
@@ -217,6 +224,7 @@ def fast_lognormal_from_mean_std(mean_arr, std_arr):
 
     return fast_lognormal(mu_arr, sigma_arr)
 
+
 def warmup_fast_stats():
     """
     Warm up the fast random variate functions using small dummy arrays.
@@ -226,16 +234,16 @@ def warmup_fast_stats():
     fast_poisson(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64))
     fast_binomial(
         np.array([[10, 20], [30, 40]], dtype=np.int64),
-        np.array([[0.5, 0.5], [0.5, 0.5]], dtype=np.float64)
+        np.array([[0.5, 0.5], [0.5, 0.5]], dtype=np.float64),
     )
     fast_lognormal(
         np.array([[0.0, 1.0], [0.5, -0.5]], dtype=np.float64),
-        np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64)
+        np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64),
     )
     fast_lognormal_from_mean_std(
-        np.full((2, 2), 2.0, dtype=np.float64),
-        np.full((2, 2), 0.5, dtype=np.float64)
+        np.full((2, 2), 2.0, dtype=np.float64), np.full((2, 2), 0.5, dtype=np.float64)
     )
+
 
 def lognorm_from_mean_std(M, S):
     """
@@ -250,22 +258,24 @@ def lognorm_from_mean_std(M, S):
     # 3. In scipy.lognorm, 's' = sigma (the shape), and 'scale' = exp(mu)
     return scipy.stats.lognorm(s=sigma, scale=np.exp(mu))
 
-if __name__=='__main__':
+
+if __name__ == "__main__":
     import time
+
     import matplotlib.pyplot as plt
 
     size = (3000, 2000)
-    pixel_area = (35000 / size[0])**2
+    pixel_area = (35000 / size[0]) ** 2
     particle_area = 0.2
     n = pixel_area / particle_area
     n_max = np.int64(np.ceil(n * 1.3))
     n_min = np.int64(n * 0.8)
-    print('N particles per pixel:', n)
+    print("N particles per pixel:", n)
 
     lam_array = np.random.uniform(n_min, n_max, size)
     n_array = np.random.randint(n_min, n_max, size)
     p_array = np.random.uniform(0, 1, size)
-    
+
     start = time.time()
     warmup_fast_stats()
     print("Warm-up time:", (time.time() - start))
@@ -273,7 +283,7 @@ if __name__=='__main__':
     start = time.time()
     poisson_np = np.random.default_rng().poisson(lam_array)
     binomial_np = np.random.default_rng().binomial(poisson_np, p_array)
-    _ = np.random.lognormal(lam_array, p_array)    
+    _ = np.random.lognormal(lam_array, p_array)
     print("NumPy Binomial+Poisson Time (1 run x 9):", (time.time() - start) * 9)
 
     start = time.time()
@@ -282,7 +292,7 @@ if __name__=='__main__':
         binomial_fast_auto = fast_binomial(poisson_fast_auto, p_array)
     _ = fast_lognormal_from_mean_std(lam_array, p_array)
     print("Fast Poisson+Poisson Time (9 runs):", (time.time() - start))
-    
+
     # ----------------------------
     # Comparison Plot Section
     # ----------------------------
@@ -300,11 +310,23 @@ if __name__=='__main__':
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
     bins_poisson = np.arange(0, np.max(poisson_numpy_flat) + 2) - 0.5
-    plt.hist(poisson_numpy_flat, bins=bins_poisson, density=True, alpha=0.5, label='NumPy Poisson')
-    plt.hist(poisson_fast_flat, bins=bins_poisson, density=True, alpha=0.5, label='Fast Poisson')
-    plt.title('Poisson Distribution (λ = 10)')
-    plt.xlabel('Value')
-    plt.ylabel('Probability')
+    plt.hist(
+        poisson_numpy_flat,
+        bins=bins_poisson,
+        density=True,
+        alpha=0.5,
+        label="NumPy Poisson",
+    )
+    plt.hist(
+        poisson_fast_flat,
+        bins=bins_poisson,
+        density=True,
+        alpha=0.5,
+        label="Fast Poisson",
+    )
+    plt.title("Poisson Distribution (λ = 10)")
+    plt.xlabel("Value")
+    plt.ylabel("Probability")
     plt.legend()
 
     # --- Binomial Distribution Comparison ---
@@ -319,11 +341,23 @@ if __name__=='__main__':
 
     plt.subplot(1, 3, 2)
     bins_binom = np.arange(0, n_val + 2) - 0.5
-    plt.hist(binomial_numpy_flat, bins=bins_binom, density=True, alpha=0.5, label='NumPy Binomial')
-    plt.hist(binomial_fast_flat, bins=bins_binom, density=True, alpha=0.5, label='Fast Binomial')
-    plt.title('Binomial Distribution (n = 20, p = 0.3)')
-    plt.xlabel('Value')
-    plt.ylabel('Probability')
+    plt.hist(
+        binomial_numpy_flat,
+        bins=bins_binom,
+        density=True,
+        alpha=0.5,
+        label="NumPy Binomial",
+    )
+    plt.hist(
+        binomial_fast_flat,
+        bins=bins_binom,
+        density=True,
+        alpha=0.5,
+        label="Fast Binomial",
+    )
+    plt.title("Binomial Distribution (n = 20, p = 0.3)")
+    plt.xlabel("Value")
+    plt.ylabel("Probability")
     plt.legend()
 
     # --- Lognormal Distribution Comparison ---
@@ -334,10 +368,13 @@ if __name__=='__main__':
     sigma_array_small = np.full(small_size, sigma_val)
     lognormal_numpy = np.random.lognormal(mu_val, sigma_val, size=small_size)
     lognormal_fast = fast_lognormal(mu_array_small, sigma_array_small)
-    
+
     # Generate lognormal variates using linear-space parameters.
     mean_linear = np.full(small_size, np.exp(mu_val + sigma_val**2 / 2))
-    std_linear = np.full(small_size, np.sqrt((np.exp(sigma_val**2) - 1) * np.exp(2 * mu_val + sigma_val**2)))
+    std_linear = np.full(
+        small_size,
+        np.sqrt((np.exp(sigma_val**2) - 1) * np.exp(2 * mu_val + sigma_val**2)),
+    )
     lognormal_linear = fast_lognormal_from_mean_std(mean_linear, std_linear)
 
     lognormal_numpy_flat = lognormal_numpy.flatten()
@@ -345,12 +382,22 @@ if __name__=='__main__':
     lognormal_linear_flat = lognormal_linear.flatten()
 
     plt.subplot(1, 3, 3)
-    plt.hist(lognormal_numpy_flat, bins=50, density=True, alpha=0.5, label='NumPy Lognormal')
-    plt.hist(lognormal_fast_flat, bins=50, density=True, alpha=0.5, label='Fast Lognormal')
-    plt.hist(lognormal_linear_flat, bins=50, density=True, alpha=0.5, label='Linear-space Params')
-    plt.title('Lognormal Distribution (μ = 1, σ = 0.4)')
-    plt.xlabel('Value')
-    plt.ylabel('Probability')
+    plt.hist(
+        lognormal_numpy_flat, bins=50, density=True, alpha=0.5, label="NumPy Lognormal"
+    )
+    plt.hist(
+        lognormal_fast_flat, bins=50, density=True, alpha=0.5, label="Fast Lognormal"
+    )
+    plt.hist(
+        lognormal_linear_flat,
+        bins=50,
+        density=True,
+        alpha=0.5,
+        label="Linear-space Params",
+    )
+    plt.title("Lognormal Distribution (μ = 1, σ = 0.4)")
+    plt.xlabel("Value")
+    plt.ylabel("Probability")
     plt.legend()
 
     plt.tight_layout()

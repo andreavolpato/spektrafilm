@@ -21,6 +21,7 @@ specific and not required for v1.
 See [n090 §4.1](../../../../spektrafilm-research/studies/a40_lut_system/n090_industry_grade_bundles.md)
 for the multi-format roadmap.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,9 +30,8 @@ import numpy as np
 
 from spektrafilm_lut_creator.formats import Lut, register
 
-
 _BIT_DEPTH = 10
-_MAX_CODE = (1 << _BIT_DEPTH) - 1   # 1023
+_MAX_CODE = (1 << _BIT_DEPTH) - 1  # 1023
 
 
 class ThreeDLFormat:
@@ -48,7 +48,7 @@ class ThreeDLFormat:
         header_lines: list[str] | None = None,
     ) -> None:
         n = lut.resolution
-        flat = np.asarray(lut.table, dtype=float).reshape(n ** 3, 3)
+        flat = np.asarray(lut.table, dtype=float).reshape(n**3, 3)
 
         lines: list[str] = []
         if header_lines:
@@ -62,7 +62,9 @@ class ThreeDLFormat:
         # Data: N^3 integer triplets in [0, 1023], R-fastest then G then B
         # (the same ordering convention as Adobe .cube).
         scaled = np.clip(
-            np.round(flat * _MAX_CODE).astype(int), 0, _MAX_CODE,
+            np.round(flat * _MAX_CODE).astype(int),
+            0,
+            _MAX_CODE,
         )
         for r, g, b in scaled:
             lines.append(f"{r} {g} {b}")
@@ -91,17 +93,13 @@ class ThreeDLFormat:
         if shape_values is None:
             raise ValueError(f"{path}: missing shape line")
         n = len(shape_values)
-        if len(triplets) != n ** 3:
+        if len(triplets) != n**3:
             raise ValueError(
-                f"{path}: body has {len(triplets)} entries, expected "
-                f"size**3 = {n ** 3}"
+                f"{path}: body has {len(triplets)} entries, expected size**3 = {n**3}"
             )
         max_code = max(shape_values[-1], 1)
-        table = (
-            np.asarray(triplets, dtype=float).reshape(n, n, n, 3) / float(max_code)
-        )
-        return Lut(table=table, domain_min=(0.0, 0.0, 0.0),
-                   domain_max=(1.0, 1.0, 1.0))
+        table = np.asarray(triplets, dtype=float).reshape(n, n, n, 3) / float(max_code)
+        return Lut(table=table, domain_min=(0.0, 0.0, 0.0), domain_max=(1.0, 1.0, 1.0))
 
 
 register(ThreeDLFormat())

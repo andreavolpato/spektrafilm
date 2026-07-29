@@ -1,39 +1,43 @@
-import numpy as np
-import struct
-import colour
-import scipy
 import functools
 import importlib.resources
-from opt_einsum import contract
+import struct
+
+import colour
+import numpy as np
+import scipy
 import scipy.interpolate
 import scipy.special
+from opt_einsum import contract
 
 try:
-    import tomllib                       # Python >= 3.11
-except ModuleNotFoundError:              # pragma: no cover
-    import tomli as tomllib              # Python < 3.11 fallback
+    import tomllib  # Python >= 3.11
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib  # Python < 3.11 fallback
 
-from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
-from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 from spektrafilm.config import SPECTRAL_SHAPE, STANDARD_OBSERVER_CMFS
+from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.model.illuminants import standard_illuminant
+from spektrafilm.utils.fast_interp_lut import apply_lut_cubic_2d
 
 _SQRT2PI = float(np.sqrt(2.0 * np.pi))
-_HANATOS2025_MAX_CORRECTION_STOPS = 2.0  # matches max_correction_stops used during the fit
+_HANATOS2025_MAX_CORRECTION_STOPS = (
+    2.0  # matches max_correction_stops used during the fit
+)
 
 ################################################################################
 # LUT generatation of irradiance spectra for any xy chromaticity
 # Thanks to hanatos for providing luts and sample code to develop this. I am grateful.
 
-def _load_coeffs_lut(filename='hanatos_irradiance_xy_coeffs_250304.lut'):
+
+def _load_coeffs_lut(filename="hanatos_irradiance_xy_coeffs_250304.lut"):
     # load lut of coefficients for efficient computations of irradiance spectra
     # formatting
-    header_fmt = '=4i'
+    header_fmt = "=4i"
     header_len = struct.calcsize(header_fmt)
-    pixel_fmt = '=4f'
+    pixel_fmt = "=4f"
     pixel_len = struct.calcsize(pixel_fmt)
 
-    package = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling')
+    package = importlib.resources.files("spektrafilm.data.luts.spectral_upsampling")
     resource = package / filename
     with resource.open("rb") as file:
         header = file.read(header_len)
@@ -45,26 +49,29 @@ def _load_coeffs_lut(filename='hanatos_irradiance_xy_coeffs_250304.lut'):
                 px[i][j] = struct.Struct(pixel_fmt).unpack_from(data)
     return np.array(px)
 
+
 def _tri2quad(tc):
     # converts triangular coordinates into square coordinates.
     # for better sampling of the visible locus of xy chromaticities.
     # the lut is represented in triangular coordinates
     tc = np.array(tc)
-    tx = tc[...,0]
-    ty = tc[...,1]
+    tx = tc[..., 0]
+    ty = tc[..., 1]
     y = ty / np.fmax(1.0 - tx, 1e-10)
-    x = (1.0 - tx)*(1.0 - tx)
+    x = (1.0 - tx) * (1.0 - tx)
     x = np.clip(x, 0, 1)
     y = np.clip(y, 0, 1)
-    return np.stack((x,y), axis=-1)
+    return np.stack((x, y), axis=-1)
+
 
 def _quad2tri(xy):
     # converts square coordinates into triangular coordinates
-    x = xy[...,0]
-    y = xy[...,1]
+    x = xy[..., 0]
+    y = xy[..., 1]
     tx = 1 - np.sqrt(x)
     ty = y * np.sqrt(x)
-    return np.stack((tx,ty), axis=-1)
+    return np.stack((tx, ty), axis=-1)
+
 
 def _fetch_coeffs(tc, lut_coeffs):
     # find the coefficients for spectral upsampling of given rgb coordinates
@@ -76,59 +83,85 @@ def _fetch_coeffs(tc, lut_coeffs):
     # b = np.sum(xyz, axis=-1)
     # xy = xyz[...,0:2] / b[...,None]
     # tc = _tri2quad(xy)
-    coeffs = np.zeros(np.concatenate((tc.shape[:-1],[4])))
-    x = np.linspace(0,1,lut_coeffs.shape[0])
+    coeffs = np.zeros(np.concatenate((tc.shape[:-1], [4])))
+    x = np.linspace(0, 1, lut_coeffs.shape[0])
     for i in np.arange(4):
-        coeffs[...,i] = scipy.interpolate.RegularGridInterpolator((x,x), lut_coeffs[:,:,i], method='cubic')(tc)
+        coeffs[..., i] = scipy.interpolate.RegularGridInterpolator(
+            (x, x), lut_coeffs[:, :, i], method="cubic"
+        )(tc)
     return coeffs
+
 
 def _compute_spectra_from_coeffs(coeffs, smooth_steps=1):
     wl = SPECTRAL_SHAPE.wavelengths
-    wl_up = np.linspace(360,800,441) # upsampled wl for finer initial calculation 0.5 nm
-    x = (coeffs[...,0,None] * wl_up + coeffs[...,1,None])*  wl_up  + coeffs[...,2,None]
+    wl_up = np.linspace(
+        360, 800, 441
+    )  # upsampled wl for finer initial calculation 0.5 nm
+    x = (coeffs[..., 0, None] * wl_up + coeffs[..., 1, None]) * wl_up + coeffs[
+        ..., 2, None
+    ]
     y = 1.0 / np.sqrt(x * x + 1.0)
-    spectra = 0.5 * x * y +  0.5
-    spectra /= coeffs[...,3][...,None]
-    
+    spectra = 0.5 * x * y + 0.5
+    spectra /= coeffs[..., 3][..., None]
+
     # gaussian smooth with smooth_step*sigmas and downsample
     step = np.mean(np.diff(wl))
-    spectra = scipy.ndimage.gaussian_filter(spectra, step*smooth_steps, axes=-1)
+    spectra = scipy.ndimage.gaussian_filter(spectra, step * smooth_steps, axes=-1)
+
     def interp_slice(a, wl, wl_up):
         return np.interp(wl, wl_up, a)
-    spectra = np.apply_along_axis(interp_slice, axis=-1, wl=wl, wl_up=wl_up, arr=spectra)
+
+    spectra = np.apply_along_axis(
+        interp_slice, axis=-1, wl=wl, wl_up=wl_up, arr=spectra
+    )
     return spectra
 
-def compute_hanatos2025_lut_spectra(lut_size=128, smooth_steps=1, lut_coeffs_filename='hanatos_irradiance_xy_coeffs_250304.lut'):
-    v = np.linspace(0,1,lut_size)
-    tx,ty = np.meshgrid(v,v, indexing='ij')
-    tc = np.stack((tx,ty), axis=-1)
+
+def compute_hanatos2025_lut_spectra(
+    lut_size=128,
+    smooth_steps=1,
+    lut_coeffs_filename="hanatos_irradiance_xy_coeffs_250304.lut",
+):
+    v = np.linspace(0, 1, lut_size)
+    tx, ty = np.meshgrid(v, v, indexing="ij")
+    tc = np.stack((tx, ty), axis=-1)
     lut_coeffs = _load_coeffs_lut(lut_coeffs_filename)
     coeffs = _fetch_coeffs(tc, lut_coeffs)
     lut_spectra = _compute_spectra_from_coeffs(coeffs, smooth_steps=smooth_steps)
     lut_spectra = np.array(lut_spectra, dtype=np.half)
     return lut_spectra
 
-def _load_hanatos2025_spectra_lut(filename='hanatos2025_irradiance_xy_tc.npy'):
-    data_path = importlib.resources.files('spektrafilm.data.luts.spectral_upsampling').joinpath(filename)
-    with data_path.open('rb') as file:
+
+def _load_hanatos2025_spectra_lut(filename="hanatos2025_irradiance_xy_tc.npy"):
+    data_path = importlib.resources.files(
+        "spektrafilm.data.luts.spectral_upsampling"
+    ).joinpath(filename)
+    with data_path.open("rb") as file:
         spectra_lut = np.double(np.load(file))
     return spectra_lut
 
+
 def _illuminant_to_xy(illuminant_label):
     illu = standard_illuminant(illuminant_label)
-    xyz = np.zeros((3))
+    xyz = np.zeros(3)
     for i in np.arange(3):
-        xyz[i] = np.sum(illu * STANDARD_OBSERVER_CMFS[:][:,i])
+        xyz[i] = np.sum(illu * STANDARD_OBSERVER_CMFS[:][:, i])
     xy = xyz[0:2] / np.sum(xyz)
     return xy
 
-def _rgb_to_tc_b(rgb, color_space='ITU-R BT.2020', apply_cctf_decoding=False, reference_illuminant='D55'):
+
+def _rgb_to_tc_b(
+    rgb,
+    color_space="ITU-R BT.2020",
+    apply_cctf_decoding=False,
+    reference_illuminant="D55",
+):
     # source_cs = colour.RGB_COLOURSPACES[color_space]
     # target_cs = source_cs.copy()
     # target_cs.whitepoint = ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D65']
     # adapted_rgb = colour.RGB_to_RGB(rgb, input_colourspace=source_cs,
     #                                 output_colourspace=target_cs,
-    #                                 adaptation_transform='Bradford')    
+    #                                 adaptation_transform='Bradford')
     # illu_xy = colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer'][reference_illuminant]
     illu_xy = _illuminant_to_xy(reference_illuminant)
     # CAT16 (Li et al. 2017) replaces the cone-primary instabilities
@@ -136,12 +169,15 @@ def _rgb_to_tc_b(rgb, color_space='ITU-R BT.2020', apply_cctf_decoding=False, re
     # CIECAM16 and the spektrafilm output-side CAM16-UCS algorithm use
     # internally, so the input chromaticity projection stays in the
     # same adaptation family as the output gamut compression.
-    xyz = colour.RGB_to_XYZ(rgb, colourspace=color_space,
-                            apply_cctf_decoding=apply_cctf_decoding,
-                            illuminant=illu_xy,
-                            chromatic_adaptation_transform='CAT16')
+    xyz = colour.RGB_to_XYZ(
+        rgb,
+        colourspace=color_space,
+        apply_cctf_decoding=apply_cctf_decoding,
+        illuminant=illu_xy,
+        chromatic_adaptation_transform="CAT16",
+    )
     b = np.sum(xyz, axis=-1)
-    xy = xyz[...,0:2] / np.fmax(b[...,None], 1e-10)
+    xy = xyz[..., 0:2] / np.fmax(b[..., None], 1e-10)
     # Previously: xy = np.clip(xy, 0, 1). Removed because the input gamut
     # compression baked into the tc_lut at build time (see
     # gamut_compression.remap_tc_lut_for_compression) now handles OOG
@@ -152,6 +188,7 @@ def _rgb_to_tc_b(rgb, color_space='ITU-R BT.2020', apply_cctf_decoding=False, re
     tc = _tri2quad(xy)
     b = np.nan_to_num(b)
     return tc, b
+
 
 ################################################################################
 # hanatos2025 sensitivity adaptation
@@ -171,15 +208,18 @@ def _radial_mobius_warp_xy(
     wxy[..., 0] = cx + dx * scale
     wxy[..., 1] = cy + dy * scale
     return wxy
-    
+
+
 def hanika_sigmoid(z: np.ndarray, max_val: float) -> np.ndarray:
     """Algebraic sigmoid matching Jakob & Hanika 2019, bounded to [-max_val, max_val]."""
     return z / np.sqrt(1.0 + (z / max_val) ** 2)
 
 
-def poly2d_deg4(tc: np.ndarray,
-                params: np.ndarray,
-                center_tc: tuple[float, float] = (0.0, 0.0),) -> np.ndarray:
+def poly2d_deg4(
+    tc: np.ndarray,
+    params: np.ndarray,
+    center_tc: tuple[float, float] = (0.0, 0.0),
+) -> np.ndarray:
     x = tc[..., 0] - center_tc[0]
     y = tc[..., 1] - center_tc[1]
     x2 = x * x
@@ -190,13 +230,28 @@ def poly2d_deg4(tc: np.ndarray,
     _, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = params
     # note that we want center_tc to be zero correction -> not adding c0
     return (
-        c1 * x + c2 * y + c3 * x2 + c4 * y2 + c5 * xy_term
-        + c6 * x3 + c7 * y3 + c8 * (x2 * y) + c9 * (x * y2)
-        + c10 * (x2 * x2) + c11 * (y2 * y2) + c12 * (x3 * y) + c13 * (x2 * y2) + c14 * (x * y3)
+        c1 * x
+        + c2 * y
+        + c3 * x2
+        + c4 * y2
+        + c5 * xy_term
+        + c6 * x3
+        + c7 * y3
+        + c8 * (x2 * y)
+        + c9 * (x * y2)
+        + c10 * (x2 * x2)
+        + c11 * (y2 * y2)
+        + c12 * (x3 * y)
+        + c13 * (x2 * y2)
+        + c14 * (x * y3)
     )
 
+
 def locked_logistic_rising(
-    x: np.ndarray, mu: float, sigma: float, nu: float,
+    x: np.ndarray,
+    mu: float,
+    sigma: float,
+    nu: float,
 ) -> np.ndarray:
     """Rising flex-and-sigma-locked logistic.
 
@@ -224,31 +279,37 @@ def eval_poly4_warp_log_exposure_surface(params, illuminant_xy) -> np.ndarray:
     # This is to better sample the spectra of chromaticities close to the illuminant
     # and stabilize the surface for large chromaticity shifts.
     surface_size = HANATOS2025_SPECTRA_LUT.shape[0]
-    tc_base = np.linspace(0,1,surface_size)
-    tc = np.stack(np.meshgrid(tc_base, tc_base, indexing='ij'), axis=-1)
+    tc_base = np.linspace(0, 1, surface_size)
+    tc = np.stack(np.meshgrid(tc_base, tc_base, indexing="ij"), axis=-1)
     xy = _quad2tri(tc)
     tc_center = _tri2quad(illuminant_xy)
-    surface_log_exposure_correction = np.zeros((surface_size, surface_size,3))
+    surface_log_exposure_correction = np.zeros((surface_size, surface_size, 3))
     for i in range(3):
         poly_params = params[i, :-1]
         alpha = float(params[i, -1])
         xy_warped = _radial_mobius_warp_xy(xy, illuminant_xy, alpha=alpha)
         tc_warped = _tri2quad(xy_warped)
         raw = poly2d_deg4(tc_warped, poly_params, center_tc=tc_center)
-        surface_log_exposure_correction[...,i] = hanika_sigmoid(raw, _HANATOS2025_MAX_CORRECTION_STOPS)
+        surface_log_exposure_correction[..., i] = hanika_sigmoid(
+            raw, _HANATOS2025_MAX_CORRECTION_STOPS
+        )
     return surface_log_exposure_correction
+
 
 def eval_poly4_log_exposure_surface(params, illuminant_xy) -> np.ndarray:
     surface_size = HANATOS2025_SPECTRA_LUT.shape[0]
-    tc_base = np.linspace(0,1,surface_size)
-    tc = np.stack(np.meshgrid(tc_base, tc_base, indexing='ij'), axis=-1)
+    tc_base = np.linspace(0, 1, surface_size)
+    tc = np.stack(np.meshgrid(tc_base, tc_base, indexing="ij"), axis=-1)
     tc_center = _tri2quad(illuminant_xy)
-    surface_log_exposure_correction = np.zeros((surface_size, surface_size,3))
+    surface_log_exposure_correction = np.zeros((surface_size, surface_size, 3))
     for i in range(3):
         poly_params = params[i]
         raw = poly2d_deg4(tc, poly_params, center_tc=tc_center)
-        surface_log_exposure_correction[...,i] = hanika_sigmoid(raw, _HANATOS2025_MAX_CORRECTION_STOPS)
+        surface_log_exposure_correction[..., i] = hanika_sigmoid(
+            raw, _HANATOS2025_MAX_CORRECTION_STOPS
+        )
     return surface_log_exposure_correction
+
 
 def eval_logiflex8_spectral_bandpass(params: np.ndarray) -> np.ndarray:
     """8-param logiflex window: erf6 skeleton + (nu_uv, nu_ir) shared across channels.
@@ -256,8 +317,7 @@ def eval_logiflex8_spectral_bandpass(params: np.ndarray) -> np.ndarray:
     params: (c_uv_base, sigma_uv, c_ir_base, sigma_ir, c_uv_b, c_ir_r, nu_uv, nu_ir).
     """
     wavelengths = SPECTRAL_SHAPE.wavelengths
-    (c_uv_base, sigma_uv, c_ir_base, sigma_ir,
-     c_uv_b, c_ir_r, nu_uv, nu_ir) = params
+    (c_uv_base, sigma_uv, c_ir_base, sigma_ir, c_uv_b, c_ir_r, nu_uv, nu_ir) = params
     cuv = np.array([c_uv_base, c_uv_base, c_uv_b], dtype=float)
     cir = np.array([c_ir_r, c_ir_base, c_ir_base], dtype=float)
     w = wavelengths[:, None]
@@ -265,6 +325,7 @@ def eval_logiflex8_spectral_bandpass(params: np.ndarray) -> np.ndarray:
     edge_ir = 1.0 - locked_logistic_rising(w, cir[None, :], sigma_ir, nu_ir)
     window = edge_uv * edge_ir
     return window
+
 
 def eval_erf4_spectral_bandpass(params: np.ndarray) -> np.ndarray:
     """4-param erf window: common bandpass replicated across all channels.
@@ -274,32 +335,51 @@ def eval_erf4_spectral_bandpass(params: np.ndarray) -> np.ndarray:
     _SQRT2 = float(np.sqrt(2.0))
     wavelengths = SPECTRAL_SHAPE.wavelengths
     c_uv, sigma_uv, c_ir, sigma_ir = (float(v) for v in params)
-    edge_uv = 0.5 * (1.0 + scipy.special.erf((wavelengths - c_uv) / (sigma_uv * _SQRT2)))
-    edge_ir = 0.5 * (1.0 - scipy.special.erf((wavelengths - c_ir) / (sigma_ir * _SQRT2)))
+    edge_uv = 0.5 * (
+        1.0 + scipy.special.erf((wavelengths - c_uv) / (sigma_uv * _SQRT2))
+    )
+    edge_ir = 0.5 * (
+        1.0 - scipy.special.erf((wavelengths - c_ir) / (sigma_ir * _SQRT2))
+    )
     common = edge_uv * edge_ir
     return np.repeat(common[:, None], 3, axis=1)
 
-def eval_spectral_bandpass_window(params: np.ndarray, model: str = 'erf4') -> np.ndarray:
-    if model == 'logiflex8':
+
+def eval_spectral_bandpass_window(
+    params: np.ndarray, model: str = "erf4"
+) -> np.ndarray:
+    if model == "logiflex8":
         return eval_logiflex8_spectral_bandpass(params)
-    if model == 'erf4':
+    if model == "erf4":
         return eval_erf4_spectral_bandpass(params)
     raise ValueError(f"Unknown spectral bandpass model: {model}")
-    
-def eval_log_exposure_correction_surface(params, illuminant_xy, model='poly4') -> np.ndarray:
-    if model == 'poly4_warp_xy':
+
+
+def eval_log_exposure_correction_surface(
+    params, illuminant_xy, model="poly4"
+) -> np.ndarray:
+    if model == "poly4_warp_xy":
         return eval_poly4_warp_log_exposure_surface(params, illuminant_xy)
-    if model == 'poly4':
+    if model == "poly4":
         return eval_poly4_log_exposure_surface(params, illuminant_xy)
     raise ValueError(f"Unknown log exposure correction surface model: {model}")
+
 
 ################################################################################
 # From [Mallett2019]
 
-MALLETT2019_BASIS = colour.recovery.MSDS_BASIS_FUNCTIONS_sRGB_MALLETT2019.copy().align(SPECTRAL_SHAPE)
-def rgb_to_raw_mallett2019(RGB, sensitivity,
-                           color_space='sRGB', apply_cctf_decoding=True,
-                           reference_illuminant='D65'):
+MALLETT2019_BASIS = colour.recovery.MSDS_BASIS_FUNCTIONS_sRGB_MALLETT2019.copy().align(
+    SPECTRAL_SHAPE
+)
+
+
+def rgb_to_raw_mallett2019(
+    RGB,
+    sensitivity,
+    color_space="sRGB",
+    apply_cctf_decoding=True,
+    reference_illuminant="D65",
+):
     """
     Converts an RGB color to a raw sensor response using the method described in Mallett et al. (2019).
 
@@ -322,23 +402,35 @@ def rgb_to_raw_mallett2019(RGB, sensitivity,
         Raw sensor response.
     """
     illuminant = standard_illuminant(reference_illuminant)[:]
-    basis_set_with_illuminant = np.array(MALLETT2019_BASIS[:])*np.array(illuminant)[:, None]
-    lrgb = colour.RGB_to_RGB(RGB, color_space, 'sRGB',
-                    apply_cctf_decoding=apply_cctf_decoding,
-                    apply_cctf_encoding=False)
-    raw  = contract('ijk,lk,lm->ijm', lrgb, basis_set_with_illuminant, sensitivity)
+    basis_set_with_illuminant = (
+        np.array(MALLETT2019_BASIS[:]) * np.array(illuminant)[:, None]
+    )
+    lrgb = colour.RGB_to_RGB(
+        RGB,
+        color_space,
+        "sRGB",
+        apply_cctf_decoding=apply_cctf_decoding,
+        apply_cctf_encoding=False,
+    )
+    raw = contract("ijk,lk,lm->ijm", lrgb, basis_set_with_illuminant, sensitivity)
     raw = np.nan_to_num(raw)
     raw = np.ascontiguousarray(raw)
-    
-    raw_midgray  = np.einsum('k,km->m', illuminant*0.184, sensitivity) # use 0.184 as midgray reference
-    return raw / raw_midgray # per-channel -> a neutral surface maps to gray (1,1,1)
+
+    raw_midgray = np.einsum(
+        "k,km->m", illuminant * 0.184, sensitivity
+    )  # use 0.184 as midgray reference
+    return raw / raw_midgray  # per-channel -> a neutral surface maps to gray (1,1,1)
 
 
 _MALLETT2019_MIDGRAY = 0.184
-_MALLETT2019_SCENE_ILLUMINANT = 'D65'     # sRGB's whitepoint; the basis reproduces sRGB under it
+_MALLETT2019_SCENE_ILLUMINANT = (
+    "D65"  # sRGB's whitepoint; the basis reproduces sRGB under it
+)
 
 
-def compute_mallett2019_reflectance_lut(lut_size=192, scene_illuminant=_MALLETT2019_SCENE_ILLUMINANT):
+def compute_mallett2019_reflectance_lut(
+    lut_size=192, scene_illuminant=_MALLETT2019_SCENE_ILLUMINANT
+):
     """(S, S, 81) reflectance per tc chromaticity at unit brightness, from the Mallett &
     Yuksel 2019 sRGB basis — the SAME deliverable as jakob2019 / otsu2018, shipped as
     `mallett2019_reflectance_xy_tc.npy` so mallett flows through the generic reflectance
@@ -354,23 +446,33 @@ def compute_mallett2019_reflectance_lut(lut_size=192, scene_illuminant=_MALLETT2
     otsu), where the per-pixel path leaves it unclipped. Weakest at saturated OOG colours.
     """
     v = np.linspace(0, 1, lut_size)
-    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
+    tc = np.stack(np.meshgrid(v, v, indexing="ij"), axis=-1)  # (S,S,2)
     xy = _quad2tri(tc)
     x, y = xy[..., 0], xy[..., 1]
     XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1)
     illu_xy = _illuminant_to_xy(scene_illuminant)
-    lrgb = colour.XYZ_to_RGB(XYZ_unit, colour.RGB_COLOURSPACES['sRGB'],
-                             illuminant=illu_xy, apply_cctf_encoding=False)    # linear sRGB
-    reflectance = np.einsum('...k,lk->...l', lrgb, np.array(MALLETT2019_BASIS[:]))
+    lrgb = colour.XYZ_to_RGB(
+        XYZ_unit,
+        colour.RGB_COLOURSPACES["sRGB"],
+        illuminant=illu_xy,
+        apply_cctf_encoding=False,
+    )  # linear sRGB
+    reflectance = np.einsum("...k,lk->...l", lrgb, np.array(MALLETT2019_BASIS[:]))
     return np.array(np.clip(reflectance, 0.0, 1.0), dtype=np.half)
+
 
 ################################################################################
 # Using hanatos irradiance spectra generation
 
 HANATOS2025_SPECTRA_LUT = _load_hanatos2025_spectra_lut()
-HANATOS2025_NO_ADAPTATION = Hanatos2025SensitivityAdaptation(apply_surface=False, apply_window=False)
+HANATOS2025_NO_ADAPTATION = Hanatos2025SensitivityAdaptation(
+    apply_surface=False, apply_window=False
+)
 
-def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compress=None):
+
+def compute_hanatos2025_tc_lut(
+    sensitivity, hanatos2025_adaptation, gamut_compress=None
+):
     """Compute the LUT of spectra for given sensitivities and hanatos2025 adaptation parameters.
     Both window and surface preserve white balance.
 
@@ -391,10 +493,14 @@ def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compre
     spectra_lut = HANATOS2025_SPECTRA_LUT
 
     if hanatos2025_adaptation.spectral_gaussian_blur > 0:
-        spectra_lut = scipy.ndimage.gaussian_filter(spectra_lut,
-                        (0, 0, hanatos2025_adaptation.spectral_gaussian_blur))
+        spectra_lut = scipy.ndimage.gaussian_filter(
+            spectra_lut, (0, 0, hanatos2025_adaptation.spectral_gaussian_blur)
+        )
 
-    if hanatos2025_adaptation.apply_window and hanatos2025_adaptation.window_params is not None:
+    if (
+        hanatos2025_adaptation.apply_window
+        and hanatos2025_adaptation.window_params is not None
+    ):
         window = eval_spectral_bandpass_window(hanatos2025_adaptation.window_params)
         # White-balance preservation must reference the neutral the LUT actually EMITS — the
         # smooth-metamer reconstruction at the reference-illuminant chromaticity — NOT the bare
@@ -402,22 +508,28 @@ def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compre
         # (non-CMF) sensitivities, normalizing on the illuminant drifts neutrals ~2-3% off the
         # balanced gray. Referencing the reconstructed white keeps the windowed neutral exactly
         # on the unwindowed (1,1,1) gray for every reference illuminant.
-        white_tc = _tri2quad(_illuminant_to_xy(hanatos2025_adaptation.reference_illuminant))
-        neutral_sd = apply_lut_cubic_2d(                               # same cubic sampler as runtime
-            spectra_lut, np.asarray(white_tc).reshape(1, 1, 2))[0, 0]  # (81,) reconstructed white
-        normalization = (
-            np.sum(sensitivity * neutral_sd[:, None] * window, axis=0)
-            / np.sum(sensitivity * neutral_sd[:, None], axis=0)
+        white_tc = _tri2quad(
+            _illuminant_to_xy(hanatos2025_adaptation.reference_illuminant)
         )
+        neutral_sd = apply_lut_cubic_2d(  # same cubic sampler as runtime
+            spectra_lut, np.asarray(white_tc).reshape(1, 1, 2)
+        )[0, 0]  # (81,) reconstructed white
+        normalization = np.sum(
+            sensitivity * neutral_sd[:, None] * window, axis=0
+        ) / np.sum(sensitivity * neutral_sd[:, None], axis=0)
         window = window / normalization
-        raw_lut = contract('ijl,lm->ijm', spectra_lut, sensitivity * window)
+        raw_lut = contract("ijl,lm->ijm", spectra_lut, sensitivity * window)
     else:
-        raw_lut = contract('ijl,lm->ijm', spectra_lut, sensitivity)
+        raw_lut = contract("ijl,lm->ijm", spectra_lut, sensitivity)
 
-    if hanatos2025_adaptation.apply_surface and hanatos2025_adaptation.surface_params is not None:
+    if (
+        hanatos2025_adaptation.apply_surface
+        and hanatos2025_adaptation.surface_params is not None
+    ):
         xy_illu = _illuminant_to_xy(hanatos2025_adaptation.reference_illuminant)
-        surface = eval_log_exposure_correction_surface(hanatos2025_adaptation.surface_params,
-                                                       illuminant_xy=xy_illu)
+        surface = eval_log_exposure_correction_surface(
+            hanatos2025_adaptation.surface_params, illuminant_xy=xy_illu
+        )
         raw_lut *= 2**surface
 
     if gamut_compress is not None and gamut_compress.active:
@@ -430,29 +542,34 @@ def compute_hanatos2025_tc_lut(sensitivity, hanatos2025_adaptation, gamut_compre
         # central D65 keeps the radial geometry well-behaved (matches the
         # reflectance path's scene white). See spektrafilm-research b40 n040.
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
-        d65_xy = _illuminant_to_xy('D65')
+
+        d65_xy = _illuminant_to_xy("D65")
         raw_lut = remap_tc_lut_for_compression(raw_lut, d65_xy, gamut_compress)
 
     return raw_lut
 
-def rgb_to_raw_hanatos2025(rgb, sensitivity,
-                           color_space,
-                           apply_cctf_decoding,
-                           reference_illuminant,
-                           tc_lut=None
-                           ):
+
+def rgb_to_raw_hanatos2025(
+    rgb,
+    sensitivity,
+    color_space,
+    apply_cctf_decoding,
+    reference_illuminant,
+    tc_lut=None,
+):
     tc_raw, b = _rgb_to_tc_b(
         rgb,
         color_space=color_space,
         apply_cctf_decoding=apply_cctf_decoding,
         reference_illuminant=reference_illuminant,
     )
-    if tc_lut is None: # fallback to on-the-fly computation if tc_lut not provided
+    if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
         tc_lut = compute_hanatos2025_tc_lut(sensitivity, HANATOS2025_NO_ADAPTATION)
     raw = apply_lut_cubic_2d(tc_lut, tc_raw)
-    raw *= b[...,None] # scale the raw back with the scale factor
+    raw *= b[..., None]  # scale the raw back with the scale factor
     # note that sensitivities are already normalized in balancing such that raw_midgray is 1, so no need to normalize here
     return raw
+
 
 def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illuminant):
     # direct interpolation of the spectra lut, to be used only for smooth spectra close to white
@@ -463,7 +580,9 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
         reference_illuminant=reference_illuminant,
     )
     v = np.linspace(0, 1, HANATOS2025_SPECTRA_LUT.shape[0])
-    spectrum_w = scipy.interpolate.RegularGridInterpolator((v,v), HANATOS2025_SPECTRA_LUT)(tc_w)
+    spectrum_w = scipy.interpolate.RegularGridInterpolator(
+        (v, v), HANATOS2025_SPECTRA_LUT
+    )(tc_w)
     spectrum_w *= b_w
     return spectrum_w.flatten()
 
@@ -481,7 +600,7 @@ def rgb_to_smooth_spectrum(rgb, color_space, apply_cctf_decoding, reference_illu
 # below are thin wrappers. Drop a new `<id>_*.npy` + `<id>_*.toml` in the data folder and
 # it is usable with no code change. (hanatos2025 is irradiance — its own path, not here.)
 
-_LUT_DATA_PACKAGE = 'spektrafilm.data.luts.spectral_upsampling'
+_LUT_DATA_PACKAGE = "spektrafilm.data.luts.spectral_upsampling"
 
 
 @functools.lru_cache(maxsize=1)
@@ -490,10 +609,10 @@ def _lut_registry():
     folder. Cached once per process (shipped data does not change at runtime)."""
     registry = {}
     for entry in importlib.resources.files(_LUT_DATA_PACKAGE).iterdir():
-        if entry.name.endswith('.toml'):
-            with entry.open('rb') as file:
+        if entry.name.endswith(".toml"):
+            with entry.open("rb") as file:
                 descriptor = tomllib.load(file)
-            registry[descriptor['identifier']] = descriptor
+            registry[descriptor["identifier"]] = descriptor
     return registry
 
 
@@ -501,7 +620,9 @@ def available_lut_identifiers(kind=None):
     """Sorted identifiers of shipped LUTs, optionally filtered to a `kind`
     ('reflectance' | 'irradiance')."""
     registry = _lut_registry()
-    return sorted(i for i, d in registry.items() if kind is None or d.get('kind') == kind)
+    return sorted(
+        i for i, d in registry.items() if kind is None or d.get("kind") == kind
+    )
 
 
 def lut_descriptor(identifier):
@@ -509,8 +630,9 @@ def lut_descriptor(identifier):
     no LUT with that identifier is shipped."""
     registry = _lut_registry()
     if identifier not in registry:
-        raise KeyError(f"no spectral-upsampling LUT {identifier!r}; "
-                       f"available: {sorted(registry)}")
+        raise KeyError(
+            f"no spectral-upsampling LUT {identifier!r}; available: {sorted(registry)}"
+        )
     return registry[identifier]
 
 
@@ -524,14 +646,15 @@ def get_lut_spectra(identifier):
     not fail at import; the array loads on first use."""
     if identifier not in _LUT_SPECTRA_CACHE:
         descriptor = lut_descriptor(identifier)
-        path = importlib.resources.files(_LUT_DATA_PACKAGE).joinpath(descriptor['file'])
-        with path.open('rb') as file:
+        path = importlib.resources.files(_LUT_DATA_PACKAGE).joinpath(descriptor["file"])
+        with path.open("rb") as file:
             _LUT_SPECTRA_CACHE[identifier] = np.double(np.load(file))
     return _LUT_SPECTRA_CACHE[identifier]
 
 
-def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
-                               spectra_lut=None, gamut_compress=None):
+def compute_reflectance_tc_lut(
+    identifier, sensitivity, reference_illuminant, spectra_lut=None, gamut_compress=None
+):
     """(S, S, C) raw LUT for any REFLECTANCE-family method, selected by `identifier`
     (C = 3 for colour film, 1 for a black-and-white emulsion).
 
@@ -543,14 +666,16 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
     point, study b50). Generalizes compute_jakob2019_tc_lut / compute_otsu2018_tc_lut.
     """
     descriptor = lut_descriptor(identifier)
-    if descriptor.get('kind') != 'reflectance':
-        raise ValueError(f"{identifier!r} is kind={descriptor.get('kind')!r}, not "
-                         f"'reflectance' (cannot relight a non-reflectance LUT)")
+    if descriptor.get("kind") != "reflectance":
+        raise ValueError(
+            f"{identifier!r} is kind={descriptor.get('kind')!r}, not "
+            f"'reflectance' (cannot relight a non-reflectance LUT)"
+        )
     if spectra_lut is None:
         spectra_lut = get_lut_spectra(identifier)
-    E_ref = standard_illuminant(reference_illuminant)[:]               # (81,)
-    relit = spectra_lut * E_ref[None, None, :]                        # (S,S,81)
-    raw_lut = contract('ijl,lm->ijm', relit, sensitivity)             # (S,S,C)
+    E_ref = standard_illuminant(reference_illuminant)[:]  # (81,)
+    relit = spectra_lut * E_ref[None, None, :]  # (S,S,81)
+    raw_lut = contract("ijl,lm->ijm", relit, sensitivity)  # (S,S,C)
     # White balance: a neutral input must map to gray (1,...,1), matching the convention the
     # hanatos2025 windowed path sits on. Normalize each channel by the METHOD'S OWN emitted
     # neutral — its recovered reflectance at the SCENE-illuminant chromaticity, relit by E_ref,
@@ -560,17 +685,22 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
     # is NOT perfectly flat still resolve to gray, not just the flat-neutral ones. This is
     # purely per channel with no green anchor, so a single-channel B&W emulsion (C=1) balances
     # exactly like colour (C=3) — the same per-channel neutral normalization hanatos2025 uses.
-    scene_illuminant = descriptor['reflectance']['scene_illuminant']
+    scene_illuminant = descriptor["reflectance"]["scene_illuminant"]
     white_tc = _tri2quad(_illuminant_to_xy(scene_illuminant))
     # sample with the SAME cubic interpolator the runtime uses (apply_lut_cubic_2d), so the
     # normalization neutral matches the sampled neutral exactly even for LUTs with sharp
     # near-white structure (arctic), not just smooth ones.
-    neutral_refl = apply_lut_cubic_2d(spectra_lut, np.asarray(white_tc).reshape(1, 1, 2))[0, 0]
-    raw_neutral = np.einsum('l,lm->m', neutral_refl * E_ref, sensitivity)   # its film response (C,)
-    raw_lut = raw_lut / raw_neutral                  # reconstructed neutral -> (1,...,1), per channel
+    neutral_refl = apply_lut_cubic_2d(
+        spectra_lut, np.asarray(white_tc).reshape(1, 1, 2)
+    )[0, 0]
+    raw_neutral = np.einsum(
+        "l,lm->m", neutral_refl * E_ref, sensitivity
+    )  # its film response (C,)
+    raw_lut = raw_lut / raw_neutral  # reconstructed neutral -> (1,...,1), per channel
 
     if gamut_compress is not None and gamut_compress.active:
         from spektrafilm.utils.gamut_compression import remap_tc_lut_for_compression
+
         # Center on the SCENE white, not the relight illuminant: compression remaps the
         # tc ACCESS geometry, which the runtime projects under scene_illuminant (the D55
         # relight only scales the stored raw, not where an input addresses the LUT). This
@@ -582,9 +712,16 @@ def compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant,
     return raw_lut
 
 
-def rgb_to_raw_reflectance(identifier, rgb, sensitivity, color_space,
-                           apply_cctf_decoding, reference_illuminant,
-                           tc_lut=None, scene_illuminant=None):
+def rgb_to_raw_reflectance(
+    identifier,
+    rgb,
+    sensitivity,
+    color_space,
+    apply_cctf_decoding,
+    reference_illuminant,
+    tc_lut=None,
+    scene_illuminant=None,
+):
     """Runtime path for any REFLECTANCE-family method, selected by `identifier` — the
     hanatos2025 hot path with decoupled illuminants. Chromaticity is projected under the
     descriptor's SCENE illuminant (override with `scene_illuminant`); the relit `tc_lut`
@@ -592,7 +729,7 @@ def rgb_to_raw_reflectance(identifier, rgb, sensitivity, color_space,
     """
     descriptor = lut_descriptor(identifier)
     if scene_illuminant is None:
-        scene_illuminant = descriptor['reflectance']['scene_illuminant']
+        scene_illuminant = descriptor["reflectance"]["scene_illuminant"]
     tc_raw, b = _rgb_to_tc_b(
         rgb,
         color_space=color_space,
@@ -600,44 +737,82 @@ def rgb_to_raw_reflectance(identifier, rgb, sensitivity, color_space,
         reference_illuminant=scene_illuminant,
     )
     if tc_lut is None:  # fallback to on-the-fly computation if tc_lut not provided
-        tc_lut = compute_reflectance_tc_lut(identifier, sensitivity, reference_illuminant)
+        tc_lut = compute_reflectance_tc_lut(
+            identifier, sensitivity, reference_illuminant
+        )
     raw = apply_lut_cubic_2d(tc_lut, tc_raw)
     raw *= b[..., None]
     return raw
 
 
-def compute_tc_lut(method, sensitivity, reference_illuminant=None,
-                   spectra_lut=None, gamut_compress=None, hanatos2025_adaptation=None):
+def compute_tc_lut(
+    method,
+    sensitivity,
+    reference_illuminant=None,
+    spectra_lut=None,
+    gamut_compress=None,
+    hanatos2025_adaptation=None,
+):
     """Build the (S, S, 3) raw tc_lut for any shipped `method`, dispatched on its
     descriptor `kind`. REFLECTANCE methods relight + integrate (need reference_illuminant);
     the IRRADIANCE method integrates directly with optional sensitivity adaptation. The
     single generic builder behind the named compute_*_tc_lut wrappers / the LUT service."""
-    kind = lut_descriptor(method).get('kind')
-    if kind == 'reflectance':
-        return compute_reflectance_tc_lut(method, sensitivity, reference_illuminant,
-                                          spectra_lut=spectra_lut, gamut_compress=gamut_compress)
-    if kind == 'irradiance':
-        adaptation = (hanatos2025_adaptation if hanatos2025_adaptation is not None
-                      else HANATOS2025_NO_ADAPTATION)
-        return compute_hanatos2025_tc_lut(sensitivity, adaptation, gamut_compress=gamut_compress)
+    kind = lut_descriptor(method).get("kind")
+    if kind == "reflectance":
+        return compute_reflectance_tc_lut(
+            method,
+            sensitivity,
+            reference_illuminant,
+            spectra_lut=spectra_lut,
+            gamut_compress=gamut_compress,
+        )
+    if kind == "irradiance":
+        adaptation = (
+            hanatos2025_adaptation
+            if hanatos2025_adaptation is not None
+            else HANATOS2025_NO_ADAPTATION
+        )
+        return compute_hanatos2025_tc_lut(
+            sensitivity, adaptation, gamut_compress=gamut_compress
+        )
     raise ValueError(f"method {method!r} has unsupported LUT kind {kind!r}")
 
 
-def rgb_to_raw(method, rgb, sensitivity, color_space, apply_cctf_decoding,
-               reference_illuminant, tc_lut=None, scene_illuminant=None):
+def rgb_to_raw(
+    method,
+    rgb,
+    sensitivity,
+    color_space,
+    apply_cctf_decoding,
+    reference_illuminant,
+    tc_lut=None,
+    scene_illuminant=None,
+):
     """Convert RGB to film raw for any shipped `method`, dispatched on its descriptor
     `kind`. REFLECTANCE methods project under the scene illuminant and sample the relit
     tc_lut; the IRRADIANCE method (hanatos2025) samples its irradiance tc_lut directly.
     The single generic runtime entry behind the named rgb_to_raw_* wrappers."""
-    kind = lut_descriptor(method).get('kind')
-    if kind == 'reflectance':
-        return rgb_to_raw_reflectance(method, rgb, sensitivity, color_space,
-                                      apply_cctf_decoding, reference_illuminant,
-                                      tc_lut=tc_lut, scene_illuminant=scene_illuminant)
-    if kind == 'irradiance':
-        return rgb_to_raw_hanatos2025(rgb, sensitivity, color_space=color_space,
-                                      apply_cctf_decoding=apply_cctf_decoding,
-                                      reference_illuminant=reference_illuminant, tc_lut=tc_lut)
+    kind = lut_descriptor(method).get("kind")
+    if kind == "reflectance":
+        return rgb_to_raw_reflectance(
+            method,
+            rgb,
+            sensitivity,
+            color_space,
+            apply_cctf_decoding,
+            reference_illuminant,
+            tc_lut=tc_lut,
+            scene_illuminant=scene_illuminant,
+        )
+    if kind == "irradiance":
+        return rgb_to_raw_hanatos2025(
+            rgb,
+            sensitivity,
+            color_space=color_space,
+            apply_cctf_decoding=apply_cctf_decoding,
+            reference_illuminant=reference_illuminant,
+            tc_lut=tc_lut,
+        )
     raise ValueError(f"method {method!r} has unsupported LUT kind {kind!r}")
 
 
@@ -661,18 +836,20 @@ def rgb_to_raw(method, rgb, sensitivity, color_space, apply_cctf_decoding,
 # n010 for the full analysis.
 
 _JAKOB2019_MIDGRAY = 0.184
-_JAKOB2019_SCENE_ILLUMINANT = 'D65'
+_JAKOB2019_SCENE_ILLUMINANT = "D65"
 # shifted-Legendre basis P0,P1,P2 on the scaled wavelength t in [0,1].
 # NOT the raw monomials {l^2, l, 1}: those are near-collinear on the band, which
 # makes J^T J singular and the solve fail to converge. Legendre orthogonality
 # conditions the batched Levenberg-Marquardt step (study b50 n010 §4a).
-_JAKOB2019_T = (
-    (SPECTRAL_SHAPE.wavelengths - SPECTRAL_SHAPE.wavelengths[0])
-    / (SPECTRAL_SHAPE.wavelengths[-1] - SPECTRAL_SHAPE.wavelengths[0])
+_JAKOB2019_T = (SPECTRAL_SHAPE.wavelengths - SPECTRAL_SHAPE.wavelengths[0]) / (
+    SPECTRAL_SHAPE.wavelengths[-1] - SPECTRAL_SHAPE.wavelengths[0]
 )
 _JAKOB2019_BASIS = np.stack(
-    [np.ones_like(_JAKOB2019_T), 2 * _JAKOB2019_T - 1,
-     6 * _JAKOB2019_T * _JAKOB2019_T - 6 * _JAKOB2019_T + 1],
+    [
+        np.ones_like(_JAKOB2019_T),
+        2 * _JAKOB2019_T - 1,
+        6 * _JAKOB2019_T * _JAKOB2019_T - 6 * _JAKOB2019_T + 1,
+    ],
     axis=-1,
 )
 
@@ -697,12 +874,14 @@ def _jakob2019_forward(coeffs, Ecmfs, k):
     s = 1.0 / np.sqrt(1.0 + u * u)
     R = 0.5 + 0.5 * u * s
     XYZ = k * np.einsum("...l,lm->...m", R, Ecmfs)
-    dRdu = 0.5 * s ** 3  # d sigmoid / du
+    dRdu = 0.5 * s**3  # d sigmoid / du
     J = k * np.einsum("...lj,lm->...mj", dRdu[..., None] * _JAKOB2019_BASIS, Ecmfs)
     return XYZ, J
 
 
-def solve_jakob2019_coeffs(XYZ_target, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT, iters=80):
+def solve_jakob2019_coeffs(
+    XYZ_target, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT, iters=80
+):
     """Batched Levenberg-Marquardt for sigmoid coefficients over a whole array.
 
     Returns coeffs of shape XYZ_target.shape[:-1] + (3,). In-gamut targets
@@ -736,7 +915,9 @@ def solve_jakob2019_coeffs(XYZ_target, scene_illuminant=_JAKOB2019_SCENE_ILLUMIN
     return c
 
 
-def compute_jakob2019_reflectance_lut(lut_size=192, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT):
+def compute_jakob2019_reflectance_lut(
+    lut_size=192, scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT
+):
     """(S, S, 81) bounded reflectance per tc chromaticity, baked at unit brightness.
 
     The film-independent artifact shipped as `jakob2019_reflectance_xy_tc.npy`
@@ -746,8 +927,8 @@ def compute_jakob2019_reflectance_lut(lut_size=192, scene_illuminant=_JAKOB2019_
     reflectance. Stored as float16 to match the hanatos LUT footprint.
     """
     v = np.linspace(0, 1, lut_size)
-    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
-    xy = _quad2tri(tc)                                              # (S,S,2)
+    tc = np.stack(np.meshgrid(v, v, indexing="ij"), axis=-1)  # (S,S,2)
+    xy = _quad2tri(tc)  # (S,S,2)
     x, y = xy[..., 0], xy[..., 1]
     XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1)
     coeffs = solve_jakob2019_coeffs(XYZ_unit, scene_illuminant)
@@ -757,22 +938,42 @@ def compute_jakob2019_reflectance_lut(lut_size=192, scene_illuminant=_JAKOB2019_
 
 def get_jakob2019_reflectance_lut():
     """Back-compat wrapper -> get_lut_spectra('jakob2019')."""
-    return get_lut_spectra('jakob2019')
+    return get_lut_spectra("jakob2019")
 
 
-def compute_jakob2019_tc_lut(sensitivity, reference_illuminant,
-                             spectra_lut=None, gamut_compress=None):
+def compute_jakob2019_tc_lut(
+    sensitivity, reference_illuminant, spectra_lut=None, gamut_compress=None
+):
     """Back-compat wrapper -> compute_reflectance_tc_lut('jakob2019', ...)."""
-    return compute_reflectance_tc_lut('jakob2019', sensitivity, reference_illuminant,
-                                      spectra_lut=spectra_lut, gamut_compress=gamut_compress)
+    return compute_reflectance_tc_lut(
+        "jakob2019",
+        sensitivity,
+        reference_illuminant,
+        spectra_lut=spectra_lut,
+        gamut_compress=gamut_compress,
+    )
 
 
-def rgb_to_raw_jakob2019(rgb, sensitivity, color_space, apply_cctf_decoding,
-                         reference_illuminant, tc_lut=None,
-                         scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT):
+def rgb_to_raw_jakob2019(
+    rgb,
+    sensitivity,
+    color_space,
+    apply_cctf_decoding,
+    reference_illuminant,
+    tc_lut=None,
+    scene_illuminant=_JAKOB2019_SCENE_ILLUMINANT,
+):
     """Back-compat wrapper -> rgb_to_raw('jakob2019', ...)."""
-    return rgb_to_raw('jakob2019', rgb, sensitivity, color_space, apply_cctf_decoding,
-                      reference_illuminant, tc_lut=tc_lut, scene_illuminant=scene_illuminant)
+    return rgb_to_raw(
+        "jakob2019",
+        rgb,
+        sensitivity,
+        color_space,
+        apply_cctf_decoding,
+        reference_illuminant,
+        tc_lut=tc_lut,
+        scene_illuminant=scene_illuminant,
+    )
 
 
 ################################################################################
@@ -791,10 +992,12 @@ def rgb_to_raw_jakob2019(rgb, sensitivity, color_space, apply_cctf_decoding,
 # ~0.55 ms (vs jakob's ~31 ms), fast enough that no batched solver is needed.
 
 _OTSU2018_MIDGRAY = 0.184
-_OTSU2018_SCENE_ILLUMINANT = 'D65'
+_OTSU2018_SCENE_ILLUMINANT = "D65"
 
 
-def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SCENE_ILLUMINANT):
+def compute_otsu2018_reflectance_lut(
+    lut_size=192, scene_illuminant=_OTSU2018_SCENE_ILLUMINANT
+):
     """(S, S, 81) bounded reflectance per tc chromaticity, baked at unit brightness.
 
     The film-independent artifact shipped as `otsu2018_reflectance_xy_tc.npy`.
@@ -803,7 +1006,7 @@ def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SC
     bounded reflectance), aligned to SPECTRAL_SHAPE, stored float16.
     """
     v = np.linspace(0, 1, lut_size)
-    tc = np.stack(np.meshgrid(v, v, indexing='ij'), axis=-1)        # (S,S,2)
+    tc = np.stack(np.meshgrid(v, v, indexing="ij"), axis=-1)  # (S,S,2)
     xy = _quad2tri(tc)
     x, y = xy[..., 0], xy[..., 1]
     XYZ_unit = np.stack([x, y, np.clip(1.0 - x - y, 0.0, None)], axis=-1).reshape(-1, 3)
@@ -812,7 +1015,8 @@ def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SC
     reflectance = np.empty((XYZ_unit.shape[0], len(wl)))
     for i, xyz in enumerate(XYZ_unit):
         sd = colour.recovery.XYZ_to_sd_Otsu2018(
-            xyz, cmfs=STANDARD_OBSERVER_CMFS, illuminant=illuminant_sd, clip=True)
+            xyz, cmfs=STANDARD_OBSERVER_CMFS, illuminant=illuminant_sd, clip=True
+        )
         reflectance[i] = sd.align(SPECTRAL_SHAPE).values
     reflectance = reflectance.reshape(lut_size, lut_size, len(wl))
     # Otsu's clip=True bounds the recovery, but aligning its native (380,730,10)
@@ -825,26 +1029,46 @@ def compute_otsu2018_reflectance_lut(lut_size=192, scene_illuminant=_OTSU2018_SC
 
 def get_otsu2018_reflectance_lut():
     """Back-compat wrapper -> get_lut_spectra('otsu2018')."""
-    return get_lut_spectra('otsu2018')
+    return get_lut_spectra("otsu2018")
 
 
-def compute_otsu2018_tc_lut(sensitivity, reference_illuminant,
-                            spectra_lut=None, gamut_compress=None):
+def compute_otsu2018_tc_lut(
+    sensitivity, reference_illuminant, spectra_lut=None, gamut_compress=None
+):
     """Back-compat wrapper -> compute_reflectance_tc_lut('otsu2018', ...)."""
-    return compute_reflectance_tc_lut('otsu2018', sensitivity, reference_illuminant,
-                                      spectra_lut=spectra_lut, gamut_compress=gamut_compress)
+    return compute_reflectance_tc_lut(
+        "otsu2018",
+        sensitivity,
+        reference_illuminant,
+        spectra_lut=spectra_lut,
+        gamut_compress=gamut_compress,
+    )
 
 
-def rgb_to_raw_otsu2018(rgb, sensitivity, color_space, apply_cctf_decoding,
-                        reference_illuminant, tc_lut=None,
-                        scene_illuminant=_OTSU2018_SCENE_ILLUMINANT):
+def rgb_to_raw_otsu2018(
+    rgb,
+    sensitivity,
+    color_space,
+    apply_cctf_decoding,
+    reference_illuminant,
+    tc_lut=None,
+    scene_illuminant=_OTSU2018_SCENE_ILLUMINANT,
+):
     """Back-compat wrapper -> rgb_to_raw('otsu2018', ...)."""
-    return rgb_to_raw('otsu2018', rgb, sensitivity, color_space, apply_cctf_decoding,
-                      reference_illuminant, tc_lut=tc_lut, scene_illuminant=scene_illuminant)
+    return rgb_to_raw(
+        "otsu2018",
+        rgb,
+        sensitivity,
+        color_space,
+        apply_cctf_decoding,
+        reference_illuminant,
+        tc_lut=tc_lut,
+        scene_illuminant=scene_illuminant,
+    )
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     lut_coeffs = _load_coeffs_lut()
-    coeffs = _fetch_coeffs(np.array([[1,1]]) ,lut_coeffs)
+    coeffs = _fetch_coeffs(np.array([[1, 1]]), lut_coeffs)
     spectra = _compute_spectra_from_coeffs(coeffs)
     lut_spectra = compute_hanatos2025_lut_spectra(lut_size=128)

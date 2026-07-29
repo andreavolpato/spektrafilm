@@ -19,95 +19,111 @@ QWidget = QtWidgets.QWidget
 Qt = QtCore.Qt
 Signal = QtCore.Signal
 
+from spektrafilm_gui.options import RawWhiteBalance
 from spektrafilm_gui.params_manifest import (
     CROP_PANEL_FIELDS,
     DISPLAY_PANEL_FIELDS,
-    GroupManifest,
     INPUT_IMAGE_FIELDS,
     INPUT_PANEL_FIELDS,
-    ParamSpec,
     SIMULATION_ENLARGER_PANEL_FIELDS,
     SIMULATION_EXPOSURE_PANEL_FIELDS,
     SIMULATION_FIELDS,
     SIMULATION_OUTPUT_PANEL_FIELDS,
     SIMULATION_PROFILE_PANEL_FIELDS,
     SIMULATION_SPECIAL_BORROWED_FIELDS,
-    SPECTRAL_PANEL_FIELDS,
     SPECIAL_FIELDS,
+    SPECTRAL_PANEL_FIELDS,
+    GroupManifest,
+    ParamSpec,
 )
+from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.state import (
+    PROJECT_DEFAULT_GUI_STATE,
     DisplayState,
     InputImageState,
     LoadRawState,
-    PROJECT_DEFAULT_GUI_STATE,
     SelectionState,
     SimulationState,
     SpecialState,
     clone_state_section,
 )
-from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
-from spektrafilm_gui.options import RawWhiteBalance
-from spektrafilm_gui.widget_editors import BoolEditor, DevelopmentTimeEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, StrEditor
-from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
-
+from spektrafilm_gui.widget_editors import (
+    BoolEditor,
+    DevelopmentTimeEditor,
+    EnumEditor,
+    FloatEditor,
+    FloatTupleEditor,
+    IntEditor,
+    IntTupleEditor,
+    ProfileEnumEditor,
+    StrEditor,
+)
+from spektrafilm_gui.widget_primitives import (
+    CollapsibleSection,
+)
+from spektrafilm_gui.widget_primitives import (
+    normalize_ui_text as _normalize_ui_text,
+)
 
 LOAD_RAW_FIELDS = (
     ParamSpec(
-        'white_balance',
-        label='White balance',
+        "white_balance",
+        label="White balance",
         tooltip=(
-            'Leave at daylight (D65): it is the colorimetric reference the rest of '
-            'the pipeline assumes, and should not be changed. Do not use it to '
-            'neutralize a colour cast — fix white balance downstream with the '
-            'enlarger filters instead. (custom exposes temperature/tint for special cases.)'
+            "Leave at daylight (D65): it is the colorimetric reference the rest of "
+            "the pipeline assumes, and should not be changed. Do not use it to "
+            "neutralize a colour cast — fix white balance downstream with the "
+            "enlarger filters instead. (custom exposes temperature/tint for special cases.)"
         ),
         enum=RawWhiteBalance,
     ),
     ParamSpec(
-        'temperature',
-        label='Temperature',
-        tooltip='Temperature in Kelvin for the custom whitebalance, not used for the other white balance settings',
+        "temperature",
+        label="Temperature",
+        tooltip="Temperature in Kelvin for the custom whitebalance, not used for the other white balance settings",
         min=1000,
         step=100,
     ),
     ParamSpec(
-        'tint',
-        label='Tint',
-        tooltip='Tint value for the custom white balance, not used for the other white balance settings',
+        "tint",
+        label="Tint",
+        tooltip="Tint value for the custom white balance, not used for the other white balance settings",
         min=0,
         step=0.01,
     ),
-    ParamSpec('lens_correction', label='Lens correction', tooltip='Apply lens corrections'),
+    ParamSpec(
+        "lens_correction", label="Lens correction", tooltip="Apply lens corrections"
+    ),
 )
 
 _LOAD_RAW_FIELD_SPECS = {spec.leaf: spec for spec in LOAD_RAW_FIELDS}
 _SECTION_FIELD_SPECS = {
-    'load_raw': _LOAD_RAW_FIELD_SPECS,
-    'simulation': {spec.leaf: spec for spec in SIMULATION_FIELDS},
+    "load_raw": _LOAD_RAW_FIELD_SPECS,
+    "simulation": {spec.leaf: spec for spec in SIMULATION_FIELDS},
 }
 _AUXILIARY_FIELD_SPECS = {
-    'scan_for_print': ParamSpec(
-        'scan_for_print',
-        label='Black and white correction',
-        tooltip='White and black correction of the scanner are active, and glare is deactivated.',
+    "scan_for_print": ParamSpec(
+        "scan_for_print",
+        label="Black and white correction",
+        tooltip="White and black correction of the scanner are active, and glare is deactivated.",
     ),
 }
 _SIMULATION_ACTION_BUTTON_SPECS = {
-    'preview': {
-        'text': 'PREVIEW',
-        'tooltip': 'run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)',
-        'preserve_case': True,
+    "preview": {
+        "text": "PREVIEW",
+        "tooltip": "run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)",
+        "preserve_case": True,
     },
-    'scan': {
-        'text': 'SCAN',
-        'tooltip': 'Run the full simulation on the full-resolution input',
-        'preserve_case': True,
+    "scan": {
+        "text": "SCAN",
+        "tooltip": "Run the full simulation on the full-resolution input",
+        "preserve_case": True,
     },
-    'save': {
-        'text': 'SAVE',
-        'tooltip': 'Save the current output layer to an image file',
-        'preserve_case': True,
+    "save": {
+        "text": "SAVE",
+        "tooltip": "Save the current output layer to an image file",
+        "preserve_case": True,
     },
 }
 
@@ -173,7 +189,7 @@ def _build_button(
 ) -> QPushButton:
     button = QPushButton(text if preserve_case else _normalize_ui_text(text))
     if role is not None:
-        button.setProperty('role', role)
+        button.setProperty("role", role)
     if tooltip:
         button.setToolTip(tooltip)
     button.clicked.connect(callback)
@@ -198,7 +214,9 @@ def _build_auxiliary_label(name: str) -> QLabel:
     return label
 
 
-def _build_button_row(*widgets: QWidget, stretch: int | None = None, spacing: int = 6) -> QHBoxLayout:
+def _build_button_row(
+    *widgets: QWidget, stretch: int | None = None, spacing: int = 6
+) -> QHBoxLayout:
     row = QHBoxLayout()
     row.setContentsMargins(0, 0, 0, 0)
     row.setSpacing(spacing)
@@ -210,7 +228,9 @@ def _build_button_row(*widgets: QWidget, stretch: int | None = None, spacing: in
     return row
 
 
-def _build_vertical_container(*items: QHBoxLayout | QFormLayout | QWidget, spacing: int = 6) -> QWidget:
+def _build_vertical_container(
+    *items: QHBoxLayout | QFormLayout | QWidget, spacing: int = 6
+) -> QWidget:
     container = QWidget()
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
@@ -224,11 +244,15 @@ def _build_vertical_container(*items: QHBoxLayout | QFormLayout | QWidget, spaci
     return container
 
 
-def _set_single_collapsible_layout(widget: QWidget, title: str, content: QWidget, *, expanded: bool = True) -> None:
+def _set_single_collapsible_layout(
+    widget: QWidget, title: str, content: QWidget, *, expanded: bool = True
+) -> None:
     root = QVBoxLayout()
     root.setContentsMargins(0, 0, 0, 0)
     root.setSpacing(0)
-    root.addWidget(CollapsibleSection(_normalize_ui_text(title), content, expanded=expanded))
+    root.addWidget(
+        CollapsibleSection(_normalize_ui_text(title), content, expanded=expanded)
+    )
     widget.setLayout(root)
 
 
@@ -241,7 +265,7 @@ def _apply_numeric_attr(widget: QWidget, method_name: str, value: float | int) -
     if callable(method):
         method(value)
         return
-    editors = getattr(widget, '_editors', None)
+    editors = getattr(widget, "_editors", None)
     if editors is not None:
         for editor in editors:
             getattr(editor, method_name)(value)
@@ -254,12 +278,12 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     sections so the type -> editor mapping lives in one place.
     """
     decimals = 2 if spec.decimals is None else spec.decimals
-    if spec.leaf == 'development_time':
+    if spec.leaf == "development_time":
         # Stock-dependent choices, so the dropdown starts empty (None only) and
         # the controller repopulates it on profile change.
         return DevelopmentTimeEditor()
     if spec.enum is not None:
-        if spec.leaf in {'film_stock', 'print_paper'}:
+        if spec.leaf in {"film_stock", "print_paper"}:
             editor = ProfileEnumEditor([member.value for member in spec.enum])
         else:
             editor = EnumEditor([member.value for member in spec.enum])
@@ -280,11 +304,11 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     else:
         raise TypeError(f"Unsupported field type for {label}: {annotation!r}")
     if spec.min is not None:
-        _apply_numeric_attr(editor, 'setMinimum', spec.min)
+        _apply_numeric_attr(editor, "setMinimum", spec.min)
     if spec.max is not None:
-        _apply_numeric_attr(editor, 'setMaximum', spec.max)
+        _apply_numeric_attr(editor, "setMaximum", spec.max)
     if spec.step is not None:
-        _apply_numeric_attr(editor, 'setSingleStep', spec.step)
+        _apply_numeric_attr(editor, "setSingleStep", spec.step)
     return editor
 
 
@@ -292,7 +316,7 @@ def _path_annotation(root_cls: type, path: str) -> Any:
     """Resolve the type annotation of a dotted path on a dataclass tree."""
     cls = root_cls
     annotation: Any = root_cls
-    for part in path.split('.'):
+    for part in path.split("."):
         annotation = get_type_hints(cls)[part]
         cls = annotation
     return annotation
@@ -300,13 +324,13 @@ def _path_annotation(root_cls: type, path: str) -> Any:
 
 def _read_path(root: Any, path: str) -> Any:
     obj = root
-    for part in path.split('.'):
+    for part in path.split("."):
         obj = getattr(obj, part)
     return obj
 
 
 def _write_path(root: Any, path: str, value: Any) -> None:
-    parts = path.split('.')
+    parts = path.split(".")
     obj = root
     for part in parts[:-1]:
         obj = getattr(obj, part)
@@ -342,7 +366,7 @@ class InputImageSection(QWidget):
 
     _is_params_group = True
 
-    def __init__(self, filepicker_section: 'FilePickerSection'):
+    def __init__(self, filepicker_section: FilePickerSection):
         super().__init__()
         self._filepicker_section = filepicker_section
         self._source: InputImageState | None = None
@@ -350,11 +374,17 @@ class InputImageSection(QWidget):
         self._editors: dict[str, QWidget] = {}
         for spec in INPUT_IMAGE_FIELDS:
             editor = _editor_from_param_spec(
-                _path_annotation(InputImageState, spec.path), spec, label=spec.path,
+                _path_annotation(InputImageState, spec.path),
+                spec,
+                label=spec.path,
             )
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
-        self.setLayout(_build_path_panel('Input', INPUT_PANEL_FIELDS, self._editors, expanded=False))
+        self.setLayout(
+            _build_path_panel(
+                "Input", INPUT_PANEL_FIELDS, self._editors, expanded=False
+            )
+        )
 
     def set_state(self, state: InputImageState) -> None:
         self._source = state
@@ -362,7 +392,11 @@ class InputImageSection(QWidget):
             self._editors[spec.leaf].value = _read_path(state, spec.path)
 
     def get_state(self) -> InputImageState:
-        state = clone_state_section(self._source) if self._source is not None else InputImageState()
+        state = (
+            clone_state_section(self._source)
+            if self._source is not None
+            else InputImageState()
+        )
         for spec in self._specs.values():
             _write_path(state, spec.path, self._editors[spec.leaf].value)
         return state
@@ -370,8 +404,8 @@ class InputImageSection(QWidget):
 
 class LoadRawSection(QWidget):
     load_requested = Signal(str)
-    SECTION_NAME = 'load_raw'
-    TITLE = 'Import Raw'
+    SECTION_NAME = "load_raw"
+    TITLE = "Import Raw"
     _TYPE_HINTS = get_type_hints(LoadRawState)
     _STATE_FIELD_NAMES = tuple(_TYPE_HINTS)
 
@@ -380,36 +414,53 @@ class LoadRawSection(QWidget):
         self._source: LoadRawState | None = None
         self.file_path = QLineEdit()
         self.file_path.setReadOnly(True)
-        self.file_path.setPlaceholderText(_normalize_ui_text('No raw selected'))
-        self.reprocess_button = _build_button('reprocess raw', self._reprocess_raw, role='compactAction')
+        self.file_path.setPlaceholderText(_normalize_ui_text("No raw selected"))
+        self.reprocess_button = _build_button(
+            "reprocess raw", self._reprocess_raw, role="compactAction"
+        )
         self.reprocess_button.setEnabled(False)
         self._build_ui()
 
     def _build_ui(self) -> None:
         for field_name in self._STATE_FIELD_NAMES:
             spec = _LOAD_RAW_FIELD_SPECS[field_name]
-            editor = _editor_from_param_spec(self._TYPE_HINTS[field_name], spec, label=f'{self.SECTION_NAME}.{field_name}')
+            editor = _editor_from_param_spec(
+                self._TYPE_HINTS[field_name],
+                spec,
+                label=f"{self.SECTION_NAME}.{field_name}",
+            )
             setattr(self, field_name, editor)
 
         form = _new_form_layout()
         browse_button = _build_button(
-            'Select file',
+            "Select file",
             self._choose_file,
-            tooltip='Load and process a raw file using rawpy, output colorspace and cctf as defined in current input widget state',
-            role='compactAction',
+            tooltip="Load and process a raw file using rawpy, output colorspace and cctf as defined in current input widget state",
+            role="compactAction",
         )
-        form.addRow(_build_vertical_container(_build_button_row(self.file_path, browse_button, spacing=4), spacing=0))
+        form.addRow(
+            _build_vertical_container(
+                _build_button_row(self.file_path, browse_button, spacing=4), spacing=0
+            )
+        )
         for field_name in self._STATE_FIELD_NAMES:
-            form.addRow(_build_widget_label(self.SECTION_NAME, field_name), getattr(self, field_name))
+            form.addRow(
+                _build_widget_label(self.SECTION_NAME, field_name),
+                getattr(self, field_name),
+            )
         form.addRow(self.reprocess_button)
 
-        self.setLayout(_build_collapsible_form_section(self.TITLE, form, expanded=False))
+        self.setLayout(
+            _build_collapsible_form_section(self.TITLE, form, expanded=False)
+        )
 
     def _choose_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input raw'), load_dialog_dir('raw_input'))
+        path, _ = QFileDialog.getOpenFileName(
+            self, _normalize_ui_text("Select input raw"), load_dialog_dir("raw_input")
+        )
         if not path:
             return
-        save_dialog_dir('raw_input', str(Path(path).parent))
+        save_dialog_dir("raw_input", str(Path(path).parent))
         self.set_path(path)
         self.load_requested.emit(path)
 
@@ -425,7 +476,11 @@ class LoadRawSection(QWidget):
             getattr(self, field_name).value = getattr(state, field_name)
 
     def get_state(self) -> LoadRawState:
-        state = clone_state_section(self._source) if self._source is not None else clone_state_section(PROJECT_DEFAULT_GUI_STATE.gui_only.load_raw)
+        state = (
+            clone_state_section(self._source)
+            if self._source is not None
+            else clone_state_section(PROJECT_DEFAULT_GUI_STATE.gui_only.load_raw)
+        )
         for field_name in self._STATE_FIELD_NAMES:
             setattr(state, field_name, getattr(self, field_name).value)
         return state
@@ -439,7 +494,12 @@ class PreviewCropSection(QWidget):
     def __init__(self, input_image_section: InputImageSection):
         super().__init__()
         self.setLayout(
-            _build_path_panel('Crop and upscale', CROP_PANEL_FIELDS, input_image_section._editors, expanded=False),
+            _build_path_panel(
+                "Crop and upscale",
+                CROP_PANEL_FIELDS,
+                input_image_section._editors,
+                expanded=False,
+            ),
         )
 
 
@@ -501,7 +561,11 @@ class ParamsGroupSection(QWidget):
         root = QVBoxLayout()
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(
-            CollapsibleSection(self._manifest.title, content, expanded=not self._manifest.collapsed_by_default),
+            CollapsibleSection(
+                self._manifest.title,
+                content,
+                expanded=not self._manifest.collapsed_by_default,
+            ),
         )
         self.setLayout(root)
 
@@ -522,7 +586,9 @@ class ParamsGroupSection(QWidget):
         collapsible per :class:`SubSection`. Subsections reference fields by leaf
         name; anything not grouped renders loose at the top (e.g. ``active``)."""
         by_leaf = {spec.leaf: spec for spec in panel_specs}
-        grouped = {name for sub in self._manifest.subsections for name in sub.field_names}
+        grouped = {
+            name for sub in self._manifest.subsections for name in sub.field_names
+        }
 
         container = QWidget()
         vbox = QVBoxLayout(container)
@@ -539,13 +605,18 @@ class ParamsGroupSection(QWidget):
             specs = [by_leaf[name] for name in sub.field_names if name in by_leaf]
             sub_content = QWidget()
             sub_content.setLayout(self._build_form(specs))
-            vbox.addWidget(CollapsibleSection(
-                sub.title, sub_content, expanded=sub.expanded, variant='subsection'))
+            vbox.addWidget(
+                CollapsibleSection(
+                    sub.title, sub_content, expanded=sub.expanded, variant="subsection"
+                )
+            )
         return container
 
     def _build_editor(self, spec: ParamSpec) -> QWidget:
         annotation = self._type_hints[spec.leaf]
-        return _editor_from_param_spec(annotation, spec, label=f"{self._group_cls.__name__}.{spec.leaf}")
+        return _editor_from_param_spec(
+            annotation, spec, label=f"{self._group_cls.__name__}.{spec.leaf}"
+        )
 
     def _build_actions(self) -> QWidget:
         bar = QWidget()
@@ -556,7 +627,10 @@ class ParamsGroupSection(QWidget):
             if action.tooltip:
                 button.setToolTip(action.tooltip)
             button.clicked.connect(
-                lambda _checked=False, aid=action.action_id: self.action_triggered.emit(aid))
+                lambda _checked=False, aid=action.action_id: self.action_triggered.emit(
+                    aid
+                )
+            )
             layout.addWidget(button)
         layout.addStretch(1)
         return bar
@@ -579,7 +653,7 @@ class ParamsGroupSection(QWidget):
     def set_development_time_choices(self, times: Any) -> None:
         """Repopulate the development-time dropdown (if this group has one) with
         the loaded stock's available development times. No-op otherwise."""
-        editor = self._editors.get('development_time')
+        editor = self._editors.get("development_time")
         if isinstance(editor, DevelopmentTimeEditor):
             editor.set_choices(None if times is None else [float(t) for t in times])
 
@@ -587,7 +661,7 @@ class ParamsGroupSection(QWidget):
 class SpecialSection(QWidget):
     _is_params_group = True
 
-    def __init__(self, simulation_section: 'SimulationSection'):
+    def __init__(self, simulation_section: SimulationSection):
         super().__init__()
         self._simulation_section = simulation_section
         self._source: SpecialState | None = None
@@ -595,12 +669,16 @@ class SpecialSection(QWidget):
         self._editors: dict[str, QWidget] = {}
         form = _new_form_layout()
         borrowed = SIMULATION_SPECIAL_BORROWED_FIELDS[0]
-        borrowed_label = QLabel(_normalize_ui_text(borrowed.label or _format_label(borrowed.leaf)))
+        borrowed_label = QLabel(
+            _normalize_ui_text(borrowed.label or _format_label(borrowed.leaf))
+        )
         if borrowed.tooltip:
             borrowed_label.setToolTip(borrowed.tooltip)
         form.addRow(borrowed_label, simulation_section.print_illuminant)
         for spec in SPECIAL_FIELDS:
-            editor = _editor_from_param_spec(_path_annotation(SpecialState, spec.path), spec, label=spec.path)
+            editor = _editor_from_param_spec(
+                _path_annotation(SpecialState, spec.path), spec, label=spec.path
+            )
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
@@ -608,7 +686,9 @@ class SpecialSection(QWidget):
                 label.setToolTip(spec.tooltip)
                 editor.setToolTip(spec.tooltip)
             form.addRow(label, editor)
-        self.setLayout(_build_collapsible_form_section('Experimental', form, expanded=False))
+        self.setLayout(
+            _build_collapsible_form_section("Experimental", form, expanded=False)
+        )
 
     def set_state(self, state: SpecialState) -> None:
         self._source = state
@@ -616,9 +696,13 @@ class SpecialSection(QWidget):
             self._editors[spec.leaf].value = _read_path(state, spec.path)
 
     def get_state(self) -> SpecialState:
-        state = clone_state_section(self._source) if self._source is not None else SpecialState(
-            film_channel_swap=(0, 1, 2),
-            print_channel_swap=(0, 1, 2),
+        state = (
+            clone_state_section(self._source)
+            if self._source is not None
+            else SpecialState(
+                film_channel_swap=(0, 1, 2),
+                print_channel_swap=(0, 1, 2),
+            )
         )
         for spec in self._specs.values():
             _write_path(state, spec.path, self._editors[spec.leaf].value)
@@ -629,7 +713,12 @@ class SpectralUpsamplingSection(QWidget):
     def __init__(self, input_image_section: InputImageSection):
         super().__init__()
         self.setLayout(
-            _build_path_panel('Spectral upsampling', SPECTRAL_PANEL_FIELDS, input_image_section._editors, expanded=False),
+            _build_path_panel(
+                "Spectral upsampling",
+                SPECTRAL_PANEL_FIELDS,
+                input_image_section._editors,
+                expanded=False,
+            ),
         )
 
 
@@ -643,17 +732,23 @@ class FilePickerSection(QWidget):
     def _build_ui(self) -> None:
         self.file_path = QLineEdit()
         self.file_path.setReadOnly(True)
-        self.file_path.setPlaceholderText(_normalize_ui_text('No image selected'))
+        self.file_path.setPlaceholderText(_normalize_ui_text("No image selected"))
 
-        browse_button = _build_button('Select file', self._choose_file, role='compactAction')
-        content = _build_vertical_container(_build_button_row(self.file_path, browse_button, spacing=4), spacing=6)
-        _set_single_collapsible_layout(self, 'Import RGB', content, expanded=False)
+        browse_button = _build_button(
+            "Select file", self._choose_file, role="compactAction"
+        )
+        content = _build_vertical_container(
+            _build_button_row(self.file_path, browse_button, spacing=4), spacing=6
+        )
+        _set_single_collapsible_layout(self, "Import RGB", content, expanded=False)
 
     def _choose_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, _normalize_ui_text('Select input image'), load_dialog_dir('rgb_input'))
+        path, _ = QFileDialog.getOpenFileName(
+            self, _normalize_ui_text("Select input image"), load_dialog_dir("rgb_input")
+        )
         if not path:
             return
-        save_dialog_dir('rgb_input', str(Path(path).parent))
+        save_dialog_dir("rgb_input", str(Path(path).parent))
         self.file_path.setText(path)
         self.load_requested.emit(path)
 
@@ -673,29 +768,35 @@ class GuiConfigSection(QWidget):
 
     def _build_ui(self) -> None:
         self.save_current_as_default_button = _build_button(
-            'Save current as default',
+            "Save current as default",
             self.save_current_as_default_requested.emit,
         )
         self.save_current_to_file_button = _build_button(
-            'Save current to file',
+            "Save current to file",
             self.save_current_to_file_requested.emit,
         )
-        self.load_from_file_button = _build_button('Load from file', self.load_from_file_requested.emit)
+        self.load_from_file_button = _build_button(
+            "Load from file", self.load_from_file_requested.emit
+        )
         self.restore_factory_default_button = _build_button(
-            'Restore factory default',
+            "Restore factory default",
             self.restore_factory_default_requested.emit,
         )
 
         content = _build_vertical_container(
-            _build_button_row(self.save_current_as_default_button, self.save_current_to_file_button),
-            _build_button_row(self.load_from_file_button, self.restore_factory_default_button),
+            _build_button_row(
+                self.save_current_as_default_button, self.save_current_to_file_button
+            ),
+            _build_button_row(
+                self.load_from_file_button, self.restore_factory_default_button
+            ),
         )
-        _set_single_collapsible_layout(self, 'GUI parameters', content, expanded=True)
+        _set_single_collapsible_layout(self, "GUI parameters", content, expanded=True)
 
 
 class DisplaySection(QWidget):
     _is_params_group = True
-    _skip_auto_preview_leaves = {'preview_max_size', 'output_interpolation'}
+    _skip_auto_preview_leaves = {"preview_max_size", "output_interpolation"}
     update_preview_requested = Signal()
 
     def __init__(self):
@@ -704,15 +805,17 @@ class DisplaySection(QWidget):
         self._specs = {spec.leaf: spec for spec in DISPLAY_PANEL_FIELDS}
         self._editors: dict[str, QWidget] = {}
         self.update_preview_button = _build_button(
-            'update',
+            "update",
             self.update_preview_requested.emit,
             preserve_case=True,
-            role='compactAction',
+            role="compactAction",
         )
         self.update_preview_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         form = _new_form_layout()
         for spec in DISPLAY_PANEL_FIELDS:
-            editor = _editor_from_param_spec(_path_annotation(DisplayState, spec.path), spec, label=spec.path)
+            editor = _editor_from_param_spec(
+                _path_annotation(DisplayState, spec.path), spec, label=spec.path
+            )
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
@@ -720,10 +823,13 @@ class DisplaySection(QWidget):
                 label.setToolTip(spec.tooltip)
                 editor.setToolTip(spec.tooltip)
             widget: QWidget = editor
-            if spec.leaf == 'preview_max_size':
-                widget = _build_vertical_container(_build_button_row(editor, self.update_preview_button, spacing=4), spacing=0)
+            if spec.leaf == "preview_max_size":
+                widget = _build_vertical_container(
+                    _build_button_row(editor, self.update_preview_button, spacing=4),
+                    spacing=0,
+                )
             form.addRow(label, widget)
-        self.setLayout(_build_collapsible_form_section('Display', form, expanded=True))
+        self.setLayout(_build_collapsible_form_section("Display", form, expanded=True))
 
     def set_state(self, state: DisplayState) -> None:
         self._source = state
@@ -731,11 +837,15 @@ class DisplaySection(QWidget):
             self._editors[spec.leaf].value = _read_path(state, spec.path)
 
     def get_state(self) -> DisplayState:
-        state = clone_state_section(self._source) if self._source is not None else DisplayState(
-            use_display_transform=True,
-            gray_18_canvas=True,
-            white_padding=0.03,
-            output_interpolation='spline36',
+        state = (
+            clone_state_section(self._source)
+            if self._source is not None
+            else DisplayState(
+                use_display_transform=True,
+                gray_18_canvas=True,
+                white_padding=0.03,
+                output_interpolation="spline36",
+            )
         )
         for spec in self._specs.values():
             _write_path(state, spec.path, self._editors[spec.leaf].value)
@@ -744,12 +854,12 @@ class DisplaySection(QWidget):
 
 class SimulationSection(QWidget):
     _is_params_group = True
-    _skip_auto_preview_leaves = {'auto_preview'}
+    _skip_auto_preview_leaves = {"auto_preview"}
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
-    _glare_section: 'ParamsGroupSection | None'
-    _scanner_section: 'ParamsGroupSection | None'
+    _glare_section: ParamsGroupSection | None
+    _scanner_section: ParamsGroupSection | None
     _scan_for_print_restore_state: dict[str, object] | None
 
     def __init__(self):
@@ -761,55 +871,57 @@ class SimulationSection(QWidget):
         self._scanner_section = None
         self._scan_for_print_restore_state = None
         for spec in SIMULATION_FIELDS:
-            editor = _editor_from_param_spec(_path_annotation(SimulationState, spec.path), spec, label=spec.path)
+            editor = _editor_from_param_spec(
+                _path_annotation(SimulationState, spec.path), spec, label=spec.path
+            )
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
         self.bottom_auto_preview = self.auto_preview
         self.bottom_workflow = self.route
         self.bottom_scan_for_print = BoolEditor()
-        scan_for_print_spec = _AUXILIARY_FIELD_SPECS['scan_for_print']
+        scan_for_print_spec = _AUXILIARY_FIELD_SPECS["scan_for_print"]
         if scan_for_print_spec.tooltip:
             self.bottom_scan_for_print.setToolTip(scan_for_print_spec.tooltip)
         self.bottom_scan_for_print.toggled.connect(self._apply_scan_for_print_mode)
-        preview_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['preview']
+        preview_button_spec = _SIMULATION_ACTION_BUTTON_SPECS["preview"]
         self.preview_button = _build_button(
-            preview_button_spec['text'],
+            preview_button_spec["text"],
             self.preview_requested.emit,
-            tooltip=preview_button_spec['tooltip'],
-            preserve_case=preview_button_spec['preserve_case'],
-            role='accentAction',
+            tooltip=preview_button_spec["tooltip"],
+            preserve_case=preview_button_spec["preserve_case"],
+            role="accentAction",
         )
-        scan_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['scan']
+        scan_button_spec = _SIMULATION_ACTION_BUTTON_SPECS["scan"]
         self.scan_button = _build_button(
-            scan_button_spec['text'],
+            scan_button_spec["text"],
             self.scan_requested.emit,
-            tooltip=scan_button_spec['tooltip'],
-            preserve_case=scan_button_spec['preserve_case'],
-            role='accentAction',
+            tooltip=scan_button_spec["tooltip"],
+            preserve_case=scan_button_spec["preserve_case"],
+            role="accentAction",
         )
-        save_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['save']
+        save_button_spec = _SIMULATION_ACTION_BUTTON_SPECS["save"]
         self.save_button = _build_button(
-            save_button_spec['text'],
+            save_button_spec["text"],
             self.save_requested.emit,
-            tooltip=save_button_spec['tooltip'],
-            preserve_case=save_button_spec['preserve_case'],
-            role='accentAction',
+            tooltip=save_button_spec["tooltip"],
+            preserve_case=save_button_spec["preserve_case"],
+            role="accentAction",
         )
 
         toggles_row = QHBoxLayout()
         toggles_row.setContentsMargins(0, 0, 0, 0)
         toggles_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        toggles_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
+        toggles_row.addWidget(_build_widget_label("simulation", "auto_preview"))
         toggles_row.addWidget(self.bottom_auto_preview)
         toggles_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
-        toggles_row.addWidget(_build_auxiliary_label('scan_for_print'))
+        toggles_row.addWidget(_build_auxiliary_label("scan_for_print"))
         toggles_row.addWidget(self.bottom_scan_for_print)
         toggles_row.addStretch(1)
 
         workflow_row = QHBoxLayout()
         workflow_row.setContentsMargins(0, 0, 0, 0)
         workflow_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        workflow_row.addWidget(_build_widget_label('simulation', 'route'))
+        workflow_row.addWidget(_build_widget_label("simulation", "route"))
         workflow_row.addWidget(self.bottom_workflow, 1)
 
         action_buttons = QWidget()
@@ -830,7 +942,14 @@ class SimulationSection(QWidget):
         bottom_bar_layout.addLayout(toggles_row)
         bottom_bar_layout.addLayout(workflow_row)
         bottom_bar_layout.addWidget(action_buttons)
-        self.setLayout(_build_path_panel('Profiles', SIMULATION_PROFILE_PANEL_FIELDS, self._editors, expanded=True))
+        self.setLayout(
+            _build_path_panel(
+                "Profiles",
+                SIMULATION_PROFILE_PANEL_FIELDS,
+                self._editors,
+                expanded=True,
+            )
+        )
 
     def set_state(self, state: SimulationState) -> None:
         self._source = state
@@ -838,8 +957,12 @@ class SimulationSection(QWidget):
             self._editors[spec.leaf].value = _read_path(state, spec.path)
 
     def get_state(self) -> SimulationState:
-        state = clone_state_section(self._source) if self._source is not None else SimulationState(
-            selection=SelectionState(film_stock='', print_paper=''),
+        state = (
+            clone_state_section(self._source)
+            if self._source is not None
+            else SimulationState(
+                selection=SelectionState(film_stock="", print_paper=""),
+            )
         )
         for spec in self._specs.values():
             _write_path(state, spec.path, self._editors[spec.leaf].value)
@@ -857,8 +980,8 @@ class SimulationSection(QWidget):
     def bind_scan_for_print_sections(
         self,
         *,
-        glare: 'ParamsGroupSection',
-        scanner: 'ParamsGroupSection',
+        glare: ParamsGroupSection,
+        scanner: ParamsGroupSection,
     ) -> None:
         self._glare_section = glare
         self._scanner_section = scanner
@@ -876,9 +999,11 @@ class SimulationSection(QWidget):
         if active:
             if self._scan_for_print_restore_state is None:
                 self._scan_for_print_restore_state = {
-                    'white_correction': scanner.white_correction.value,
-                    'black_correction': scanner.black_correction.value,
-                    'glare_active': None if self._glare_section is None else self._glare_section.active.value,
+                    "white_correction": scanner.white_correction.value,
+                    "black_correction": scanner.black_correction.value,
+                    "glare_active": None
+                    if self._glare_section is None
+                    else self._glare_section.active.value,
                 }
             scanner.white_correction.value = True
             scanner.black_correction.value = True
@@ -889,9 +1014,9 @@ class SimulationSection(QWidget):
         restore_state = self._scan_for_print_restore_state
         if restore_state is None:
             return
-        scanner.white_correction.value = restore_state['white_correction']
-        scanner.black_correction.value = restore_state['black_correction']
-        glare_active = restore_state['glare_active']
+        scanner.white_correction.value = restore_state["white_correction"]
+        scanner.black_correction.value = restore_state["black_correction"]
+        glare_active = restore_state["glare_active"]
         if self._glare_section is not None and glare_active is not None:
             self._glare_section.active.value = glare_active
         self._scan_for_print_restore_state = None
@@ -901,7 +1026,12 @@ class OutputSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
         self.setLayout(
-            _build_path_panel('Output', SIMULATION_OUTPUT_PANEL_FIELDS, simulation_section._editors, expanded=False),
+            _build_path_panel(
+                "Output",
+                SIMULATION_OUTPUT_PANEL_FIELDS,
+                simulation_section._editors,
+                expanded=False,
+            ),
         )
 
 
@@ -913,5 +1043,7 @@ class EnlargerSection(QWidget):
         # shifts.
         fields = SIMULATION_EXPOSURE_PANEL_FIELDS + SIMULATION_ENLARGER_PANEL_FIELDS
         self.setLayout(
-            _build_path_panel('Enlarger', fields, simulation_section._editors, expanded=True),
+            _build_path_panel(
+                "Enlarger", fields, simulation_section._editors, expanded=True
+            ),
         )

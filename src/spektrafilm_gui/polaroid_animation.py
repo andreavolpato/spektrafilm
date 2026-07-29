@@ -17,6 +17,7 @@ ANTI_LATENT_RGB = np.array([0.04, 0.02, 0.06], dtype=np.float32)
 WARM_FLASH_RGB = np.array([0.02, 0.08, 0.19], dtype=np.float32)
 STAIN_RGB = np.array([0.03, 0.06, 0.11], dtype=np.float32)
 
+
 @dataclass(slots=True)
 class PolaroidState:
     layer_stack: np.ndarray
@@ -82,7 +83,9 @@ def build_layer_stack(img):
     chroma_latent = normalize_per_channel(chroma)
     neutral_latent = neutral / (neutral.max() + EPSILON)
 
-    shadow = np.clip(np.sum(density * SHADOW_RGB, axis=2, keepdims=True), 0.0, 1.75) / 1.75
+    shadow = (
+        np.clip(np.sum(density * SHADOW_RGB, axis=2, keepdims=True), 0.0, 1.75) / 1.75
+    )
     highlight = 1.0 - shadow
     chroma_strength = chroma_latent.max(axis=2, keepdims=True)
     warmth = np.clip(
@@ -165,7 +168,11 @@ def density_to_rgb(density):
 
 
 def render_polaroid_frame(img_or_state, t):
-    state = img_or_state if isinstance(img_or_state, PolaroidState) else prepare_polaroid_state(img_or_state)
+    state = (
+        img_or_state
+        if isinstance(img_or_state, PolaroidState)
+        else prepare_polaroid_state(img_or_state)
+    )
     density = mix_layers(state.layer_stack, layer_coefficients(t))
     return density_to_rgb(density)
 
@@ -178,7 +185,7 @@ if __name__ == "__main__":
     from scipy import ndimage
 
     DEMO_IMAGE_PATH = Path("img/readme/banner.png")
-    
+
     def show_polaroid_animation(img, frames=60, interval=16):
         state = prepare_polaroid_state(img)
         frame_times = np.linspace(0.0, 1.0, num=max(frames, 1), dtype=np.float32)
@@ -191,11 +198,11 @@ if __name__ == "__main__":
             artist.set_data(render_polaroid_frame(state, float(t)))
             return (artist,)
 
-        animation = FuncAnimation(fig, update, frames=frame_times, interval=interval, blit=True)
+        animation = FuncAnimation(
+            fig, update, frames=frame_times, interval=interval, blit=True
+        )
         plt.show()
         return animation
-
-
 
     def _resize_image_nearest(img, target_width, target_height):
         zoom_factors = (target_height / img.shape[0], target_width / img.shape[1], 1)
@@ -203,8 +210,9 @@ if __name__ == "__main__":
 
     def load_demo_image(path=DEMO_IMAGE_PATH, target_width=768, target_height=512):
         demo_img = plt.imread(path)
-        return _resize_image_nearest(demo_img, target_width=target_width, target_height=target_height)
-
+        return _resize_image_nearest(
+            demo_img, target_width=target_width, target_height=target_height
+        )
 
     def main():
         show_polaroid_animation(load_demo_image())

@@ -43,15 +43,14 @@ Properties preserved by construction:
     - Identity at all defaults is bit-exact
 """
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.optimize import brentq as _brentq
 
-from spektrafilm.model.density_curves import _layer_cdf_values
 from spektrafilm.data.profiles_loader import DensityCurvesModel
-
+from spektrafilm.model.density_curves import _layer_cdf_values
 
 __all__ = [
     "PrintChemistryParams",
@@ -117,7 +116,7 @@ def _gumbel_matched_cdf(z):
     return np.exp(-np.exp(-(z / _GUMBEL_WIDTH + _GUMBEL_LOCATION)))
 
 
-def _layer_cdf(z, profile_type, model_type='norm_cdfs', alpha=0.0, gumbel_mix=0.0):
+def _layer_cdf(z, profile_type, model_type="norm_cdfs", alpha=0.0, gumbel_mix=0.0):
     zs = _signed_z(z, profile_type)
     cdf = _layer_cdf_values(zs, model_type, alpha)
     if gumbel_mix > 0.0:
@@ -131,7 +130,7 @@ def _evaluate_channel_density(
     amplitudes_c,
     sigmas_c,
     profile_type,
-    model_type='norm_cdfs',
+    model_type="norm_cdfs",
     alphas_c=None,
     gumbel_mix_per_layer=None,
 ):
@@ -148,7 +147,12 @@ def _evaluate_channel_density(
     for i in range(centers_c.size):
         z = (x - centers_c[i]) / sigmas_c[i]
         total += amplitudes_c[i] * _layer_cdf(
-            z, profile_type, model_type, float(alphas_c[i]), float(gumbel_mix_per_layer[i]))
+            z,
+            profile_type,
+            model_type,
+            float(alphas_c[i]),
+            float(gumbel_mix_per_layer[i]),
+        )
     return total
 
 
@@ -198,7 +202,7 @@ def _developer_exhaustion_center_offset(
     sigmas_c,
     profile_type,
     gumbel_mix_per_layer,
-    model_type='norm_cdfs',
+    model_type="norm_cdfs",
     alphas_c=None,
 ):
     if np.allclose(gumbel_mix_per_layer, 0.0):
@@ -259,8 +263,11 @@ def _morph_channel_params(density_curves_model, params, channel_idx, profile_typ
     sigmas_c = np.asarray(model.sigmas[channel_idx], dtype=float).copy()
     # The skew alpha is a pure shape parameter, invariant under the gamma
     # (scale) morph, so it passes through unchanged.
-    alphas_c = (None if model.alphas is None
-                else np.asarray(model.alphas[channel_idx], dtype=float).copy())
+    alphas_c = (
+        None
+        if model.alphas is None
+        else np.asarray(model.alphas[channel_idx], dtype=float).copy()
+    )
 
     i_fast, i_mid, i_slow = _speed_layer_indices(centers_c)
 
@@ -283,7 +290,9 @@ def _morph_channel_params(density_curves_model, params, channel_idx, profile_typ
     sigmas_c[i_slow] = max(sigmas_c[i_slow] / g_slow, SIGMA_FLOOR)
     centers_c[i_slow] = centers_c[i_slow] / g_slow
 
-    gumbel_mix_per_layer = np.full(centers_c.size, float(params.developer_exhaustion), dtype=float)
+    gumbel_mix_per_layer = np.full(
+        centers_c.size, float(params.developer_exhaustion), dtype=float
+    )
     centers_c = centers_c + _developer_exhaustion_center_offset(
         centers_c,
         amplitudes_c,
@@ -303,7 +312,7 @@ def _evaluate_channel_layers(
     amplitudes_c,
     sigmas_c,
     profile_type,
-    model_type='norm_cdfs',
+    model_type="norm_cdfs",
     alphas_c=None,
     gumbel_mix_per_layer=None,
 ):
@@ -323,7 +332,12 @@ def _evaluate_channel_layers(
     for i in range(n_layers):
         z = (x - centers_c[i]) / sigmas_c[i]
         out[:, i] = amplitudes_c[i] * _layer_cdf(
-            z, profile_type, model_type, float(alphas_c[i]), float(gumbel_mix_per_layer[i]))
+            z,
+            profile_type,
+            model_type,
+            float(alphas_c[i]),
+            float(gumbel_mix_per_layer[i]),
+        )
     return out
 
 
@@ -354,7 +368,9 @@ def apply_print_curves_morph(
 ):
     """Apply the s023 coupled gamma morph from explicit print-curve inputs."""
     if not morph_params.active:
-        return _evaluate_fitted_density(log_exposure, density_curves_model, profile_type)
+        return _evaluate_fitted_density(
+            log_exposure, density_curves_model, profile_type
+        )
 
     model = density_curves_model
     if model.n_layers == 0:
@@ -367,11 +383,13 @@ def apply_print_curves_morph(
     morphed = np.empty((log_exposure.size, n_channels), dtype=float)
 
     for channel_idx in range(n_channels):
-        centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = _morph_channel_params(
-            model,
-            morph_params,
-            channel_idx,
-            profile_type,
+        centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = (
+            _morph_channel_params(
+                model,
+                morph_params,
+                channel_idx,
+                profile_type,
+            )
         )
         morphed[:, channel_idx] = _evaluate_channel_density(
             log_exposure,
@@ -417,15 +435,23 @@ def apply_print_curves_morph_with_layers(
 
     for channel_idx in range(n_channels):
         if active:
-            centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = _morph_channel_params(
-                model, morph_params, channel_idx, profile_type,
+            centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = (
+                _morph_channel_params(
+                    model,
+                    morph_params,
+                    channel_idx,
+                    profile_type,
+                )
             )
         else:
             centers_c = np.asarray(model.centers[channel_idx], dtype=float)
             amplitudes_c = np.asarray(model.amplitudes[channel_idx], dtype=float)
             sigmas_c = np.asarray(model.sigmas[channel_idx], dtype=float)
-            alphas_c = (None if model.alphas is None
-                        else np.asarray(model.alphas[channel_idx], dtype=float))
+            alphas_c = (
+                None
+                if model.alphas is None
+                else np.asarray(model.alphas[channel_idx], dtype=float)
+            )
             gumbel_mix_per_layer = np.zeros(n_layers, dtype=float)
         per_layer = _evaluate_channel_layers(
             log_exposure,

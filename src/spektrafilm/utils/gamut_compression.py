@@ -22,6 +22,7 @@ toward the boundary instead of leaving a hard identity region before an
 abrupt shoulder. See the spektrafilm-research note
 ``n100_soft_input_clipping`` §5 for the rationale and comparisons.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,7 +31,6 @@ from typing import Literal
 import colour
 import numpy as np
 from scipy.ndimage import map_coordinates
-
 
 # ---------------------------------------------------------------------------
 # Spec dataclass
@@ -101,14 +101,10 @@ class InputGamutCompressSpec:
                 f"boundary must be one of {valid_boundaries}, got {self.boundary!r}"
             )
         if not (self.hull_detail > 0.0):
-            raise ValueError(
-                f"hull_detail must be > 0, got {self.hull_detail}"
-            )
+            raise ValueError(f"hull_detail must be > 0, got {self.hull_detail}")
         t, l, p = self.knee
         if not (0.0 <= t < 1.0):
-            raise ValueError(
-                f"knee threshold must be in [0, 1), got {t}"
-            )
+            raise ValueError(f"knee threshold must be in [0, 1), got {t}")
         if not (l > 0.0):
             raise ValueError(f"knee limit must be > 0, got {l}")
         if not (p > 0.0):
@@ -224,7 +220,12 @@ class OutputGamutCompressSpec:
     """
 
     algorithm: Literal[
-        "off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs",
+        "off",
+        "aces_rgc",
+        "oklch",
+        "oklrab",
+        "jzazbz",
+        "cam16ucs",
     ] = "oklch"
     knee: tuple[float, float, float] = (0.95, 1.0, 1.6)
     # One-sided soft compression on the perceptual lightness coordinate
@@ -239,14 +240,11 @@ class OutputGamutCompressSpec:
         valid_algos = ("off", "aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs")
         if self.algorithm not in valid_algos:
             raise ValueError(
-                f"algorithm must be one of {valid_algos}, "
-                f"got {self.algorithm!r}"
+                f"algorithm must be one of {valid_algos}, got {self.algorithm!r}"
             )
         t, l, p = self.knee
         if not (0.0 <= t < 1.0):
-            raise ValueError(
-                f"knee threshold must be in [0, 1), got {t}"
-            )
+            raise ValueError(f"knee threshold must be in [0, 1), got {t}")
         if not (l > 0.0):
             raise ValueError(f"knee limit must be > 0, got {l}")
         if not (p > 0.0):
@@ -258,13 +256,9 @@ class OutputGamutCompressSpec:
                     f"lightness_compression threshold must be in [0, 1), got {lt}"
                 )
             if not (ll > 0.0):
-                raise ValueError(
-                    f"lightness_compression limit must be > 0, got {ll}"
-                )
+                raise ValueError(f"lightness_compression limit must be > 0, got {ll}")
             if not (lp > 0.0):
-                raise ValueError(
-                    f"lightness_compression power must be > 0, got {lp}"
-                )
+                raise ValueError(f"lightness_compression power must be > 0, got {lp}")
 
     @property
     def active(self) -> bool:
@@ -328,7 +322,9 @@ def reinhard_knee(
 
 
 def _ray_polygon_distance(
-    origin: np.ndarray, direction: np.ndarray, polygon: np.ndarray,
+    origin: np.ndarray,
+    direction: np.ndarray,
+    polygon: np.ndarray,
 ) -> np.ndarray:
     """Distance from ``origin`` along unit ``direction`` to the first
     intersection with the closed polygon.
@@ -415,7 +411,10 @@ def compress_xy_radial(
         boundary = _ray_polygon_distance(white_xy, direction, locus)
         d_norm = dist / np.fmax(boundary, 1e-12)
         d_compressed = reinhard_knee(
-            d_norm, threshold=threshold, limit=limit, power=power,
+            d_norm,
+            threshold=threshold,
+            limit=limit,
+            power=power,
         )
         new_xy = white_xy + direction * (d_compressed * boundary)[..., None]
     # At-white points have undefined direction; pass through unchanged.
@@ -474,8 +473,12 @@ def inscribed_locus_hull(
     if locus is None:
         locus = spectral_locus_xy()
     white_xy = np.asarray(white_xy, dtype=float)
-    key = (round(float(white_xy[0]), 6), round(float(white_xy[1]), 6),
-           float(detail), id(locus))
+    key = (
+        round(float(white_xy[0]), 6),
+        round(float(white_xy[1]), 6),
+        float(detail),
+        id(locus),
+    )
     cached = _INSCRIBED_HULL_CACHE.get(key)
     if cached is not None:
         return cached
@@ -488,9 +491,9 @@ def inscribed_locus_hull(
     reach = np.nan_to_num(reach, nan=float(np.nanmedian(reach)))
 
     reach_lp = np.fmax(fourier_lowpass(reach, detail), 1e-12)
-    reach_eff = reach_lp * float(np.min(reach / reach_lp))   # inscribe: R_eff <= R
+    reach_eff = reach_lp * float(np.min(reach / reach_lp))  # inscribe: R_eff <= R
     hull = white_xy + reach_eff[:, None] * dirs
-    hull = np.concatenate([hull, hull[:1]], axis=0)          # close the polygon
+    hull = np.concatenate([hull, hull[:1]], axis=0)  # close the polygon
 
     _INSCRIBED_HULL_CACHE[key] = hull
     return hull
@@ -523,8 +526,11 @@ def _xy_to_xyz_unit_y(xy: np.ndarray) -> np.ndarray:
 
 
 def _c_max_lookup(
-    L: np.ndarray, h: np.ndarray,
-    L_grid: np.ndarray, h_grid: np.ndarray, C_max_table: np.ndarray,
+    L: np.ndarray,
+    h: np.ndarray,
+    L_grid: np.ndarray,
+    h_grid: np.ndarray,
+    C_max_table: np.ndarray,
 ) -> np.ndarray:
     """Bilinear lookup of C_max(L, h)."""
     L = np.clip(L, L_grid[0], L_grid[-1])
@@ -592,8 +598,12 @@ def compress_xy(
     else:
         boundary = locus  # None -> compress_xy_radial falls back to the locus
     return compress_xy_radial(
-        xy, white_xy,
-        threshold=threshold, limit=limit, power=power, locus=boundary,
+        xy,
+        white_xy,
+        threshold=threshold,
+        limit=limit,
+        power=power,
+        locus=boundary,
     )
 
 
@@ -652,7 +662,10 @@ def compress_rgb_aces_rgc(
 
     d = (ach[..., None] - rgb) / safe_ach[..., None]
     d_compressed = reinhard_knee(
-        d, threshold=threshold, limit=limit, power=power,
+        d,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     rgb_compressed = ach[..., None] * (1.0 - d_compressed)
     # Pixels with ach <= 0 keep their original (near-black) values.
@@ -749,7 +762,10 @@ def _compress_lightness(
     threshold, limit, power = params
     L_norm = L / L_white
     L_norm = reinhard_knee(
-        L_norm, threshold=threshold, limit=limit, power=power,
+        L_norm,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     return L_norm * L_white
 
@@ -788,15 +804,20 @@ def _build_polar_perceptual_c_max_table(
         b = mid * np.sin(h_mesh)
         lab = np.stack([L_mesh, a, b], axis=-1).reshape(-1, 3)
         xyz = polar_to_xyz_unit(lab)
-        rgb = np.asarray(colour.XYZ_to_RGB(
-            xyz, colourspace=output_color_space,
-            illuminant=white, apply_cctf_encoding=False,
-        ))
+        rgb = np.asarray(
+            colour.XYZ_to_RGB(
+                xyz,
+                colourspace=output_color_space,
+                illuminant=white,
+                apply_cctf_encoding=False,
+            )
+        )
         # In-gamut iff every channel is in [0, 1]. Small slack absorbs
         # the matrix-inverse floating-point noise that would otherwise
         # leave the largest in-gamut chroma slightly conservative.
         in_gamut = np.all(
-            (rgb >= -1e-6) & (rgb <= 1.0 + 1e-6), axis=-1,
+            (rgb >= -1e-6) & (rgb <= 1.0 + 1e-6),
+            axis=-1,
         ).reshape(L_mesh.shape)
         lo = np.where(in_gamut, mid, lo)
         hi = np.where(in_gamut, hi, mid)
@@ -804,7 +825,8 @@ def _build_polar_perceptual_c_max_table(
 
 
 def _get_output_c_max_table(
-    space: str, output_color_space: str,
+    space: str,
+    output_color_space: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return the cached ``C_max(L, h)`` table for ``space`` against
     ``output_color_space``. ``space`` is ``"oklch"`` or ``"jzazbz"``.
@@ -828,10 +850,16 @@ def _get_output_c_max_table(
             _OUTPUT_CMAX_CACHE[key] = _build_polar_perceptual_c_max_table(
                 output_color_space,
                 polar_to_xyz_unit=lambda lab: np.asarray(
-                    colour.Oklab_to_XYZ(np.stack([
-                        _oklrab_Lr_to_oklab_L(lab[..., 0]),
-                        lab[..., 1], lab[..., 2],
-                    ], axis=-1)),
+                    colour.Oklab_to_XYZ(
+                        np.stack(
+                            [
+                                _oklrab_Lr_to_oklab_L(lab[..., 0]),
+                                lab[..., 1],
+                                lab[..., 2],
+                            ],
+                            axis=-1,
+                        )
+                    ),
                 ),
                 # Lr is monotonic on [0, 1] with Lr(0)=0 and Lr(1)≈1,
                 # so the same grid bounds as oklch are appropriate.
@@ -846,9 +874,12 @@ def _get_output_c_max_table(
                 # colour.Jzazbz_to_XYZ returns absolute XYZ in cd/m² —
                 # divide by Y_w so the result is normalized (Y=1 at
                 # diffuse white) for XYZ_to_RGB.
-                polar_to_xyz_unit=lambda jab: np.asarray(
-                    colour.Jzazbz_to_XYZ(jab),
-                ) / _JZAZBZ_Y_W_CDM2,
+                polar_to_xyz_unit=lambda jab: (
+                    np.asarray(
+                        colour.Jzazbz_to_XYZ(jab),
+                    )
+                    / _JZAZBZ_Y_W_CDM2
+                ),
                 # Diffuse white at Y_w=100 → Jz ≈ 0.167; grid spans
                 # near-black through above-white with margin so the
                 # rare super-white sample still hits a sane lookup.
@@ -865,8 +896,10 @@ def _get_output_c_max_table(
                 output_color_space,
                 polar_to_xyz_unit=lambda jab: np.asarray(
                     colour.CAM16UCS_to_XYZ(
-                        jab, XYZ_w=xyz_w,
-                        L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
+                        jab,
+                        XYZ_w=xyz_w,
+                        L_A=_CAM16UCS_L_A,
+                        Y_b=_CAM16UCS_Y_B,
                     ),
                 ),
                 # Jp ≈ 100 at diffuse white; grid spans near-black to
@@ -924,10 +957,14 @@ def compress_rgb_oklch_chroma(
     white = np.asarray(cs.whitepoint, dtype=float)
 
     # RGB → XYZ → OkLab → OkLch (L, C, h).
-    xyz = np.asarray(colour.RGB_to_XYZ(
-        rgb, colourspace=output_color_space,
-        illuminant=white, apply_cctf_decoding=False,
-    ))
+    xyz = np.asarray(
+        colour.RGB_to_XYZ(
+            rgb,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_decoding=False,
+        )
+    )
     lab = np.asarray(colour.XYZ_to_Oklab(xyz))
     L = lab[..., 0]
     a = lab[..., 1]
@@ -948,7 +985,10 @@ def compress_rgb_oklch_chroma(
     safe_C_max = np.fmax(C_max, 1e-9)
     d_norm = C / safe_C_max
     d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
+        d_norm,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     C_new = d_compressed * safe_C_max
 
@@ -957,10 +997,14 @@ def compress_rgb_oklch_chroma(
     b_new = C_new * np.sin(h)
     lab_new = np.stack([L, a_new, b_new], axis=-1)
     xyz_new = np.asarray(colour.Oklab_to_XYZ(lab_new))
-    rgb_new = np.asarray(colour.XYZ_to_RGB(
-        xyz_new, colourspace=output_color_space,
-        illuminant=white, apply_cctf_encoding=False,
-    ))
+    rgb_new = np.asarray(
+        colour.XYZ_to_RGB(
+            xyz_new,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_encoding=False,
+        )
+    )
     return rgb_new
 
 
@@ -993,10 +1037,14 @@ def compress_rgb_oklrab_chroma(
     cs = colour.RGB_COLOURSPACES[output_color_space]
     white = np.asarray(cs.whitepoint, dtype=float)
 
-    xyz = np.asarray(colour.RGB_to_XYZ(
-        rgb, colourspace=output_color_space,
-        illuminant=white, apply_cctf_decoding=False,
-    ))
+    xyz = np.asarray(
+        colour.RGB_to_XYZ(
+            rgb,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_decoding=False,
+        )
+    )
     lab = np.asarray(colour.XYZ_to_Oklab(xyz))
     L = lab[..., 0]
     a = lab[..., 1]
@@ -1014,7 +1062,10 @@ def compress_rgb_oklrab_chroma(
     safe_C_max = np.fmax(C_max, 1e-9)
     d_norm = C / safe_C_max
     d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
+        d_norm,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     C_new = d_compressed * safe_C_max
 
@@ -1025,10 +1076,14 @@ def compress_rgb_oklrab_chroma(
     # changes L, and its result already lives in `L` here.
     lab_new = np.stack([L, a_new, b_new], axis=-1)
     xyz_new = np.asarray(colour.Oklab_to_XYZ(lab_new))
-    rgb_new = np.asarray(colour.XYZ_to_RGB(
-        xyz_new, colourspace=output_color_space,
-        illuminant=white, apply_cctf_encoding=False,
-    ))
+    rgb_new = np.asarray(
+        colour.XYZ_to_RGB(
+            xyz_new,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_encoding=False,
+        )
+    )
     return rgb_new
 
 
@@ -1038,9 +1093,11 @@ def _jzazbz_white_Jz(output_color_space: str) -> float:
     perceptual-white normalizer for the lightness knee."""
     cs = colour.RGB_COLOURSPACES[output_color_space]
     xyz_w_rel = _xy_to_xyz_unit_y(np.asarray(cs.whitepoint, dtype=float))
-    Jz_w = float(np.asarray(
-        colour.XYZ_to_Jzazbz(xyz_w_rel * _JZAZBZ_Y_W_CDM2),
-    )[..., 0])
+    Jz_w = float(
+        np.asarray(
+            colour.XYZ_to_Jzazbz(xyz_w_rel * _JZAZBZ_Y_W_CDM2),
+        )[..., 0]
+    )
     return Jz_w
 
 
@@ -1076,10 +1133,14 @@ def compress_rgb_jzazbz_chroma(
     white = np.asarray(cs.whitepoint, dtype=float)
 
     # RGB → XYZ (cd/m² at Y_w) → JzAzBz → polar.
-    xyz = np.asarray(colour.RGB_to_XYZ(
-        rgb, colourspace=output_color_space,
-        illuminant=white, apply_cctf_decoding=False,
-    ))
+    xyz = np.asarray(
+        colour.RGB_to_XYZ(
+            rgb,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_decoding=False,
+        )
+    )
     jab = np.asarray(colour.XYZ_to_Jzazbz(xyz * _JZAZBZ_Y_W_CDM2))
     Jz = jab[..., 0]
     az = jab[..., 1]
@@ -1087,7 +1148,8 @@ def compress_rgb_jzazbz_chroma(
 
     if lightness_compression is not None:
         Jz = _compress_lightness(
-            Jz, params=lightness_compression,
+            Jz,
+            params=lightness_compression,
             L_white=_jzazbz_white_Jz(output_color_space),
         )
 
@@ -1100,7 +1162,10 @@ def compress_rgb_jzazbz_chroma(
     safe_Cz_max = np.fmax(Cz_max, 1e-9)
     d_norm = Cz / safe_Cz_max
     d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
+        d_norm,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     Cz_new = d_compressed * safe_Cz_max
 
@@ -1109,10 +1174,14 @@ def compress_rgb_jzazbz_chroma(
     bz_new = Cz_new * np.sin(hz)
     jab_new = np.stack([Jz, az_new, bz_new], axis=-1)
     xyz_new = np.asarray(colour.Jzazbz_to_XYZ(jab_new)) / _JZAZBZ_Y_W_CDM2
-    rgb_new = np.asarray(colour.XYZ_to_RGB(
-        xyz_new, colourspace=output_color_space,
-        illuminant=white, apply_cctf_encoding=False,
-    ))
+    rgb_new = np.asarray(
+        colour.XYZ_to_RGB(
+            xyz_new,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_encoding=False,
+        )
+    )
     return rgb_new
 
 
@@ -1122,11 +1191,16 @@ def _cam16ucs_white_Jp(output_color_space: str) -> float:
     normalizer for the lightness knee. ≈100 for typical displays.
     """
     xyz_w = _output_cs_whitepoint_xyz(output_color_space)
-    Jp_w = float(np.asarray(
-        colour.XYZ_to_CAM16UCS(
-            xyz_w, XYZ_w=xyz_w, L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
-        ),
-    )[..., 0])
+    Jp_w = float(
+        np.asarray(
+            colour.XYZ_to_CAM16UCS(
+                xyz_w,
+                XYZ_w=xyz_w,
+                L_A=_CAM16UCS_L_A,
+                Y_b=_CAM16UCS_Y_B,
+            ),
+        )[..., 0]
+    )
     return Jp_w
 
 
@@ -1163,20 +1237,30 @@ def compress_rgb_cam16ucs_chroma(
     xyz_w = _output_cs_whitepoint_xyz(output_color_space)
 
     # RGB → XYZ → CAM16-UCS → polar.
-    xyz = np.asarray(colour.RGB_to_XYZ(
-        rgb, colourspace=output_color_space,
-        illuminant=white, apply_cctf_decoding=False,
-    ))
-    jab = np.asarray(colour.XYZ_to_CAM16UCS(
-        xyz, XYZ_w=xyz_w, L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
-    ))
+    xyz = np.asarray(
+        colour.RGB_to_XYZ(
+            rgb,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_decoding=False,
+        )
+    )
+    jab = np.asarray(
+        colour.XYZ_to_CAM16UCS(
+            xyz,
+            XYZ_w=xyz_w,
+            L_A=_CAM16UCS_L_A,
+            Y_b=_CAM16UCS_Y_B,
+        )
+    )
     Jp = jab[..., 0]
     ap = jab[..., 1]
     bp = jab[..., 2]
 
     if lightness_compression is not None:
         Jp = _compress_lightness(
-            Jp, params=lightness_compression,
+            Jp,
+            params=lightness_compression,
             L_white=_cam16ucs_white_Jp(output_color_space),
         )
 
@@ -1189,7 +1273,10 @@ def compress_rgb_cam16ucs_chroma(
     safe_Cp_max = np.fmax(Cp_max, 1e-9)
     d_norm = Cp / safe_Cp_max
     d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
+        d_norm,
+        threshold=threshold,
+        limit=limit,
+        power=power,
     )
     Cp_new = d_compressed * safe_Cp_max
 
@@ -1197,19 +1284,28 @@ def compress_rgb_cam16ucs_chroma(
     ap_new = Cp_new * np.cos(hp)
     bp_new = Cp_new * np.sin(hp)
     jab_new = np.stack([Jp, ap_new, bp_new], axis=-1)
-    xyz_new = np.asarray(colour.CAM16UCS_to_XYZ(
-        jab_new, XYZ_w=xyz_w, L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
-    ))
-    rgb_new = np.asarray(colour.XYZ_to_RGB(
-        xyz_new, colourspace=output_color_space,
-        illuminant=white, apply_cctf_encoding=False,
-    ))
+    xyz_new = np.asarray(
+        colour.CAM16UCS_to_XYZ(
+            jab_new,
+            XYZ_w=xyz_w,
+            L_A=_CAM16UCS_L_A,
+            Y_b=_CAM16UCS_Y_B,
+        )
+    )
+    rgb_new = np.asarray(
+        colour.XYZ_to_RGB(
+            xyz_new,
+            colourspace=output_color_space,
+            illuminant=white,
+            apply_cctf_encoding=False,
+        )
+    )
     return rgb_new
 
 
 def compress_rgb(
     rgb: np.ndarray,
-    spec: "OutputGamutCompressSpec",
+    spec: OutputGamutCompressSpec,
     *,
     output_color_space: str | None = None,
 ) -> np.ndarray:
@@ -1235,7 +1331,10 @@ def compress_rgb(
     threshold, limit, power = spec.knee
     if spec.algorithm == "aces_rgc":
         return compress_rgb_aces_rgc(
-            rgb, threshold=threshold, limit=limit, power=power,
+            rgb,
+            threshold=threshold,
+            limit=limit,
+            power=power,
         )
     perceptual_fns = {
         "oklch": compress_rgb_oklch_chroma,
@@ -1249,8 +1348,11 @@ def compress_rgb(
                 f"output_color_space is required when algorithm={spec.algorithm!r}"
             )
         return perceptual_fns[spec.algorithm](
-            rgb, output_color_space=output_color_space,
-            threshold=threshold, limit=limit, power=power,
+            rgb,
+            output_color_space=output_color_space,
+            threshold=threshold,
+            limit=limit,
+            power=power,
             lightness_compression=spec.lightness_compression,
         )
     raise ValueError(f"unknown output algorithm {spec.algorithm!r}")

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from qtpy import QtCore, QtGui, QtWidgets
 
@@ -14,13 +15,21 @@ from spektrafilm_gui.napari_layout import (
     set_status,
     show_viewer_window,
 )
-from spektrafilm_gui.theme_palette import GRAY_0, GRAY_1, GRAY_2, GRAY_3, TEXT_DIM, TEXT_MAIN, TEXT_SELECTION_BG
+from spektrafilm_gui.theme_palette import (
+    GRAY_0,
+    GRAY_1,
+    GRAY_2,
+    GRAY_3,
+    TEXT_DIM,
+    TEXT_MAIN,
+    TEXT_SELECTION_BG,
+)
 
 if TYPE_CHECKING:
     from spektrafilm_gui.controller import GuiController
     from spektrafilm_gui.widgets import WidgetBundle
 
-QTimer = getattr(QtCore, 'QTimer')
+QTimer = getattr(QtCore, "QTimer")
 
 WARMUP_IMAGE_SHAPE = (16, 16, 3)
 # Canvas background before the saved state is loaded (loading state would pull
@@ -79,9 +88,9 @@ def _schedule_startup(
 
 
 def _start_warmup(app: GuiApp) -> None:
-    set_status(app.viewer, 'Switching on the safe-light...', timeout_ms=0)
+    set_status(app.viewer, "Switching on the safe-light...", timeout_ms=0)
     app.runner.submit(
-        'startup',
+        "startup",
         _warmup_full_gui,
         on_done=lambda _result: _build_controls(app),
         # Build the controls even if warmup failed — they just import cold.
@@ -111,7 +120,7 @@ def _build_controls(app: GuiApp) -> None:
     app.main_window.mount_controls(build_controls_panel(app.viewer, widgets))
     app.widgets = widgets
     app.controller = controller
-    set_status(app.viewer, 'Ready')
+    set_status(app.viewer, "Ready")
 
 
 def _rotate_input(app: GuiApp, *, clockwise: bool) -> None:
@@ -130,20 +139,22 @@ def _warmup_full_gui() -> None:
     # Imported here (worker thread), not at module scope: this is the heavy
     # stack — numba, colour, the runtime pipeline, and the GUI modules that bind
     # to it — warmed so the controls build on the GUI thread is instant.
-    import_module('spektrafilm.utils.numba_warmup').warmup()
+    import_module("spektrafilm.utils.numba_warmup").warmup()
 
-    colour_module = import_module('colour')
-    pil_image_module = import_module('PIL.Image')
-    imagecms_module = import_module('PIL.ImageCms')
-    controller_runtime = import_module('spektrafilm_gui.controller_runtime')
-    params_mapper = import_module('spektrafilm_gui.params_mapper')
-    runtime_api = import_module('spektrafilm.runtime.api')
-    load_default_gui_state = import_module('spektrafilm_gui.persistence').load_default_gui_state
-    import_module('spektrafilm.utils.io')
-    import_module('spektrafilm.utils.preview')
-    import_module('spektrafilm.utils.raw_file_processor')
-    import_module('spektrafilm_gui.widgets')
-    import_module('spektrafilm_gui.controller')
+    colour_module = import_module("colour")
+    pil_image_module = import_module("PIL.Image")
+    imagecms_module = import_module("PIL.ImageCms")
+    controller_runtime = import_module("spektrafilm_gui.controller_runtime")
+    params_mapper = import_module("spektrafilm_gui.params_mapper")
+    runtime_api = import_module("spektrafilm.runtime.api")
+    load_default_gui_state = import_module(
+        "spektrafilm_gui.persistence"
+    ).load_default_gui_state
+    import_module("spektrafilm.utils.io")
+    import_module("spektrafilm.utils.preview")
+    import_module("spektrafilm.utils.raw_file_processor")
+    import_module("spektrafilm_gui.widgets")
+    import_module("spektrafilm_gui.controller")
 
     gui_state = load_default_gui_state()
     warmup_image = np.full(WARMUP_IMAGE_SHAPE, 0.18, dtype=np.float64)
@@ -184,14 +195,22 @@ def _build_app_palette() -> QtGui.QPalette:
     palette.setColor(QtGui.QPalette.Mid, QtGui.QColor(GRAY_3))
     palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(TEXT_SELECTION_BG))
     palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(TEXT_MAIN))
-    placeholder_role = getattr(QtGui.QPalette, 'PlaceholderText', None)
+    placeholder_role = getattr(QtGui.QPalette, "PlaceholderText", None)
     if placeholder_role is not None:
         palette.setColor(placeholder_role, QtGui.QColor(TEXT_DIM))
 
-    palette.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.WindowText, QtGui.QColor(TEXT_DIM))
-    palette.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.Text, QtGui.QColor(TEXT_DIM))
-    palette.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.ButtonText, QtGui.QColor(TEXT_DIM))
-    palette.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.HighlightedText, QtGui.QColor(TEXT_DIM))
+    palette.setColor(
+        QtGui.QPalette.Disabled, QtGui.QPalette.WindowText, QtGui.QColor(TEXT_DIM)
+    )
+    palette.setColor(
+        QtGui.QPalette.Disabled, QtGui.QPalette.Text, QtGui.QColor(TEXT_DIM)
+    )
+    palette.setColor(
+        QtGui.QPalette.Disabled, QtGui.QPalette.ButtonText, QtGui.QColor(TEXT_DIM)
+    )
+    palette.setColor(
+        QtGui.QPalette.Disabled, QtGui.QPalette.HighlightedText, QtGui.QColor(TEXT_DIM)
+    )
     return palette
 
 
@@ -203,78 +222,107 @@ def _apply_app_palette() -> None:
 
 
 def _create_viewer() -> Any:
-    napari = import_module('napari')
-    get_settings = import_module('napari.settings').get_settings
-    viewer_cls = cast(Any, getattr(napari, 'Viewer'))
+    napari = import_module("napari")
+    get_settings = import_module("napari.settings").get_settings
+    viewer_cls = cast(Any, getattr(napari, "Viewer"))
     viewer = viewer_cls(show=False)
     settings = get_settings()
-    appearance = getattr(settings, 'appearance', None)
+    appearance = getattr(settings, "appearance", None)
     if appearance is not None:
-        setattr(cast(Any, appearance), 'theme', 'dark')
+        setattr(cast(Any, appearance), "theme", "dark")
     return viewer
 
 
 def _connect_auto_preview_signal(widget: Any, callback: Callable[..., None]) -> None:
-    editors = getattr(widget, '_editors', None)
+    editors = getattr(widget, "_editors", None)
     if editors is not None:
         for editor in editors:
             _connect_auto_preview_signal(editor, callback)
         return
 
-    for signal_name in ('toggled', 'currentTextChanged', 'valueChanged', 'editingFinished'):
+    for signal_name in (
+        "toggled",
+        "currentTextChanged",
+        "valueChanged",
+        "editingFinished",
+    ):
         signal = getattr(widget, signal_name, None)
-        if signal is not None and hasattr(signal, 'connect'):
+        if signal is not None and hasattr(signal, "connect"):
             signal.connect(callback)
             return
 
 
-def connect_auto_preview_signals(controller: GuiController, widgets: WidgetBundle) -> None:
+def connect_auto_preview_signals(
+    controller: GuiController, widgets: WidgetBundle
+) -> None:
     from spektrafilm_gui.state_bridge import GUI_STATE_SECTION_NAMES
 
     for section_name in GUI_STATE_SECTION_NAMES:
         section = getattr(widgets, section_name, None)
-        if section is None or not getattr(section, '_is_params_group', False):
+        if section is None or not getattr(section, "_is_params_group", False):
             continue
 
-        skip_leaves = set(getattr(section, '_skip_auto_preview_leaves', ()))
-        for leaf, editor in getattr(section, '_editors', {}).items():
+        skip_leaves = set(getattr(section, "_skip_auto_preview_leaves", ()))
+        for leaf, editor in getattr(section, "_editors", {}).items():
             if leaf in skip_leaves:
                 continue
             _connect_auto_preview_signal(editor, controller.request_auto_preview)
 
-    widgets.simulation.bottom_auto_preview.toggled.connect(controller.request_auto_preview)
-    widgets.simulation.bottom_scan_for_print.toggled.connect(controller.request_auto_preview)
+    widgets.simulation.bottom_auto_preview.toggled.connect(
+        controller.request_auto_preview
+    )
+    widgets.simulation.bottom_scan_for_print.toggled.connect(
+        controller.request_auto_preview
+    )
 
 
-def connect_controller_signals(controller: GuiController, widgets: WidgetBundle) -> None:
+def connect_controller_signals(
+    controller: GuiController, widgets: WidgetBundle
+) -> None:
     widgets.filepicker.load_requested.connect(controller.load_input_image)
     widgets.load_raw.load_requested.connect(controller.load_raw_image)
     widgets.convert.action_triggered.connect(controller.on_convert_action)
-    widgets.simulation.film_stock.textActivated.connect(controller.apply_profile_defaults)
-    widgets.simulation.print_paper.textActivated.connect(controller.apply_profile_defaults)
-    widgets.gui_config.save_current_as_default_requested.connect(controller.save_current_as_default)
-    widgets.gui_config.save_current_to_file_requested.connect(controller.save_current_state_to_file)
+    widgets.simulation.film_stock.textActivated.connect(
+        controller.apply_profile_defaults
+    )
+    widgets.simulation.print_paper.textActivated.connect(
+        controller.apply_profile_defaults
+    )
+    widgets.gui_config.save_current_as_default_requested.connect(
+        controller.save_current_as_default
+    )
+    widgets.gui_config.save_current_to_file_requested.connect(
+        controller.save_current_state_to_file
+    )
     widgets.gui_config.load_from_file_requested.connect(controller.load_state_from_file)
-    widgets.gui_config.restore_factory_default_requested.connect(controller.restore_factory_default)
+    widgets.gui_config.restore_factory_default_requested.connect(
+        controller.restore_factory_default
+    )
     widgets.simulation.preview_requested.connect(controller.run_preview)
     widgets.simulation.scan_requested.connect(controller.run_scan)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
-    widgets.display.use_display_transform.toggled.connect(controller.report_display_transform_status)
-    widgets.display.gray_18_canvas.toggled.connect(controller.set_gray_18_canvas_enabled)
-    widgets.display.output_interpolation.currentTextChanged.connect(controller.set_output_interpolation_mode)
+    widgets.display.use_display_transform.toggled.connect(
+        controller.report_display_transform_status
+    )
+    widgets.display.gray_18_canvas.toggled.connect(
+        controller.set_gray_18_canvas_enabled
+    )
+    widgets.display.output_interpolation.currentTextChanged.connect(
+        controller.set_output_interpolation_mode
+    )
     widgets.display.update_preview_requested.connect(controller.refresh_preview_cache)
     widgets.display.update_preview_requested.connect(controller.request_auto_preview)
     connect_auto_preview_signals(controller, widgets)
 
 
 def gray_18_canvas_enabled(widgets: WidgetBundle) -> bool:
-    toggle = getattr(widgets.display, 'gray_18_canvas', None)
-    is_checked = getattr(toggle, 'isChecked', None)
+    toggle = getattr(widgets.display, "gray_18_canvas", None)
+    is_checked = getattr(toggle, "isChecked", None)
     return bool(is_checked()) if callable(is_checked) else False
 
 
 def main() -> None:
-    napari = import_module('napari')
+    napari = import_module("napari")
     app = create_app()
     show_viewer_window(app.viewer)
     napari.run()

@@ -20,6 +20,7 @@ The boundary contract with the runtime (see
 
 See studies/a40_lut_system/n030_lut_package_design.md §6 and n070 §6.
 """
+
 from __future__ import annotations
 
 import importlib.resources as pkg_resources
@@ -36,8 +37,10 @@ from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
 from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
     encode_cctf,
-    output_midgray_gain,
     input_gain,
+    output_midgray_gain,
+)
+from spektrafilm_lut_creator.color_spaces import (
     get as get_color_space,
 )
 from spektrafilm_lut_creator.formats import Lut, get_format
@@ -59,7 +62,6 @@ from spektrafilm_lut_creator.shapers import (
     log_e_to_code,
 )
 from spektrafilm_lut_creator.wires import BoundaryWires, DensityWire, LogEWire
-
 
 # Resolution of the d_max sampling grid for 2-LUT bundles. 9^3 = 729
 # samples is enough to characterize each channel's max density well past
@@ -98,20 +100,26 @@ _WIRE_DECIMALS = 4
 
 def _round_wire_floor(value: float, decimals: int = _WIRE_DECIMALS) -> float:
     """Round down to ``decimals`` places (toward more-negative)."""
-    factor = 10 ** decimals
+    factor = 10**decimals
     return math.floor(value * factor) / factor
 
 
 def _round_wire_ceil(value: float, decimals: int = _WIRE_DECIMALS) -> float:
     """Round up to ``decimals`` places (toward more-positive)."""
-    factor = 10 ** decimals
+    factor = 10**decimals
     return math.ceil(value * factor) / factor
 
 
 from spektrafilm_lut_creator.bundle_text import (
     BUNDLE_README_FILENAME as _BUNDLE_README_FILENAME,
+)
+from spektrafilm_lut_creator.bundle_text import (
     LUT_LICENSE_FILENAME as _LUT_LICENSE_FILENAME,
+)
+from spektrafilm_lut_creator.bundle_text import (
     bundle_readme_text as _bundle_readme_text,
+)
+from spektrafilm_lut_creator.bundle_text import (
     cube_header_lines as _cube_header_lines,
 )
 
@@ -128,7 +136,7 @@ def _input_exposure_meta(spec: BundleSpec) -> InputExposureMeta | None:
         return None
     return InputExposureMeta(
         exposure_ev=float(spec.exposure_ev),
-        gain=float(2.0 ** spec.exposure_ev),
+        gain=float(2.0**spec.exposure_ev),
     )
 
 
@@ -148,11 +156,13 @@ _DEFAULT_OUT_SUBPATH = Path("build") / "lut_bundles"
 # this module's internal call sites unchanged.
 from spektrafilm_lut_creator.naming import (  # noqa: E402
     lut_filename as _lut_filename,
+)
+from spektrafilm_lut_creator.naming import (
     lut_title as _lut_title,
-    normalize_stock as _normalize_stock,
+)
+from spektrafilm_lut_creator.naming import (
     normalize_version as _normalize_version,
 )
-
 
 # ---------------------------------------------------------------------------
 # Sub-chain combinations (n130).
@@ -180,6 +190,7 @@ class _SubchainEntry:
     The role string (``subchain_<ids>``) and the filename label
     (``l<ids>``) are derived from it.
     """
+
     stage_ids: tuple[int, ...]
     inject_tap: str
     collect_tap: str
@@ -196,21 +207,19 @@ class _SubchainEntry:
 
 _TOPOLOGY_COMBINATIONS: dict[str, tuple[_SubchainEntry, ...]] = {
     "1lut": (),
-    "2lut": (
-        _SubchainEntry((1, 2), "rgb_in", "rgb_out", is_shared=False),
-    ),
+    "2lut": (_SubchainEntry((1, 2), "rgb_in", "rgb_out", is_shared=False),),
     "3lut": (
-        _SubchainEntry((1, 2),    "rgb_in",     "cmy_film", is_shared=True),
-        _SubchainEntry((2, 3),    "log_e_film", "rgb_out",  is_shared=False),
-        _SubchainEntry((1, 2, 3), "rgb_in",     "rgb_out",  is_shared=False),
+        _SubchainEntry((1, 2), "rgb_in", "cmy_film", is_shared=True),
+        _SubchainEntry((2, 3), "log_e_film", "rgb_out", is_shared=False),
+        _SubchainEntry((1, 2, 3), "rgb_in", "rgb_out", is_shared=False),
     ),
     "4lut": (
-        _SubchainEntry((1, 2),       "rgb_in",      "cmy_film",    is_shared=True),
-        _SubchainEntry((2, 3),       "log_e_film",  "log_e_print", is_shared=False),
-        _SubchainEntry((3, 4),       "cmy_film",    "rgb_out",     is_shared=False),
-        _SubchainEntry((1, 2, 3),    "rgb_in",      "log_e_print", is_shared=False),
-        _SubchainEntry((2, 3, 4),    "log_e_film",  "rgb_out",     is_shared=False),
-        _SubchainEntry((1, 2, 3, 4), "rgb_in",      "rgb_out",     is_shared=False),
+        _SubchainEntry((1, 2), "rgb_in", "cmy_film", is_shared=True),
+        _SubchainEntry((2, 3), "log_e_film", "log_e_print", is_shared=False),
+        _SubchainEntry((3, 4), "cmy_film", "rgb_out", is_shared=False),
+        _SubchainEntry((1, 2, 3), "rgb_in", "log_e_print", is_shared=False),
+        _SubchainEntry((2, 3, 4), "log_e_film", "rgb_out", is_shared=False),
+        _SubchainEntry((1, 2, 3, 4), "rgb_in", "rgb_out", is_shared=False),
     ),
 }
 
@@ -219,39 +228,51 @@ _TOPOLOGY_COMBINATIONS: dict[str, tuple[_SubchainEntry, ...]] = {
 # the ``input_rgb`` / ``output_rgb`` aliases used throughout the
 # existing canonical metadata; the wire-named taps keep their tap name.
 _TAP_TO_DOMAIN: dict[str, str] = {
-    "rgb_in":      "input_rgb",
-    "log_e_film":  "log_e_film",
-    "cmy_film":    "cmy_film",
+    "rgb_in": "input_rgb",
+    "log_e_film": "log_e_film",
+    "cmy_film": "cmy_film",
     "log_e_print": "log_e_print",
 }
 
 _TAP_TO_RANGE: dict[str, str] = {
-    "log_e_film":  "log_e_film",
-    "cmy_film":    "cmy_film",
+    "log_e_film": "log_e_film",
+    "cmy_film": "cmy_film",
     "log_e_print": "log_e_print",
-    "rgb_out":     "output_rgb",
+    "rgb_out": "output_rgb",
 }
 
 
 def _subchain_filename(
-    spec: BundleSpec, version_tag: str, label: str,
-    print_profile: str | None, *, ext: str = ".cube",
+    spec: BundleSpec,
+    version_tag: str,
+    label: str,
+    print_profile: str | None,
+    *,
+    ext: str = ".cube",
 ) -> str:
     """Build a combination cube's bundle-relative path under ``combinations/``."""
     return _lut_filename(
-        film_profile=spec.film_profile, version_tag=version_tag,
-        print_profile=print_profile, suffix=label,
-        subdir=_COMBINATIONS_SUBDIR, ext=ext,
+        film_profile=spec.film_profile,
+        version_tag=version_tag,
+        print_profile=print_profile,
+        suffix=label,
+        subdir=_COMBINATIONS_SUBDIR,
+        ext=ext,
     )
 
 
 def _subchain_title(
-    spec: BundleSpec, version_tag: str, label: str, print_profile: str | None,
+    spec: BundleSpec,
+    version_tag: str,
+    label: str,
+    print_profile: str | None,
 ) -> str:
     """Compact title for a combination cube (same shape as canonical titles)."""
     return _lut_title(
-        film_profile=spec.film_profile, version_tag=version_tag,
-        print_profile=print_profile, suffix=label,
+        film_profile=spec.film_profile,
+        version_tag=version_tag,
+        print_profile=print_profile,
+        suffix=label,
     )
 
 
@@ -266,9 +287,7 @@ def _lut_license_source_path() -> Path:
     """
     resource = pkg_resources.files("spektrafilm.data.license") / _LUT_LICENSE_FILENAME
     if not resource.is_file():
-        raise FileNotFoundError(
-            f"missing bundled LUT license file: {resource}"
-        )
+        raise FileNotFoundError(f"missing bundled LUT license file: {resource}")
     # importlib.resources returns a Traversable; for a regular installed
     # package this is a filesystem path that shutil.copy2 accepts.
     return Path(str(resource))
@@ -282,8 +301,6 @@ def _bundle_output_paths(out_path: Path, container: str) -> tuple[Path, Path | N
     if out_path.suffix.lower() == ".zip":
         return out_path.with_suffix(""), out_path
     return out_path, out_path.with_suffix(".zip")
-
-
 
 
 class BundleBuilder:
@@ -367,17 +384,24 @@ class BundleBuilder:
         for print_stock in spec.print_profiles:
             pipeline = self._make_pipeline(spec, print_stock)
             path_lut = self._bake_canonical(
-                "combined", pipeline, spec, wires, version_tag, print_stock,
+                "combined",
+                pipeline,
+                spec,
+                wires,
+                version_tag,
+                print_stock,
             )
             bundle_luts.append(path_lut)
             rel_path = path_lut[0]
-            lut_metas.append(LutFileMeta(
-                role="combined",
-                path=rel_path,
-                domain="input_rgb",
-                range="output_rgb",
-                print_profile=print_stock,
-            ))
+            lut_metas.append(
+                LutFileMeta(
+                    role="combined",
+                    path=rel_path,
+                    domain="input_rgb",
+                    range="output_rgb",
+                    print_profile=print_stock,
+                )
+            )
 
         meta = BundleMeta(
             schema_version=SCHEMA_VERSION,
@@ -386,7 +410,9 @@ class BundleBuilder:
             resolution=n,
             target=spec.target,
             provenance=provenance,
-            stocks=StocksMeta(film=spec.film_profile, prints=tuple(spec.print_profiles)),
+            stocks=StocksMeta(
+                film=spec.film_profile, prints=tuple(spec.print_profiles)
+            ),
             color_spaces={
                 "input": ColorSpaceMeta(
                     name=spec.input_color_space,
@@ -437,13 +463,15 @@ class BundleBuilder:
         film_lut = self._bake_canonical("film", pipeline, spec, wires, version_tag)
 
         bundle_luts: list[tuple[str, Lut]] = [film_lut]
-        lut_metas: list[LutFileMeta] = [LutFileMeta(
-            role="film",
-            path=film_lut[0],
-            domain="input_rgb",
-            range="cmy_film",
-            print_profile=None,
-        )]
+        lut_metas: list[LutFileMeta] = [
+            LutFileMeta(
+                role="film",
+                path=film_lut[0],
+                domain="input_rgb",
+                range="cmy_film",
+                print_profile=None,
+            )
+        ]
 
         # Bake one print LUT per print. Per-print combinations (l12 for 2-LUT,
         # which spans rgb_in → rgb_out and therefore depends on the print
@@ -451,18 +479,29 @@ class BundleBuilder:
         for print_profile in spec.print_profiles:
             pipeline = self._make_pipeline(spec, print_profile)
             print_lut = self._bake_canonical(
-                "print", pipeline, spec, wires, version_tag, print_profile,
+                "print",
+                pipeline,
+                spec,
+                wires,
+                version_tag,
+                print_profile,
             )
             bundle_luts.append(print_lut)
-            lut_metas.append(LutFileMeta(
-                role="print",
-                path=print_lut[0],
-                domain="cmy_film",
-                range="output_rgb",
+            lut_metas.append(
+                LutFileMeta(
+                    role="print",
+                    path=print_lut[0],
+                    domain="cmy_film",
+                    range="output_rgb",
+                    print_profile=print_profile,
+                )
+            )
+            for path_lut, combo_meta in self._bake_combinations(
+                pipeline,
+                spec,
+                wires,
+                version_tag,
                 print_profile=print_profile,
-            ))
-            for (path_lut, combo_meta) in self._bake_combinations(
-                pipeline, spec, wires, version_tag, print_profile=print_profile,
             ):
                 bundle_luts.append(path_lut)
                 lut_metas.append(combo_meta)
@@ -474,7 +513,9 @@ class BundleBuilder:
             resolution=n,
             target=spec.target,
             provenance=provenance,
-            stocks=StocksMeta(film=spec.film_profile, prints=tuple(spec.print_profiles)),
+            stocks=StocksMeta(
+                film=spec.film_profile, prints=tuple(spec.print_profiles)
+            ),
             color_spaces={
                 "input": ColorSpaceMeta(
                     name=spec.input_color_space,
@@ -531,7 +572,9 @@ class BundleBuilder:
         pipeline_shared = self._make_pipeline(spec, first_print)
 
         # Probe wires from the same 9³ pass (cheap; pipeline runs sub-second).
-        log_e_film_wire = self._compute_log_e_wire(pipeline_shared, spec, tap="log_e_film")
+        log_e_film_wire = self._compute_log_e_wire(
+            pipeline_shared, spec, tap="log_e_film"
+        )
         density_wire = self._compute_density_wire(pipeline_shared, spec)
         wires = BoundaryWires(log_e_film=log_e_film_wire, cmy_film=density_wire)
 
@@ -540,16 +583,30 @@ class BundleBuilder:
         l2 = self._bake_canonical("l2", pipeline_shared, spec, wires, version_tag)
         bundle_luts: list[tuple[str, Lut]] = [l1, l2]
         lut_metas: list[LutFileMeta] = [
-            LutFileMeta(role="filming_expose",
-                        path=l1[0], domain="input_rgb", range="log_e_film", print_profile=None),
-            LutFileMeta(role="filming_develop",
-                        path=l2[0], domain="log_e_film", range="cmy_film", print_profile=None),
+            LutFileMeta(
+                role="filming_expose",
+                path=l1[0],
+                domain="input_rgb",
+                range="log_e_film",
+                print_profile=None,
+            ),
+            LutFileMeta(
+                role="filming_develop",
+                path=l2[0],
+                domain="log_e_film",
+                range="cmy_film",
+                print_profile=None,
+            ),
         ]
 
         # Shared combinations (print-independent sub-chains — only l12 for
         # 3-LUT) ride the same shared pipeline pass as L1/L2.
-        for (path_lut, combo_meta) in self._bake_combinations(
-            pipeline_shared, spec, wires, version_tag, print_profile=None,
+        for path_lut, combo_meta in self._bake_combinations(
+            pipeline_shared,
+            spec,
+            wires,
+            version_tag,
+            print_profile=None,
         ):
             bundle_luts.append(path_lut)
             lut_metas.append(combo_meta)
@@ -561,18 +618,29 @@ class BundleBuilder:
         for print_profile in spec.print_profiles:
             pipeline_print = self._make_pipeline(spec, print_profile)
             l3 = self._bake_canonical(
-                "l3_combined", pipeline_print, spec, wires, version_tag, print_profile,
+                "l3_combined",
+                pipeline_print,
+                spec,
+                wires,
+                version_tag,
+                print_profile,
             )
             bundle_luts.append(l3)
-            lut_metas.append(LutFileMeta(
-                role="printing_combined",
-                path=l3[0],
-                domain="cmy_film",
-                range="output_rgb",
+            lut_metas.append(
+                LutFileMeta(
+                    role="printing_combined",
+                    path=l3[0],
+                    domain="cmy_film",
+                    range="output_rgb",
+                    print_profile=print_profile,
+                )
+            )
+            for path_lut, combo_meta in self._bake_combinations(
+                pipeline_print,
+                spec,
+                wires,
+                version_tag,
                 print_profile=print_profile,
-            ))
-            for (path_lut, combo_meta) in self._bake_combinations(
-                pipeline_print, spec, wires, version_tag, print_profile=print_profile,
             ):
                 bundle_luts.append(path_lut)
                 lut_metas.append(combo_meta)
@@ -584,7 +652,9 @@ class BundleBuilder:
             resolution=spec.resolution,
             target=spec.target,
             provenance=provenance,
-            stocks=StocksMeta(film=spec.film_profile, prints=tuple(spec.print_profiles)),
+            stocks=StocksMeta(
+                film=spec.film_profile, prints=tuple(spec.print_profiles)
+            ),
             color_spaces={
                 "input": ColorSpaceMeta(
                     name=spec.input_color_space,
@@ -599,7 +669,7 @@ class BundleBuilder:
                 log_e_film=log_e_film_wire,
                 cmy_film=density_wire,
                 log_e_print=None,  # collapsed inside L3
-                cmy_print=None,    # collapsed inside L3
+                cmy_print=None,  # collapsed inside L3
             ),
             luts=tuple(lut_metas),
             input_exposure=_input_exposure_meta(spec),
@@ -655,9 +725,13 @@ class BundleBuilder:
         pipeline_shared = self._make_pipeline(spec, first_print)
 
         # Probe wires from a single 9³ pass.
-        log_e_film_wire = self._compute_log_e_wire(pipeline_shared, spec, tap="log_e_film")
+        log_e_film_wire = self._compute_log_e_wire(
+            pipeline_shared, spec, tap="log_e_film"
+        )
         density_wire = self._compute_density_wire(pipeline_shared, spec)
-        log_e_print_wire = self._compute_log_e_wire(pipeline_shared, spec, tap="log_e_print")
+        log_e_print_wire = self._compute_log_e_wire(
+            pipeline_shared, spec, tap="log_e_print"
+        )
         wires = BoundaryWires(
             log_e_film=log_e_film_wire,
             cmy_film=density_wire,
@@ -669,16 +743,30 @@ class BundleBuilder:
         l2 = self._bake_canonical("l2", pipeline_shared, spec, wires, version_tag)
         bundle_luts: list[tuple[str, Lut]] = [l1, l2]
         lut_metas: list[LutFileMeta] = [
-            LutFileMeta(role="filming_expose",
-                        path=l1[0], domain="input_rgb", range="log_e_film", print_profile=None),
-            LutFileMeta(role="filming_develop",
-                        path=l2[0], domain="log_e_film", range="cmy_film", print_profile=None),
+            LutFileMeta(
+                role="filming_expose",
+                path=l1[0],
+                domain="input_rgb",
+                range="log_e_film",
+                print_profile=None,
+            ),
+            LutFileMeta(
+                role="filming_develop",
+                path=l2[0],
+                domain="log_e_film",
+                range="cmy_film",
+                print_profile=None,
+            ),
         ]
 
         # Shared combinations (print-independent sub-chains — l12 for
         # 4-LUT) ride the same shared pipeline pass as L1/L2.
-        for (path_lut, combo_meta) in self._bake_combinations(
-            pipeline_shared, spec, wires, version_tag, print_profile=None,
+        for path_lut, combo_meta in self._bake_combinations(
+            pipeline_shared,
+            spec,
+            wires,
+            version_tag,
+            print_profile=None,
         ):
             bundle_luts.append(path_lut)
             lut_metas.append(combo_meta)
@@ -687,19 +775,37 @@ class BundleBuilder:
         # the same per-print pipeline (l23, l34, l123, l234, l1234).
         for print_profile in spec.print_profiles:
             pipeline_print = self._make_pipeline(spec, print_profile)
-            l3 = self._bake_canonical("l3", pipeline_print, spec, wires, version_tag, print_profile)
-            l4 = self._bake_canonical("l4", pipeline_print, spec, wires, version_tag, print_profile)
+            l3 = self._bake_canonical(
+                "l3", pipeline_print, spec, wires, version_tag, print_profile
+            )
+            l4 = self._bake_canonical(
+                "l4", pipeline_print, spec, wires, version_tag, print_profile
+            )
             bundle_luts.extend([l3, l4])
-            lut_metas.extend([
-                LutFileMeta(role="printing_expose",
-                            path=l3[0], domain="cmy_film", range="log_e_print",
-                            print_profile=print_profile),
-                LutFileMeta(role="printing_develop_scan",
-                            path=l4[0], domain="log_e_print", range="output_rgb",
-                            print_profile=print_profile),
-            ])
-            for (path_lut, combo_meta) in self._bake_combinations(
-                pipeline_print, spec, wires, version_tag, print_profile=print_profile,
+            lut_metas.extend(
+                [
+                    LutFileMeta(
+                        role="printing_expose",
+                        path=l3[0],
+                        domain="cmy_film",
+                        range="log_e_print",
+                        print_profile=print_profile,
+                    ),
+                    LutFileMeta(
+                        role="printing_develop_scan",
+                        path=l4[0],
+                        domain="log_e_print",
+                        range="output_rgb",
+                        print_profile=print_profile,
+                    ),
+                ]
+            )
+            for path_lut, combo_meta in self._bake_combinations(
+                pipeline_print,
+                spec,
+                wires,
+                version_tag,
+                print_profile=print_profile,
             ):
                 bundle_luts.append(path_lut)
                 lut_metas.append(combo_meta)
@@ -711,7 +817,9 @@ class BundleBuilder:
             resolution=spec.resolution,
             target=spec.target,
             provenance=provenance,
-            stocks=StocksMeta(film=spec.film_profile, prints=tuple(spec.print_profiles)),
+            stocks=StocksMeta(
+                film=spec.film_profile, prints=tuple(spec.print_profiles)
+            ),
             color_spaces={
                 "input": ColorSpaceMeta(
                     name=spec.input_color_space,
@@ -831,7 +939,8 @@ class BundleBuilder:
         probe_grid = cube_grid(n_probe)
         probe_image_enc = grid_as_image(probe_grid, n_probe)
         probe_image_lin = decode_cctf(
-            probe_image_enc, spec.input_color_space,
+            probe_image_enc,
+            spec.input_color_space,
         )
         # Same input-gain plumb as _compute_density_wire — the log_e
         # span here must reflect the post-gain probe values or the wire
@@ -855,8 +964,9 @@ class BundleBuilder:
     # Sub-chain combinations (n130 — l12, l23, ...) will reuse it without
     # adding new code paths.
 
-    def _make_inject_image(self, n: int, inject_tap: str,
-                           wires: BoundaryWires, spec: BundleSpec) -> np.ndarray:
+    def _make_inject_image(
+        self, n: int, inject_tap: str, wires: BoundaryWires, spec: BundleSpec
+    ) -> np.ndarray:
         """Build the pipeline-input image for a sub-chain starting at
         ``inject_tap``.
 
@@ -887,8 +997,9 @@ class BundleBuilder:
             return grid_as_image(log_e_grid, n).astype(np.float32)
         raise ValueError(f"cannot build inject image at tap {inject_tap!r}")
 
-    def _encode_at_tap(self, value, collect_tap: str,
-                       wires: BoundaryWires, spec: BundleSpec) -> np.ndarray:
+    def _encode_at_tap(
+        self, value, collect_tap: str, wires: BoundaryWires, spec: BundleSpec
+    ) -> np.ndarray:
         """Encode a pipeline-output value at ``collect_tap`` into [0, 1]
         code space, using the boundary wire at that tap."""
         arr = np.asarray(value, dtype=float)
@@ -908,10 +1019,16 @@ class BundleBuilder:
             return encode_cctf(arr * gain, spec.output_color_space)
         raise ValueError(f"cannot encode at tap {collect_tap!r}")
 
-    def _bake_sublut(self, pipeline, spec: BundleSpec,
-                     inject_tap: str, collect_tap: str,
-                     wires: BoundaryWires,
-                     rel_path: str, title: str) -> tuple[str, Lut]:
+    def _bake_sublut(
+        self,
+        pipeline,
+        spec: BundleSpec,
+        inject_tap: str,
+        collect_tap: str,
+        wires: BoundaryWires,
+        rel_path: str,
+        title: str,
+    ) -> tuple[str, Lut]:
         """Bake one sub-chain LUT from ``inject_tap`` to ``collect_tap``.
 
         Pattern: build a code-space grid at the inject tap, decode it via
@@ -942,22 +1059,66 @@ class BundleBuilder:
 
     _BAKE_RECIPES: dict[str, dict] = {
         # role-name → (inject, collect, filename suffix, per_print).
-        "combined":     {"inject": "rgb_in",      "collect": "rgb_out",     "suffix": None,    "per_print": True},
-        "film":         {"inject": "rgb_in",      "collect": "cmy_film",    "suffix": "film",  "per_print": False},
-        "print":        {"inject": "cmy_film",    "collect": "rgb_out",     "suffix": "print", "per_print": True},
-        "l1":           {"inject": "rgb_in",      "collect": "log_e_film",  "suffix": "l1",    "per_print": False},
-        "l2":           {"inject": "log_e_film",  "collect": "cmy_film",    "suffix": "l2",    "per_print": False},
-        "l3":           {"inject": "cmy_film",    "collect": "log_e_print", "suffix": "l3",    "per_print": True},
-        "l4":           {"inject": "log_e_print", "collect": "rgb_out",     "suffix": "l4",    "per_print": True},
+        "combined": {
+            "inject": "rgb_in",
+            "collect": "rgb_out",
+            "suffix": None,
+            "per_print": True,
+        },
+        "film": {
+            "inject": "rgb_in",
+            "collect": "cmy_film",
+            "suffix": "film",
+            "per_print": False,
+        },
+        "print": {
+            "inject": "cmy_film",
+            "collect": "rgb_out",
+            "suffix": "print",
+            "per_print": True,
+        },
+        "l1": {
+            "inject": "rgb_in",
+            "collect": "log_e_film",
+            "suffix": "l1",
+            "per_print": False,
+        },
+        "l2": {
+            "inject": "log_e_film",
+            "collect": "cmy_film",
+            "suffix": "l2",
+            "per_print": False,
+        },
+        "l3": {
+            "inject": "cmy_film",
+            "collect": "log_e_print",
+            "suffix": "l3",
+            "per_print": True,
+        },
+        "l4": {
+            "inject": "log_e_print",
+            "collect": "rgb_out",
+            "suffix": "l4",
+            "per_print": True,
+        },
         # 3-LUT collapses printing.expose + develop + scan into a single
         # cube; same filename suffix as 4-LUT's L3 (consistent numbering)
         # but the (inject, collect) pair differs.
-        "l3_combined":  {"inject": "cmy_film",    "collect": "rgb_out",     "suffix": "l3",    "per_print": True},
+        "l3_combined": {
+            "inject": "cmy_film",
+            "collect": "rgb_out",
+            "suffix": "l3",
+            "per_print": True,
+        },
     }
 
     def _bake_canonical(
-        self, recipe_key: str,
-        pipeline, spec: BundleSpec, wires: BoundaryWires, version_tag: str,
+        self,
+        recipe_key: str,
+        pipeline,
+        spec: BundleSpec,
+        wires: BoundaryWires,
+        version_tag: str,
         print_stock: str | None = None,
     ) -> tuple[str, Lut]:
         """Bake one canonical cube — looks up ``recipe_key`` in
@@ -968,26 +1129,37 @@ class BundleBuilder:
         r = self._BAKE_RECIPES[recipe_key]
         pp = print_stock if r["per_print"] else None
         if r["per_print"] and print_stock is None:
-            raise ValueError(
-                f"_bake_canonical({recipe_key!r}) requires a print_stock"
-            )
+            raise ValueError(f"_bake_canonical({recipe_key!r}) requires a print_stock")
         return self._bake_sublut(
-            pipeline, spec, r["inject"], r["collect"], wires,
+            pipeline,
+            spec,
+            r["inject"],
+            r["collect"],
+            wires,
             _lut_filename(
-                film_profile=spec.film_profile, version_tag=version_tag,
-                print_profile=pp, suffix=r["suffix"],
+                film_profile=spec.film_profile,
+                version_tag=version_tag,
+                print_profile=pp,
+                suffix=r["suffix"],
             ),
             _lut_title(
-                film_profile=spec.film_profile, version_tag=version_tag,
-                print_profile=pp, suffix=r["suffix"],
+                film_profile=spec.film_profile,
+                version_tag=version_tag,
+                print_profile=pp,
+                suffix=r["suffix"],
             ),
         )
 
     # ---- combinations (n130) --------------------------------------------
 
     def _bake_combinations(
-        self, pipeline, spec: BundleSpec, wires: BoundaryWires,
-        version_tag: str, *, print_profile: str | None,
+        self,
+        pipeline,
+        spec: BundleSpec,
+        wires: BoundaryWires,
+        version_tag: str,
+        *,
+        print_profile: str | None,
     ) -> list[tuple[tuple[str, Lut], LutFileMeta]]:
         """Bake the topology's combination sub-chains for one pipeline pass.
 
@@ -1013,8 +1185,13 @@ class BundleBuilder:
             rel_path = _subchain_filename(spec, version_tag, entry.label, print_profile)
             title = _subchain_title(spec, version_tag, entry.label, print_profile)
             path, lut = self._bake_sublut(
-                pipeline, spec, entry.inject_tap, entry.collect_tap,
-                wires, rel_path, title,
+                pipeline,
+                spec,
+                entry.inject_tap,
+                entry.collect_tap,
+                wires,
+                rel_path,
+                title,
             )
             meta = LutFileMeta(
                 role=entry.role,
@@ -1043,6 +1220,7 @@ class BundleBuilder:
         # of the builders module (mirrors the pattern used for qa.run
         # and delivery_targets).
         from spektrafilm_lut_creator import ocio_emit
+
         reason = ocio_emit.unsupported_reason(self.spec)
         if reason:
             print(f"[bake] skipping config.ocio: {reason}")
@@ -1052,7 +1230,9 @@ class BundleBuilder:
         return True
 
     def _run_qa(
-        self, bundle: Bundle, bundle_root: Path,
+        self,
+        bundle: Bundle,
+        bundle_root: Path,
     ) -> dict[str, list]:
         """Run the QA suite for the spec's selected print(s).
 
@@ -1069,8 +1249,8 @@ class BundleBuilder:
         """
         # Lazy import: qa.suite imports bundles/builders symbols transitively,
         # so eager-importing here would risk a cycle on cold module load.
-        from spektrafilm_lut_creator.qa import run as run_qa
         from spektrafilm_lut_creator.naming import per_print_qa_folder_name
+        from spektrafilm_lut_creator.qa import run as run_qa
 
         spec = self.spec
         if spec.qa_print_index is None:
@@ -1089,7 +1269,9 @@ class BundleBuilder:
                 print_profile=print_profile,
             )
             report_dir = qa_root / report_name
-            results_by_print[print_profile] = run_qa(spec, bundle, report_dir, print_index=idx)
+            results_by_print[print_profile] = run_qa(
+                spec, bundle, report_dir, print_index=idx
+            )
             # The QA reference cache is regenerable scratch work — strip
             # it before the bundle is potentially zipped or shipped.
             cache_dir = report_dir / "cache"
@@ -1140,6 +1322,7 @@ class BundleBuilder:
             # registry; importing it at module-load order can race with
             # plugin registration.
             from spektrafilm_lut_creator.delivery_targets import get as get_target
+
             target = get_target(self.spec.target)
             fmt = get_format(target.format)
             for rel_path, lut in bundle.luts:
@@ -1167,7 +1350,9 @@ class BundleBuilder:
         cube_word = "cube" if n_cubes == 1 else "cubes"
         emitted_ocio = self._maybe_emit_ocio(bundle, out_dir)
         extras = ", config.ocio" if emitted_ocio else ""
-        print(f"[bake] wrote {n_cubes} {cube_word} + bundle.json, README.md, LICENSE{extras}")
+        print(
+            f"[bake] wrote {n_cubes} {cube_word} + bundle.json, README.md, LICENSE{extras}"
+        )
         if self.spec.qa:
             qa_results = self._run_qa(bundle, out_dir)
             # Rewrite the README with a Quality pass/fail block now that

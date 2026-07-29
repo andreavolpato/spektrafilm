@@ -8,13 +8,16 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from qtpy import QtCore
 
-from spektrafilm_gui.polaroid_animation import prepare_polaroid_state, render_polaroid_frame
+from spektrafilm_gui.polaroid_animation import (
+    prepare_polaroid_state,
+    render_polaroid_frame,
+)
 
 if TYPE_CHECKING:
     from napari.layers import Image as NapariImageLayer
 
 
-QTimer = getattr(QtCore, 'QTimer')
+QTimer = getattr(QtCore, "QTimer")
 
 
 @dataclass(slots=True)
@@ -23,11 +26,11 @@ class _LayerAnimationHandle:
     final_image: np.ndarray
 
 
-INPUT_LAYER_NAME = 'input'
-INPUT_PREVIEW_LAYER_NAME = 'input_preview'
-WHITE_BORDER_LAYER_NAME = 'white_border'
-WATERMARK_LAYER_NAME = 'watermark'
-OUTPUT_LAYER_NAME = 'output'
+INPUT_LAYER_NAME = "input"
+INPUT_PREVIEW_LAYER_NAME = "input_preview"
+WHITE_BORDER_LAYER_NAME = "white_border"
+WATERMARK_LAYER_NAME = "watermark"
+OUTPUT_LAYER_NAME = "output"
 STACK_LAYER_ORDER = (
     WHITE_BORDER_LAYER_NAME,
     WATERMARK_LAYER_NAME,
@@ -42,7 +45,9 @@ WATERMARK_LONG_EDGE_PIXELS = 1024
 
 
 def virtual_photo_paper_back(*args, **kwargs):
-    return import_module('spektrafilm_gui.virtual_photo_paper_back').virtual_photo_paper_back(*args, **kwargs)
+    return import_module(
+        "spektrafilm_gui.virtual_photo_paper_back"
+    ).virtual_photo_paper_back(*args, **kwargs)
 
 
 def _watermark_raster_size(
@@ -58,7 +63,9 @@ def _watermark_raster_size(
     current_long_edge = max(safe_height, safe_width)
     if safe_height >= safe_width:
         target_height = safe_long_edge
-        target_width = max(int(round(safe_width * safe_long_edge / current_long_edge)), 1)
+        target_width = max(
+            int(round(safe_width * safe_long_edge / current_long_edge)), 1
+        )
         return target_height, target_width
 
     target_width = safe_long_edge
@@ -70,7 +77,9 @@ def _watermark_raster_size(
 def _build_watermark_image(height: int, width: int) -> np.ndarray:
     safe_height = max(int(height), 1)
     safe_width = max(int(width), 1)
-    return np.ascontiguousarray(virtual_photo_paper_back(canvas_size=(safe_width, safe_height)))
+    return np.ascontiguousarray(
+        virtual_photo_paper_back(canvas_size=(safe_width, safe_height))
+    )
 
 
 def clear_watermark_image_cache() -> None:
@@ -78,11 +87,13 @@ def clear_watermark_image_cache() -> None:
 
 
 def is_napari_image_layer(layer: object) -> bool:
-    if getattr(layer, '_type_string', None) == 'image':
+    if getattr(layer, "_type_string", None) == "image":
         return True
 
     layer_type = type(layer)
-    if layer_type.__name__ == 'Image' and layer_type.__module__.startswith('napari.layers.image'):
+    if layer_type.__name__ == "Image" and layer_type.__module__.startswith(
+        "napari.layers.image"
+    ):
         return True
 
     try:
@@ -102,12 +113,16 @@ def _normalized_world_size(image: np.ndarray) -> tuple[float, float]:
     return float(height) / float(long_edge), float(width) / float(long_edge)
 
 
-def _padded_world_size(image_world_size: tuple[float, float], padding_fraction: float) -> tuple[float, float]:
+def _padded_world_size(
+    image_world_size: tuple[float, float], padding_fraction: float
+) -> tuple[float, float]:
     padding = max(0.0, float(padding_fraction))
     return image_world_size[0] + 2.0 * padding, image_world_size[1] + 2.0 * padding
 
 
-def _set_layer_geometry(layer: NapariImageLayer, *, world_size: tuple[float, float]) -> None:
+def _set_layer_geometry(
+    layer: NapariImageLayer, *, world_size: tuple[float, float]
+) -> None:
     data = np.asarray(layer.data)
     if data.ndim < 2:
         return
@@ -118,8 +133,8 @@ def _set_layer_geometry(layer: NapariImageLayer, *, world_size: tuple[float, flo
         world_size[1] / max(int(width), 1),
     )
     translate = (-0.5 * world_size[0], -0.5 * world_size[1])
-    setattr(layer, 'scale', scale)
-    setattr(layer, 'translate', translate)
+    setattr(layer, "scale", scale)
+    setattr(layer, "translate", translate)
 
 
 def _fit_image_world_size(
@@ -152,12 +167,16 @@ def _supports_output_layer_animation(image: np.ndarray) -> bool:
     return int(height) * int(width) <= OUTPUT_LAYER_ANIMATION_MAX_PIXELS
 
 
-def _supports_output_layer_crossfade(source_image: np.ndarray, target_image: np.ndarray) -> bool:
+def _supports_output_layer_crossfade(
+    source_image: np.ndarray, target_image: np.ndarray
+) -> bool:
     source = np.asarray(source_image)
     target = np.asarray(target_image)
     if source.shape != target.shape:
         return False
-    return _supports_output_layer_animation(source) and _supports_output_layer_animation(target)
+    return _supports_output_layer_animation(
+        source
+    ) and _supports_output_layer_animation(target)
 
 
 def _layer_data_shape(layer: NapariImageLayer) -> tuple[int, ...]:
@@ -205,7 +224,7 @@ def _layer_world_size(layer: NapariImageLayer) -> tuple[float, float]:
     if data.ndim < 2:
         return 1.0, 1.0
 
-    scale = getattr(layer, 'scale', (1.0, 1.0))
+    scale = getattr(layer, "scale", (1.0, 1.0))
     if isinstance(scale, (int, float)):
         scale_y = scale_x = float(scale)
     else:
@@ -236,21 +255,21 @@ def set_output_layer_metadata(
 
 def set_output_layer_interpolation(layer: NapariImageLayer, mode: str) -> None:
     try:
-        setattr(layer, 'interpolation2d', mode)
+        setattr(layer, "interpolation2d", mode)
         _refresh_layer(layer)
         return
     except (AttributeError, TypeError, ValueError):
         pass
 
     try:
-        setattr(layer, 'interpolation', mode)
+        setattr(layer, "interpolation", mode)
         _refresh_layer(layer)
     except (AttributeError, TypeError, ValueError):
         return
 
 
 def _refresh_layer(layer: NapariImageLayer) -> None:
-    refresh = getattr(layer, 'refresh', None)
+    refresh = getattr(layer, "refresh", None)
     if callable(refresh):
         refresh()
 
@@ -267,14 +286,17 @@ class ViewerLayerService:
     output_color_space_key: str
     output_cctf_encoding_key: str
     output_display_transform_key: str
-    _output_animations: dict[int, _LayerAnimationHandle] = field(default_factory=dict, init=False, repr=False)
+    _output_animations: dict[int, _LayerAnimationHandle] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def image_layer(self, layer_name: str) -> NapariImageLayer | None:
         return next(
             (
                 layer
                 for layer in self.viewer.layers
-                if is_napari_image_layer(layer) and getattr(layer, 'name', None) == layer_name
+                if is_napari_image_layer(layer)
+                and getattr(layer, "name", None) == layer_name
             ),
             None,
         )
@@ -301,7 +323,11 @@ class ViewerLayerService:
         image_data = np.asarray(image)
         image_world_size = _normalized_world_size(image_data)
         border_world_size = _padded_world_size(image_world_size, white_padding)
-        watermark_reference_size = watermark_source_size if watermark_source_size is not None else watermark_canvas_size
+        watermark_reference_size = (
+            watermark_source_size
+            if watermark_source_size is not None
+            else watermark_canvas_size
+        )
         watermark_height, watermark_width = _watermark_raster_size(
             *(
                 tuple(int(dimension) for dimension in watermark_reference_size)
@@ -320,15 +346,19 @@ class ViewerLayerService:
         _set_layer_geometry(white_border, world_size=border_world_size)
 
         watermark_layer = self._set_or_add_image_layer(
-            np.array(_build_watermark_image(watermark_height, watermark_width), copy=True),
+            np.array(
+                _build_watermark_image(watermark_height, watermark_width), copy=True
+            ),
             layer_name=WATERMARK_LAYER_NAME,
         )
-        set_output_layer_interpolation(watermark_layer, 'spline36')
+        set_output_layer_interpolation(watermark_layer, "spline36")
         _set_layer_geometry(watermark_layer, world_size=image_world_size)
         if not watermark_layer.visible:
             watermark_layer.visible = True
 
-        preview_layer = self._set_or_add_image_layer(image_data, layer_name=INPUT_PREVIEW_LAYER_NAME)
+        preview_layer = self._set_or_add_image_layer(
+            image_data, layer_name=INPUT_PREVIEW_LAYER_NAME
+        )
         _set_layer_geometry(preview_layer, world_size=image_world_size)
         if preview_layer.visible:
             preview_layer.visible = False
@@ -346,7 +376,9 @@ class ViewerLayerService:
         if preview_layer is None:
             return
 
-        border_world_size = _padded_world_size(_layer_world_size(preview_layer), white_padding)
+        border_world_size = _padded_world_size(
+            _layer_world_size(preview_layer), white_padding
+        )
         _set_layer_geometry(white_border, world_size=border_world_size)
 
     def current_image_world_size(self) -> tuple[float, float] | None:
@@ -363,10 +395,12 @@ class ViewerLayerService:
         output_color_space: str,
         output_cctf_encoding: bool,
         use_display_transform: bool,
-        output_interpolation_mode: str = 'spline36',
+        output_interpolation_mode: str = "spline36",
     ) -> None:
         existing_layer = self.image_layer(OUTPUT_LAYER_NAME)
-        animate_on_show = existing_layer is None or not bool(getattr(existing_layer, 'visible', True))
+        animate_on_show = existing_layer is None or not bool(
+            getattr(existing_layer, "visible", True)
+        )
         output_image = np.asarray(image)
         output_shape = tuple(int(dimension) for dimension in output_image.shape)
         crossfade_source_image: np.ndarray | None = None
@@ -379,7 +413,9 @@ class ViewerLayerService:
             if animate_on_show:
                 replace_layer = existing_shape != output_shape
             else:
-                use_crossfade = _supports_output_layer_crossfade(existing_data, output_image)
+                use_crossfade = _supports_output_layer_crossfade(
+                    existing_data, output_image
+                )
                 if use_crossfade:
                     crossfade_source_image = np.array(existing_data, copy=True)
                 replace_layer = not use_crossfade and existing_shape != output_shape
@@ -389,11 +425,15 @@ class ViewerLayerService:
             existing_layer = None
 
         if existing_layer is None:
-            layer = self._set_or_add_image_layer(output_image, layer_name=OUTPUT_LAYER_NAME)
+            layer = self._set_or_add_image_layer(
+                output_image, layer_name=OUTPUT_LAYER_NAME
+            )
         elif use_crossfade:
             layer = existing_layer
         else:
-            layer = self._set_or_add_image_layer(output_image, layer_name=OUTPUT_LAYER_NAME)
+            layer = self._set_or_add_image_layer(
+                output_image, layer_name=OUTPUT_LAYER_NAME
+            )
 
         set_output_layer_metadata(
             layer,
@@ -409,7 +449,12 @@ class ViewerLayerService:
         set_output_layer_interpolation(layer, output_interpolation_mode)
         image_world_size = self.current_image_world_size()
         if image_world_size is not None:
-            _set_layer_geometry(layer, world_size=_fit_image_world_size(np.asarray(image), bounding_world_size=image_world_size))
+            _set_layer_geometry(
+                layer,
+                world_size=_fit_image_world_size(
+                    np.asarray(image), bounding_world_size=image_world_size
+                ),
+            )
         self.hide_layer(INPUT_PREVIEW_LAYER_NAME)
         if not layer.visible:
             layer.visible = True
@@ -462,11 +507,13 @@ class ViewerLayerService:
     def set_active_layer(self, layer: NapariImageLayer | None) -> None:
         if layer is None:
             return
-        selection = getattr(self.viewer.layers, 'selection', None)
-        if selection is not None and hasattr(selection, 'active'):
+        selection = getattr(self.viewer.layers, "selection", None)
+        if selection is not None and hasattr(selection, "active"):
             selection.active = layer
 
-    def _set_or_add_image_layer(self, image: np.ndarray, *, layer_name: str) -> NapariImageLayer:
+    def _set_or_add_image_layer(
+        self, image: np.ndarray, *, layer_name: str
+    ) -> NapariImageLayer:
         existing_layer = self.image_layer(layer_name)
         if existing_layer is None:
             return self.viewer.add_image(image, name=layer_name)
@@ -508,15 +555,15 @@ class ViewerLayerService:
         frame_times = np.linspace(0.0, 1.0, num=frame_count, dtype=np.float32)
         state = prepare_polaroid_state(output_image)
         timer = timer_cls()
-        set_interval = getattr(timer, 'setInterval', None)
+        set_interval = getattr(timer, "setInterval", None)
         if callable(set_interval):
             set_interval(safe_interval_ms)
-        set_single_shot = getattr(timer, 'setSingleShot', None)
+        set_single_shot = getattr(timer, "setSingleShot", None)
         if callable(set_single_shot):
             set_single_shot(False)
-        timeout_signal = getattr(timer, 'timeout', None)
-        connect = getattr(timeout_signal, 'connect', None)
-        start = getattr(timer, 'start', None)
+        timeout_signal = getattr(timer, "timeout", None)
+        connect = getattr(timeout_signal, "connect", None)
+        start = getattr(timer, "start", None)
         if not callable(connect) or not callable(start):
             return
 
@@ -528,10 +575,13 @@ class ViewerLayerService:
             if current_index >= len(frame_times):
                 self._stop_output_layer_animation(layer)
                 return
-            _set_layer_data(layer, _coerce_output_animation_frame(
-                render_polaroid_frame(state, float(frame_times[current_index])),
-                reference_image=output_image,
-            ))
+            _set_layer_data(
+                layer,
+                _coerce_output_animation_frame(
+                    render_polaroid_frame(state, float(frame_times[current_index])),
+                    reference_image=output_image,
+                ),
+            )
             if current_index >= len(frame_times) - 1:
                 self._stop_output_layer_animation(layer)
 
@@ -540,10 +590,13 @@ class ViewerLayerService:
             timer=timer,
             final_image=output_image,
         )
-        _set_layer_data(layer, _coerce_output_animation_frame(
-            render_polaroid_frame(state, float(frame_times[0])),
-            reference_image=output_image,
-        ))
+        _set_layer_data(
+            layer,
+            _coerce_output_animation_frame(
+                render_polaroid_frame(state, float(frame_times[0])),
+                reference_image=output_image,
+            ),
+        )
         start()
 
     def _start_output_layer_crossfade(
@@ -564,15 +617,15 @@ class ViewerLayerService:
 
         self._stop_output_layer_animation(layer, restore_final=False)
         timer = timer_cls()
-        set_interval = getattr(timer, 'setInterval', None)
+        set_interval = getattr(timer, "setInterval", None)
         if callable(set_interval):
             set_interval(safe_interval_ms)
-        set_single_shot = getattr(timer, 'setSingleShot', None)
+        set_single_shot = getattr(timer, "setSingleShot", None)
         if callable(set_single_shot):
             set_single_shot(False)
-        timeout_signal = getattr(timer, 'timeout', None)
-        connect = getattr(timeout_signal, 'connect', None)
-        start = getattr(timer, 'start', None)
+        timeout_signal = getattr(timer, "timeout", None)
+        connect = getattr(timeout_signal, "connect", None)
+        start = getattr(timer, "start", None)
         if not callable(connect) or not callable(start):
             _set_layer_data(layer, np.array(target_image, copy=True))
             return
@@ -587,11 +640,14 @@ class ViewerLayerService:
             if current_step >= safe_frame_count:
                 self._stop_output_layer_animation(layer)
                 return
-            _set_layer_data(layer, _blend_output_animation_frame(
-                source_frame,
-                final_image,
-                alpha=float(current_step) / float(safe_frame_count),
-            ))
+            _set_layer_data(
+                layer,
+                _blend_output_animation_frame(
+                    source_frame,
+                    final_image,
+                    alpha=float(current_step) / float(safe_frame_count),
+                ),
+            )
 
         connect(_tick)
         self._output_animations[id(layer)] = _LayerAnimationHandle(
@@ -610,10 +666,10 @@ class ViewerLayerService:
         if handle is None:
             return
         timer = handle.timer
-        stop = getattr(timer, 'stop', None)
+        stop = getattr(timer, "stop", None)
         if callable(stop):
             stop()
-        delete_later = getattr(timer, 'deleteLater', None)
+        delete_later = getattr(timer, "deleteLater", None)
         if callable(delete_later):
             delete_later()
         if restore_final:
@@ -637,6 +693,10 @@ class ViewerLayerService:
         output_layer = self.output_layer()
         if output_layer is None:
             return default_color_space, default_cctf_encoding
-        color_space = output_layer.metadata.get(self.output_color_space_key, default_color_space)
-        cctf_encoding = output_layer.metadata.get(self.output_cctf_encoding_key, default_cctf_encoding)
+        color_space = output_layer.metadata.get(
+            self.output_color_space_key, default_color_space
+        )
+        cctf_encoding = output_layer.metadata.get(
+            self.output_cctf_encoding_key, default_cctf_encoding
+        )
         return str(color_space), bool(cctf_encoding)

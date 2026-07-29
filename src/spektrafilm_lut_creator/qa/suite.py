@@ -9,11 +9,12 @@
 The report is markdown-only — renders in VS Code, GitHub, any reader.
 HTML / PDF can be produced downstream from the same content.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
 
 import numpy as np
 
@@ -25,9 +26,8 @@ from spektrafilm_lut_creator.qa import evaluators, reference
 from spektrafilm_lut_creator.qa.result import Result
 from spektrafilm_lut_creator.qa.tests import DEFAULT_TESTS
 
-
 # Public re-export so callers can compose their own suites.
-DEFAULT_SUITE: tuple[Callable[["QAContext"], Result], ...] = DEFAULT_TESTS
+DEFAULT_SUITE: tuple[Callable[[QAContext], Result], ...] = DEFAULT_TESTS
 
 
 @dataclass
@@ -69,8 +69,9 @@ class QAContext:
     out_dir
         Root output directory for this QA pass.
     figures_dir
-        ``out_dir / "figures"`` — where tests save PNGs.
+        ``out_dir / "figures"`` — where tests save ONGs.
     """
+
     spec: BundleSpec
     bundle: Bundle
     print_index: int
@@ -78,8 +79,8 @@ class QAContext:
     lut: Lut
     grid_input: np.ndarray
     grid_output: np.ndarray
-    reference: "reference.ReferenceSamples"
-    frame: "color_spaces.BakeFrame"
+    reference: reference.ReferenceSamples
+    frame: color_spaces.BakeFrame
     out_dir: Path
     figures_dir: Path
 
@@ -155,9 +156,7 @@ def _effective_lut(bundle: Bundle, print_index: int) -> tuple[str, Lut]:
         path, l4 = find("printing_develop_scan", print_name)
         composed = _compose_4lut(l1, l2, l3, l4, bundle.meta.resolution)
         return path, composed
-    raise NotImplementedError(
-        f"QA does not yet handle topology={topology!r}"
-    )
+    raise NotImplementedError(f"QA does not yet handle topology={topology!r}")
 
 
 def _compose_film_print(film_lut: Lut, print_lut: Lut, resolution: int) -> Lut:
@@ -174,7 +173,11 @@ def _compose_film_print(film_lut: Lut, print_lut: Lut, resolution: int) -> Lut:
     cmy_codes = evaluators.apply_trilinear(film_lut.table, grid)
     rgb_encoded = evaluators.apply_trilinear(print_lut.table, cmy_codes)
     table = rgb_encoded.reshape(resolution, resolution, resolution, 3)
-    title = f"{film_lut.title} + {print_lut.title}" if film_lut.title and print_lut.title else "2-lut chain"
+    title = (
+        f"{film_lut.title} + {print_lut.title}"
+        if film_lut.title and print_lut.title
+        else "2-lut chain"
+    )
     return Lut(table=table, title=title)
 
 
@@ -190,9 +193,11 @@ def _compose_3lut(l1: Lut, l2: Lut, l3: Lut, resolution: int) -> Lut:
     cmy_film_code = evaluators.apply_trilinear(l2.table, log_e_film_code)
     rgb_encoded = evaluators.apply_trilinear(l3.table, cmy_film_code)
     table = rgb_encoded.reshape(resolution, resolution, resolution, 3)
-    title = f"{l1.title} + {l2.title} + {l3.title}" if all(
-        lut.title for lut in (l1, l2, l3)
-    ) else "3-lut chain"
+    title = (
+        f"{l1.title} + {l2.title} + {l3.title}"
+        if all(lut.title for lut in (l1, l2, l3))
+        else "3-lut chain"
+    )
     return Lut(table=table, title=title)
 
 
@@ -275,11 +280,13 @@ def run(
 
     n = lut.resolution
     grid_input = cube_grid(n)
-    grid_output = lut.table.reshape(n ** 3, 3)
+    grid_output = lut.table.reshape(n**3, 3)
 
     print(f"[qa] computing reference samples for print {print_index} ({print_name})...")
     ref = reference.compute_or_load(spec_obj, bundle_obj, print_index, cache_dir)
-    print(f"[qa]   cache key={ref.cache_key}  samples={ref.rng_samples_encoded.shape[0]}")
+    print(
+        f"[qa]   cache key={ref.cache_key}  samples={ref.rng_samples_encoded.shape[0]}"
+    )
 
     ctx = QAContext(
         spec=spec_obj,
@@ -315,6 +322,7 @@ def run(
     # Render the same content as a self-contained HTML page next to
     # report.md. Cheap (~100ms) and the colorist can double-click it.
     from spektrafilm_lut_creator.qa.html_export import report_md_to_html
+
     html_path = report_md_to_html(report_path)
 
     n_pass = sum(1 for r in results if r.passed is True)
@@ -332,6 +340,7 @@ def run(
 # ---------------------------------------------------------------------------
 # Markdown report emission.
 # ---------------------------------------------------------------------------
+
 
 def write_report(results: list[Result], ctx: QAContext, path: Path) -> None:
     """Write ``report.md`` summarizing the QA run.
@@ -363,8 +372,12 @@ def write_report(results: list[Result], ctx: QAContext, path: Path) -> None:
     lines.append(f"- **Film**: `{spec.film_profile}`")
     lines.append(f"- **Input color space**: `{spec.input_color_space}`")
     lines.append(f"- **Output color space**: `{spec.output_color_space}`")
-    lines.append(f"- **Topology**: `{bundle.meta.topology}`  ·  **Resolution**: `{spec.resolution}^3`")
-    lines.append(f"- **spektrafilm version**: `{bundle.meta.provenance.spektrafilm_version}`")
+    lines.append(
+        f"- **Topology**: `{bundle.meta.topology}`  ·  **Resolution**: `{spec.resolution}^3`"
+    )
+    lines.append(
+        f"- **spektrafilm version**: `{bundle.meta.provenance.spektrafilm_version}`"
+    )
     lines.append(f"- **Generated**: `{bundle.meta.provenance.created}`")
     lines.append("")
 

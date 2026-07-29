@@ -1,23 +1,31 @@
 """Viz panels for the LUT-fidelity QA tests."""
+
 from __future__ import annotations
 
 import colour
-import numpy as np
-from matplotlib.collections import LineCollection
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
+import numpy as np
+from matplotlib.figure import Figure
 
 from spektrafilm_lut_creator.qa.viz._base import (
-    BG, FG, HI, DIM, RED, GREEN, BLUE, WARN,
-    PANE_EDGE_RGBA, GRID_RGBA,
-    SUPTITLE_FS, PANEL_TITLE_FS, SUPTITLE_PAD, PANEL_TITLE_PAD,
-    IDENTITY_COLOR, IDENTITY_ALPHA,
-    FOOTER_FS, FOOTER_COLOR, FOOTER_BAND_FRAC, HEADER_BAND_FRAC,
-    _format_output_gamut_compress,
-    _identity_line, add_footer,
-    _setup_3d, _setup_2d, _fill_3d,
-    _to_oklab, _gamut_triangle_xy,
+    BG,
+    BLUE,
+    FG,
+    FOOTER_BAND_FRAC,
+    GREEN,
+    HEADER_BAND_FRAC,
+    HI,
+    PANEL_TITLE_FS,
+    PANEL_TITLE_PAD,
+    RED,
+    SUPTITLE_FS,
+    SUPTITLE_PAD,
+    WARN,
+    _fill_3d,
+    _identity_line,
+    _setup_2d,
+    _setup_3d,
+    _to_oklab,
 )
 
 
@@ -41,14 +49,26 @@ def cube_sculpture(
     if color_by is None:
         colors = np.clip(grid_output, 0.0, 1.0)
         sc = ax.scatter(
-            grid_input[:, 0], grid_input[:, 1], grid_input[:, 2],
-            c=colors, s=22, alpha=0.92, edgecolors="none", depthshade=False,
+            grid_input[:, 0],
+            grid_input[:, 1],
+            grid_input[:, 2],
+            c=colors,
+            s=22,
+            alpha=0.92,
+            edgecolors="none",
+            depthshade=False,
         )
     else:
         sc = ax.scatter(
-            grid_input[:, 0], grid_input[:, 1], grid_input[:, 2],
-            c=np.asarray(color_by).ravel(), cmap=cmap,
-            s=22, alpha=0.92, edgecolors="none", depthshade=False,
+            grid_input[:, 0],
+            grid_input[:, 1],
+            grid_input[:, 2],
+            c=np.asarray(color_by).ravel(),
+            cmap=cmap,
+            s=22,
+            alpha=0.92,
+            edgecolors="none",
+            depthshade=False,
         )
         cbar = fig.colorbar(sc, ax=ax, shrink=0.6, pad=0.12)
         cbar.set_label(color_label or "scalar", color=FG)
@@ -63,9 +83,8 @@ def cube_sculpture(
     _fill_3d(fig, has_cbar=color_by is not None)
     return fig
 
-def cube_deformation(
-    grid_input: np.ndarray, grid_output: np.ndarray
-) -> Figure:
+
+def cube_deformation(grid_input: np.ndarray, grid_output: np.ndarray) -> Figure:
     """Side-by-side: input-position cube vs output-position cube.
 
     The gap between the two is the LUT's deformation. Both panels use
@@ -75,28 +94,50 @@ def cube_deformation(
     colors = np.clip(grid_output, 0.0, 1.0)
     fig = plt.figure(figsize=(15, 7), facecolor=BG)
     ax1 = fig.add_subplot(121, projection="3d", facecolor=BG)
-    ax1.scatter(grid_input[:, 0], grid_input[:, 1], grid_input[:, 2],
-                c=colors, s=18, alpha=0.9, edgecolors="none", depthshade=False)
-    ax1.set_title("input positions", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS)
+    ax1.scatter(
+        grid_input[:, 0],
+        grid_input[:, 1],
+        grid_input[:, 2],
+        c=colors,
+        s=18,
+        alpha=0.9,
+        edgecolors="none",
+        depthshade=False,
+    )
+    ax1.set_title(
+        "input positions", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS
+    )
     ax2 = fig.add_subplot(122, projection="3d", facecolor=BG)
-    ax2.scatter(colors[:, 0], colors[:, 1], colors[:, 2],
-                c=colors, s=18, alpha=0.9, edgecolors="none", depthshade=False)
-    ax2.set_title("output positions", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS)
+    ax2.scatter(
+        colors[:, 0],
+        colors[:, 1],
+        colors[:, 2],
+        c=colors,
+        s=18,
+        alpha=0.9,
+        edgecolors="none",
+        depthshade=False,
+    )
+    ax2.set_title(
+        "output positions", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS
+    )
     for ax in (ax1, ax2):
         ax.set_xlabel("R", color=FG, labelpad=6)
         ax.set_ylabel("G", color=FG, labelpad=6)
         ax.set_zlabel("B", color=FG, labelpad=6)
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.set_zlim(0, 1)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_zlim(0, 1)
         _setup_3d(ax)
         ax.view_init(elev=22, azim=-58)
-    fig.suptitle("LUT deformation: where does each input land?",
-                 color=HI, fontsize=SUPTITLE_FS)
+    fig.suptitle(
+        "LUT deformation: where does each input land?", color=HI, fontsize=SUPTITLE_FS
+    )
     _fill_3d(fig, has_cbar=False)
     return fig
 
-def cube_edges(
-    table: np.ndarray, grid_input: np.ndarray, n: int
-) -> Figure:
+
+def cube_edges(table: np.ndarray, grid_input: np.ndarray, n: int) -> Figure:
     """Trace the 12 saturated cube edges in input vs output coordinates."""
     sweep = np.arange(n)
     pin_pairs = [(0, 0), (0, n - 1), (n - 1, 0), (n - 1, n - 1)]
@@ -108,7 +149,8 @@ def cube_edges(
     for g, r in pin_pairs:
         edges.append(np.stack([sweep, np.full(n, g), np.full(n, r)], axis=-1))
 
-    flat_table = table.reshape(n ** 3, 3)
+    flat_table = table.reshape(n**3, 3)
+
     def flat_idx(bgr):
         return bgr[..., 0] * n * n + bgr[..., 1] * n + bgr[..., 2]
 
@@ -119,27 +161,63 @@ def cube_edges(
         idx = flat_idx(edge)
         in_pos = grid_input[idx]
         out_pos = np.clip(flat_table[idx], 0.0, 1.0)
-        ax1.plot(in_pos[:, 0], in_pos[:, 1], in_pos[:, 2],
-                 color="#aaaaaa", lw=0.8, alpha=0.6)
-        ax1.scatter(in_pos[:, 0], in_pos[:, 1], in_pos[:, 2],
-                    c=out_pos, s=22, alpha=0.95, edgecolors="none",
-                    depthshade=False)
-        ax2.plot(out_pos[:, 0], out_pos[:, 1], out_pos[:, 2],
-                 color="#aaaaaa", lw=0.8, alpha=0.6)
-        ax2.scatter(out_pos[:, 0], out_pos[:, 1], out_pos[:, 2],
-                    c=out_pos, s=22, alpha=0.95, edgecolors="none",
-                    depthshade=False)
-    ax1.set_title("cube edges — input coordinates", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS)
-    ax2.set_title("cube edges — output coordinates", color=HI, pad=PANEL_TITLE_PAD, fontsize=PANEL_TITLE_FS)
+        ax1.plot(
+            in_pos[:, 0], in_pos[:, 1], in_pos[:, 2], color="#aaaaaa", lw=0.8, alpha=0.6
+        )
+        ax1.scatter(
+            in_pos[:, 0],
+            in_pos[:, 1],
+            in_pos[:, 2],
+            c=out_pos,
+            s=22,
+            alpha=0.95,
+            edgecolors="none",
+            depthshade=False,
+        )
+        ax2.plot(
+            out_pos[:, 0],
+            out_pos[:, 1],
+            out_pos[:, 2],
+            color="#aaaaaa",
+            lw=0.8,
+            alpha=0.6,
+        )
+        ax2.scatter(
+            out_pos[:, 0],
+            out_pos[:, 1],
+            out_pos[:, 2],
+            c=out_pos,
+            s=22,
+            alpha=0.95,
+            edgecolors="none",
+            depthshade=False,
+        )
+    ax1.set_title(
+        "cube edges — input coordinates",
+        color=HI,
+        pad=PANEL_TITLE_PAD,
+        fontsize=PANEL_TITLE_FS,
+    )
+    ax2.set_title(
+        "cube edges — output coordinates",
+        color=HI,
+        pad=PANEL_TITLE_PAD,
+        fontsize=PANEL_TITLE_FS,
+    )
     for ax in (ax1, ax2):
         ax.set_xlabel("R", color=FG, labelpad=6)
         ax.set_ylabel("G", color=FG, labelpad=6)
         ax.set_zlabel("B", color=FG, labelpad=6)
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.set_zlim(0, 1)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_zlim(0, 1)
         _setup_3d(ax)
         ax.view_init(elev=22, azim=-58)
-    fig.suptitle("Saturated cube edges — the canonical hue+saturation cycle",
-                 color=HI, fontsize=SUPTITLE_FS)
+    fig.suptitle(
+        "Saturated cube edges — the canonical hue+saturation cycle",
+        color=HI,
+        fontsize=SUPTITLE_FS,
+    )
     _fill_3d(fig, has_cbar=False)
     return fig
 
@@ -147,6 +225,7 @@ def cube_edges(
 # ---------------------------------------------------------------------------
 # Transfer-curve views (1D per-axis slices of the cube table).
 # ---------------------------------------------------------------------------
+
 
 def transfer_curves(
     sweep_x: np.ndarray,
@@ -204,33 +283,59 @@ def transfer_curves(
             if mask.any():
                 xs = sweep_x[1:][mask]
                 ys = axis_samples[1:, i][mask]
-                ax.scatter(xs, ys, s=60, marker="x", color="#ff3366",
-                           label="monotonicity violation", zorder=5)
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+                ax.scatter(
+                    xs,
+                    ys,
+                    s=60,
+                    marker="x",
+                    color="#ff3366",
+                    label="monotonicity violation",
+                    zorder=5,
+                )
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
         ax.set_xlabel(f"{label} in  (other channels = {pin_label})", color=FG)
         ax.set_ylabel("output", color=FG)
-        ax.set_title(f"{label} sweep", color=axis_color, fontsize=PANEL_TITLE_FS, pad=PANEL_TITLE_PAD)
+        ax.set_title(
+            f"{label} sweep",
+            color=axis_color,
+            fontsize=PANEL_TITLE_FS,
+            pad=PANEL_TITLE_PAD,
+        )
         _setup_2d(ax)
-        ax.legend(facecolor="#1a1a1a", labelcolor=FG, framealpha=0.85,
-                  loc="upper left", fontsize=9)
+        ax.legend(
+            facecolor="#1a1a1a",
+            labelcolor=FG,
+            framealpha=0.85,
+            loc="upper left",
+            fontsize=9,
+        )
     fig.suptitle(suptitle, color=HI, fontsize=SUPTITLE_FS)
     return fig
+
 
 # ---------------------------------------------------------------------------
 # Diagnostics.
 # ---------------------------------------------------------------------------
 
-def jacobian_condition_3d(
-    log_cond_field: np.ndarray, n: int
-) -> Figure:
+
+def jacobian_condition_3d(log_cond_field: np.ndarray, n: int) -> Figure:
     """3D scatter of interior cube cells colored by log10(cond J)."""
     interior = np.linspace(0.0, 1.0, n)[1:-1]
     BB, GG, RR = np.meshgrid(interior, interior, interior, indexing="ij")
     fig = plt.figure(figsize=(11, 9), facecolor=BG)
     ax = fig.add_subplot(111, projection="3d", facecolor=BG)
-    sc = ax.scatter(RR.ravel(), GG.ravel(), BB.ravel(),
-                    c=log_cond_field.ravel(), cmap="magma",
-                    s=14, alpha=0.85, edgecolors="none", depthshade=False)
+    sc = ax.scatter(
+        RR.ravel(),
+        GG.ravel(),
+        BB.ravel(),
+        c=log_cond_field.ravel(),
+        cmap="magma",
+        s=14,
+        alpha=0.85,
+        edgecolors="none",
+        depthshade=False,
+    )
     cbar = fig.colorbar(sc, ax=ax, shrink=0.55, pad=0.12)
     cbar.set_label("log₁₀(cond J)", color=FG)
     cbar.ax.tick_params(colors=FG)
@@ -238,29 +343,47 @@ def jacobian_condition_3d(
     ax.set_xlabel("R in", color=FG, labelpad=8)
     ax.set_ylabel("G in", color=FG, labelpad=8)
     ax.set_zlabel("B in", color=FG, labelpad=8)
-    ax.set_title("Local Jacobian condition number (cube smoothness)",
-                 color=HI, pad=SUPTITLE_PAD, fontsize=SUPTITLE_FS)
+    ax.set_title(
+        "Local Jacobian condition number (cube smoothness)",
+        color=HI,
+        pad=SUPTITLE_PAD,
+        fontsize=SUPTITLE_FS,
+    )
     _setup_3d(ax)
     ax.view_init(elev=22, azim=-58)
     _fill_3d(fig, has_cbar=True)
     return fig
 
+
 def output_histograms(grid_output: np.ndarray) -> Figure:
     """Per-channel output distributions with clipping markers and CDF overlay."""
-    fig, axes = plt.subplots(1, 3, figsize=(16, 4.8), facecolor=BG, layout="constrained")
+    fig, axes = plt.subplots(
+        1, 3, figsize=(16, 4.8), facecolor=BG, layout="constrained"
+    )
     for ax, ch, col, name in zip(axes, range(3), (RED, GREEN, BLUE), ("R", "G", "B")):
         ax.set_facecolor(BG)
         values = grid_output[:, ch]
-        ax.hist(values, bins=80, range=(-0.02, 1.02),
-                color=col, alpha=0.85, edgecolor="none")
+        ax.hist(
+            values,
+            bins=80,
+            range=(-0.02, 1.02),
+            color=col,
+            alpha=0.85,
+            edgecolor="none",
+        )
         clipped_lo = int(np.sum(values <= 1e-6))
         clipped_hi = int(np.sum(values >= 1.0 - 1e-6))
         ax.axvline(0.0, color=WARN, lw=1.0, ls=":")
         ax.axvline(1.0, color=WARN, lw=1.0, ls=":")
         ax2 = ax.twinx()
         sorted_vals = np.sort(values)
-        ax2.plot(sorted_vals, np.linspace(0, 1, sorted_vals.size),
-                 color="#ffffff", lw=1.0, alpha=0.8)
+        ax2.plot(
+            sorted_vals,
+            np.linspace(0, 1, sorted_vals.size),
+            color="#ffffff",
+            lw=1.0,
+            alpha=0.8,
+        )
         ax2.set_ylim(0, 1)
         ax2.set_ylabel("CDF", color="#cccccc", fontsize=9)
         ax2.tick_params(colors="#cccccc", labelsize=8)
@@ -269,17 +392,25 @@ def output_histograms(grid_output: np.ndarray) -> Figure:
         ax.set_xlim(-0.02, 1.02)
         ax.set_xlabel(f"{name} output", color=FG)
         ax.set_ylabel("count", color=FG)
-        ax.set_title(f"{name}    clipped lo: {clipped_lo}   hi: {clipped_hi}",
-                     color=col, fontsize=PANEL_TITLE_FS, pad=PANEL_TITLE_PAD)
+        ax.set_title(
+            f"{name}    clipped lo: {clipped_lo}   hi: {clipped_hi}",
+            color=col,
+            fontsize=PANEL_TITLE_FS,
+            pad=PANEL_TITLE_PAD,
+        )
         _setup_2d(ax)
-    fig.suptitle("Per-channel output distributions (with CDF + clipping markers)",
-                 color=HI, fontsize=SUPTITLE_FS)
+    fig.suptitle(
+        "Per-channel output distributions (with CDF + clipping markers)",
+        color=HI,
+        fontsize=SUPTITLE_FS,
+    )
     return fig
 
 
 # ---------------------------------------------------------------------------
 # OkLab / perceptual views.
 # ---------------------------------------------------------------------------
+
 
 def _linear_rgb_to_oklab(rgb_linear: np.ndarray, primaries_name: str) -> np.ndarray:
     """Output-primaries linear RGB → OkLab via XYZ.
@@ -297,6 +428,7 @@ def _linear_rgb_to_oklab(rgb_linear: np.ndarray, primaries_name: str) -> np.ndar
     )
     return np.asarray(colour.XYZ_to_Oklab(xyz), dtype=float)
 
+
 def _linear_rgb_to_xy(rgb_linear: np.ndarray, primaries) -> np.ndarray:
     """Linear RGB → xy chromaticity in the given primaries' frame."""
     xyz = colour.RGB_to_XYZ(
@@ -306,8 +438,8 @@ def _linear_rgb_to_xy(rgb_linear: np.ndarray, primaries) -> np.ndarray:
         illuminant=np.asarray(primaries.whitepoint, dtype=float),
     )
     b = xyz.sum(axis=-1, keepdims=True)
-    return np.asarray(xyz[..., :2] / np.where(np.abs(b) > 1e-12, b, 1.0),
-                       dtype=float)
+    return np.asarray(xyz[..., :2] / np.where(np.abs(b) > 1e-12, b, 1.0), dtype=float)
+
 
 def _render_oklab_gamut_3d(
     ax,
@@ -330,9 +462,15 @@ def _render_oklab_gamut_3d(
     out-of-gamut excursion is visible.
     """
     ax.scatter(
-        cube_lab[:, 1], cube_lab[:, 2], cube_lab[:, 0],
-        c=cube_colors, s=4, alpha=0.18, edgecolors="none",
-        depthshade=False, zorder=1.0,
+        cube_lab[:, 1],
+        cube_lab[:, 2],
+        cube_lab[:, 0],
+        c=cube_colors,
+        s=4,
+        alpha=0.18,
+        edgecolors="none",
+        depthshade=False,
+        zorder=1.0,
     )
 
     # Skip the three "lit-white" edges per axis (same convention as
@@ -346,19 +484,27 @@ def _render_oklab_gamut_3d(
             continue
         seg_hue = rim_hues[s:e]
         col = plt.cm.hsv(
-            np.angle(np.exp(1j * 2 * np.pi * np.mean(seg_hue)))
-            / (2 * np.pi) % 1.0
+            np.angle(np.exp(1j * 2 * np.pi * np.mean(seg_hue))) / (2 * np.pi) % 1.0
         )
         ax.plot(
-            rim_unbounded_lab[s:e, 1], rim_unbounded_lab[s:e, 2],
+            rim_unbounded_lab[s:e, 1],
+            rim_unbounded_lab[s:e, 2],
             rim_unbounded_lab[s:e, 0],
-            color=col, lw=2.0, alpha=0.95, zorder=3.0,
+            color=col,
+            lw=2.0,
+            alpha=0.95,
+            zorder=3.0,
         )
         if compression_active:
             ax.plot(
-                rim_compressed_lab[s:e, 1], rim_compressed_lab[s:e, 2],
+                rim_compressed_lab[s:e, 1],
+                rim_compressed_lab[s:e, 2],
                 rim_compressed_lab[s:e, 0],
-                color=col, lw=1.0, alpha=0.65, ls="--", zorder=2.8,
+                color=col,
+                lw=1.0,
+                alpha=0.65,
+                ls="--",
+                zorder=2.8,
             )
 
     # Sparse displacement arrows on a brightest-OOG subset (3D quiver).
@@ -372,11 +518,17 @@ def _render_oklab_gamut_3d(
             v = rim_compressed_lab[pick, 2] - rim_unbounded_lab[pick, 2]
             w = rim_compressed_lab[pick, 0] - rim_unbounded_lab[pick, 0]
             ax.quiver(
-                rim_unbounded_lab[pick, 1], rim_unbounded_lab[pick, 2],
+                rim_unbounded_lab[pick, 1],
+                rim_unbounded_lab[pick, 2],
                 rim_unbounded_lab[pick, 0],
-                u, v, w,
-                color="#ffaa55", alpha=0.55,
-                arrow_length_ratio=0.18, linewidth=0.9, zorder=3.5,
+                u,
+                v,
+                w,
+                color="#ffaa55",
+                alpha=0.55,
+                arrow_length_ratio=0.18,
+                linewidth=0.9,
+                zorder=3.5,
             )
 
     # Frame on the union of cube + unbounded rim. The unbounded rim
@@ -399,13 +551,18 @@ def _render_oklab_gamut_3d(
     _setup_3d(ax)
     ax.view_init(elev=18, azim=-58)
     ax.text2D(
-        0.02, 0.97,
+        0.02,
+        0.97,
         f"OkLab gamut  ({out_cs_name})\n"
         f"cloud = compressed LUT cube · rim solid = unbounded · "
         f"rim dashed = compressed",
-        transform=ax.transAxes, color=HI, fontsize=10,
-        ha="left", va="top",
+        transform=ax.transAxes,
+        color=HI,
+        fontsize=10,
+        ha="left",
+        va="top",
     )
+
 
 def _render_xy_compression_panel(
     ax,
@@ -442,29 +599,68 @@ def _render_xy_compression_panel(
     ax.tick_params(colors=fg)
     ax.grid(True, alpha=0.12, color=accent)
 
-    ax.plot(locus[:, 0], locus[:, 1], color=dim, lw=1.0, alpha=0.45,
-            label="visible spectral locus")
-    locus_path = plt.Polygon(locus, closed=True, facecolor="#cccccc",
-                             alpha=0.025, edgecolor="none")
+    ax.plot(
+        locus[:, 0],
+        locus[:, 1],
+        color=dim,
+        lw=1.0,
+        alpha=0.45,
+        label="visible spectral locus",
+    )
+    locus_path = plt.Polygon(
+        locus, closed=True, facecolor="#cccccc", alpha=0.025, edgecolor="none"
+    )
     ax.add_patch(locus_path)
 
     tri = np.vstack([out_tri, out_tri[:1]])
     ax.fill(tri[:, 0], tri[:, 1], color="#ffffff", alpha=0.04, zorder=1.5)
-    ax.plot(tri[:, 0], tri[:, 1], color=fg, lw=2.0, alpha=0.95,
-            label=f"{out_cs_name} gamut", zorder=2)
+    ax.plot(
+        tri[:, 0],
+        tri[:, 1],
+        color=fg,
+        lw=2.0,
+        alpha=0.95,
+        label=f"{out_cs_name} gamut",
+        zorder=2,
+    )
     primary_colors = ["#ff5566", "#66ff88", "#5599ff"]
     primary_labels = ["R", "G", "B"]
     for (px, py), pcol, plab in zip(out_tri, primary_colors, primary_labels):
-        ax.plot(px, py, "o", color=pcol, markersize=11,
-                markeredgecolor=bg, markeredgewidth=1.5, zorder=4)
+        ax.plot(
+            px,
+            py,
+            "o",
+            color=pcol,
+            markersize=11,
+            markeredgecolor=bg,
+            markeredgewidth=1.5,
+            zorder=4,
+        )
         offset = np.array([px, py]) - out_white
         n = np.linalg.norm(offset) + 1e-9
         lx, ly = np.array([px, py]) + 0.035 * offset / n
-        ax.text(lx, ly, plab, color=pcol, ha="center", va="center",
-                fontsize=12, fontweight="bold", zorder=5)
-    ax.plot(out_white[0], out_white[1], "D", color=fg, markersize=10,
-            markeredgecolor=bg, markeredgewidth=1.2,
-            label=f"{out_cs_name} white", zorder=4)
+        ax.text(
+            lx,
+            ly,
+            plab,
+            color=pcol,
+            ha="center",
+            va="center",
+            fontsize=12,
+            fontweight="bold",
+            zorder=5,
+        )
+    ax.plot(
+        out_white[0],
+        out_white[1],
+        "D",
+        color=fg,
+        markersize=10,
+        markeredgecolor=bg,
+        markeredgewidth=1.2,
+        label=f"{out_cs_name} white",
+        zorder=4,
+    )
 
     bright_idx = np.flatnonzero(rim_bright_mask)
     for k in range(rim_n_segments):
@@ -475,27 +671,57 @@ def _render_xy_compression_panel(
             continue
         seg_hue = rim_hues[s:e]
         col = plt.cm.hsv(
-            np.angle(np.exp(1j * 2 * np.pi * np.mean(seg_hue)))
-            / (2 * np.pi) % 1.0
+            np.angle(np.exp(1j * 2 * np.pi * np.mean(seg_hue))) / (2 * np.pi) % 1.0
         )
-        ax.plot(xy_unbounded[s:e, 0], xy_unbounded[s:e, 1],
-                color=col, lw=4.0, alpha=0.25, zorder=2.6)
-        ax.plot(xy_unbounded[s:e, 0], xy_unbounded[s:e, 1],
-                color=col, lw=1.6, alpha=0.95, zorder=2.7)
+        ax.plot(
+            xy_unbounded[s:e, 0],
+            xy_unbounded[s:e, 1],
+            color=col,
+            lw=4.0,
+            alpha=0.25,
+            zorder=2.6,
+        )
+        ax.plot(
+            xy_unbounded[s:e, 0],
+            xy_unbounded[s:e, 1],
+            color=col,
+            lw=1.6,
+            alpha=0.95,
+            zorder=2.7,
+        )
         if compression_active:
-            ax.plot(xy_compressed[s:e, 0], xy_compressed[s:e, 1],
-                    color=col, lw=1.0, alpha=0.7, ls="--", zorder=2.65)
+            ax.plot(
+                xy_compressed[s:e, 0],
+                xy_compressed[s:e, 1],
+                color=col,
+                lw=1.0,
+                alpha=0.7,
+                ls="--",
+                zorder=2.65,
+            )
 
     ax.scatter(
-        xy_unbounded[bright_idx, 0], xy_unbounded[bright_idx, 1],
-        c=rim_hues[bright_idx], cmap=plt.cm.hsv, s=20, alpha=0.95,
-        edgecolors="none", zorder=3, label="unbounded rim",
+        xy_unbounded[bright_idx, 0],
+        xy_unbounded[bright_idx, 1],
+        c=rim_hues[bright_idx],
+        cmap=plt.cm.hsv,
+        s=20,
+        alpha=0.95,
+        edgecolors="none",
+        zorder=3,
+        label="unbounded rim",
     )
     if compression_active and rim_oog_mask.any():
         ax.scatter(
-            xy_compressed[bright_idx, 0], xy_compressed[bright_idx, 1],
-            c=rim_hues[bright_idx], cmap=plt.cm.hsv, s=10, alpha=0.7,
-            edgecolors="none", zorder=3.5, label="compressed rim",
+            xy_compressed[bright_idx, 0],
+            xy_compressed[bright_idx, 1],
+            c=rim_hues[bright_idx],
+            cmap=plt.cm.hsv,
+            s=10,
+            alpha=0.7,
+            edgecolors="none",
+            zorder=3.5,
+            label="compressed rim",
         )
         oog_bright_idx = np.flatnonzero(rim_oog_mask)
         n_arrows = min(len(oog_bright_idx), 120)
@@ -503,12 +729,19 @@ def _render_xy_compression_panel(
             rng = np.random.default_rng(0)
             pick = rng.choice(oog_bright_idx, size=n_arrows, replace=False)
             ax.quiver(
-                xy_unbounded[pick, 0], xy_unbounded[pick, 1],
+                xy_unbounded[pick, 0],
+                xy_unbounded[pick, 1],
                 xy_compressed[pick, 0] - xy_unbounded[pick, 0],
                 xy_compressed[pick, 1] - xy_unbounded[pick, 1],
-                color="#ffaa55", alpha=0.5,
-                angles="xy", scale_units="xy", scale=1.0,
-                width=0.0022, headwidth=4, headlength=5, zorder=3.7,
+                color="#ffaa55",
+                alpha=0.5,
+                angles="xy",
+                scale_units="xy",
+                scale=1.0,
+                width=0.0022,
+                headwidth=4,
+                headlength=5,
+                zorder=3.7,
             )
 
     if compression_active and rim_oog_mask.any():
@@ -544,17 +777,31 @@ def _render_xy_compression_panel(
             f" already inside the output gamut for this input)"
         )
     ax.text(
-        0.02, 0.98, text,
-        transform=ax.transAxes, va="top", ha="left",
-        color=fg, family="monospace", fontsize=9,
-        bbox=dict(facecolor="#1a1a1a", edgecolor="#555555",
-                  alpha=0.92, boxstyle="round,pad=0.5"),
+        0.02,
+        0.98,
+        text,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        color=fg,
+        family="monospace",
+        fontsize=9,
+        bbox=dict(
+            facecolor="#1a1a1a",
+            edgecolor="#555555",
+            alpha=0.92,
+            boxstyle="round,pad=0.5",
+        ),
         zorder=10,
     )
 
-    leg = ax.legend(loc="upper right", fontsize=8,
-                    facecolor="#1a1a1a", edgecolor="#555555",
-                    labelcolor=fg)
+    leg = ax.legend(
+        loc="upper right",
+        fontsize=8,
+        facecolor="#1a1a1a",
+        edgecolor="#555555",
+        labelcolor=fg,
+    )
     leg.get_frame().set_alpha(0.9)
 
     ax.set_xlim(-0.05, 0.85)
@@ -562,6 +809,7 @@ def _render_xy_compression_panel(
     ax.set_xlabel("x", color=fg)
     ax.set_ylabel("y", color=fg)
     ax.set_aspect("equal")
+
 
 def gamut_compression_3d_xy(
     *,
@@ -612,10 +860,12 @@ def gamut_compression_3d_xy(
     cube_lab = _to_oklab(grid_output_compressed, out_cs_name)
     cube_colors = np.clip(grid_output_compressed, 0.0, 1.0)
     rim_unbounded_lab = _linear_rgb_to_oklab(
-        rim_unbounded_linear, out_primaries_name,
+        rim_unbounded_linear,
+        out_primaries_name,
     )
     rim_compressed_lab = _linear_rgb_to_oklab(
-        rim_compressed_linear, out_primaries_name,
+        rim_compressed_linear,
+        out_primaries_name,
     )
     xy_unbounded = _linear_rgb_to_xy(rim_unbounded_linear, out_primaries)
     xy_compressed = _linear_rgb_to_xy(rim_compressed_linear, out_primaries)
@@ -632,11 +882,10 @@ def gamut_compression_3d_xy(
     oog_mask = (d_max > 1.0) & bright_mask
     oog_fraction = float(oog_mask.sum() / max(int(bright_mask.sum()), 1))
     displacement = np.linalg.norm(
-        rim_unbounded_linear - rim_compressed_linear, axis=-1,
+        rim_unbounded_linear - rim_compressed_linear,
+        axis=-1,
     )
-    compression_active = (
-        getattr(compression_spec, "mode", "off") != "off"
-    )
+    compression_active = getattr(compression_spec, "mode", "off") != "off"
 
     fig = plt.figure(figsize=(18, 9), facecolor=BG)
     ax3d = fig.add_subplot(121, projection="3d", facecolor=BG)
@@ -677,21 +926,32 @@ def gamut_compression_3d_xy(
     algorithm_label = {
         "oklch": "OkLch chroma reduction",
         "aces_rgc": "ACES RGC v1.3",
-    }.get(getattr(compression_spec, "algorithm", ""),
-          getattr(compression_spec, "algorithm", ""))
+    }.get(
+        getattr(compression_spec, "algorithm", ""),
+        getattr(compression_spec, "algorithm", ""),
+    )
     fig.suptitle(
         f"output gamut compression — {in_cs_name} → {out_cs_name}   "
         f"via {algorithm_label}",
-        color=HI, fontsize=SUPTITLE_FS,
+        color=HI,
+        fontsize=SUPTITLE_FS,
     )
-    fig.subplots_adjust(left=0.02, right=0.98, top=1.0 - HEADER_BAND_FRAC,
-                       bottom=FOOTER_BAND_FRAC, wspace=0.05)
+    fig.subplots_adjust(
+        left=0.02,
+        right=0.98,
+        top=1.0 - HEADER_BAND_FRAC,
+        bottom=FOOTER_BAND_FRAC,
+        wspace=0.05,
+    )
     return fig
+
 
 def offgrid_error_scatter(
     samples_encoded: np.ndarray,
     delta_field: np.ndarray,
-    *, title: str = "Off-grid ΔITP", cbar_label: str = "ΔITP",
+    *,
+    title: str = "Off-grid ΔITP",
+    cbar_label: str = "ΔITP",
 ) -> Figure:
     """3D scatter of off-grid samples colored by per-sample error.
 
@@ -700,9 +960,17 @@ def offgrid_error_scatter(
     """
     fig = plt.figure(figsize=(11, 9), facecolor=BG)
     ax = fig.add_subplot(111, projection="3d", facecolor=BG)
-    sc = ax.scatter(samples_encoded[:, 0], samples_encoded[:, 1], samples_encoded[:, 2],
-                    c=delta_field, cmap="viridis",
-                    s=4, alpha=0.55, edgecolors="none", depthshade=False)
+    sc = ax.scatter(
+        samples_encoded[:, 0],
+        samples_encoded[:, 1],
+        samples_encoded[:, 2],
+        c=delta_field,
+        cmap="viridis",
+        s=4,
+        alpha=0.55,
+        edgecolors="none",
+        depthshade=False,
+    )
     cbar = fig.colorbar(sc, ax=ax, shrink=0.6, pad=0.12)
     # Scatter dots are semi-transparent so overlapping samples read; the
     # colorbar should NOT inherit that alpha — restore full saturation

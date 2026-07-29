@@ -6,6 +6,7 @@ Each format plugin exposes a :class:`LutFormat`-conforming object via
 
 See studies/a40_lut_system/n030_lut_package_design.md §8.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,6 +25,7 @@ class Lut:
     (R fastest, then G, then B). Values are typically in ``[0, 1]`` but
     the dataclass does not enforce it.
     """
+
     table: np.ndarray
     domain_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
     domain_max: tuple[float, float, float] = (1.0, 1.0, 1.0)
@@ -45,10 +47,13 @@ class Lut:
 
 class LutFormat(Protocol):
     """Protocol for LUT format plugins."""
+
     name: str
     extensions: tuple[str, ...]
 
-    def write(self, lut: Lut, path: Path, *, header_lines: list[str] | None = None) -> None: ...
+    def write(
+        self, lut: Lut, path: Path, *, header_lines: list[str] | None = None
+    ) -> None: ...
     def read(self, path: Path) -> Lut: ...
 
 
@@ -72,6 +77,6 @@ def get_format(name: str) -> LutFormat:
 
 # Import side-effect: register the built-in plugins.
 from spektrafilm_lut_creator.formats import cube as _cube  # noqa: E402,F401
+from spektrafilm_lut_creator.formats import hald_png as _hald_png  # noqa: E402,F401
 from spektrafilm_lut_creator.formats import lumix as _lumix  # noqa: E402,F401
 from spektrafilm_lut_creator.formats import threedl as _threedl  # noqa: E402,F401
-from spektrafilm_lut_creator.formats import hald_png as _hald_png  # noqa: E402,F401

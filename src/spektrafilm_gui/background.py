@@ -21,16 +21,17 @@ Two properties make it suitable as the one shared primitive:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from qtpy import QtCore
 
-QObject = getattr(QtCore, 'QObject')
-QRunnable = getattr(QtCore, 'QRunnable')
-QThread = getattr(QtCore, 'QThread')
-QThreadPool = getattr(QtCore, 'QThreadPool')
-Signal = getattr(QtCore, 'Signal')
+QObject = getattr(QtCore, "QObject")
+QRunnable = getattr(QtCore, "QRunnable")
+QThread = getattr(QtCore, "QThread")
+QThreadPool = getattr(QtCore, "QThreadPool")
+Signal = getattr(QtCore, "Signal")
 
 
 @dataclass(slots=True)
@@ -48,7 +49,9 @@ class _RunnerSignals(QObject):
 
 
 class _Task(QRunnable):
-    def __init__(self, channel: str, work: Callable[[], Any], signals: _RunnerSignals) -> None:
+    def __init__(
+        self, channel: str, work: Callable[[], Any], signals: _RunnerSignals
+    ) -> None:
         super().__init__()
         self._channel = channel
         self._work = work
@@ -65,7 +68,7 @@ class _Task(QRunnable):
         try:
             result = self._work()
         except Exception as exc:  # report to the GUI thread; never wedge the channel
-            self._signals.error.emit(self._channel, f'{type(exc).__name__}: {exc}')
+            self._signals.error.emit(self._channel, f"{type(exc).__name__}: {exc}")
             return
         self._signals.done.emit(self._channel, result)
 
@@ -85,7 +88,9 @@ class BackgroundRunner:
         *,
         on_busy_changed: Callable[[bool], None] | None = None,
     ) -> None:
-        self._pool = thread_pool if thread_pool is not None else QThreadPool.globalInstance()
+        self._pool = (
+            thread_pool if thread_pool is not None else QThreadPool.globalInstance()
+        )
         self._signals = _RunnerSignals()
         self._signals.done.connect(self._on_done)
         self._signals.error.connect(self._on_error)

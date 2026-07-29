@@ -10,7 +10,6 @@ from spektrafilm.utils.gamut_compression import (
 from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 
 
-
 @dataclass
 class DiffusionFilterParams:
     active: bool = False
@@ -56,7 +55,9 @@ class CameraParams:
     # Allowed values are the members of `CameraColorFilters` in
     # spektrafilm.model.color_filters ("none" = no filter).
     color_filter: str = "none"
-    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
+    diffusion_filter: DiffusionFilterParams = field(
+        default_factory=DiffusionFilterParams
+    )
 
 
 @dataclass
@@ -67,11 +68,13 @@ class EnlargerParams:
     normalize_print_exposure: bool = True
     y_filter_shift: float = 0.0
     m_filter_shift: float = 0.0
-    y_filter_neutral: float = 55 # kodak cc values
-    m_filter_neutral: float = 65 # kodak cc values
-    c_filter_neutral: float = 0 # kodak cc values
+    y_filter_neutral: float = 55  # kodak cc values
+    m_filter_neutral: float = 65  # kodak cc values
+    c_filter_neutral: float = 0  # kodak cc values
     lens_blur: float = 0.0
-    diffusion_filter: DiffusionFilterParams = field(default_factory=DiffusionFilterParams)
+    diffusion_filter: DiffusionFilterParams = field(
+        default_factory=DiffusionFilterParams
+    )
     preflash_exposure: float = 0.0
     preflash_y_filter_shift: float = 0.0
     preflash_m_filter_shift: float = 0.0
@@ -96,11 +99,13 @@ class GrainParams:
     uniformity: tuple[float, float, float] = (0.97, 0.97, 0.97)
     particle_scale_sublayers: tuple[float, float, float] = (1.0, 0.5, 0.25)
     # texture
-    blur: float = 0.89 # optimized to go with the mult usm below (recovers resolution), see study b80
-    mult_usm_sigma: float = 0.7 # optimized to go with the blur above, see study b80
-    mult_usm_amount: float = 1.5 # Multiplicative (log-domain) density unsharp mask, see study b80
+    blur: float = 0.89  # optimized to go with the mult usm below (recovers resolution), see study b80
+    mult_usm_sigma: float = 0.7  # optimized to go with the blur above, see study b80
+    mult_usm_amount: float = (
+        1.5  # Multiplicative (log-domain) density unsharp mask, see study b80
+    )
     # micro substructure
-    blur_dye_clouds_um: float = 2.0 # somewhat resolution of a normal microscope
+    blur_dye_clouds_um: float = 2.0  # somewhat resolution of a normal microscope
     micro_structure: tuple[float, float] = (0.2, 30)
     micro_sublayers: int = 1
 
@@ -144,8 +149,11 @@ class DirCouplersParams:
     langmuir_donor_k_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0)
     langmuir_receiver_k_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0)
     diffusion_size_um: float = 20.0
-    diffusion_tail_um: float = 200.0 # exponential tail for Lévy-like processes or environmental heterogeneity
+    diffusion_tail_um: float = (
+        200.0  # exponential tail for Lévy-like processes or environmental heterogeneity
+    )
     diffusion_tail_weight: float = 0.03
+
 
 @dataclass
 class GlareParams:
@@ -256,7 +264,9 @@ class IOParams:
     # per-film tc_lut at build time so the per-pixel hot path is
     # untouched. See spektrafilm-research/studies/a00/a40_lut_system/n100
     # for the design.
-    input_gamut_compress: InputGamutCompressSpec = field(default_factory=InputGamutCompressSpec)
+    input_gamut_compress: InputGamutCompressSpec = field(
+        default_factory=InputGamutCompressSpec
+    )
     # Output gamut compression: smoothly compresses out-of-output-gamut
     # chromaticities (via the chroma knee) and above-white lightnesses
     # (via lightness_compression, a one-sided soft roll-off that leaves
@@ -264,7 +274,9 @@ class IOParams:
     # simulation output is guaranteed in [0, 1] and no downstream clip
     # is needed. See spektrafilm-research/studies/a00/a40_lut_system/n110
     # for the design and b40 for the smoothness analysis.
-    output_gamut_compress: OutputGamutCompressSpec = field(default_factory=OutputGamutCompressSpec)
+    output_gamut_compress: OutputGamutCompressSpec = field(
+        default_factory=OutputGamutCompressSpec
+    )
     crop: bool = False
     crop_center: tuple[float, float] = (0.5, 0.5)
     crop_size: tuple[float, float] = (0.1, 0.1)
@@ -301,7 +313,10 @@ class WorkflowParams:
     @property
     def do_printing(self) -> bool:
         """Whether the pipeline exposes and develops the print."""
-        return self.route in ("input > film > print > scan", "input > convert-film > print > scan")
+        return self.route in (
+            "input > film > print > scan",
+            "input > convert-film > print > scan",
+        )
 
     @property
     def scan_film(self) -> bool:
@@ -360,6 +375,7 @@ class TapsParams:
     pipeline topology. Defaults of None mean "normal end-to-end run"
     (inject at rgb_in, collect at rgb_out).
     """
+
     inject: str | None = None
     collect: str | None = None
 
@@ -383,7 +399,7 @@ class SettingsParams:
     preview_max_size: int = 640
     preview_mode: bool = False
     neutral_print_filters_from_database: bool = True
-    
+
 
 @dataclass
 class RuntimePhotoParams:

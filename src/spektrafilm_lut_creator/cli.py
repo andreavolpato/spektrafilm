@@ -15,6 +15,7 @@ field — there is no parallel slug table to maintain.
 
 Run ``spektrafilm-lut --help`` for the user-facing reference.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,9 +31,8 @@ from spektrafilm.utils.gamut_compression import (
     OutputGamutCompressSpec,
 )
 from spektrafilm_lut_creator import color_spaces, delivery_targets
-from spektrafilm_lut_creator.bundles import BundleSpec
 from spektrafilm_lut_creator.builders import BundleBuilder
-
+from spektrafilm_lut_creator.bundles import BundleSpec
 
 _LIST_KINDS = ("film", "print", "input", "output", "target")
 
@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
 # Argument parsing.
 # ---------------------------------------------------------------------------
 
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spektrafilm-lut",
@@ -66,12 +67,15 @@ def _build_parser() -> argparse.ArgumentParser:
         description=(
             "Build one LUT bundle. Required: --film, --print, --input, "
             "--output. Color spaces accept canonical names "
-            "(\"Panasonic V-Log\") or short-tag slugs (vlog) — see "
+            '("Panasonic V-Log") or short-tag slugs (vlog) — see '
             "`spektrafilm-lut list input` / `list output`."
         ),
     )
     build.add_argument(
-        "--from", dest="from_toml", metavar="FILE", type=Path,
+        "--from",
+        dest="from_toml",
+        metavar="FILE",
+        type=Path,
         help=(
             "Load BundleSpec fields from a TOML file. Field names match "
             "the BundleSpec dataclass 1:1. CLI flags override TOML values."
@@ -80,27 +84,36 @@ def _build_parser() -> argparse.ArgumentParser:
     build.add_argument("--name", help="Bundle name; auto-computed when omitted.")
     build.add_argument("--film", help="Film profile slug, e.g. kodak_portra_400.")
     build.add_argument(
-        "--print", dest="prints", action="append", metavar="PRINT",
+        "--print",
+        dest="prints",
+        action="append",
+        metavar="PRINT",
         help="Print profile slug. Repeat for multi-print bundles.",
     )
     build.add_argument(
-        "--input", dest="input_cs",
-        help="Input color space (name or slug), e.g. \"Panasonic V-Log\" or vlog.",
+        "--input",
+        dest="input_cs",
+        help='Input color space (name or slug), e.g. "Panasonic V-Log" or vlog.',
     )
     build.add_argument(
-        "--output", dest="output_cs",
+        "--output",
+        dest="output_cs",
         help="Output color space (name or slug), e.g. sRGB or srgb.",
     )
     build.add_argument(
-        "--topology", choices=("1lut", "2lut", "3lut", "4lut"),
+        "--topology",
+        choices=("1lut", "2lut", "3lut", "4lut"),
         help="Bundle topology (default: 1lut).",
     )
     build.add_argument(
-        "--resolution", type=int, metavar="N",
+        "--resolution",
+        type=int,
+        metavar="N",
         help="Cube resolution N (default: 33). Common: 17, 33, 65.",
     )
     build.add_argument(
-        "--target", metavar="NAME",
+        "--target",
+        metavar="NAME",
         help=(
             "Delivery target (e.g. lumix_realtime_vlog). When set, the "
             "bundle also writes a target-specific file and validates "
@@ -108,40 +121,49 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     build.add_argument(
-        "--container", choices=("directory", "zip"),
+        "--container",
+        choices=("directory", "zip"),
         help="On-disk packaging (default: directory).",
     )
     build.add_argument(
-        "--exposure-ev", type=float, metavar="EV",
+        "--exposure-ev",
+        type=float,
+        metavar="EV",
         help=(
             "Deliberate exposure baked into the LUT, in stops. "
             "Default 0: midgray-pinned colorimetric behavior."
         ),
     )
     build.add_argument(
-        "--qa", action="store_true",
+        "--qa",
+        action="store_true",
         help="Run the QA suite after writing the bundle.",
     )
     build.add_argument(
-        "--qa-print-index", type=int, metavar="I",
+        "--qa-print-index",
+        type=int,
+        metavar="I",
         help="Run QA only for print I (default: all prints in the bundle).",
     )
     build.add_argument(
-        "--ocio-config", action="store_true",
+        "--ocio-config",
+        action="store_true",
         help="Emit a config.ocio alongside the .cube files.",
     )
     build.add_argument(
-        "--combinations", action="store_true",
+        "--combinations",
+        action="store_true",
         help=(
             "For multi-LUT bundles, also ship every contiguous sub-chain "
             "as a pre-collapsed single cube in combinations/."
         ),
     )
     build.add_argument(
-        "--out", type=Path, required=True, metavar="DIR",
-        help=(
-            "Output directory. The bundle is written inside DIR/<bundle-name>/."
-        ),
+        "--out",
+        type=Path,
+        required=True,
+        metavar="DIR",
+        help=("Output directory. The bundle is written inside DIR/<bundle-name>/."),
     )
 
     listing = subparsers.add_parser(
@@ -150,7 +172,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Print one name per line, sorted; suitable for shell pipelines.",
     )
     listing.add_argument(
-        "kind", choices=_LIST_KINDS, metavar="KIND",
+        "kind",
+        choices=_LIST_KINDS,
+        metavar="KIND",
         help=f"What to list. One of: {', '.join(_LIST_KINDS)}.",
     )
 
@@ -160,6 +184,7 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 # `build` subcommand.
 # ---------------------------------------------------------------------------
+
 
 def _cmd_build(args: argparse.Namespace) -> int:
     fields = _load_toml_fields(args.from_toml) if args.from_toml else {}
@@ -197,10 +222,12 @@ def _make_spec(fields: dict) -> BundleSpec:
 
     fields["print_profiles"] = tuple(fields["print_profiles"])
     fields["input_color_space"] = resolve_color_space(
-        fields["input_color_space"], role="input",
+        fields["input_color_space"],
+        role="input",
     )
     fields["output_color_space"] = resolve_color_space(
-        fields["output_color_space"], role="output",
+        fields["output_color_space"],
+        role="output",
     )
 
     if "input_gamut_compress" in fields and isinstance(
@@ -220,8 +247,7 @@ def _make_spec(fields: dict) -> BundleSpec:
     unknown = set(fields) - valid
     if unknown:
         raise ValueError(
-            f"unknown BundleSpec field(s): {sorted(unknown)}. "
-            f"Valid: {sorted(valid)}."
+            f"unknown BundleSpec field(s): {sorted(unknown)}. Valid: {sorted(valid)}."
         )
     return BundleSpec(**fields)
 
@@ -277,14 +303,14 @@ def resolve_color_space(value: str, *, role: str) -> str:
         return color_spaces.resolve(value)
     except KeyError:
         raise ValueError(
-            f"unknown {role} color space {value!r}. "
-            f"Try `spektrafilm-lut list {role}`."
+            f"unknown {role} color space {value!r}. Try `spektrafilm-lut list {role}`."
         ) from None
 
 
 # ---------------------------------------------------------------------------
 # `list` subcommand.
 # ---------------------------------------------------------------------------
+
 
 def _cmd_list(kind: str) -> int:
     if kind == "film":
@@ -310,8 +336,11 @@ def _cmd_list(kind: str) -> int:
         # the slugs line up; the slug is still the last whitespace-
         # delimited token, so pipelines that want it can read it with
         # ``awk '{print $NF}'``.
-        names = (color_spaces.list_input_spaces() if kind == "input"
-                 else color_spaces.list_output_spaces())
+        names = (
+            color_spaces.list_input_spaces()
+            if kind == "input"
+            else color_spaces.list_output_spaces()
+        )
         width = max((len(n) for n in names), default=0)
         for name in names:
             slug = color_spaces.get(name).short_tag

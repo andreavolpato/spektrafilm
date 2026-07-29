@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+
 import numpy as np
 
 from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
@@ -9,7 +10,6 @@ from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
 from spektrafilm.utils.lut import compute_with_lut, compute_with_lut_1d
 from spektrafilm.utils.spectral_upsampling import compute_tc_lut, lut_descriptor
 from spektrafilm.utils.timings import timeit
-
 
 ################################################################################
 # Memoization primitive shared by every tc_lut
@@ -46,6 +46,7 @@ class _MemoLUT:
     """A single LUT memoized on a structural key. Recomputes only when the key
     changes; the stored key snapshots its arrays so caller-side mutation is
     safe."""
+
     lut: np.ndarray | None = None
     _key: tuple | None = None
 
@@ -54,7 +55,11 @@ class _MemoLUT:
         self._key = None
 
     def get(self, key: tuple, compute: Callable[[], np.ndarray]) -> np.ndarray:
-        if self.lut is not None and self._key is not None and _key_equal(self._key, key):
+        if (
+            self.lut is not None
+            and self._key is not None
+            and _key_equal(self._key, key)
+        ):
             return self.lut
         self.lut = compute()
         self._key = _key_snapshot(key)
@@ -66,6 +71,7 @@ class _TestCacheLUT:
     """A CMY->spectral LUT validated by a small probe ('test results') rather
     than an input key: the cache is reused when re-running the caller's
     spectral_calculation on a fixed CMY probe reproduces the stored output."""
+
     lut: np.ndarray | None = None
     test_results: np.ndarray | None = None
 
@@ -105,16 +111,27 @@ class SpectralLUTService:
         self._scanner_cache = _TestCacheLUT()
 
         # local memory
-        self._film_sensitivity = None # to track if tc_lut needs to be recomputed when film sensitivity changes
-        self._cached_filming_adaptation = None # full adaptation state for which the cached tc_lut was computed
+        self._film_sensitivity = None  # to track if tc_lut needs to be recomputed when film sensitivity changes
+        self._cached_filming_adaptation = (
+            None  # full adaptation state for which the cached tc_lut was computed
+        )
         self._cached_input_gamut_compress: InputGamutCompressSpec | None = None
-        self._enlarger_test_results_memory = None # to test if enlarger LUTs are identical for same input
-        self._scanner_test_results_memory = None # to test if scanner LUTs are identical for same input
-        self.convert_lut_memory: np.ndarray | None = None # convert (scan-inverse) lut memory
-        self._convert_test_results_memory = None # to test if convert LUTs are identical for same input
-        
-        self._cmy_test_values = np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
-                                          [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]]) # CMY probe for the test caches
+        self._enlarger_test_results_memory = (
+            None  # to test if enlarger LUTs are identical for same input
+        )
+        self._scanner_test_results_memory = (
+            None  # to test if scanner LUTs are identical for same input
+        )
+        self.convert_lut_memory: np.ndarray | None = (
+            None  # convert (scan-inverse) lut memory
+        )
+        self._convert_test_results_memory = (
+            None  # to test if convert LUTs are identical for same input
+        )
+
+        self._cmy_test_values = np.array(
+            [[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]]
+        )  # CMY probe for the test caches
 
     @staticmethod
     def _supports_3d_lut(cmy_data) -> bool:
@@ -128,7 +145,9 @@ class SpectralLUTService:
         data = np.asarray(cmy_data)
         return data.ndim >= 3 and data.shape[-1] == 1
 
-    def set_hanatos2025_adaptation(self, adaptation: Hanatos2025SensitivityAdaptation) -> None:
+    def set_hanatos2025_adaptation(
+        self, adaptation: Hanatos2025SensitivityAdaptation
+    ) -> None:
         # Snapshot defensively: the active config must not change under us if the
         # caller later mutates the adaptation object without calling set again.
         # The filming memo rebuilds lazily when the derived key changes.
@@ -140,7 +159,7 @@ class SpectralLUTService:
         invalidate eagerly to free the stale arrays."""
         if spec != self.input_gamut_compress:
             self.input_gamut_compress = spec
-            self._tc_lut_memos.clear()       # drop every method's stale tc_lut
+            self._tc_lut_memos.clear()  # drop every method's stale tc_lut
 
     @staticmethod
     def _copy_hanatos2025_adaptation(
@@ -164,7 +183,8 @@ class SpectralLUTService:
     # -- tc_luts ---------------------------------------------------------------
 
     @timeit("spectral_compute_convert")
-    def spectral_compute_convert(self,
+    def spectral_compute_convert(
+        self,
         rgb_data,
         invert_fn: Callable,
         data_min,
@@ -202,23 +222,23 @@ class SpectralLUTService:
             and self.convert_lut_memory.shape[0] == steps
             and np.array_equal(test_results, self._convert_test_results_memory)
         ):
-            data_out, _ = compute_with_lut(rgb_data,
-                                           invert_fn,
-                                           xmin=data_min,
-                                           xmax=data_max,
-                                           steps=steps,
-                                           lut=self.convert_lut_memory)
+            data_out, _ = compute_with_lut(
+                rgb_data,
+                invert_fn,
+                xmin=data_min,
+                xmax=data_max,
+                steps=steps,
+                lut=self.convert_lut_memory,
+            )
         else:
-            data_out, lut = compute_with_lut(rgb_data,
-                                             invert_fn,
-                                             xmin=data_min,
-                                             xmax=data_max,
-                                             steps=steps)
+            data_out, lut = compute_with_lut(
+                rgb_data, invert_fn, xmin=data_min, xmax=data_max, steps=steps
+            )
             self.convert_lut_memory = lut
             self._convert_test_results_memory = np.array(test_results, copy=True)
 
         if data_out is None:
-            raise RuntimeError('LUT computation did not produce an output')
+            raise RuntimeError("LUT computation did not produce an output")
         return data_out
 
     def _tc_lut_memo(self, method: str) -> _MemoLUT:
@@ -239,40 +259,86 @@ class SpectralLUTService:
         the adaptation, not the relight."""
         sensitivity = np.asarray(sensitivity)
         descriptor = lut_descriptor(method)
-        if descriptor.get('kind') == 'irradiance':
+        if descriptor.get("kind") == "irradiance":
             adaptation = self.hanatos2025_adaptation
-            key = (method, sensitivity, _adaptation_key(adaptation), self.input_gamut_compress)
+            key = (
+                method,
+                sensitivity,
+                _adaptation_key(adaptation),
+                self.input_gamut_compress,
+            )
             compute = lambda: compute_tc_lut(
-                method, sensitivity, hanatos2025_adaptation=adaptation,
-                gamut_compress=self.input_gamut_compress)
+                method,
+                sensitivity,
+                hanatos2025_adaptation=adaptation,
+                gamut_compress=self.input_gamut_compress,
+            )
         else:
-            scene_illuminant = descriptor['reflectance']['scene_illuminant']
-            key = (method, sensitivity, reference_illuminant, scene_illuminant,
-                   self.input_gamut_compress)
+            scene_illuminant = descriptor["reflectance"]["scene_illuminant"]
+            key = (
+                method,
+                sensitivity,
+                reference_illuminant,
+                scene_illuminant,
+                self.input_gamut_compress,
+            )
             compute = lambda: compute_tc_lut(
-                method, sensitivity, reference_illuminant,
-                gamut_compress=self.input_gamut_compress)
+                method,
+                sensitivity,
+                reference_illuminant,
+                gamut_compress=self.input_gamut_compress,
+            )
         return self._tc_lut_memo(method).get(key, compute)
 
     # -- CMY->spectral LUTs ----------------------------------------------------
 
     @timeit("spectral_compute_enlarger")
-    def spectral_compute_enlarger(self, cmy_data, spectral_calculation: Callable,
-                                  data_min, data_max, *, use_lut: bool = False):
+    def spectral_compute_enlarger(
+        self,
+        cmy_data,
+        spectral_calculation: Callable,
+        data_min,
+        data_max,
+        *,
+        use_lut: bool = False,
+    ):
         return self._spectral_compute_with_test_cache(
-            self._enlarger_cache, cmy_data, spectral_calculation,
-            data_min, data_max, use_lut)
+            self._enlarger_cache,
+            cmy_data,
+            spectral_calculation,
+            data_min,
+            data_max,
+            use_lut,
+        )
 
     @timeit("spectral_compute_scanner")
-    def spectral_compute_scanner(self, cmy_data, spectral_calculation: Callable,
-                                 data_min, data_max, *, use_lut: bool = False):
+    def spectral_compute_scanner(
+        self,
+        cmy_data,
+        spectral_calculation: Callable,
+        data_min,
+        data_max,
+        *,
+        use_lut: bool = False,
+    ):
         return self._spectral_compute_with_test_cache(
-            self._scanner_cache, cmy_data, spectral_calculation,
-            data_min, data_max, use_lut)
+            self._scanner_cache,
+            cmy_data,
+            spectral_calculation,
+            data_min,
+            data_max,
+            use_lut,
+        )
 
-    def _spectral_compute_with_test_cache(self, cache: _TestCacheLUT, cmy_data,
-                                          spectral_calculation: Callable,
-                                          data_min, data_max, use_lut: bool):
+    def _spectral_compute_with_test_cache(
+        self,
+        cache: _TestCacheLUT,
+        cmy_data,
+        spectral_calculation: Callable,
+        data_min,
+        data_max,
+        use_lut: bool,
+    ):
         """Shared CMY->spectral LUT path (enlarger, scanner). The cached LUT is
         reused when a fixed CMY probe reproduces the stored output, i.e. the
         spectral_calculation closure is unchanged."""
@@ -281,7 +347,9 @@ class SpectralLUTService:
         if self._is_single_channel(cmy_data):
             # B&W: one density channel -> 1D LUT (no full-res spectral cube, and
             # the 3D bounds path can't take a length-1 data_min/data_max).
-            return compute_with_lut_1d(cmy_data, spectral_calculation, data_min, data_max)
+            return compute_with_lut_1d(
+                cmy_data, spectral_calculation, data_min, data_max
+            )
         if not self._supports_3d_lut(cmy_data):
             return spectral_calculation(cmy_data)
 
@@ -292,16 +360,25 @@ class SpectralLUTService:
             and cache.test_results is not None
             and np.array_equal(test_results, cache.test_results)
         ):
-            data_out, _ = compute_with_lut(cmy_data, spectral_calculation,
-                                           xmin=data_min, xmax=data_max,
-                                           steps=self._lut_resolution, lut=cache.lut)
+            data_out, _ = compute_with_lut(
+                cmy_data,
+                spectral_calculation,
+                xmin=data_min,
+                xmax=data_max,
+                steps=self._lut_resolution,
+                lut=cache.lut,
+            )
         else:
-            data_out, lut = compute_with_lut(cmy_data, spectral_calculation,
-                                             xmin=data_min, xmax=data_max,
-                                             steps=self._lut_resolution)
+            data_out, lut = compute_with_lut(
+                cmy_data,
+                spectral_calculation,
+                xmin=data_min,
+                xmax=data_max,
+                steps=self._lut_resolution,
+            )
             cache.lut = lut
             cache.test_results = np.array(test_results, copy=True)
 
         if data_out is None:
-            raise RuntimeError('LUT computation did not produce an output')
+            raise RuntimeError("LUT computation did not produce an output")
         return data_out

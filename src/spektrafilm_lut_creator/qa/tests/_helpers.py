@@ -4,6 +4,7 @@ Re-exported through ``spektrafilm_lut_creator.qa.tests.__init__`` so the
 external rosette-alignment test in ``tests/lut_creator/qa/`` and the
 topic-module callers all hit the same private utilities.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -25,7 +26,7 @@ to the same constant.
 """
 
 
-def _save(ctx: "QAContext", fig, name: str):
+def _save(ctx: QAContext, fig, name: str):
     """Save a figure under ``figures/<name>.png`` and close it.
 
     Stamps every figure with the producing spektrafilm version (bottom
@@ -42,4 +43,3 @@ def _save(ctx: "QAContext", fig, name: str):
 # ---------------------------------------------------------------------------
 # LUT fidelity.
 # ---------------------------------------------------------------------------
-

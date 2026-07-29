@@ -1,11 +1,15 @@
 import numpy as np
 import scipy
 import scipy.ndimage
+
 from spektrafilm.model.density_curves import interp_density_cmy_layers_channel
-from spektrafilm.model.diffusion import match_channels, apply_multiplicative_unsharp_mask
+from spektrafilm.model.diffusion import (
+    apply_multiplicative_unsharp_mask,
+    match_channels,
+)
 from spektrafilm.runtime.params_schema import GrainParams
-from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
+from spektrafilm.utils.fast_stats import fast_binomial, fast_poisson
 
 ################################################################################
 # Grain (multilayer stochastic model)
@@ -41,8 +45,9 @@ _RMS_APERTURE_AREA_UM2 = float(np.pi * (_RMS_APERTURE_DIAMETER_UM / 2.0) ** 2)
 _RMS_REFERENCE_NET_DENSITY = 1.0
 
 
-def particle_area_from_rms_granularity(rms_granularity, density_max, density_min,
-                                       uniformity):
+def particle_area_from_rms_granularity(
+    rms_granularity, density_max, density_min, uniformity
+):
     """Coarsest-sub-layer particle area a_1 (µm²) for a target RMS granularity.
 
     Inverts ``sigma_48^2 = D_ref (Dmax - u D_ref) a / A48`` at the reference net
@@ -56,12 +61,17 @@ def particle_area_from_rms_granularity(rms_granularity, density_max, density_min
     uniformity = np.asarray(uniformity, dtype=float)
     d_ref = _RMS_REFERENCE_NET_DENSITY + density_min
     denom = np.maximum(d_ref * (density_max - uniformity * d_ref), 1e-6)
-    return sigma48 ** 2 * _RMS_APERTURE_AREA_UM2 / denom
+    return sigma48**2 * _RMS_APERTURE_AREA_UM2 / denom
 
 
-def _realized_peak_correction(density_max_layers, density_max_total,
-                              particle_scale_sublayers, density_min, uniformity,
-                              speed_separated):
+def _realized_peak_correction(
+    density_max_layers,
+    density_max_total,
+    particle_scale_sublayers,
+    density_min,
+    uniformity,
+    speed_separated,
+):
     """Per-channel factor on the coarsest-sub-layer area so that the *realized*
     multilayer peak RMS equals the input ``rms_granularity`` (not just what the
     coarsest sub-layer alone would read).
@@ -90,22 +100,25 @@ def _realized_peak_correction(density_max_layers, density_max_total,
     avoids the ~1.5x cross-family error a single rule would carry (study a90):
     ``max`` over-grains coincident stocks, ``sum`` under-grains separated ones.
     """
-    d_ref = _RMS_REFERENCE_NET_DENSITY + density_min                       # [channel]
+    d_ref = _RMS_REFERENCE_NET_DENSITY + density_min  # [channel]
     scales = np.asarray(particle_scale_sublayers, dtype=float)
-    weighted = scales[:, None] * density_max_layers                        # [sub-layer, channel]
-    layer_term = np.max(weighted, axis=0) if speed_separated else np.sum(weighted, axis=0)
+    weighted = scales[:, None] * density_max_layers  # [sub-layer, channel]
+    layer_term = (
+        np.max(weighted, axis=0) if speed_separated else np.sum(weighted, axis=0)
+    )
     denom = np.maximum(layer_term * density_max_total, 1e-6)
     return 4.0 * uniformity * d_ref * (density_max_total - uniformity * d_ref) / denom
 
 
-def layer_particle_model(density,
-                         density_max=2.2,
-                         n_particles_per_pixel=10,
-                         grain_uniformity=0.98,
-                         seed=None,
-                         blur_particle=0.0,
-                         use_fast_stats=False,
-                         ):
+def layer_particle_model(
+    density,
+    density_max=2.2,
+    n_particles_per_pixel=10,
+    grain_uniformity=0.98,
+    seed=None,
+    blur_particle=0.0,
+    use_fast_stats=False,
+):
     """Sample one emulsion sub-layer's grain at the given density field.
 
     Compound Poisson-Binomial: N_s ~ Poisson(N/sat) sensitised grains, each
@@ -124,7 +137,9 @@ def layer_particle_model(density,
     grain_uniformity = float(grain_uniformity)
 
     probability_of_development = density / density_max
-    probability_of_development = np.clip(probability_of_development, 1e-6, 1 - 1e-6)  # for safe calc
+    probability_of_development = np.clip(
+        probability_of_development, 1e-6, 1 - 1e-6
+    )  # for safe calc
     od_particle = density_max / n_particles_per_pixel
 
     if use_fast_stats:
@@ -138,7 +153,9 @@ def layer_particle_model(density,
     # Cast the integer binomial counts to the working dtype, then fold in the
     # per-particle optical density and saturation in place so no extra full-size
     # temporaries are made.
-    grain = binom_rvs(seeds, probability_of_development).astype(density.dtype, copy=False)
+    grain = binom_rvs(seeds, probability_of_development).astype(
+        density.dtype, copy=False
+    )
     grain *= od_particle
     grain *= saturation
 
@@ -148,8 +165,10 @@ def layer_particle_model(density,
 
 
 def add_micro_structure(density_cmy_out, micro_structure, pixel_size_um):
-    grain_micro_structure_blur_pixel = micro_structure[0]/pixel_size_um
-    grain_micro_structure_sigma = micro_structure[1]*0.001/pixel_size_um  # grain microstructure[1] is in nm
+    grain_micro_structure_blur_pixel = micro_structure[0] / pixel_size_um
+    grain_micro_structure_sigma = (
+        micro_structure[1] * 0.001 / pixel_size_um
+    )  # grain microstructure[1] is in nm
     if grain_micro_structure_sigma > 0.05:
         # Multiplicative lognormal clumping with linear-space mean 1 and std
         # sigma. Generated directly into a single buffer instead of via
@@ -157,20 +176,26 @@ def add_micro_structure(density_cmy_out, micro_structure, pixel_size_um):
         # several full-size arrays (two ones params + two internal mu/sigma
         # grids + the result) just to carry constants. For mean 1 the log-space
         # parameters are sigma2 = ln(1+sigma^2), mu = -sigma2/2.
-        sigma2 = float(np.log1p(grain_micro_structure_sigma ** 2))
+        sigma2 = float(np.log1p(grain_micro_structure_sigma**2))
         clumping = np.random.standard_normal(density_cmy_out.shape)
         clumping *= np.sqrt(sigma2)
         clumping -= 0.5 * sigma2
         np.exp(clumping, out=clumping)
-        if grain_micro_structure_blur_pixel>0.4:
+        if grain_micro_structure_blur_pixel > 0.4:
             clumping = fast_gaussian_filter(clumping, grain_micro_structure_blur_pixel)
         density_cmy_out *= clumping
     return density_cmy_out
 
 
-def _coarsest_area_from_curves(density_curves_layers, density_min_layers,
-                               density_max_layers, density_max_fractions,
-                               particle_scale_sublayers, uniformity, rms_granularity):
+def _coarsest_area_from_curves(
+    density_curves_layers,
+    density_min_layers,
+    density_max_layers,
+    density_max_fractions,
+    particle_scale_sublayers,
+    uniformity,
+    rms_granularity,
+):
     """Coarsest-sub-layer particle area from the *exact* realized multilayer peak.
 
     The per-pixel grain variance at exposure ``x`` is, in units of ``a1 / A48``,
@@ -189,20 +214,32 @@ def _coarsest_area_from_curves(density_curves_layers, density_min_layers,
     (study a90 — e.g. Double-X is separated at u≈0.97 but coincident at u≈0.6).
     Arrays: curves ``[le, sub, ch]``; per-layer ``[sub, ch]``; ``[channel]``.
     """
-    d_abs = np.nan_to_num(density_curves_layers) + density_min_layers[None, :, :]  # [le, sub, ch]
+    d_abs = (
+        np.nan_to_num(density_curves_layers) + density_min_layers[None, :, :]
+    )  # [le, sub, ch]
     scales = np.asarray(particle_scale_sublayers, dtype=float)
-    weight = scales[None, :, None] / density_max_fractions[None, :, :]             # [1, sub, ch]
-    var_shape = weight * d_abs * (density_max_layers[None, :, :]
-                                  - uniformity[None, None, :] * d_abs)
-    peak = np.nanmax(np.sum(var_shape, axis=1), axis=0)                            # [channel]
+    weight = scales[None, :, None] / density_max_fractions[None, :, :]  # [1, sub, ch]
+    var_shape = (
+        weight
+        * d_abs
+        * (density_max_layers[None, :, :] - uniformity[None, None, :] * d_abs)
+    )
+    peak = np.nanmax(np.sum(var_shape, axis=1), axis=0)  # [channel]
     sigma_in = rms_granularity / 1000.0
-    return sigma_in ** 2 * _RMS_APERTURE_AREA_UM2 / np.maximum(peak, 1e-9)
+    return sigma_in**2 * _RMS_APERTURE_AREA_UM2 / np.maximum(peak, 1e-9)
 
 
-def _layer_grain_params(density_max_layers, density_min, rms_granularity,
-                        particle_scale_sublayers, uniformity,
-                        n_ch, pixel_size_um, speed_separated=True,
-                        density_curves_layers=None):
+def _layer_grain_params(
+    density_max_layers,
+    density_min,
+    rms_granularity,
+    particle_scale_sublayers,
+    uniformity,
+    n_ch,
+    pixel_size_um,
+    speed_separated=True,
+    density_curves_layers=None,
+):
     """Per (sub-layer, channel) grain parameters shared by the whole-array and
     streaming code paths.
 
@@ -220,35 +257,60 @@ def _layer_grain_params(density_max_layers, density_min, rms_granularity,
     dominant-bell (max) or coincident (sum) regime. Areas are then scaled per
     sub-layer by ``particle_scale_sublayers`` (coarsest == 1).
     """
-    density_max_total = np.sum(density_max_layers, axis=0)            # [channel]
+    density_max_total = np.sum(density_max_layers, axis=0)  # [channel]
     density_max_fractions = density_max_layers / density_max_total[None, :]
     density_min = match_channels(density_min, n_ch)
     uniformity = match_channels(uniformity, n_ch)
     rms_granularity = match_channels(rms_granularity, n_ch)
-    density_min_layers = density_max_fractions * density_min[None, :]  # [sub-layer, channel]
-    density_max_layers = density_max_layers + density_min_layers       # absolute (fog-inclusive)
-    density_max_total = density_max_total + density_min                # absolute [channel]
+    density_min_layers = (
+        density_max_fractions * density_min[None, :]
+    )  # [sub-layer, channel]
+    density_max_layers = (
+        density_max_layers + density_min_layers
+    )  # absolute (fog-inclusive)
+    density_max_total = density_max_total + density_min  # absolute [channel]
 
     if density_curves_layers is not None:
         a_coarsest = _coarsest_area_from_curves(
-            density_curves_layers, density_min_layers, density_max_layers,
-            density_max_fractions, particle_scale_sublayers, uniformity,
-            rms_granularity)                                           # [channel]
+            density_curves_layers,
+            density_min_layers,
+            density_max_layers,
+            density_max_fractions,
+            particle_scale_sublayers,
+            uniformity,
+            rms_granularity,
+        )  # [channel]
     else:
         a_coarsest = particle_area_from_rms_granularity(
-            rms_granularity, density_max_total, density_min, uniformity)  # [channel]
+            rms_granularity, density_max_total, density_min, uniformity
+        )  # [channel]
         a_coarsest = a_coarsest * _realized_peak_correction(
-            density_max_layers, density_max_total, particle_scale_sublayers,
-            density_min, uniformity, speed_separated)
-    particle_area_um2_layers = (a_coarsest[None, :]
-                                * np.array(particle_scale_sublayers)[:, None])  # [sub-layer, channel]
-    pixel_area_um2 = pixel_size_um ** 2
-    n_particles_per_pixel = pixel_area_um2 * density_max_fractions / particle_area_um2_layers
+            density_max_layers,
+            density_max_total,
+            particle_scale_sublayers,
+            density_min,
+            uniformity,
+            speed_separated,
+        )
+    particle_area_um2_layers = (
+        a_coarsest[None, :] * np.array(particle_scale_sublayers)[:, None]
+    )  # [sub-layer, channel]
+    pixel_area_um2 = pixel_size_um**2
+    n_particles_per_pixel = (
+        pixel_area_um2 * density_max_fractions / particle_area_um2_layers
+    )
     return density_min, density_min_layers, density_max_layers, n_particles_per_pixel
 
 
-def _channel_sublayer_grain(layers_ch, density_max_layers_ch, n_particles_ch,
-                            grain_uniformity_ch, seed_base, blur_dye_clouds_um, use_fast_stats):
+def _channel_sublayer_grain(
+    layers_ch,
+    density_max_layers_ch,
+    n_particles_ch,
+    grain_uniformity_ch,
+    seed_base,
+    blur_dye_clouds_um,
+    use_fast_stats,
+):
     """Sum the grain of every sub-layer of one colour channel.
 
     ``layers_ch`` is ``(H, W, n_layers)`` for a single channel, already offset
@@ -274,38 +336,50 @@ def _channel_sublayer_grain(layers_ch, density_max_layers_ch, n_particles_ch,
     return channel_grain
 
 
-def _finalize_grain(density_cmy_out, density_min, grain_micro_structure, pixel_size_um,
-                    grain_blur, usm_sigma=0.0, usm_amount=0.0):
+def _finalize_grain(
+    density_cmy_out,
+    density_min,
+    grain_micro_structure,
+    pixel_size_um,
+    grain_blur,
+    usm_sigma=0.0,
+    usm_amount=0.0,
+):
     """Shared grain finishing: optical micro-structure clumping, the
     pixel-correlating blur, the mass-conserving density unsharp mask (applied on
     the absolute density, before the floor is removed, so it stays positive),
     and removal of the density floor."""
-    density_cmy_out = add_micro_structure(density_cmy_out, grain_micro_structure, pixel_size_um)
+    density_cmy_out = add_micro_structure(
+        density_cmy_out, grain_micro_structure, pixel_size_um
+    )
     if grain_blur > 0:
         density_cmy_out = fast_gaussian_filter(density_cmy_out, grain_blur)
     if usm_amount > 0 and usm_sigma > 0:
-        density_cmy_out = apply_multiplicative_unsharp_mask(density_cmy_out, usm_sigma, usm_amount)
+        density_cmy_out = apply_multiplicative_unsharp_mask(
+            density_cmy_out, usm_sigma, usm_amount
+        )
     density_cmy_out -= density_min
     return density_cmy_out
 
 
-def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
-                                  density_max_layers, # [sublayers, rgb]
-                                  pixel_size_um=10,
-                                  rms_granularity=[6.0, 7.0, 12.0], # rgb, 48 µm-aperture
-                                  particle_scale_sublayers=[1.0, 0.5, 0.25], # sublayers, coarsest == 1
-                                  density_min=[0.03, 0.06, 0.04],
-                                  grain_uniformity=[0.97, 0.97, 0.97],
-                                  grain_blur=1.0,
-                                  grain_blur_dye_clouds_um=1.0,
-                                  grain_micro_structure=(0.1, 30),
-                                  fixed_seed=None,
-                                  use_fast_stats=False,
-                                  usm_sigma=0.0,
-                                  usm_amount=0.0,
-                                  speed_separated=True,
-                                  density_curves_layers=None,
-                                  ):
+def apply_grain_to_density_layers(
+    density_cmy_layers,  # x,y,sublayers,rgb
+    density_max_layers,  # [sublayers, rgb]
+    pixel_size_um=10,
+    rms_granularity=[6.0, 7.0, 12.0],  # rgb, 48 µm-aperture
+    particle_scale_sublayers=[1.0, 0.5, 0.25],  # sublayers, coarsest == 1
+    density_min=[0.03, 0.06, 0.04],
+    grain_uniformity=[0.97, 0.97, 0.97],
+    grain_blur=1.0,
+    grain_blur_dye_clouds_um=1.0,
+    grain_micro_structure=(0.1, 30),
+    fixed_seed=None,
+    use_fast_stats=False,
+    usm_sigma=0.0,
+    usm_amount=0.0,
+    speed_separated=True,
+    density_curves_layers=None,
+):
     # Whole-array entry: grains a pre-built (H, W, sublayers, channels) stack.
     # `apply_grain` uses the streaming path below instead; this stays for direct
     # callers/tests. Output dtype matches the input. Pass `density_curves_layers`
@@ -314,24 +388,47 @@ def apply_grain_to_density_layers(density_cmy_layers, # x,y,sublayers,rgb
     # dominant-bell (True/max) or coincident (False/sum) regime.
     out_dtype = density_cmy_layers.dtype
     n_ch = density_cmy_layers.shape[3]
-    density_min, density_min_layers, density_max_layers, n_particles_per_pixel = _layer_grain_params(
-        density_max_layers, density_min, rms_granularity,
-        particle_scale_sublayers, grain_uniformity, n_ch, pixel_size_um,
-        speed_separated, density_curves_layers)
+    density_min, density_min_layers, density_max_layers, n_particles_per_pixel = (
+        _layer_grain_params(
+            density_max_layers,
+            density_min,
+            rms_granularity,
+            particle_scale_sublayers,
+            grain_uniformity,
+            n_ch,
+            pixel_size_um,
+            speed_separated,
+            density_curves_layers,
+        )
+    )
     grain_uniformity = match_channels(grain_uniformity, n_ch)
 
     # Offset each layer by its floor and grain channel-by-channel in float32.
     density_cmy_layers = density_cmy_layers.astype(_GRAIN_WORK_DTYPE, copy=False)
     density_cmy_layers += density_min_layers
-    density_cmy_out = np.empty(density_cmy_layers.shape[0:2] + (n_ch,), dtype=_GRAIN_WORK_DTYPE)
+    density_cmy_out = np.empty(
+        density_cmy_layers.shape[0:2] + (n_ch,), dtype=_GRAIN_WORK_DTYPE
+    )
     for ch in range(n_ch):
         density_cmy_out[:, :, ch] = _channel_sublayer_grain(
-            density_cmy_layers[:, :, :, ch], density_max_layers[:, ch], n_particles_per_pixel[:, ch],
-            grain_uniformity[ch], None if fixed_seed is not None else ch,
-            grain_blur_dye_clouds_um, use_fast_stats)
+            density_cmy_layers[:, :, :, ch],
+            density_max_layers[:, ch],
+            n_particles_per_pixel[:, ch],
+            grain_uniformity[ch],
+            None if fixed_seed is not None else ch,
+            grain_blur_dye_clouds_um,
+            use_fast_stats,
+        )
 
-    density_cmy_out = _finalize_grain(density_cmy_out, density_min, grain_micro_structure,
-                                      pixel_size_um, grain_blur, usm_sigma, usm_amount)
+    density_cmy_out = _finalize_grain(
+        density_cmy_out,
+        density_min,
+        grain_micro_structure,
+        pixel_size_um,
+        grain_blur,
+        usm_sigma,
+        usm_amount,
+    )
     return density_cmy_out.astype(out_dtype, copy=False)
 
 
@@ -354,7 +451,7 @@ def apply_grain(
     # path for full-resolution scans. A single-layer density model (no
     # per-sub-layer curves) is treated as the one-sub-layer case, built from the
     # total curve, so there is no separate single-layer approximation.
-    positive_film = profile_type == 'positive'
+    positive_film = profile_type == "positive"
     n_ch = density_cmy.shape[-1]
     if density_curves_layers is None:
         density_curves_layers = density_curves[:, None, :]  # (n_le, 1, n_ch)
@@ -365,24 +462,48 @@ def apply_grain(
     # Size the grain from the exact realized peak over the sub-layer curves, so
     # the realized RMS matches the input for any bell overlap / uniformity
     # (study a90); no film-class regime branch is needed.
-    density_min, density_min_layers, density_max_layers, n_particles_per_pixel = _layer_grain_params(
-        density_max_layers, grain.density_min, grain.rms_granularity,
-        particle_scale_sublayers, grain.uniformity, n_ch, pixel_size_um,
-        density_curves_layers=density_curves_layers)
+    density_min, density_min_layers, density_max_layers, n_particles_per_pixel = (
+        _layer_grain_params(
+            density_max_layers,
+            grain.density_min,
+            grain.rms_granularity,
+            particle_scale_sublayers,
+            grain.uniformity,
+            n_ch,
+            pixel_size_um,
+            density_curves_layers=density_curves_layers,
+        )
+    )
     grain_uniformity = match_channels(grain.uniformity, n_ch)
 
-    density_cmy_out = np.empty(density_cmy.shape[0:2] + (n_ch,), dtype=_GRAIN_WORK_DTYPE)
+    density_cmy_out = np.empty(
+        density_cmy.shape[0:2] + (n_ch,), dtype=_GRAIN_WORK_DTYPE
+    )
     for ch in range(n_ch):
         layers_ch = interp_density_cmy_layers_channel(
-            density_cmy[:, :, ch], density_curves[:, ch], density_curves_layers[:, :, ch],
+            density_cmy[:, :, ch],
+            density_curves[:, ch],
+            density_curves_layers[:, :, ch],
             positive_film,
         ).astype(_GRAIN_WORK_DTYPE)
-        layers_ch += density_min_layers[:, ch]   # offset each sub-layer by its floor
+        layers_ch += density_min_layers[:, ch]  # offset each sub-layer by its floor
         density_cmy_out[:, :, ch] = _channel_sublayer_grain(
-            layers_ch, density_max_layers[:, ch], n_particles_per_pixel[:, ch],
-            grain_uniformity[ch], ch, grain.blur_dye_clouds_um, use_fast_stats)
+            layers_ch,
+            density_max_layers[:, ch],
+            n_particles_per_pixel[:, ch],
+            grain_uniformity[ch],
+            ch,
+            grain.blur_dye_clouds_um,
+            use_fast_stats,
+        )
 
-    density_cmy_out = _finalize_grain(density_cmy_out, density_min, grain.micro_structure,
-                                      pixel_size_um, grain.blur,
-                                      grain.mult_usm_sigma, grain.mult_usm_amount)
+    density_cmy_out = _finalize_grain(
+        density_cmy_out,
+        density_min,
+        grain.micro_structure,
+        pixel_size_um,
+        grain.blur,
+        grain.mult_usm_sigma,
+        grain.mult_usm_amount,
+    )
     return density_cmy_out.astype(density_cmy.dtype, copy=False)

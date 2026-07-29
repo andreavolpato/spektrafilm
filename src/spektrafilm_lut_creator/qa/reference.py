@@ -17,6 +17,7 @@ The cache key is a SHA256 over the bundle spec and bundle metadata.
 Stored as a single ``.npz`` per (bundle, print) under
 ``<out_dir>/cache/``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,7 +32,6 @@ from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
     encode_cctf,
 )
-
 
 # Off-grid sample count. 50k random points over [0,1]^3 — dense enough
 # to characterize a 33^3 cube's interpolation error well, cheap enough
@@ -61,6 +61,7 @@ class ReferenceSamples:
     cache_key
         SHA256 of the bundle spec + metadata used to invalidate.
     """
+
     rng_samples_encoded: np.ndarray
     rng_samples_linear: np.ndarray
     pipeline_out_linear: np.ndarray
@@ -91,11 +92,16 @@ def _cache_key(spec: BundleSpec, bundle: Bundle, print_index: int) -> str:
     else:
         print_name = spec.print_profiles[print_index]
     h.update(print_name.encode("utf-8"))
-    h.update(json.dumps({
-        "schema_version": bundle.meta.schema_version,
-        "topology": bundle.meta.topology,
-        "resolution": bundle.meta.resolution,
-    }, sort_keys=True).encode("utf-8"))
+    h.update(
+        json.dumps(
+            {
+                "schema_version": bundle.meta.schema_version,
+                "topology": bundle.meta.topology,
+                "resolution": bundle.meta.resolution,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
     return h.hexdigest()[:16]
 
 
@@ -207,11 +213,14 @@ def _compute(
     # turns off every spatial effect so layout is purely a performance
     # knob (see grid.py docstring).
     image_in = rng_samples_linear.reshape(1, n_samples, 3)
-    image_out_linear = np.asarray(pipeline.process(image_in), dtype=float).reshape(n_samples, 3)
+    image_out_linear = np.asarray(pipeline.process(image_in), dtype=float).reshape(
+        n_samples, 3
+    )
     # Match the builder's output scaling (BakeFrame.output_gain) so
     # HDR-output QA references aren't crushed black.
     image_out_encoded = encode_cctf(
-        image_out_linear * frame.output_gain, spec.output_color_space,
+        image_out_linear * frame.output_gain,
+        spec.output_color_space,
     )
     # Match the builder's final clip: encoded outputs land in [0,1]
     # before the LUT is written, so the reference must too.
@@ -250,10 +259,13 @@ def run_pipeline_at(
     pipeline = _reference_pipeline(spec, bundle, print_index)
 
     image_in = samples_linear.reshape(1, samples_linear.shape[0], 3)
-    image_out_linear = np.asarray(pipeline.process(image_in), dtype=float).reshape(-1, 3)
+    image_out_linear = np.asarray(pipeline.process(image_in), dtype=float).reshape(
+        -1, 3
+    )
     # Match the builder's output scaling so HDR-output QA references
     # aren't crushed black.
     image_out_encoded = encode_cctf(
-        image_out_linear * frame.output_gain, spec.output_color_space,
+        image_out_linear * frame.output_gain,
+        spec.output_color_space,
     )
     return np.clip(image_out_encoded, 0.0, 1.0)

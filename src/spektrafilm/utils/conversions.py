@@ -1,15 +1,16 @@
-import numpy as np
 import colour
+import numpy as np
 from opt_einsum import contract
 
 from spektrafilm.config import SPECTRAL_SHAPE
+
 
 def density_to_light(density, light):
     """
     Convert density to light transmittance.
 
     This function calculates the light transmittance based on the given density
-    and light intensity. It uses the formula transmittance = 10^(-density) to 
+    and light intensity. It uses the formula transmittance = 10^(-density) to
     compute the transmittance and then multiplies it by the light intensity.
 
     Parameters:
@@ -19,12 +20,13 @@ def density_to_light(density, light):
     Returns:
     np.ndarray: The light intensity after passing through the medium with the given density.
     """
-    transmitted = 10**(-density)
+    transmitted = 10 ** (-density)
     transmitted *= light
     transmitted[np.isnan(transmitted)] = 0
     return transmitted
 
-def compute_aces_conversion_matrix(sensitivity, illuminant):            
+
+def compute_aces_conversion_matrix(sensitivity, illuminant):
     """
     Computes the ACES (Academy Color Encoding System) conversion matrix.
 
@@ -40,13 +42,23 @@ def compute_aces_conversion_matrix(sensitivity, illuminant):
     numpy.ndarray
         The ACES to raw conversion matrix.
     """
-    msds = colour.MultiSpectralDistributions(sensitivity, domain=SPECTRAL_SHAPE.wavelengths)
+    msds = colour.MultiSpectralDistributions(
+        sensitivity, domain=SPECTRAL_SHAPE.wavelengths
+    )
     M, _ = colour.matrix_idt(msds, illuminant)
     aces_to_raw_conversion_matrix = np.linalg.inv(M)
     return aces_to_raw_conversion_matrix
 
-def rgb_to_raw_aces_idt(RGB, illuminant, sensitivity, midgray_rgb=[[[0.184,0.184,0.184]]],
-                        color_space='sRGB', apply_cctf_decoding=True, aces_conversion_matrix=[]):
+
+def rgb_to_raw_aces_idt(
+    RGB,
+    illuminant,
+    sensitivity,
+    midgray_rgb=[[[0.184, 0.184, 0.184]]],
+    color_space="sRGB",
+    apply_cctf_decoding=True,
+    aces_conversion_matrix=[],
+):
     """
     Converts RGB values to raw values using ACES IDT (Input Device Transform).
 
@@ -64,12 +76,15 @@ def rgb_to_raw_aces_idt(RGB, illuminant, sensitivity, midgray_rgb=[[[0.184,0.184
         - raw (array-like): The raw values.
         - raw_midgray (array-like): The raw mid-gray values.
     """
-    aces = colour.RGB_to_RGB(RGB, color_space, 'ACES2065-1',
-                    apply_cctf_decoding=apply_cctf_decoding,
-                    apply_cctf_encoding=False)
-    if aces_conversion_matrix==[]:
+    aces = colour.RGB_to_RGB(
+        RGB,
+        color_space,
+        "ACES2065-1",
+        apply_cctf_decoding=apply_cctf_decoding,
+        apply_cctf_encoding=False,
+    )
+    if aces_conversion_matrix == []:
         aces_conversion_matrix = compute_aces_conversion_matrix(sensitivity, illuminant)
-    raw = contract('ijk,lk->ijl',aces,aces_conversion_matrix)/midgray_rgb
-    raw_midgray = np.array([[[1,1,1]]])
+    raw = contract("ijk,lk->ijl", aces, aces_conversion_matrix) / midgray_rgb
+    raw_midgray = np.array([[[1, 1, 1]]])
     return raw, raw_midgray
-

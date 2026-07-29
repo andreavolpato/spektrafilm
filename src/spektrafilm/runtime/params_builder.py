@@ -3,11 +3,11 @@ from __future__ import annotations
 import copy
 from dataclasses import fields
 from functools import lru_cache
+
 from spektrafilm.data.presets_loader import read_coupler_presets, read_grain_presets
 from spektrafilm.data.profiles_loader import load_profile
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.utils.io import read_neutral_print_filters
-
 
 # Heavy fields shared by reference when cloning: the two Profiles carry the
 # spectral arrays and density-curve models. They are swapped at selection
@@ -57,8 +57,7 @@ def apply_database_neutral_print_filters(
 
     filters = _get_neutral_print_filters() if database is None else database
     stock_filters = (
-        filters
-        .get(params.print.info.stock, {})
+        filters.get(params.print.info.stock, {})
         .get(params.enlarger.illuminant, {})
         .get(params.film.info.stock)
     )
@@ -75,7 +74,9 @@ def apply_database_neutral_print_filters(
     return params
 
 
-def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> RuntimePhotoParams:
+def digest_params(
+    params: RuntimePhotoParams, apply_stocks_specifics=True
+) -> RuntimePhotoParams:
     """Digest the params to prepare for use in the runtime pipeline.
     In the pipeline params should be static and not be changed.
     params.settings and params.debug should contain all the switching logic for the digesting.
@@ -94,11 +95,11 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.camera.lens_blur_um = 0.0
         params.scanner.lens_blur = 0.0
         params.scanner.unsharp_mask = (0.0, 0.0)
-    
+
     if apply_stocks_specifics:
         params = _apply_film_specifics(params)
         params = _apply_print_specifics(params)
-    
+
     # debug switches
     if params.debug.lut_mode:
         params.debug.deactivate_spatial_effects = True
@@ -161,7 +162,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     if params.debug.deactivate_stochastic_effects:
         params.film_render.grain.active = False
         params.print_render.glare.active = False
-        
+
     return params
 
 
@@ -178,6 +179,7 @@ def init_params(
         print=load_profile(print_profile),
     )
     return params
+
 
 def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply film specific settings to the params."""
@@ -209,12 +211,18 @@ def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
 #   no     -> rem-jet removed / redscale:  a1^R ~ 0.08-0.25
 # Strength values below are a1 midpoints * 1/(1-rho) with rho=0.5 (~2x a1).
 _HALATION_PRESETS: dict[tuple[str, str], dict[str, tuple[float, float, float]]] = {
-    ('still', 'strong'): {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.015, 0.005, 0.0)},
-    ('still', 'weak'):   {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.08,  0.02,  0.0)},
-    ('still', 'no'):     {'sigma_h': (65.0, 65.0, 65.0), 'strength': (0.30,  0.10,  0.015)},
-    ('cine',  'strong'): {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.015, 0.005, 0.0)},
-    ('cine',  'weak'):   {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.08,  0.02,  0.0)},
-    ('cine',  'no'):     {'sigma_h': (50.0, 50.0, 50.0), 'strength': (0.30,  0.10,  0.015)},
+    ("still", "strong"): {
+        "sigma_h": (65.0, 65.0, 65.0),
+        "strength": (0.015, 0.005, 0.0),
+    },
+    ("still", "weak"): {"sigma_h": (65.0, 65.0, 65.0), "strength": (0.08, 0.02, 0.0)},
+    ("still", "no"): {"sigma_h": (65.0, 65.0, 65.0), "strength": (0.30, 0.10, 0.015)},
+    ("cine", "strong"): {
+        "sigma_h": (50.0, 50.0, 50.0),
+        "strength": (0.015, 0.005, 0.0),
+    },
+    ("cine", "weak"): {"sigma_h": (50.0, 50.0, 50.0), "strength": (0.08, 0.02, 0.0)},
+    ("cine", "no"): {"sigma_h": (50.0, 50.0, 50.0), "strength": (0.30, 0.10, 0.015)},
 }
 
 
@@ -226,8 +234,8 @@ def _apply_halation_preset(params: RuntimePhotoParams) -> None:
     preset = _HALATION_PRESETS.get((info.use, info.antihalation))
     if preset is None:
         return
-    params.film_render.halation.halation_first_sigma_um = preset['sigma_h']
-    params.film_render.halation.halation_strength = preset['strength']
+    params.film_render.halation.halation_first_sigma_um = preset["sigma_h"]
+    params.film_render.halation.halation_strength = preset["strength"]
 
 
 GRAIN_PRESETS = read_grain_presets()
@@ -255,6 +263,7 @@ def _apply_grain_preset(params: RuntimePhotoParams) -> None:
         if not hasattr(params.film_render.grain, key):
             continue
         setattr(params.film_render.grain, key, value)
+
 
 COUPLER_PRESETS = read_coupler_presets()
 _COUPLER_DEFAULTS = COUPLER_PRESETS.get("defaults", {})

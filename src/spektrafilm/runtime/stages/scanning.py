@@ -5,8 +5,12 @@ import numpy as np
 from opt_einsum import contract
 
 from spektrafilm.config import STANDARD_OBSERVER_CMFS
-from spektrafilm.model.diffusion import apply_gaussian_blur, apply_unsharp_mask, match_channels
 from spektrafilm.model.develop import compute_density_spectral
+from spektrafilm.model.diffusion import (
+    apply_gaussian_blur,
+    apply_unsharp_mask,
+    match_channels,
+)
 from spektrafilm.model.glare import add_glare
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.conversions import density_to_light
@@ -37,16 +41,18 @@ class ScanningStage:
         self._settings = settings_params
         self._lut_service = lut_service
         self._color_reference_service = color_reference_service
-        
+
         self.cmy_to_log_xyz = self._return_callable_cmy_to_log_xyz()
-        
+
         # communicate to the color reference service the callable to convert cmy densities to log xyz
         self._color_reference_service.cmy_to_log_xyz = self.cmy_to_log_xyz
-        
+
     # public methods
 
     def scan(self, density_channels: np.ndarray) -> np.ndarray:
-        rgb = self._density_to_rgb(density_channels, use_lut=self._settings.use_scanner_lut)
+        rgb = self._density_to_rgb(
+            density_channels, use_lut=self._settings.use_scanner_lut
+        )
         rgb = self._apply_blur_and_unsharp(rgb)
         return self._apply_cctf_encoding(rgb)
 
@@ -65,10 +71,14 @@ class ScanningStage:
             return self._film_render.convert.scan_illuminant
         return self._film.info.viewing_illuminant
 
-    def _density_to_rgb(self, density_channels: np.ndarray, *, use_lut: bool) -> np.ndarray:
+    def _density_to_rgb(
+        self, density_channels: np.ndarray, *, use_lut: bool
+    ) -> np.ndarray:
         if self._workflow.scan_film:
             glare = None
-            density_min = -match_channels(self._film_render.grain.density_min, density_channels.shape[-1])
+            density_min = -match_channels(
+                self._film_render.grain.density_min, density_channels.shape[-1]
+            )
             density_max = np.nanmax(self._film.data.density_curves, axis=0)
             scan_illuminant = standard_illuminant(self._film_scan_illuminant_name())
         else:
@@ -76,7 +86,7 @@ class ScanningStage:
             density_min = np.nanmin(self._print.data.density_curves, axis=0)
             density_max = np.nanmax(self._print.data.density_curves, axis=0)
             scan_illuminant = standard_illuminant(self._print.info.viewing_illuminant)
-            
+
         normalization = np.sum(scan_illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
 
         log_xyz = self._lut_service.spectral_compute_scanner(
@@ -86,9 +96,12 @@ class ScanningStage:
             data_max=density_max,
             use_lut=use_lut,
         )
-        xyz = 10 ** log_xyz
+        xyz = 10**log_xyz
         xyz = self._color_reference_service.black_white_xyz_correction(xyz)
-        illuminant_xyz = contract("k,kl->l", scan_illuminant, STANDARD_OBSERVER_CMFS[:]) / normalization
+        illuminant_xyz = (
+            contract("k,kl->l", scan_illuminant, STANDARD_OBSERVER_CMFS[:])
+            / normalization
+        )
         illuminant_xy = colour.XYZ_to_xy(illuminant_xyz)
         xyz = add_glare(xyz, illuminant_xyz, glare)
         rgb = colour.XYZ_to_RGB(
@@ -107,7 +120,8 @@ class ScanningStage:
         # downstream clip; see n100 / n110 for the design and b40 for
         # the smoothness analysis.
         rgb = compress_rgb(
-            rgb, self._io.output_gamut_compress,
+            rgb,
+            self._io.output_gamut_compress,
             output_color_space=self._io.output_color_space,
         )
         return rgb
@@ -142,8 +156,12 @@ class ScanningStage:
                 is_film=self._workflow.scan_film,
             )
             light = density_to_light(density_spectral, scan_illuminant)
-            xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalization
+            xyz = (
+                contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:])
+                / normalization
+            )
             return np.log10(np.fmax(xyz, 0.0) + 1e-10)
+
         return cmy_to_log_xyz
 
     def _apply_blur_and_unsharp(self, rgb: np.ndarray) -> np.ndarray:
@@ -163,6 +181,3 @@ class ScanningStage:
                 apply_cctf_encoding=True,
             )
         return rgb
-
-
-

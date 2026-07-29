@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from qtpy import QtCore, QtGui, QtWidgets
 
-QPointF = getattr(QtCore, 'QPointF')
-QSize = getattr(QtCore, 'QSize')
+QPointF = getattr(QtCore, "QPointF")
+QSize = getattr(QtCore, "QSize")
 
+from spektrafilm_gui.icons import HEADER_ICON_SIZE, section_header_icon
+from spektrafilm_gui.theme import resolve_theme_qcolor
 from spektrafilm_gui.theme_palette import (
     HEADER_DIVIDER_LINE,
     SIZE_FORM_SPACING,
@@ -12,8 +14,6 @@ from spektrafilm_gui.theme_palette import (
     SIZE_SECTION_FRAME_MARGIN,
     SIZE_SECTION_STACK_SPACING,
 )
-from spektrafilm_gui.icons import HEADER_ICON_SIZE, section_header_icon
-from spektrafilm_gui.theme import resolve_theme_qcolor
 
 
 def normalize_ui_text(text: str) -> str:
@@ -25,22 +25,32 @@ def platform_default_font() -> QtGui.QFont:
 
 
 class CollapsibleSection(QtWidgets.QWidget):
-    def __init__(self, title: str, content: QtWidgets.QWidget, *, expanded: bool = True,
-                 variant: str = 'section'):
+    def __init__(
+        self,
+        title: str,
+        content: QtWidgets.QWidget,
+        *,
+        expanded: bool = True,
+        variant: str = "section",
+    ):
         super().__init__()
         self._content = content
         # 'section' is the accent-coloured top-level panel header; 'subsection'
         # is a bold, non-accent header for nested groups within a panel.
-        toggle_role = 'sectionToggle' if variant == 'section' else 'subsectionToggle'
+        toggle_role = "sectionToggle" if variant == "section" else "subsectionToggle"
 
         self._toggle = QtWidgets.QToolButton()
-        self._toggle.setProperty('role', toggle_role)
+        self._toggle.setProperty("role", toggle_role)
         self._toggle.setCheckable(True)
         self._toggle.setChecked(expanded)
         self._toggle.setAutoRaise(True)
         self._toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
-        self._toggle.setArrowType(QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow)
-        self._toggle.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+        self._toggle.setArrowType(
+            QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow
+        )
+        self._toggle.setSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed
+        )
         self._toggle.setCursor(QtCore.Qt.PointingHandCursor)
         self._toggle.toggled.connect(self._set_expanded)
 
@@ -51,23 +61,31 @@ class CollapsibleSection(QtWidgets.QWidget):
         self._apply_header_icon(title)
 
         self._title_button = QtWidgets.QToolButton()
-        self._title_button.setProperty('role', toggle_role)
+        self._title_button.setProperty("role", toggle_role)
         self._title_button.setText(normalize_ui_text(title))
         self._title_button.setAutoRaise(True)
         self._title_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
-        self._title_button.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+        self._title_button.setSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed
+        )
         self._title_button.setCursor(QtCore.Qt.PointingHandCursor)
         self._title_button.setFocusPolicy(QtCore.Qt.NoFocus)
         self._title_button.clicked.connect(self._toggle.toggle)
 
         self._header_line = HeaderDivider()
-        self._header_line.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        self._header_line.setFixedHeight(max(self._toggle.sizeHint().height(), self._title_button.sizeHint().height()))
+        self._header_line.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        self._header_line.setFixedHeight(
+            max(
+                self._toggle.sizeHint().height(), self._title_button.sizeHint().height()
+            )
+        )
 
         header = QtWidgets.QWidget()
         header_layout = QtWidgets.QHBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(int(SIZE_FORM_SPACING.removesuffix('px')))
+        header_layout.setSpacing(int(SIZE_FORM_SPACING.removesuffix("px")))
         header_layout.setAlignment(QtCore.Qt.AlignVCenter)
         header_layout.addWidget(self._toggle, 0, QtCore.Qt.AlignVCenter)
         header_layout.addWidget(self._icon_label, 0, QtCore.Qt.AlignVCenter)
@@ -90,7 +108,7 @@ class CollapsibleSection(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(int(SIZE_SECTION_STACK_SPACING.removesuffix('px')))
+        layout.setSpacing(int(SIZE_SECTION_STACK_SPACING.removesuffix("px")))
         layout.setAlignment(QtCore.Qt.AlignTop)
         layout.addWidget(header)
         layout.addWidget(self._frame)
@@ -112,12 +130,18 @@ class CollapsibleSection(QtWidgets.QWidget):
         self._icon_label.show()
 
     def _set_expanded(self, expanded: bool) -> None:
-        self._toggle.setArrowType(QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow)
+        self._toggle.setArrowType(
+            QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow
+        )
         self._frame.setVisible(expanded)
 
     def has_header_icon(self) -> bool:
         pixmap = self._icon_label.pixmap()
-        return not self._icon_label.isHidden() and pixmap is not None and not pixmap.isNull()
+        return (
+            not self._icon_label.isHidden()
+            and pixmap is not None
+            and not pixmap.isNull()
+        )
 
 
 class HeaderDivider(QtWidgets.QWidget):

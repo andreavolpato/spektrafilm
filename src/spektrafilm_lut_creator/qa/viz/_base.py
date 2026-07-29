@@ -9,15 +9,11 @@ reaches for.
 Re-exported in :mod:`spektrafilm_lut_creator.qa.viz` so callers can
 keep using ``viz.add_footer``, ``viz.BG`` etc. unchanged.
 """
+
 from __future__ import annotations
 
 import colour
 import numpy as np
-from matplotlib.collections import LineCollection
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
-
 
 # ---------------------------------------------------------------------------
 # Palette.
@@ -68,15 +64,25 @@ acceptable price for not having to thread "is your suptitle one or
 two lines" through every viz function."""
 
 
-def _identity_line(ax, *, label: str | None = "identity",
-                   lo: float = 0.0, hi: float = 1.0) -> None:
+def _identity_line(
+    ax, *, label: str | None = "identity", lo: float = 0.0, hi: float = 1.0
+) -> None:
     """Standard y=x reference line for 2D transfer plots.
 
     Centralizing the styling so every figure uses the same gray /
     dash style — no more drift between ``#444444`` and ``#555555``.
     """
-    ax.plot([lo, hi], [lo, hi], color=IDENTITY_COLOR, lw=1.0, ls="--",
-            alpha=IDENTITY_ALPHA, label=label, zorder=1)
+    ax.plot(
+        [lo, hi],
+        [lo, hi],
+        color=IDENTITY_COLOR,
+        lw=1.0,
+        ls="--",
+        alpha=IDENTITY_ALPHA,
+        label=label,
+        zorder=1,
+    )
+
 
 def add_footer(fig, version: str) -> None:
     """Stamp the canonical ``spektrafilm <version>`` footer on a figure.
@@ -113,9 +119,17 @@ def add_footer(fig, version: str) -> None:
         # set by _fill_3d are preserved.
         fig.subplots_adjust(bottom=FOOTER_BAND_FRAC)
     # Text centered vertically within the band.
-    fig.text(0.5, FOOTER_BAND_FRAC / 2.0, f"spektrafilm {version}",
-             color=FOOTER_COLOR, fontsize=FOOTER_FS,
-             ha="center", va="center", alpha=0.85)
+    fig.text(
+        0.5,
+        FOOTER_BAND_FRAC / 2.0,
+        f"spektrafilm {version}",
+        color=FOOTER_COLOR,
+        fontsize=FOOTER_FS,
+        ha="center",
+        va="center",
+        alpha=0.85,
+    )
+
 
 def _setup_3d(ax) -> None:
     """Apply the project's consistent 3D-axis styling.
@@ -133,6 +147,7 @@ def _setup_3d(ax) -> None:
             lbl.set_color(FG)
     ax.grid(True)
 
+
 def _setup_2d(ax) -> None:
     """Consistent 2D axis styling."""
     ax.tick_params(colors=FG)
@@ -140,8 +155,15 @@ def _setup_2d(ax) -> None:
         spine.set_color("#555555")
     ax.grid(True, alpha=0.12, color=HI)
 
-def _fill_3d(fig, *, has_cbar: bool = False, top: float | None = None,
-             bottom: float | None = None, wspace: float = 0.0) -> None:
+
+def _fill_3d(
+    fig,
+    *,
+    has_cbar: bool = False,
+    top: float | None = None,
+    bottom: float | None = None,
+    wspace: float = 0.0,
+) -> None:
     """Push 3D axes to fill the figure canvas.
 
     matplotlib 3D axes default to a generous interior margin; for the
@@ -161,8 +183,8 @@ def _fill_3d(fig, *, has_cbar: bool = False, top: float | None = None,
     if bottom is None:
         bottom = FOOTER_BAND_FRAC
     right = 0.92 if has_cbar else 1.0
-    fig.subplots_adjust(left=0.0, right=right,
-                        bottom=bottom, top=top, wspace=wspace)
+    fig.subplots_adjust(left=0.0, right=right, bottom=bottom, top=top, wspace=wspace)
+
 
 def _to_oklab(rgb: np.ndarray, cs_name: str) -> np.ndarray:
     """RGB encoded in ``cs_name`` → OkLab via reflectance-scale XYZ.
@@ -176,6 +198,7 @@ def _to_oklab(rgb: np.ndarray, cs_name: str) -> np.ndarray:
 
     xyz = to_xyz_qa(np.asarray(rgb, dtype=float), cs_name)
     return np.asarray(colour.XYZ_to_Oklab(xyz), dtype=float)
+
 
 def _gamut_triangle_xy(cs_name: str) -> np.ndarray:
     """Closed (R, G, B, R) chromaticity triangle for the registry entry's primaries."""

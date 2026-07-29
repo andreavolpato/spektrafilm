@@ -3,15 +3,30 @@ from __future__ import annotations
 import numpy as np
 
 from spektrafilm.model.color_filters import color_filter_transmittance
-from spektrafilm.model.diffusion import apply_diffusion_filter_um, apply_gaussian_blur_um, apply_halation_um, boost_highlights
 from spektrafilm.model.develop import compute_density_spectral, develop, develop_simple
+from spektrafilm.model.diffusion import (
+    apply_diffusion_filter_um,
+    apply_gaussian_blur_um,
+    apply_halation_um,
+)
 from spektrafilm.utils.autoexposure import measure_raw_autoexposure_ev
+from spektrafilm.utils.numba_boost_highlights import boost_highlights
 from spektrafilm.utils.spectral_upsampling import rgb_to_raw
 
 
 class FilmingStage:
-    def __init__(self, film, film_render_params, camera_params, io_params, settings_params,
-                 lut_service, resize_service, enlarger_service, color_reference_service):
+    def __init__(
+        self,
+        film,
+        film_render_params,
+        camera_params,
+        io_params,
+        settings_params,
+        lut_service,
+        resize_service,
+        enlarger_service,
+        color_reference_service,
+    ):
         self._film = film
         self._film_render = film_render_params
         self._camera = camera_params
@@ -20,18 +35,27 @@ class FilmingStage:
         self._lut_service = lut_service
         self._resize_service = resize_service
         self._enlarger_service = enlarger_service
-        
+
         # send info for hanatos2025 sensitivity adaptation to LUT service
         hanatos2025_adaptation = self._film.hanatos2025_adaptation()
-        hanatos2025_adaptation.apply_window = self._settings.apply_hanatos2025_adaptation_window
-        hanatos2025_adaptation.apply_surface = self._settings.apply_hanatos2025_adaptation_surface
-        hanatos2025_adaptation.spectral_gaussian_blur = self._settings.spectral_gaussian_blur
+        hanatos2025_adaptation.apply_window = (
+            self._settings.apply_hanatos2025_adaptation_window
+        )
+        hanatos2025_adaptation.apply_surface = (
+            self._settings.apply_hanatos2025_adaptation_surface
+        )
+        hanatos2025_adaptation.spectral_gaussian_blur = (
+            self._settings.spectral_gaussian_blur
+        )
         self._lut_service.set_hanatos2025_adaptation(hanatos2025_adaptation)
         # Input gamut compression is per-bundle config (lives on params.io
         # so the GUI and bundle bakes share the same code path). The
         # service caches the LUT and invalidates it when this spec changes.
         self._lut_service.set_input_gamut_compress(self._io.input_gamut_compress)
-        self._enlarger_service.density_spectral_midgray, self._enlarger_service.density_spectral_midgray_comp = self._compute_density_spectral_midgray_to_balance_print()
+        (
+            self._enlarger_service.density_spectral_midgray,
+            self._enlarger_service.density_spectral_midgray_comp,
+        ) = self._compute_density_spectral_midgray_to_balance_print()
         self._color_reference_service = color_reference_service
 
     # public methods
@@ -43,17 +67,25 @@ class FilmingStage:
             apply_cctf_decoding=self._io.input_cctf_decoding,
         )
         raw = self._auto_exposure(raw)
-        raw *= 2 ** self._camera.exposure_compensation_ev
-        boost_highlights(raw, self._film_render.halation.boost_ev,
-                         self._film_render.halation.boost_range,
-                         self._film_render.halation.protect_ev, out=raw)
+        raw *= 2**self._camera.exposure_compensation_ev
+        boost_highlights(
+            raw,
+            self._film_render.halation.boost_ev,
+            self._film_render.halation.boost_range,
+            self._film_render.halation.protect_ev,
+            out=raw,
+        )
         raw = apply_diffusion_filter_um(
             raw,
             self._camera.diffusion_filter,
             pixel_size_um=self._resize_service.pixel_size_um,
         )
-        raw = apply_gaussian_blur_um(raw, self._camera.lens_blur_um, self._resize_service.pixel_size_um)
-        raw = apply_halation_um(raw, self._film_render.halation, self._resize_service.pixel_size_um)
+        raw = apply_gaussian_blur_um(
+            raw, self._camera.lens_blur_um, self._resize_service.pixel_size_um
+        )
+        raw = apply_halation_um(
+            raw, self._film_render.halation, self._resize_service.pixel_size_um
+        )
         raw *= self._color_reference_service.black_white_filming_exposure_correction()
         log_raw = np.log10(np.fmax(raw, 0.0) + 1e-10)
         return log_raw
@@ -87,7 +119,7 @@ class FilmingStage:
             self._metering_raw(),
             method=self._camera.auto_exposure_method,
         )
-        return raw * 2 ** autoexposure_ev
+        return raw * 2**autoexposure_ev
 
     def _metering_raw(self) -> np.ndarray:
         """Film raw used for autoexposure metering: the full-frame preview
@@ -96,8 +128,10 @@ class FilmingStage:
         frame was stashed (e.g. when injecting mid-pipeline)."""
         preview = self._resize_service.full_frame_preview
         if preview is None:
-            raise RuntimeError('autoexposure metering preview is unavailable; '
-                               'crop_and_rescale must run before filming')
+            raise RuntimeError(
+                "autoexposure metering preview is unavailable; "
+                "crop_and_rescale must run before filming"
+            )
         return self._rgb_to_film_raw(
             preview,
             color_space=self._io.input_color_space,
@@ -111,7 +145,7 @@ class FilmingStage:
         color_space: str = "sRGB",
         apply_cctf_decoding: bool = False,
     ) -> np.ndarray:
-        sensitivity = 10 ** self._film.data.log_sensitivity
+        sensitivity = 10**self._film.data.log_sensitivity
         sensitivity = np.nan_to_num(sensitivity)
 
         # A camera taking filter (UV / haze / colored) sits in front of the lens
@@ -128,7 +162,8 @@ class FilmingStage:
         # method (hanatos2025) all flow through the same two calls.
         method = self._settings.rgb_to_raw_method
         tc_lut = self._lut_service.get_filming_tc_lut(
-            method, sensitivity, self._film.info.reference_illuminant)
+            method, sensitivity, self._film.info.reference_illuminant
+        )
         raw = rgb_to_raw(
             method,
             rgb,
@@ -139,7 +174,7 @@ class FilmingStage:
             tc_lut=tc_lut,
         )
         return raw
-    
+
     def _compute_density_spectral_midgray_to_balance_print(self):
         rgb_midgray = np.array([[[0.184] * 3]])
         raw_midgray = self._rgb_to_film_raw(rgb_midgray)
@@ -150,12 +185,15 @@ class FilmingStage:
         # same midgray-derived scale is applied to the exposure-compensated
         # reference so their relationship is preserved.
         autoexposure_scale = self._midgray_autoexposure_scale(raw_midgray)
-        density_spectral_midgray = self._raw_to_density_spectral(raw_midgray * autoexposure_scale)
+        density_spectral_midgray = self._raw_to_density_spectral(
+            raw_midgray * autoexposure_scale
+        )
         if self._enlarger_service.print_exposure_compensation:
             neg_exp_comp_ev = self._camera.exposure_compensation_ev
-            raw_midgray_comp = self._rgb_to_film_raw(rgb_midgray * 2 ** neg_exp_comp_ev)
+            raw_midgray_comp = self._rgb_to_film_raw(rgb_midgray * 2**neg_exp_comp_ev)
             density_spectral_midgray_comp = self._raw_to_density_spectral(
-                raw_midgray_comp * autoexposure_scale)
+                raw_midgray_comp * autoexposure_scale
+            )
         else:
             density_spectral_midgray_comp = None
         return density_spectral_midgray, density_spectral_midgray_comp
@@ -166,8 +204,10 @@ class FilmingStage:
         balance reference tracks the actual negative through a camera filter."""
         if not self._camera.auto_exposure:
             return 1.0
-        ev = measure_raw_autoexposure_ev(raw_midgray, method=self._camera.auto_exposure_method)
-        return 2 ** ev
+        ev = measure_raw_autoexposure_ev(
+            raw_midgray, method=self._camera.auto_exposure_method
+        )
+        return 2**ev
 
     def _raw_to_density_spectral(self, raw: np.ndarray) -> np.ndarray:
         log_raw = np.log10(raw + 1e-10)
@@ -183,4 +223,3 @@ class FilmingStage:
             base_density_params=self._film_render.base,
             is_film=True,
         )
-    

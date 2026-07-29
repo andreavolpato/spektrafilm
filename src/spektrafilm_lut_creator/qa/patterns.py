@@ -8,11 +8,11 @@ The patterns are deliberately small (a few hundred samples each) — they
 target specific failure modes, not coverage. The bulk off-grid coverage
 lives in ``reference.ReferenceSamples``.
 """
+
 from __future__ import annotations
 
-import numpy as np
-
 import colour
+import numpy as np
 
 
 def neutral_ramp(input_color_space: str, n: int = 64) -> np.ndarray:
@@ -62,6 +62,7 @@ def highlight_ramps_per_channel(
     """
     if lo is None:
         from spektrafilm_lut_creator.color_spaces import encode_cctf
+
         mid_gray_linear = np.full((1, 3), 0.18, dtype=float)
         mid_gray_encoded = encode_cctf(mid_gray_linear, input_color_space)
         lo = float(np.asarray(mid_gray_encoded).flatten()[0])
@@ -101,7 +102,8 @@ def planckian_sweep(
     - CIE 15:2018 daylight phase recommendation for CCT > 4000K.
     - Planckian locus for low CCT.
     """
-    from spektrafilm_lut_creator.color_spaces import encode_qa_input, get as get_cs
+    from spektrafilm_lut_creator.color_spaces import encode_qa_input
+    from spektrafilm_lut_creator.color_spaces import get as get_cs
 
     entry = get_cs(input_color_space)
     cct = np.linspace(cct_range_k[0], cct_range_k[1], n)
@@ -131,7 +133,9 @@ def planckian_sweep(
     peak = np.clip(np.max(linear_rgb, axis=-1, keepdims=True), 1e-6, None)
     linear_rgb = linear_rgb / peak
     samples_encoded = encode_qa_input(
-        np.clip(linear_rgb, 0.0, 1.0), input_color_space, exposure_ev,
+        np.clip(linear_rgb, 0.0, 1.0),
+        input_color_space,
+        exposure_ev,
     )
     return np.asarray(samples_encoded, dtype=np.float32), cct
 
@@ -228,13 +232,17 @@ def dynamic_range_neutral_ramp(
     from spektrafilm_lut_creator.color_spaces import encode_cctf
 
     if stop_hi is None:
-        stop_hi = _encoding_stop_ceiling(
-            input_color_space, middle_gray_linear,
-        ) + margin_stops
+        stop_hi = (
+            _encoding_stop_ceiling(
+                input_color_space,
+                middle_gray_linear,
+            )
+            + margin_stops
+        )
     if stop_hi <= stop_lo:
         raise ValueError(f"stop_hi {stop_hi} must exceed stop_lo {stop_lo}")
     stops = np.linspace(stop_lo, stop_hi, n)
-    linear_value = middle_gray_linear * (2.0 ** stops)
+    linear_value = middle_gray_linear * (2.0**stops)
     linear_rgb = np.stack([linear_value] * 3, axis=-1)
     pre_clip = encode_cctf(linear_rgb, input_color_space)
     # Track which stops fall outside the input encoding's representable
@@ -245,7 +253,8 @@ def dynamic_range_neutral_ramp(
 
 
 def _encoding_stop_ceiling(
-    input_color_space: str, middle_gray_linear: float,
+    input_color_space: str,
+    middle_gray_linear: float,
 ) -> float:
     """Highest stop above middle gray the encoding still fits in code
     ``[0, 1]``.
@@ -258,7 +267,7 @@ def _encoding_stop_ceiling(
     from spektrafilm_lut_creator.color_spaces import encode_cctf
 
     probe = np.linspace(-12.0, 20.0, 3201)
-    lin = middle_gray_linear * (2.0 ** probe)
+    lin = middle_gray_linear * (2.0**probe)
     enc = encode_cctf(np.stack([lin] * 3, axis=-1), input_color_space)
     ok = np.all(enc <= 1.0, axis=-1)
     if not ok.any():
