@@ -1,15 +1,15 @@
 ![spektrafilm banner](img/readme/banner.jpg)
 
+# Spectral film simulations of analog photography
+
 > [!WARNING]
 > **I love building spektrafilm**, and I invested already hundreds of hours in it.
-> Right now it's a nights-and-weekends project.
+> Right now it’s a nights-and-weekends project.
 > If it will help pay some bills, I can keep improving it for everyone.
 > 🙂 Any **support** is really appreciated:
 > [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
 >
 > **2026/05/28 big git history cleanup** (140MB -> 45MB) --> please reclone!
-
-# Spectral film simulations of analog photography
 
 An exploration of how to make good use of spectroscopic data from manufacturer
 datasheets in an end-to-end, physically based model with spectral calculations, with the
