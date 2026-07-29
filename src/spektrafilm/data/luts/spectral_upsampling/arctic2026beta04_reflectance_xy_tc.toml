@@ -4,18 +4,18 @@
 # apply_lut_cubic_2d(tc) * b. One descriptor per LUT in this folder.
 
 identifier = "arctic2026beta04"
-file = "arctic2026beta04_reflectance_xy_tc.npy"
-kind = "reflectance"                          # "reflectance" (relight + midgray-norm) | "irradiance" (direct)
-title = "arctic2026 (beta04)"
+file       = "arctic2026beta04_reflectance_xy_tc.npy"
+kind       = "reflectance"  # "reflectance" (relight + midgray-norm) | "irradiance" (direct)
+title      = "arctic2026 (beta04)"
 
 [array]
-lut_size = 192                                # array is (lut_size, lut_size, bands) over the tc chromaticity grid
-bands = 81
-spectral_shape = [380, 780, 5]                # start, end, interval (nm)
-dtype = "float16"
-observer = "CIE 1931 2 Degree Standard Observer"
+lut_size       = 192  # array is (lut_size, lut_size, bands) over the tc chromaticity grid
+bands          = 81
+spectral_shape = [380, 780, 5]  # start, end, interval (nm)
+dtype          = "float16"
+observer       = "CIE 1931 2 Degree Standard Observer"
 
-[reflectance]                                 # present iff kind = "reflectance"
-scene_illuminant = "D65"                      # recovered under it; runtime _rgb_to_tc_b projection MUST match
-midgray = 0.184                               # self-normalization neutral (green channel -> 1 after relight)
-bounded = false                               # unbounded metamer; R may exceed 1 (max ~4 after unit-brightness rescale)
+[reflectance]  # present iff kind = "reflectance"
+scene_illuminant = "D65"  # recovered under it; runtime _rgb_to_tc_b projection MUST match
+midgray          = 0.184  # self-normalization neutral (green channel -> 1 after relight)
+bounded          = false  # unbounded metamer; R may exceed 1 (max ~4 after unit-brightness rescale)
