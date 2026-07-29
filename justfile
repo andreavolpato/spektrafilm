@@ -3,59 +3,64 @@ set dotenv-load
 default:
     @just --list
 
-[group('setup')]
 [doc('install project dependencies')]
+[group('setup')]
 setup:
     mise install
     mise reshim
     uv sync
     prek install
 
-[group('hooks')]
 [doc('update prek hooks to latest versions')]
+[group('hooks')]
 hooks-update:
     prek update
 
-[group('hooks')]
 [doc('run hooks against staged files')]
+[group('hooks')]
 hooks-run:
     prek run
 
-[group('hooks')]
 [doc('run hooks against all files')]
+[group('hooks')]
 hooks-run-all:
     prek run --all-files --verbose
 
-[group('format')]
 [doc('format all code')]
+[group('format')]
 format:
     ruff format src/ tests/ scripts/
     biome format --write src/
     just --fmt
 
-[group('lint')]
 [doc('lint all code')]
+[group('lint')]
 lint:
     ruff check src/ tests/ scripts/
     ty check src/
     biome ci src/
     just --fmt --check
 
-[group('test')]
 [doc('run fast tests')]
+[group('test')]
 test:
     uv run pytest
 
-[group('test')]
 [doc('run all tests including slow')]
+[group('test')]
 test-all:
     uv run pytest --run-slow
 
-[group('checks')]
+[doc('run spektrafilm GUI')]
+[group('run')]
+run:
+    uv run spektrafilm
+
 [doc('run full CI pipeline: format, lint, test')]
+[group('checks')]
 check-all: format lint test
 
-[group('clean')]
 [doc('clean cache')]
+[group('clean')]
 clean:
     uv cache clean

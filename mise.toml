@@ -3,7 +3,7 @@
 "core:python" = "3.13"
 
 # Package management
-"aqua:astral-sh/uv"              = "0.11"
+"aqua:astral-sh/uv" = "0.11"
 
 # Version management
 "aqua:crate-ci/committed" = "1"
