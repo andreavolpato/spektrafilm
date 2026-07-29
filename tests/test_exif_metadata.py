@@ -6,7 +6,12 @@ import numpy as np
 import pytest
 
 from spektrafilm.utils import io as io_module
-from spektrafilm.utils.io import ImageMetadata, read_image_metadata, save_image_oiio, write_image_metadata
+from spektrafilm.utils.io import (
+    ImageMetadata,
+    read_image_metadata,
+    save_image_oiio,
+    write_image_metadata,
+)
 
 
 def _build_source_metadata():
@@ -89,7 +94,13 @@ def test_save_without_metadata_has_no_exif(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("saving_color_space", "saving_cctf_encoding", "expected_colorspace", "expected_iop", "expected_profile_name"),
+    (
+        "saving_color_space",
+        "saving_cctf_encoding",
+        "expected_colorspace",
+        "expected_iop",
+        "expected_profile_name",
+    ),
     [
         ("sRGB", True, "1", "R98", "sRGB"),
         ("Adobe RGB (1998)", True, "65535", "R03", "Adobe RGB (1998)"),
@@ -135,7 +146,9 @@ def test_write_metadata_records_saving_color_space(
         (32, "float"),
     ],
 )
-def test_save_image_oiio_tiff_bit_depths_roundtrip(tmp_path, bit_depth, expected_format):
+def test_save_image_oiio_tiff_bit_depths_roundtrip(
+    tmp_path, bit_depth, expected_format
+):
     import OpenImageIO as oiio
 
     destination_path = tmp_path / f"out_{bit_depth}.tif"
@@ -189,7 +202,9 @@ def test_save_image_oiio_embeds_icc_profile_when_available(tmp_path, monkeypatch
 def test_save_image_oiio_skips_icc_when_profile_missing(tmp_path, monkeypatch):
     import OpenImageIO as oiio
 
-    monkeypatch.setattr(io_module, "_load_icc_profile", lambda color_space, cctf_encoding: None)
+    monkeypatch.setattr(
+        io_module, "_load_icc_profile", lambda color_space, cctf_encoding: None
+    )
 
     destination_path = tmp_path / "no_icc.jpg"
     save_image_oiio(

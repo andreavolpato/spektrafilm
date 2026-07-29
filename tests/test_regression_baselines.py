@@ -8,7 +8,6 @@ from tests.regression_baselines import (
     load_baseline,
 )
 
-
 pytestmark = [
     pytest.mark.regression,
 ]

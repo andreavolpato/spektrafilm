@@ -2,8 +2,10 @@ import numpy as np
 from pytest import mark
 
 from spektrafilm.data.profiles_loader import DensityCurvesModel
-from spektrafilm.utils.morph_curves import PrintChemistryParams, apply_print_curves_morph
-
+from spektrafilm.utils.morph_curves import (
+    PrintChemistryParams,
+    apply_print_curves_morph,
+)
 
 pytestmark = mark.unit
 

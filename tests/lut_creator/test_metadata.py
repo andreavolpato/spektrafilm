@@ -1,4 +1,5 @@
 """Tests for the bundle.json schema dataclasses (shape only; I/O lands later)."""
+
 from __future__ import annotations
 
 from spektrafilm_lut_creator.metadata import (
@@ -22,7 +23,9 @@ def test_two_lut_bundle_construction():
         name="portra400_5prints",
         topology="2lut",
         resolution=33,
-        stocks=StocksMeta(film="kodak_portra_400", prints=("kodak_endura", "fuji_crystal_archive")),
+        stocks=StocksMeta(
+            film="kodak_portra_400", prints=("kodak_endura", "fuji_crystal_archive")
+        ),
         color_spaces={
             "input": ColorSpaceMeta(name="ACEScg", cctf=False),
             "output": ColorSpaceMeta(name="sRGB", cctf=True),
@@ -31,11 +34,16 @@ def test_two_lut_bundle_construction():
             cmy_film=DensityWire(d_max=(3.8, 4.1, 3.6)),
         ),
         luts=(
-            LutFileMeta(role="film", path="film.cube",
-                        domain="input_rgb", range="cmy_film"),
-            LutFileMeta(role="print", print_profile="kodak_endura",
-                        path="prints/kodak_endura/print.cube",
-                        domain="cmy_film", range="output_rgb"),
+            LutFileMeta(
+                role="film", path="film.cube", domain="input_rgb", range="cmy_film"
+            ),
+            LutFileMeta(
+                role="print",
+                print_profile="kodak_endura",
+                path="prints/kodak_endura/print.cube",
+                domain="cmy_film",
+                range="output_rgb",
+            ),
         ),
     )
 

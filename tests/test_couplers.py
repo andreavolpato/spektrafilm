@@ -1,16 +1,16 @@
 import numpy as np
 import pytest
-from spektrafilm.model.density_curves import interpolate_exposure_to_density
+
 from spektrafilm.model.couplers import (
     apply_density_correction_dir_couplers,
-    compute_dir_couplers_matrix,
     compute_density_curves_before_dir_couplers,
+    compute_dir_couplers_matrix,
     compute_exposure_correction_dir_couplers,
     langmuir_donor_params,
     receiver_langmuir_params,
 )
+from spektrafilm.model.density_curves import interpolate_exposure_to_density
 from spektrafilm.runtime.params_schema import DirCouplersParams
-
 
 pytestmark = pytest.mark.unit
 
@@ -26,11 +26,13 @@ class TestDirCouplers:
     def test_zero_couplers_returns_original_curves(self):
         """With zero coupler inhibition, density curves should be unchanged."""
         log_exposure = np.linspace(-3, 1, 100)
-        density_curves = np.column_stack([
-            np.clip(log_exposure + 1.5, 0, 2.5),
-            np.clip(log_exposure + 1.5, 0, 2.5),
-            np.clip(log_exposure + 1.5, 0, 2.0),
-        ])
+        density_curves = np.column_stack(
+            [
+                np.clip(log_exposure + 1.5, 0, 2.5),
+                np.clip(log_exposure + 1.5, 0, 2.5),
+                np.clip(log_exposure + 1.5, 0, 2.0),
+            ]
+        )
         params = DirCouplersParams(
             inhibition_samelayer=0.0,
             inhibition_interlayer=0.0,
@@ -53,16 +55,22 @@ class TestDirCouplers:
         np.testing.assert_allclose(result, log_raw, atol=1e-10)
 
     @pytest.mark.parametrize("profile_type", ["negative", "positive"])
-    def test_apply_density_correction_dir_couplers_matches_manual_pipeline(self, profile_type):
+    def test_apply_density_correction_dir_couplers_matches_manual_pipeline(
+        self, profile_type
+    ):
         log_exposure = np.linspace(-3.0, 1.0, 100)
-        density_curves = np.column_stack([
-            np.clip(log_exposure + 1.8, 0.0, 2.4),
-            np.clip(log_exposure + 1.6, 0.0, 2.2),
-            np.clip(log_exposure + 1.4, 0.0, 2.0),
-        ])
+        density_curves = np.column_stack(
+            [
+                np.clip(log_exposure + 1.8, 0.0, 2.4),
+                np.clip(log_exposure + 1.6, 0.0, 2.2),
+                np.clip(log_exposure + 1.4, 0.0, 2.0),
+            ]
+        )
         log_raw = np.full((4, 4, 3), -0.8)
         log_raw[:, :, 1] -= 0.2
-        density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, 1.1)
+        density_cmy = interpolate_exposure_to_density(
+            log_raw, density_curves, log_exposure, 1.1
+        )
         dir_couplers = DirCouplersParams(
             active=True,
             amount=0.7,
@@ -94,11 +102,16 @@ class TestDirCouplers:
         # c_ref derived from the unit matrix (before the amount scaling).
         matrix_unit = compute_dir_couplers_matrix(dir_couplers)
         langmuir_k, langmuir_d_ref = langmuir_donor_params(
-            density_curves, dir_couplers.langmuir_donor_k_rgb, n_ch=3)
+            density_curves, dir_couplers.langmuir_donor_k_rgb, n_ch=3
+        )
         if positive:
             donor_k = None
             receiver_kr, receiver_c_ref = receiver_langmuir_params(
-                langmuir_d_ref, matrix_unit, dir_couplers.langmuir_receiver_k_rgb, n_ch=3)
+                langmuir_d_ref,
+                matrix_unit,
+                dir_couplers.langmuir_receiver_k_rgb,
+                n_ch=3,
+            )
         else:
             donor_k = langmuir_k
             receiver_kr = receiver_c_ref = None

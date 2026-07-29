@@ -1,4 +1,5 @@
 """Tests for the QA report.md -> report.html conversion."""
+
 from __future__ import annotations
 
 from pathlib import Path

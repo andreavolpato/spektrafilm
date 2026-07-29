@@ -4,7 +4,6 @@ import pytest
 from spektrafilm.data.profiles_loader import Hanatos2025SensitivityAdaptation
 from spektrafilm.utils import spectral_upsampling as spectral_upsampling_module
 
-
 pytestmark = pytest.mark.unit
 
 
@@ -41,16 +40,22 @@ def test_rgb_to_raw_hanatos2025_computes_tc_lut_when_missing(monkeypatch):
         lut_raw[..., 2] = 6.0
         return lut_raw
 
-    monkeypatch.setattr(spectral_upsampling_module, '_rgb_to_tc_b', fake_rgb_to_tc_b)
-    monkeypatch.setattr(spectral_upsampling_module, 'compute_hanatos2025_tc_lut', fake_compute_hanatos2025_tc_lut)
-    monkeypatch.setattr(spectral_upsampling_module, 'apply_lut_cubic_2d', fake_apply_lut_cubic_2d)
+    monkeypatch.setattr(spectral_upsampling_module, "_rgb_to_tc_b", fake_rgb_to_tc_b)
+    monkeypatch.setattr(
+        spectral_upsampling_module,
+        "compute_hanatos2025_tc_lut",
+        fake_compute_hanatos2025_tc_lut,
+    )
+    monkeypatch.setattr(
+        spectral_upsampling_module, "apply_lut_cubic_2d", fake_apply_lut_cubic_2d
+    )
 
     raw = spectral_upsampling_module.rgb_to_raw_hanatos2025(
         rgb,
         sensitivity,
-        color_space='sRGB',
+        color_space="sRGB",
         apply_cctf_decoding=False,
-        reference_illuminant='D65',
+        reference_illuminant="D65",
     )
 
     assert len(lut_calls) == 1
@@ -90,15 +95,17 @@ def test_rgb_to_raw_hanatos2025_lut_path_supports_image_rgb(monkeypatch):
         lut_raw[..., 2] = 6.0
         return lut_raw
 
-    monkeypatch.setattr(spectral_upsampling_module, '_rgb_to_tc_b', fake_rgb_to_tc_b)
-    monkeypatch.setattr(spectral_upsampling_module, 'apply_lut_cubic_2d', fake_apply_lut_cubic_2d)
+    monkeypatch.setattr(spectral_upsampling_module, "_rgb_to_tc_b", fake_rgb_to_tc_b)
+    monkeypatch.setattr(
+        spectral_upsampling_module, "apply_lut_cubic_2d", fake_apply_lut_cubic_2d
+    )
 
     raw = spectral_upsampling_module.rgb_to_raw_hanatos2025(
         rgb,
         sensitivity,
-        color_space='sRGB',
+        color_space="sRGB",
         apply_cctf_decoding=False,
-        reference_illuminant='D65',
+        reference_illuminant="D65",
         tc_lut=np.zeros((2, 2, 3), dtype=np.float64),
     )
 
@@ -154,20 +161,34 @@ def test_compute_hanatos2025_tc_lut_normalizes_window_to_preserve_midgray(monkey
 
     adaptation = Hanatos2025SensitivityAdaptation(
         window_params=np.array([415.0, 12.0, 667.0, 76.0], dtype=np.float64),
-        reference_illuminant='D55',
+        reference_illuminant="D55",
         apply_window=True,
         apply_surface=False,
     )
 
-    monkeypatch.setattr(spectral_upsampling_module, 'HANATOS2025_SPECTRA_LUT', lut)
-    monkeypatch.setattr(spectral_upsampling_module, 'eval_spectral_bandpass_window', lambda _params: window)
-    monkeypatch.setattr(spectral_upsampling_module, '_illuminant_to_xy', lambda _label: np.array([1 / 3, 1 / 3]))
-    monkeypatch.setattr(spectral_upsampling_module, 'apply_lut_cubic_2d',
-                        lambda _lut, _tc: neutral_sd.reshape(1, 1, -1))
+    monkeypatch.setattr(spectral_upsampling_module, "HANATOS2025_SPECTRA_LUT", lut)
+    monkeypatch.setattr(
+        spectral_upsampling_module,
+        "eval_spectral_bandpass_window",
+        lambda _params: window,
+    )
+    monkeypatch.setattr(
+        spectral_upsampling_module,
+        "_illuminant_to_xy",
+        lambda _label: np.array([1 / 3, 1 / 3]),
+    )
+    monkeypatch.setattr(
+        spectral_upsampling_module,
+        "apply_lut_cubic_2d",
+        lambda _lut, _tc: neutral_sd.reshape(1, 1, -1),
+    )
 
-    raw_lut = spectral_upsampling_module.compute_hanatos2025_tc_lut(sensitivity, adaptation)
+    raw_lut = spectral_upsampling_module.compute_hanatos2025_tc_lut(
+        sensitivity, adaptation
+    )
 
-    normalization = (np.sum(sensitivity * neutral_sd[:, None] * window, axis=0)
-                     / np.sum(sensitivity * neutral_sd[:, None], axis=0))
-    expected = np.einsum('ijl,lm->ijm', lut, sensitivity * (window / normalization))
+    normalization = np.sum(sensitivity * neutral_sd[:, None] * window, axis=0) / np.sum(
+        sensitivity * neutral_sd[:, None], axis=0
+    )
+    expected = np.einsum("ijl,lm->ijm", lut, sensitivity * (window / normalization))
     np.testing.assert_allclose(raw_lut, expected)

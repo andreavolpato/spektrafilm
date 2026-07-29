@@ -5,6 +5,7 @@ configured right — which QA deliberately cannot see (its reference
 pipeline shares the bake's params, so a policy mistake is identical on
 both sides). Fidelity (cube vs model) stays QA's job.
 """
+
 from __future__ import annotations
 
 import numpy as np

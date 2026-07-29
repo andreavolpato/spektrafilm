@@ -5,6 +5,7 @@ Three test families per n040 §9:
 2. Round-trip: from_xyz(to_xyz(rgb)) ≈ rgb across a representative grid.
 3. Mid-gray sanity: encode(decode(x)) ≈ x for x = 0.18.
 """
+
 from __future__ import annotations
 
 import colour
@@ -13,7 +14,6 @@ import pytest
 
 from spektrafilm_lut_creator import color_spaces as cs
 from spektrafilm_lut_creator.color_spaces import ColorSpaceEntry
-
 
 # Some camera-log curves in colour-science emit a RuntimeWarning when their
 # piecewise branches evaluate log() on a negative intermediate (the result is
@@ -79,45 +79,75 @@ class TestRegistryShape:
 class TestRegistration:
     def test_rejects_unknown_kind(self):
         with pytest.raises(ValueError, match="kind must be"):
-            cs.register(ColorSpaceEntry(
-                name="_test_bad_kind", primaries="sRGB", cctf=None,
-                kind="bogus", role=("input",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_bad_kind",
+                    primaries="sRGB",
+                    cctf=None,
+                    kind="bogus",
+                    role=("input",),
+                )
+            )
 
     def test_rejects_unknown_role(self):
         with pytest.raises(ValueError, match="role entries must be"):
-            cs.register(ColorSpaceEntry(
-                name="_test_bad_role", primaries="sRGB", cctf=None,
-                kind="linear", role=("flapjack",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_bad_role",
+                    primaries="sRGB",
+                    cctf=None,
+                    kind="linear",
+                    role=("flapjack",),
+                )
+            )
 
     def test_rejects_unknown_primaries(self):
         with pytest.raises(KeyError, match="primaries"):
-            cs.register(ColorSpaceEntry(
-                name="_test_bad_primaries", primaries="Not A Gamut", cctf=None,
-                kind="linear", role=("input",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_bad_primaries",
+                    primaries="Not A Gamut",
+                    cctf=None,
+                    kind="linear",
+                    role=("input",),
+                )
+            )
 
     def test_rejects_unknown_cctf(self):
         with pytest.raises(KeyError, match="cctf"):
-            cs.register(ColorSpaceEntry(
-                name="_test_bad_cctf", primaries="sRGB", cctf="Not A CCTF",
-                kind="encoded_sdr", role=("input",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_bad_cctf",
+                    primaries="sRGB",
+                    cctf="Not A CCTF",
+                    kind="encoded_sdr",
+                    role=("input",),
+                )
+            )
 
     def test_linear_must_have_none_cctf(self):
         with pytest.raises(ValueError, match="linear spaces must have cctf=None"):
-            cs.register(ColorSpaceEntry(
-                name="_test_linear_with_cctf", primaries="sRGB", cctf="sRGB",
-                kind="linear", role=("input",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_linear_with_cctf",
+                    primaries="sRGB",
+                    cctf="sRGB",
+                    kind="linear",
+                    role=("input",),
+                )
+            )
 
     def test_non_linear_must_have_cctf(self):
         with pytest.raises(ValueError, match="requires a cctf"):
-            cs.register(ColorSpaceEntry(
-                name="_test_nonlinear_no_cctf", primaries="sRGB", cctf=None,
-                kind="encoded_sdr", role=("input",),
-            ))
+            cs.register(
+                ColorSpaceEntry(
+                    name="_test_nonlinear_no_cctf",
+                    primaries="sRGB",
+                    cctf=None,
+                    kind="encoded_sdr",
+                    role=("input",),
+                )
+            )
 
 
 @pytest.mark.parametrize("name", _ALL_NAMES)
@@ -238,7 +268,9 @@ class TestInputGain:
         code = cs.encode_cctf(np.full((1, 3), mid), "Rec.2100 HLG")
         np.testing.assert_allclose(np.asarray(code).ravel(), 0.38, atol=1e-6)
         # And the bridge lands it on the film's 0.18.
-        np.testing.assert_allclose(mid * cs.input_midgray_gain("Rec.2100 HLG"), 0.18, rtol=1e-9)
+        np.testing.assert_allclose(
+            mid * cs.input_midgray_gain("Rec.2100 HLG"), 0.18, rtol=1e-9
+        )
 
     def test_hlg_midgray_round_trips_through_output_gain(self):
         # Output side: film 0.18 × output_midgray_gain → 26.24 nits →
@@ -254,13 +286,17 @@ class TestInputGain:
         np.testing.assert_allclose(cs.input_gain("sRGB", 1.0), 2.0, rtol=1e-9)
         np.testing.assert_allclose(cs.input_gain("sRGB", -1.0), 0.5, rtol=1e-9)
         np.testing.assert_allclose(
-            cs.input_gain("Rec.2100 PQ", 2.0), (0.18 / 100.0) * 4.0, rtol=1e-9,
+            cs.input_gain("Rec.2100 PQ", 2.0),
+            (0.18 / 100.0) * 4.0,
+            rtol=1e-9,
         )
 
     def test_effective_input_midgray_linear(self):
         # The input-native linear value that lands on the film's 0.18:
         # the registry midgray at ev=0, halved per +1 EV.
-        assert cs.effective_input_midgray_linear("Panasonic V-Log") == pytest.approx(0.18)
+        assert cs.effective_input_midgray_linear("Panasonic V-Log") == pytest.approx(
+            0.18
+        )
         assert cs.effective_input_midgray_linear("Rec.2100 PQ") == pytest.approx(100.0)
         assert cs.effective_input_midgray_linear("sRGB", 1.0) == pytest.approx(0.09)
 

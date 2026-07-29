@@ -6,6 +6,7 @@ validate_compression_against_references.py. These tests cover the
 public contract (spec validation, dispatcher, identity behavior,
 LUT remap shape and end-effects).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -125,18 +126,22 @@ class TestReinhardKnee:
 
     def test_asymptotes_at_limit(self):
         """As d -> infinity the knee approaches the limit."""
-        out = reinhard_knee(
-            np.array(1e9), threshold=0.815, limit=1.0, power=1.2
-        )
+        out = reinhard_knee(np.array(1e9), threshold=0.815, limit=1.0, power=1.2)
         assert abs(float(out) - 1.0) < 1e-6
 
     def test_continuous_at_threshold(self):
         eps = 1e-9
         below = reinhard_knee(
-            np.array(0.815 - eps), threshold=0.815, limit=1.0, power=1.2,
+            np.array(0.815 - eps),
+            threshold=0.815,
+            limit=1.0,
+            power=1.2,
         )
         above = reinhard_knee(
-            np.array(0.815 + eps), threshold=0.815, limit=1.0, power=1.2,
+            np.array(0.815 + eps),
+            threshold=0.815,
+            limit=1.0,
+            power=1.2,
         )
         assert abs(float(above) - float(below)) < 1e-6
 
@@ -197,7 +202,9 @@ class TestRemapTcLutForCompression:
         lut = self._dummy_lut()
         spec = InputGamutCompressSpec(active=False)
         out = remap_tc_lut_for_compression(
-            lut, np.array([1 / 3, 1 / 3]), spec,
+            lut,
+            np.array([1 / 3, 1 / 3]),
+            spec,
         )
         assert np.array_equal(out, lut)
 
@@ -205,7 +212,9 @@ class TestRemapTcLutForCompression:
         lut = self._dummy_lut()
         spec = InputGamutCompressSpec()
         out = remap_tc_lut_for_compression(
-            lut, np.array([1 / 3, 1 / 3]), spec,
+            lut,
+            np.array([1 / 3, 1 / 3]),
+            spec,
         )
         assert out.shape == lut.shape
         assert out.dtype == lut.dtype
@@ -216,7 +225,9 @@ class TestRemapTcLutForCompression:
         lut = self._dummy_lut()
         spec = InputGamutCompressSpec()
         out = remap_tc_lut_for_compression(
-            lut, np.array([1 / 3, 1 / 3]), spec,
+            lut,
+            np.array([1 / 3, 1 / 3]),
+            spec,
         )
         assert not np.array_equal(out, lut), "remap should change some cells"
 
@@ -224,7 +235,9 @@ class TestRemapTcLutForCompression:
         lut = self._dummy_lut()
         spec = InputGamutCompressSpec(boundary="locus")
         out = remap_tc_lut_for_compression(
-            lut, np.array([1 / 3, 1 / 3]), spec,
+            lut,
+            np.array([1 / 3, 1 / 3]),
+            spec,
         )
         assert out.shape == lut.shape
         assert np.all(np.isfinite(out))
@@ -237,7 +250,9 @@ class TestRemapTcLutForCompression:
         lut = (i / (H - 1))[..., None].astype(float)  # (32, 32, 1)
         spec = InputGamutCompressSpec()
         out = remap_tc_lut_for_compression(
-            lut, np.array([1 / 3, 1 / 3]), spec,
+            lut,
+            np.array([1 / 3, 1 / 3]),
+            spec,
         )
         assert out.shape == (H, W, 1)
         assert out.dtype == lut.dtype
@@ -249,6 +264,7 @@ class TestInscribedLocusHull:
 
     def test_hull_vertices_inside_locus(self):
         from matplotlib.path import Path as MplPath
+
         hull = inscribed_locus_hull(self.D65, detail=11.0)
         locus = spectral_locus_xy()
         inside = MplPath(locus).contains_points(hull, radius=1e-9)
@@ -275,8 +291,10 @@ class TestInscribedLocusHull:
         # grid of wide / imaginary chromaticities (covers V-Gamut, DWG, ACEScg
         # corners and beyond).
         from matplotlib.path import Path as MplPath
+
         gx, gy = np.meshgrid(
-            np.linspace(-0.10, 0.85, 60), np.linspace(-0.15, 1.00, 60),
+            np.linspace(-0.10, 0.85, 60),
+            np.linspace(-0.15, 1.00, 60),
         )
         xy = np.stack([gx.ravel(), gy.ravel()], axis=-1)
         spec = InputGamutCompressSpec()  # default: inscribed hull, (0.815,1,1.2)
@@ -372,10 +390,12 @@ class TestCompressRgbAcesRgc:
         """Stronger negative inputs land closer to the c'=0 boundary
         because d is larger and the knee's asymptote is at limit=1.0."""
         a = compress_rgb_aces_rgc(
-            np.array([1.0, -0.05, -0.05]), **self.knee,
+            np.array([1.0, -0.05, -0.05]),
+            **self.knee,
         )
         b = compress_rgb_aces_rgc(
-            np.array([1.0, -1.0, -1.0]), **self.knee,
+            np.array([1.0, -1.0, -1.0]),
+            **self.knee,
         )
         # Stronger OOG -> smaller (closer to 0) output.
         assert b[1] < a[1]
@@ -471,10 +491,13 @@ class TestCompressRgbDispatcher:
 # color space and apply the Reinhard knee to ``C / C_max``. The contract
 # is therefore identical across them; parametrize rather than repeat.
 _PERCEPTUAL_ALGORITHMS = {
-    "oklch":    (compress_rgb_oklch_chroma,    dict(threshold=0.815, limit=1.0, power=1.2)),
-    "jzazbz":   (compress_rgb_jzazbz_chroma,   dict(threshold=0.815, limit=1.0, power=1.2)),
-    "oklrab":   (compress_rgb_oklrab_chroma,   dict(threshold=0.95,  limit=1.0, power=2.0)),
-    "cam16ucs": (compress_rgb_cam16ucs_chroma, dict(threshold=0.95,  limit=1.0, power=2.0)),
+    "oklch": (compress_rgb_oklch_chroma, dict(threshold=0.815, limit=1.0, power=1.2)),
+    "jzazbz": (compress_rgb_jzazbz_chroma, dict(threshold=0.815, limit=1.0, power=1.2)),
+    "oklrab": (compress_rgb_oklrab_chroma, dict(threshold=0.95, limit=1.0, power=2.0)),
+    "cam16ucs": (
+        compress_rgb_cam16ucs_chroma,
+        dict(threshold=0.95, limit=1.0, power=2.0),
+    ),
 }
 
 
@@ -520,6 +543,7 @@ class TestPerceptualChromaAlgorithmSpecific:
         """The C_max accessor should hit its cache on a second call
         with the same (space, output) pair."""
         from spektrafilm.utils.gamut_compression import _get_output_c_max_table
+
         first = _get_output_c_max_table("oklch", "sRGB")
         second = _get_output_c_max_table("oklch", "sRGB")
         assert first is second
@@ -531,6 +555,7 @@ class TestPerceptualChromaAlgorithmSpecific:
             _oklab_L_to_oklrab_Lr,
             _oklrab_Lr_to_oklab_L,
         )
+
         L = np.linspace(0.0, 1.0, 21)
         Lr = _oklab_L_to_oklrab_Lr(L)
         L_back = _oklrab_Lr_to_oklab_L(Lr)
@@ -545,19 +570,27 @@ class TestPerceptualChromaAlgorithmSpecific:
         future change broke L preservation it would show here, and the
         same defect would surface in the other algorithms' visual QA."""
         import colour
+
         rgb = np.array([1.05, 0.1, 0.4])
         out = compress_rgb_oklch_chroma(
-            rgb, output_color_space="sRGB",
-            threshold=0.815, limit=1.0, power=1.2,
+            rgb,
+            output_color_space="sRGB",
+            threshold=0.815,
+            limit=1.0,
+            power=1.2,
         )
         cs = colour.RGB_COLOURSPACES["sRGB"]
         xyz_in = colour.RGB_to_XYZ(
-            rgb, colourspace="sRGB",
-            illuminant=cs.whitepoint, apply_cctf_decoding=False,
+            rgb,
+            colourspace="sRGB",
+            illuminant=cs.whitepoint,
+            apply_cctf_decoding=False,
         )
         xyz_out = colour.RGB_to_XYZ(
-            out, colourspace="sRGB",
-            illuminant=cs.whitepoint, apply_cctf_decoding=False,
+            out,
+            colourspace="sRGB",
+            illuminant=cs.whitepoint,
+            apply_cctf_decoding=False,
         )
         L_in = float(colour.XYZ_to_Oklab(xyz_in)[0])
         L_out = float(colour.XYZ_to_Oklab(xyz_out)[0])

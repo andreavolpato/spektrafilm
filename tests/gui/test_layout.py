@@ -99,9 +99,9 @@ def _make_resettable_viewer(layers: list[FakeLayer], *, active: FakeLayer | None
 
 
 def _assert_chrome_background(qt_viewer: FakeQtViewer) -> None:
-    assert qt_viewer.stylesheet == 'background: #767676;'
-    assert qt_viewer.canvas.bgcolor == '#767676'
-    assert qt_viewer.canvas.native.stylesheet == 'background: #767676;'
+    assert qt_viewer.stylesheet == "background: #767676;"
+    assert qt_viewer.canvas.bgcolor == "#767676"
+    assert qt_viewer.canvas.native.stylesheet == "background: #767676;"
 
 
 def _assert_camera_reset(viewer, *, during: list[bool], after: list[bool]) -> None:
@@ -125,15 +125,23 @@ def test_set_status_targets_custom_host_window_status_bar() -> None:
     viewer = make_test_viewer_namespace(_qt_window=object())
     set_host_window(viewer, host_window)
 
-    set_status(viewer, 'Simulation complete', timeout_ms=1500)
+    set_status(viewer, "Simulation complete", timeout_ms=1500)
 
-    assert host_window.status_bar.messages == [('Simulation complete', 1500)]
+    assert host_window.status_bar.messages == [("Simulation complete", 1500)]
 
 
-@pytest.mark.parametrize('central_widget', [object(), None], ids=['taken-central-widget', 'qt-viewer-fallback'])
-def test_take_viewer_widget_prefers_central_widget_then_qt_viewer(central_widget) -> None:
+@pytest.mark.parametrize(
+    "central_widget",
+    [object(), None],
+    ids=["taken-central-widget", "qt-viewer-fallback"],
+)
+def test_take_viewer_widget_prefers_central_widget_then_qt_viewer(
+    central_widget,
+) -> None:
     qt_viewer = object()
-    viewer = make_test_viewer_namespace(_qt_window=FakeQtWindow(central_widget=central_widget), _qt_viewer=qt_viewer)
+    viewer = make_test_viewer_namespace(
+        _qt_window=FakeQtWindow(central_widget=central_widget), _qt_viewer=qt_viewer
+    )
 
     expected = central_widget if central_widget is not None else qt_viewer
     assert take_viewer_widget(viewer) is expected
@@ -163,7 +171,7 @@ def test_configure_napari_chrome_uses_gray_18_canvas_when_enabled() -> None:
 
 
 def test_reset_viewer_camera_calls_viewer_reset() -> None:
-    layer = FakeLayer(name='active')
+    layer = FakeLayer(name="active")
     viewer = SimpleNamespace(reset_calls=0, layers=FakeLayerList([layer], active=layer))
 
     def reset_view() -> None:
@@ -177,8 +185,8 @@ def test_reset_viewer_camera_calls_viewer_reset() -> None:
 
 
 def test_reset_viewer_camera_preserves_visibility_with_active_layer() -> None:
-    active_layer = FakeLayer(name='active', visible=True)
-    other_layer = FakeLayer(name='other', visible=True)
+    active_layer = FakeLayer(name="active", visible=True)
+    other_layer = FakeLayer(name="other", visible=True)
     viewer = _make_resettable_viewer([other_layer, active_layer], active=active_layer)
 
     reset_viewer_camera(viewer)
@@ -187,8 +195,8 @@ def test_reset_viewer_camera_preserves_visibility_with_active_layer() -> None:
 
 
 def test_reset_viewer_camera_preserves_visibility_without_active_layer() -> None:
-    hidden_layer = FakeLayer(name='hidden', visible=False)
-    visible_layer = FakeLayer(name='visible', visible=True)
+    hidden_layer = FakeLayer(name="hidden", visible=False)
+    visible_layer = FakeLayer(name="visible", visible=True)
     viewer = _make_resettable_viewer([hidden_layer, visible_layer], active=None)
 
     reset_viewer_camera(viewer)
@@ -203,23 +211,33 @@ def test_reset_viewer_camera_ignores_missing_reset_method() -> None:
 
 
 @pytest.mark.parametrize(
-    ('zoom_percent', 'device_pixel_ratio', 'layer_scale', 'expected_zoom'),
+    ("zoom_percent", "device_pixel_ratio", "layer_scale", "expected_zoom"),
     [
         (100.0, None, None, 1.0),
         (200.0, 1.5, None, 3.0),
         (100.0, 1.0, (0.25, 0.25), 4.0),
         (400.0, 1.0, (0.125, 0.125), 32.0),
     ],
-    ids=['default-100-percent', 'scaled-by-device-ratio', 'active-layer-scale-100-percent', 'active-layer-scale-400-percent'],
+    ids=[
+        "default-100-percent",
+        "scaled-by-device-ratio",
+        "active-layer-scale-100-percent",
+        "active-layer-scale-400-percent",
+    ],
 )
-def test_set_viewer_zoom_percent_updates_camera(zoom_percent: float, device_pixel_ratio: float | None, layer_scale, expected_zoom: float) -> None:
+def test_set_viewer_zoom_percent_updates_camera(
+    zoom_percent: float,
+    device_pixel_ratio: float | None,
+    layer_scale,
+    expected_zoom: float,
+) -> None:
     camera = SimpleNamespace(zoom=4.0)
     qt_viewer = None
     if device_pixel_ratio is not None:
         qt_viewer = SimpleNamespace(devicePixelRatioF=lambda: device_pixel_ratio)
     viewer = make_test_viewer_namespace(camera=camera, _qt_viewer=qt_viewer)
     if layer_scale is not None:
-        layer = FakeLayer(name='active')
+        layer = FakeLayer(name="active")
         layer.scale = layer_scale
         viewer.layers = FakeLayerList([layer], active=layer)
 
@@ -230,8 +248,8 @@ def test_set_viewer_zoom_percent_updates_camera(zoom_percent: float, device_pixe
 
 def test_set_viewer_zoom_percent_uses_top_visible_layer_when_no_active_layer() -> None:
     camera = SimpleNamespace(zoom=1.0)
-    hidden_layer = FakeLayer(name='hidden', visible=False)
-    visible_layer = FakeLayer(name='visible', visible=True)
+    hidden_layer = FakeLayer(name="hidden", visible=False)
+    visible_layer = FakeLayer(name="visible", visible=True)
     visible_layer.scale = (0.5, 0.5)
     viewer = make_test_viewer_namespace(camera=camera, _qt_viewer=None)
     viewer.layers = FakeLayerList([hidden_layer, visible_layer], active=None)
@@ -244,9 +262,11 @@ def test_set_viewer_zoom_percent_uses_top_visible_layer_when_no_active_layer() -
 def test_request_dark_title_bar_returns_false_off_windows(monkeypatch) -> None:
     class FakeWindow:
         def winId(self):  # noqa: N802 - Qt API name
-            raise AssertionError('winId should not be requested on non-Windows platforms')
+            raise AssertionError(
+                "winId should not be requested on non-Windows platforms"
+            )
 
-    monkeypatch.setattr(napari_layout_module.sys, 'platform', 'linux')
+    monkeypatch.setattr(napari_layout_module.sys, "platform", "linux")
 
     assert napari_layout_module._request_dark_title_bar(FakeWindow()) is False
 
@@ -259,7 +279,9 @@ def test_request_dark_title_bar_uses_windows_dwm_api(monkeypatch) -> None:
     class FakeCtypes:
         def __init__(self) -> None:
             self.calls: list[tuple[int, int, int]] = []
-            self.windll = SimpleNamespace(dwmapi=SimpleNamespace(DwmSetWindowAttribute=self._set_window_attribute))
+            self.windll = SimpleNamespace(
+                dwmapi=SimpleNamespace(DwmSetWindowAttribute=self._set_window_attribute)
+            )
 
         @staticmethod
         def c_int(value: int) -> int:
@@ -273,23 +295,33 @@ def test_request_dark_title_bar_uses_windows_dwm_api(monkeypatch) -> None:
         def byref(value: object) -> object:
             return value
 
-        def _set_window_attribute(self, hwnd: int, attribute: int, _value: object, value_size: int) -> int:
+        def _set_window_attribute(
+            self, hwnd: int, attribute: int, _value: object, value_size: int
+        ) -> int:
             self.calls.append((hwnd, attribute, value_size))
-            return 0 if attribute == napari_layout_module._DWMWA_USE_IMMERSIVE_DARK_MODE else 1
+            return (
+                0
+                if attribute == napari_layout_module._DWMWA_USE_IMMERSIVE_DARK_MODE
+                else 1
+            )
 
     fake_ctypes = FakeCtypes()
-    monkeypatch.setattr(napari_layout_module.sys, 'platform', 'win32')
+    monkeypatch.setattr(napari_layout_module.sys, "platform", "win32")
     monkeypatch.setattr(
         napari_layout_module,
-        'import_module',
-        lambda name: fake_ctypes if name == 'ctypes' else __import__(name),
+        "import_module",
+        lambda name: fake_ctypes if name == "ctypes" else __import__(name),
     )
 
     assert napari_layout_module._request_dark_title_bar(FakeWindow()) is True
-    assert fake_ctypes.calls == [(1234, napari_layout_module._DWMWA_USE_IMMERSIVE_DARK_MODE, 4)]
+    assert fake_ctypes.calls == [
+        (1234, napari_layout_module._DWMWA_USE_IMMERSIVE_DARK_MODE, 4)
+    ]
 
 
-def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(monkeypatch) -> None:
+def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
+    monkeypatch,
+) -> None:
     captured_tabs: list[tuple[str, tuple[object, ...]]] = []
 
     class FakeTabWidget:
@@ -308,8 +340,10 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         def addTab(self, widget, label: str) -> None:
             captured_tabs.append((label, widget))
 
-    monkeypatch.setattr(napari_layout_module.QtWidgets, 'QTabWidget', FakeTabWidget)
-    monkeypatch.setattr(napari_layout_module.QtWidgets, 'QWidget', lambda: SimpleNamespace())
+    monkeypatch.setattr(napari_layout_module.QtWidgets, "QTabWidget", FakeTabWidget)
+    monkeypatch.setattr(
+        napari_layout_module.QtWidgets, "QWidget", lambda: SimpleNamespace()
+    )
 
     class FakeVBoxLayout:
         def __init__(self, _parent) -> None:
@@ -325,40 +359,48 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
             # Mirrors QVBoxLayout.addWidget(widget, stretch=0, alignment=...).
             pass
 
-    monkeypatch.setattr(napari_layout_module.QtWidgets, 'QVBoxLayout', FakeVBoxLayout)
-    monkeypatch.setattr(napari_layout_module, '_wrap_scrollable', lambda widget: widget)
-    monkeypatch.setattr(napari_layout_module, '_borrow_layer_list_widget', lambda _viewer: None)
-    monkeypatch.setattr(napari_layout_module, 'CollapsibleSection', lambda *_args, **_kwargs: 'collapsible')
-    monkeypatch.setattr(napari_layout_module, '_build_controls_tab', lambda *sections: sections)
+    monkeypatch.setattr(napari_layout_module.QtWidgets, "QVBoxLayout", FakeVBoxLayout)
+    monkeypatch.setattr(napari_layout_module, "_wrap_scrollable", lambda widget: widget)
+    monkeypatch.setattr(
+        napari_layout_module, "_borrow_layer_list_widget", lambda _viewer: None
+    )
+    monkeypatch.setattr(
+        napari_layout_module,
+        "CollapsibleSection",
+        lambda *_args, **_kwargs: "collapsible",
+    )
+    monkeypatch.setattr(
+        napari_layout_module, "_build_controls_tab", lambda *sections: sections
+    )
 
     widgets = SimpleNamespace(
-        filepicker='filepicker',
-        load_raw='load_raw',
-        preview_crop='preview_crop',
-        input_image='input_image',
-        input_gamut_compress='input_gamut_compress',
-        camera='camera',
-        simulation=SimpleNamespace(action_bar=lambda: 'action_bar'),
-        enlarger='enlarger',
-        scanner='scanner',
-        output='output',
-        output_gamut_compress='output_gamut_compress',
-        halation='halation',
-        couplers='couplers',
-        grain='grain',
-        camera_diffusion='camera_diffusion',
-        chemistry='chemistry',
-        print_base='print_base',
-        film_chemistry='film_chemistry',
-        film_base='film_base',
-        convert='convert',
-        glare='glare',
-        preflashing='preflashing',
-        enlarger_diffusion='enlarger_diffusion',
-        spectral_upsampling='spectral_upsampling',
-        special='special',
-        gui_config='gui_config',
-        display='display',
+        filepicker="filepicker",
+        load_raw="load_raw",
+        preview_crop="preview_crop",
+        input_image="input_image",
+        input_gamut_compress="input_gamut_compress",
+        camera="camera",
+        simulation=SimpleNamespace(action_bar=lambda: "action_bar"),
+        enlarger="enlarger",
+        scanner="scanner",
+        output="output",
+        output_gamut_compress="output_gamut_compress",
+        halation="halation",
+        couplers="couplers",
+        grain="grain",
+        camera_diffusion="camera_diffusion",
+        chemistry="chemistry",
+        print_base="print_base",
+        film_chemistry="film_chemistry",
+        film_base="film_base",
+        convert="convert",
+        glare="glare",
+        preflashing="preflashing",
+        enlarger_diffusion="enlarger_diffusion",
+        spectral_upsampling="spectral_upsampling",
+        special="special",
+        gui_config="gui_config",
+        display="display",
     )
 
     napari_layout_module.build_controls_panel(SimpleNamespace(), widgets)
@@ -367,20 +409,20 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
     # a container; the tabs are observed via FakeTabWidget.addTab regardless.
     assert captured_tabs
     tabs = {label: sections for label, sections in captured_tabs}
-    assert 'input_gamut_compress' not in tabs['MAIN']
-    assert 'output_gamut_compress' not in tabs['MAIN']
-    assert tabs['ADVANCED'] == (
-        'spectral_upsampling',
-        'input_gamut_compress',
-        'output_gamut_compress',
-        'special',
+    assert "input_gamut_compress" not in tabs["MAIN"]
+    assert "output_gamut_compress" not in tabs["MAIN"]
+    assert tabs["ADVANCED"] == (
+        "spectral_upsampling",
+        "input_gamut_compress",
+        "output_gamut_compress",
+        "special",
     )
-    assert tabs['FILM'] == (
-        'film_chemistry',
-        'film_base',
-        'halation',
-        'couplers',
-        'grain',
-        'camera_diffusion',
-        'convert',
+    assert tabs["FILM"] == (
+        "film_chemistry",
+        "film_base",
+        "halation",
+        "couplers",
+        "grain",
+        "camera_diffusion",
+        "convert",
     )

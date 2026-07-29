@@ -86,7 +86,9 @@ def build_case_image(image_recipe: str) -> np.ndarray:
 def compute_case_output(case: RegressionCase) -> np.ndarray:
     np.random.seed(0)
     image = build_case_image(case.image_recipe)
-    params = make_fast_test_params(film_profile=case.film_profile, print_profile=case.print_profile)
+    params = make_fast_test_params(
+        film_profile=case.film_profile, print_profile=case.print_profile
+    )
 
     if case.output_mode == "negative_density":
         params.taps.collect = "cmy_film"

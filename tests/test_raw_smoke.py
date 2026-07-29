@@ -36,29 +36,31 @@ def test_load_and_process_raw_file_smoke_without_external_raw(monkeypatch) -> No
 
     monkeypatch.setattr(
         raw_file_processor,
-        'rawpy',
+        "rawpy",
         SimpleNamespace(
             imread=lambda path: Reader(),
-            ColorSpace=SimpleNamespace(ACES='ACES'),
+            ColorSpace=SimpleNamespace(ACES="ACES"),
         ),
     )
 
-    daylight = raw_file_processor.load_and_process_raw_file('synthetic.nef', white_balance='daylight')
+    daylight = raw_file_processor.load_and_process_raw_file(
+        "synthetic.nef", white_balance="daylight"
+    )
     custom_daylight = raw_file_processor.load_and_process_raw_file(
-        'synthetic.nef',
-        white_balance='custom',
+        "synthetic.nef",
+        white_balance="custom",
         temperature=6504.0,
         tint=1.0,
     )
     custom_tungsten = raw_file_processor.load_and_process_raw_file(
-        'synthetic.nef',
-        white_balance='custom',
+        "synthetic.nef",
+        white_balance="custom",
         temperature=3200.0,
         tint=1.0,
     )
     custom_tungsten_tinted = raw_file_processor.load_and_process_raw_file(
-        'synthetic.nef',
-        white_balance='custom',
+        "synthetic.nef",
+        white_balance="custom",
         temperature=3200.0,
         tint=0.85,
     )

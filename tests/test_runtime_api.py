@@ -1,5 +1,5 @@
-from types import SimpleNamespace
 import copy
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -7,7 +7,6 @@ import pytest
 from spektrafilm import AgXPhoto, Simulator, photo_params, simulate
 from spektrafilm.runtime import pipeline as pipeline_module
 from spektrafilm.runtime import process as process_module
-
 
 pytestmark = pytest.mark.integration
 
@@ -19,31 +18,33 @@ class TestRuntimeApi:
 
         np.testing.assert_allclose(new_result, direct_result, atol=1e-12)
 
-    def test_update_params_delegates_to_pipeline_without_public_state(self, monkeypatch):
+    def test_update_params_delegates_to_pipeline_without_public_state(
+        self, monkeypatch
+    ):
         class FakePipeline:
             def __init__(self, params):
                 self.label = params.label
-                self.timings = {'label': params.label}
+                self.timings = {"label": params.label}
 
             def process(self, image):
-                return f'processed-{self.label}-{image}'
+                return f"processed-{self.label}-{image}"
 
             def update(self, params):
                 self.label = params.label
-                self.timings = {'label': params.label}
+                self.timings = {"label": params.label}
 
-        monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
-        initial_params = SimpleNamespace(label='initial')
-        updated_params = SimpleNamespace(label='updated')
+        monkeypatch.setattr(process_module, "SimulationPipeline", FakePipeline)
+        initial_params = SimpleNamespace(label="initial")
+        updated_params = SimpleNamespace(label="updated")
 
         simulator = process_module.Simulator(initial_params)
-        assert not hasattr(simulator, 'camera')
-        assert not hasattr(simulator, 'timings')
-        assert not hasattr(simulator, 'update')
+        assert not hasattr(simulator, "camera")
+        assert not hasattr(simulator, "timings")
+        assert not hasattr(simulator, "update")
 
         simulator.update_params(updated_params)
 
-        assert simulator.process('frame') == 'processed-updated-frame'
+        assert simulator.process("frame") == "processed-updated-frame"
 
     def test_soft_update_delegates_to_pipeline(self, monkeypatch):
         captured_kwargs = {}
@@ -51,7 +52,7 @@ class TestRuntimeApi:
         class FakePipeline:
             def __init__(self, params):
                 self.label = params.label
-                self.timings = {'label': params.label}
+                self.timings = {"label": params.label}
 
             def process(self, image):
                 return image
@@ -59,17 +60,19 @@ class TestRuntimeApi:
             def soft_update(self, **kwargs):
                 captured_kwargs.update(kwargs)
 
-        monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
-        simulator = process_module.Simulator(SimpleNamespace(label='initial'))
+        monkeypatch.setattr(process_module, "SimulationPipeline", FakePipeline)
+        simulator = process_module.Simulator(SimpleNamespace(label="initial"))
 
         simulator.soft_update(print_exposure=1.5, exposure_compensation_ev=-0.25)
 
         assert captured_kwargs == {
-            'print_exposure': 1.5,
-            'exposure_compensation_ev': -0.25,
+            "print_exposure": 1.5,
+            "exposure_compensation_ev": -0.25,
         }
 
-    def test_soft_update_keeps_print_exposure_compensation_consistent_with_rebuild(self, default_params):
+    def test_soft_update_keeps_print_exposure_compensation_consistent_with_rebuild(
+        self, default_params
+    ):
         params = copy.deepcopy(default_params)
         params.camera.auto_exposure = False
         params.enlarger.normalize_print_exposure = True
@@ -92,15 +95,15 @@ class TestRuntimeApi:
         class FakePipeline:
             def __init__(self, params):
                 del params
-                self.timings = {'previous': 1.0}
+                self.timings = {"previous": 1.0}
                 self._last_elapsed_time = None
 
             def process(self, image):
                 self.timings.clear()
                 start = pipeline_module.perf_counter()
                 try:
-                    self.timings['filming.expose'] = 0.012345
-                    self.timings['scanning.scan_print'] = 0.0004567
+                    self.timings["filming.expose"] = 0.012345
+                    self.timings["scanning.scan_print"] = 0.0004567
                     return image
                 finally:
                     self._last_elapsed_time = pipeline_module.perf_counter() - start
@@ -120,15 +123,17 @@ class TestRuntimeApi:
             def print_timings(self):
                 print(self.format_timings())
 
-        monkeypatch.setattr(process_module, 'SimulationPipeline', FakePipeline)
+        monkeypatch.setattr(process_module, "SimulationPipeline", FakePipeline)
         ticks = iter((10.0, 10.1234))
-        monkeypatch.setattr(pipeline_module, 'perf_counter', lambda: next(ticks))
+        monkeypatch.setattr(pipeline_module, "perf_counter", lambda: next(ticks))
 
-        params = SimpleNamespace(label='timed')
+        params = SimpleNamespace(label="timed")
 
-        result = process_module.simulate('frame', params, digest_params_first=False, print_timings=True)
+        result = process_module.simulate(
+            "frame", params, digest_params_first=False, print_timings=True
+        )
 
-        assert result == 'frame'
+        assert result == "frame"
         assert capsys.readouterr().out.strip() == (
             "Simulation timings\n"
             "  Total                 123 ms  100.0%\n"
@@ -140,13 +145,14 @@ class TestRuntimeApi:
     def test_art_extlut_compatibility_path_runs(self):
         # make sure ART is compatible
         """reference this https://github.com/artraweditor/ART/blob/master/tools/extlut/spektrafilm_mklut.py"""
+
         def make_art_params():
             params = photo_params(
-                'kodak_portra_400',
-                'kodak_portra_endura',
+                "kodak_portra_400",
+                "kodak_portra_endura",
             )
             params.camera.auto_exposure = False
-            params.camera.auto_exposure_method = 'median'
+            params.camera.auto_exposure_method = "median"
             params.camera.exposure_compensation_ev = 0.0
             params.debug.deactivate_spatial_effects = True
             params.debug.deactivate_stochastic_effects = True
@@ -159,16 +165,16 @@ class TestRuntimeApi:
             params.io.crop = False
             params.io.full_image = True
             params.io.input_cctf_decoding = False
-            params.io.input_color_space = 'sRGB'
+            params.io.input_color_space = "sRGB"
             params.io.output_cctf_encoding = False
-            params.io.output_color_space = 'ACES2065-1'
+            params.io.output_color_space = "ACES2065-1"
             params.io.preview_resize_factor = 1.0
             params.io.upscale_factor = 1.0
             params.scanner.lens_blur = 0.0
             params.scanner.unsharp_mask = (0.0, 0.0)
             params.settings.use_enlarger_lut = False
             params.settings.use_scanner_lut = False
-            params.settings.rgb_to_raw_method = 'mallett2019'
+            params.settings.rgb_to_raw_method = "mallett2019"
             params.film_render.grain.active = False
             params.film_render.halation.active = False
             params.film_render.dir_couplers.active = True

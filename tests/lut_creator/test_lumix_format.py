@@ -5,10 +5,10 @@ strict about the ``#LUMIXPHOTOSTYLE`` tag position and the ordering of
 ``LUT_3D_SIZE`` before ``DOMAIN_*``. These tests pin the layout against
 the working reference script.
 """
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from spektrafilm_lut_creator.formats import Lut, get_format
 from spektrafilm_lut_creator.formats.lumix import (
@@ -94,7 +94,9 @@ class TestLumixLayout:
         first_data = lines[6]
         for token in first_data.split():
             # Must be a plain decimal (digits + optional '.' + digits); no 'e'.
-            assert "e" not in token.lower(), f"unexpected scientific notation: {token!r}"
+            assert "e" not in token.lower(), (
+                f"unexpected scientific notation: {token!r}"
+            )
             # Six decimals after the dot.
             if "." in token:
                 _, frac = token.split(".")

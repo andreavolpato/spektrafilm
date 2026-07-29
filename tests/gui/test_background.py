@@ -26,13 +26,13 @@ def test_submit_runs_work_and_delivers_result() -> None:
     runner = BackgroundRunner(pool)
     results: list[object] = []
 
-    runner.submit('c', lambda: 42, on_done=results.append)
-    assert runner.is_busy('c')
+    runner.submit("c", lambda: 42, on_done=results.append)
+    assert runner.is_busy("c")
 
     pool.run_next()
 
     assert results == [42]
-    assert not runner.is_busy('c')
+    assert not runner.is_busy("c")
 
 
 def test_error_is_reported_with_type_prefix_and_frees_channel() -> None:
@@ -41,13 +41,13 @@ def test_error_is_reported_with_type_prefix_and_frees_channel() -> None:
     errors: list[str] = []
 
     def boom():
-        raise ValueError('bad')
+        raise ValueError("bad")
 
-    runner.submit('c', boom, on_done=lambda result: None, on_error=errors.append)
+    runner.submit("c", boom, on_done=lambda result: None, on_error=errors.append)
     pool.run_next()
 
-    assert errors == ['ValueError: bad']
-    assert not runner.is_busy('c')
+    assert errors == ["ValueError: bad"]
+    assert not runner.is_busy("c")
 
 
 def test_busy_channel_coalesces_to_latest_pending() -> None:
@@ -55,19 +55,19 @@ def test_busy_channel_coalesces_to_latest_pending() -> None:
     runner = BackgroundRunner(pool)
     done: list[object] = []
 
-    runner.submit('c', lambda: 'first', on_done=done.append)
+    runner.submit("c", lambda: "first", on_done=done.append)
     # While 'first' is in flight, two more arrive; only the latest is kept.
-    runner.submit('c', lambda: 'stale', on_done=done.append)
-    runner.submit('c', lambda: 'latest', on_done=done.append)
+    runner.submit("c", lambda: "stale", on_done=done.append)
+    runner.submit("c", lambda: "latest", on_done=done.append)
     assert len(pool) == 1  # only 'first' is queued; the rest collapse to pending
 
     pool.run_next()  # 'first' completes, then the pending 'latest' is started
-    assert done == ['first']
+    assert done == ["first"]
     assert len(pool) == 1
 
     pool.run_next()
-    assert done == ['first', 'latest']  # 'stale' never ran
-    assert not runner.is_busy('c')
+    assert done == ["first", "latest"]  # 'stale' never ran
+    assert not runner.is_busy("c")
 
 
 def test_busy_listener_fires_on_idle_busy_transitions() -> None:
@@ -75,10 +75,10 @@ def test_busy_listener_fires_on_idle_busy_transitions() -> None:
     transitions: list[bool] = []
     runner = BackgroundRunner(pool, on_busy_changed=transitions.append)
 
-    runner.submit('a', lambda: 1, on_done=lambda r: None)
+    runner.submit("a", lambda: 1, on_done=lambda r: None)
     assert transitions == [True]  # idle -> busy when the first task starts
 
-    runner.submit('b', lambda: 2, on_done=lambda r: None)
+    runner.submit("b", lambda: 2, on_done=lambda r: None)
     assert transitions == [True]  # second channel: still busy, no new edge
 
     pool.run_next()
@@ -93,8 +93,8 @@ def test_busy_listener_stays_busy_across_coalesced_pending() -> None:
     transitions: list[bool] = []
     runner = BackgroundRunner(pool, on_busy_changed=transitions.append)
 
-    runner.submit('c', lambda: 'first', on_done=lambda r: None)
-    runner.submit('c', lambda: 'latest', on_done=lambda r: None)  # coalesced as pending
+    runner.submit("c", lambda: "first", on_done=lambda r: None)
+    runner.submit("c", lambda: "latest", on_done=lambda r: None)  # coalesced as pending
 
     pool.run_next()  # 'first' done, pending 'latest' starts immediately
     assert transitions == [True]  # no idle blip between the two
@@ -108,10 +108,10 @@ def test_channels_run_independently() -> None:
     runner = BackgroundRunner(pool)
     out: list[object] = []
 
-    runner.submit('a', lambda: 'a', on_done=out.append)
-    runner.submit('b', lambda: 'b', on_done=out.append)
+    runner.submit("a", lambda: "a", on_done=out.append)
+    runner.submit("b", lambda: "b", on_done=out.append)
     assert len(pool) == 2  # different channels do not coalesce
 
     pool.run_next()
     pool.run_next()
-    assert sorted(out) == ['a', 'b']
+    assert sorted(out) == ["a", "b"]

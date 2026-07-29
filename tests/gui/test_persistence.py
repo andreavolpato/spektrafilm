@@ -37,7 +37,7 @@ def test_save_and_load_gui_state_file(tmp_path: Path) -> None:
     state.chemistry = replace(state.chemistry, gamma_factor=1.2)
     state.gui_only.display.gray_18_canvas = True
     state.gui_only.display.white_padding = 0.12
-    destination = tmp_path / 'gui_state.json'
+    destination = tmp_path / "gui_state.json"
 
     save_gui_state_to_path(state, destination)
     restored = load_gui_state_from_path(destination)
@@ -45,10 +45,12 @@ def test_save_and_load_gui_state_file(tmp_path: Path) -> None:
     assert restored == state
 
 
-def test_load_default_gui_state_uses_factory_when_missing(monkeypatch, tmp_path: Path) -> None:
+def test_load_default_gui_state_uses_factory_when_missing(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
-        'spektrafilm_gui.persistence.default_gui_state_path',
-        lambda: tmp_path / 'missing.json',
+        "spektrafilm_gui.persistence.default_gui_state_path",
+        lambda: tmp_path / "missing.json",
     )
 
     restored = load_default_gui_state()
@@ -58,13 +60,13 @@ def test_load_default_gui_state_uses_factory_when_missing(monkeypatch, tmp_path:
 
 
 def test_save_default_and_clear_saved_default(monkeypatch, tmp_path: Path) -> None:
-    default_path = tmp_path / 'gui_default_state.json'
+    default_path = tmp_path / "gui_default_state.json"
     monkeypatch.setattr(
-        'spektrafilm_gui.persistence.default_gui_state_path',
+        "spektrafilm_gui.persistence.default_gui_state_path",
         lambda: default_path,
     )
     state = make_test_gui_state()
-    state.simulation.io.output_color_space = 'ACES2065-1'
+    state.simulation.io.output_color_space = "ACES2065-1"
 
     saved_path = save_default_gui_state(state)
     loaded_state = load_default_gui_state()
@@ -79,7 +81,7 @@ def test_save_default_and_clear_saved_default(monkeypatch, tmp_path: Path) -> No
 
 def test_gui_state_from_dict_fills_missing_section_from_defaults() -> None:
     data = gui_state_to_dict(PROJECT_DEFAULT_GUI_STATE)
-    del data['simulation']
+    del data["simulation"]
 
     restored = gui_state_from_dict(data)
 
@@ -88,19 +90,25 @@ def test_gui_state_from_dict_fills_missing_section_from_defaults() -> None:
 
 def test_gui_state_from_dict_fills_missing_field_from_defaults() -> None:
     data = gui_state_to_dict(PROJECT_DEFAULT_GUI_STATE)
-    del data['display']['output_interpolation']
-    del data['simulation']['print_exposure']
+    del data["display"]["output_interpolation"]
+    del data["simulation"]["print_exposure"]
 
     restored = gui_state_from_dict(data)
 
-    assert restored.gui_only.display.output_interpolation == PROJECT_DEFAULT_GUI_STATE.gui_only.display.output_interpolation
-    assert restored.simulation.enlarger.print_exposure == PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure
+    assert (
+        restored.gui_only.display.output_interpolation
+        == PROJECT_DEFAULT_GUI_STATE.gui_only.display.output_interpolation
+    )
+    assert (
+        restored.simulation.enlarger.print_exposure
+        == PROJECT_DEFAULT_GUI_STATE.simulation.enlarger.print_exposure
+    )
 
 
 def test_gui_state_from_dict_ignores_unknown_fields() -> None:
     data = gui_state_to_dict(PROJECT_DEFAULT_GUI_STATE)
-    data['display']['legacy_dropped_field'] = 'gone'
-    data['unknown_top_level_section'] = {'foo': 1}
+    data["display"]["legacy_dropped_field"] = "gone"
+    data["unknown_top_level_section"] = {"foo": 1}
 
     restored = gui_state_from_dict(data)
 
@@ -109,24 +117,24 @@ def test_gui_state_from_dict_ignores_unknown_fields() -> None:
 
 def test_gui_state_from_dict_flat_gui_only_sections_override_nested_copy() -> None:
     data = gui_state_to_dict(PROJECT_DEFAULT_GUI_STATE)
-    data['gui_only'] = {
-        'display': {
-            'white_padding': 0.9,
-            'settings': {'preview_max_size': 128},
+    data["gui_only"] = {
+        "display": {
+            "white_padding": 0.9,
+            "settings": {"preview_max_size": 128},
         },
-        'load_raw': {
-            'white_balance': 'camera',
-            'temperature': 4000.0,
-            'tint': 0.8,
-            'lens_correction': True,
+        "load_raw": {
+            "white_balance": "camera",
+            "temperature": 4000.0,
+            "tint": 0.8,
+            "lens_correction": True,
         },
     }
-    data['display']['white_padding'] = 0.12
-    data['display']['preview_max_size'] = 2048
-    data['load_raw']['white_balance'] = 'daylight'
+    data["display"]["white_padding"] = 0.12
+    data["display"]["preview_max_size"] = 2048
+    data["load_raw"]["white_balance"] = "daylight"
 
     restored = gui_state_from_dict(data)
 
     assert restored.gui_only.display.white_padding == 0.12
     assert restored.gui_only.display.settings.preview_max_size == 2048
-    assert restored.gui_only.load_raw.white_balance == 'daylight'
+    assert restored.gui_only.load_raw.white_balance == "daylight"

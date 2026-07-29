@@ -3,10 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from .conftest import make_fast_test_params
-
 from spektrafilm.runtime.process import simulate
 
+from .conftest import make_fast_test_params
 
 pytestmark = pytest.mark.integration
 
@@ -27,36 +26,40 @@ def _assert_valid_output(
 
 
 def _tile_rgb(rgb: tuple[float, float, float], size: int) -> np.ndarray:
-    return np.ones((size, size, 3), dtype=np.float64) * np.asarray(rgb, dtype=np.float64)
+    return np.ones((size, size, 3), dtype=np.float64) * np.asarray(
+        rgb, dtype=np.float64
+    )
 
 
 def test_pipeline_returns_valid_outputs_for_edge_cases(default_params) -> None:
     cases = [
         {
-            'image': _tile_rgb((0.30, 0.10, 0.05), 4),
-            'configure': lambda params: setattr(params.io, 'upscale_factor', 2.0),
-            'shape': (8, 8, 3),
+            "image": _tile_rgb((0.30, 0.10, 0.05), 4),
+            "configure": lambda params: setattr(params.io, "upscale_factor", 2.0),
+            "shape": (8, 8, 3),
         },
         {
-            'image': _tile_rgb((0.30, 0.10, 0.05), 8),
-            'configure': lambda params: setattr(params.io, 'upscale_factor', 0.5),
-            'shape': (4, 4, 3),
+            "image": _tile_rgb((0.30, 0.10, 0.05), 8),
+            "configure": lambda params: setattr(params.io, "upscale_factor", 0.5),
+            "shape": (4, 4, 3),
         },
         {
-            'image': np.zeros((8, 8, 3), dtype=np.float64),
-            'configure': lambda params: None,
-            'shape': (8, 8, 3),
+            "image": np.zeros((8, 8, 3), dtype=np.float64),
+            "configure": lambda params: None,
+            "shape": (8, 8, 3),
         },
         {
-            'image': np.ones((8, 8, 3), dtype=np.float64) * 10000.0,
-            'configure': lambda params: None,
-            'shape': (8, 8, 3),
+            "image": np.ones((8, 8, 3), dtype=np.float64) * 10000.0,
+            "configure": lambda params: None,
+            "shape": (8, 8, 3),
         },
         {
-            'image': _tile_rgb((0.18, 0.18, 0.18), 4),
-            'configure': lambda params: setattr(params.debug, 'return_film_log_raw', True),
-            'shape': (4, 4, 3),
-            'bounded': False,
+            "image": _tile_rgb((0.18, 0.18, 0.18), 4),
+            "configure": lambda params: setattr(
+                params.debug, "return_film_log_raw", True
+            ),
+            "shape": (4, 4, 3),
+            "bounded": False,
         },
     ]
 
@@ -64,11 +67,13 @@ def test_pipeline_returns_valid_outputs_for_edge_cases(default_params) -> None:
         default_params.io.upscale_factor = 1.0
         default_params.workflow.route = "input > film > print > scan"
         default_params.debug.return_film_log_raw = False
-        case['configure'](default_params)
+        case["configure"](default_params)
 
-        result = simulate(case['image'], default_params)
+        result = simulate(case["image"], default_params)
 
-        _assert_valid_output(result, shape=case['shape'], bounded=case.get('bounded', True))
+        _assert_valid_output(
+            result, shape=case["shape"], bounded=case.get("bounded", True)
+        )
 
 
 def test_uniform_gray_output_is_stable_and_artifact_free(default_params) -> None:
@@ -100,8 +105,11 @@ def test_input_passthrough_route_colour_manages_only(default_params) -> None:
     _assert_valid_output(out, shape=(4, 4, 3))
 
     expected = colour.RGB_to_RGB(
-        np.full((1, 3), 0.18), "ProPhoto RGB", "sRGB",
-        apply_cctf_decoding=False, apply_cctf_encoding=True,
+        np.full((1, 3), 0.18),
+        "ProPhoto RGB",
+        "sRGB",
+        apply_cctf_decoding=False,
+        apply_cctf_encoding=True,
     )[0]
     np.testing.assert_allclose(out[0, 0, :], expected, atol=1e-5)
 
@@ -121,7 +129,10 @@ def test_input_passthrough_same_space_is_identity(default_params) -> None:
 def test_exposure_controls_behave_consistently(default_params) -> None:
     gray = _tile_rgb((0.18, 0.18, 0.18), 4)
     levels = [0.02, 0.05, 0.18, 0.5, 0.90]
-    means = [np.mean(simulate(_tile_rgb((level, level, level), 4), default_params)) for level in levels]
+    means = [
+        np.mean(simulate(_tile_rgb((level, level, level), 4), default_params))
+        for level in levels
+    ]
 
     for index in range(len(means) - 1):
         assert means[index] < means[index + 1]
@@ -165,7 +176,9 @@ def test_exposure_controls_behave_consistently(default_params) -> None:
     result_with_comp = simulate(gray, default_params)
 
     assert not np.allclose(result_with_comp, result_without_comp, atol=1e-6)
-    assert abs(np.mean(result_with_comp) - np.mean(baseline)) < abs(np.mean(result_without_comp) - np.mean(baseline))
+    assert abs(np.mean(result_with_comp) - np.mean(baseline)) < abs(
+        np.mean(result_without_comp) - np.mean(baseline)
+    )
 
 
 def test_pipeline_distinguishes_major_configuration_changes(default_params) -> None:
@@ -184,21 +197,23 @@ def test_pipeline_distinguishes_major_configuration_changes(default_params) -> N
     default_params.workflow.route = "input > film > print > scan"
     result_portra = simulate(green_patch, default_params)
 
-    params_fuji = make_fast_test_params(film_profile='fujifilm_c200')
+    params_fuji = make_fast_test_params(film_profile="fujifilm_c200")
     result_fuji = simulate(green_patch, params_fuji)
 
     assert not np.allclose(result_portra, result_fuji, atol=1e-8)
 
     colors = {
-        'red': _tile_rgb((0.5, 0.05, 0.05), 4),
-        'green': _tile_rgb((0.05, 0.5, 0.05), 4),
-        'blue': _tile_rgb((0.05, 0.05, 0.5), 4),
+        "red": _tile_rgb((0.5, 0.05, 0.05), 4),
+        "green": _tile_rgb((0.05, 0.5, 0.05), 4),
+        "blue": _tile_rgb((0.05, 0.05, 0.5), 4),
     }
-    results = {name: simulate(image, default_params)[1, 1, :] for name, image in colors.items()}
+    results = {
+        name: simulate(image, default_params)[1, 1, :] for name, image in colors.items()
+    }
 
-    assert not np.allclose(results['red'], results['green'], atol=1e-2)
-    assert not np.allclose(results['green'], results['blue'], atol=1e-2)
-    assert not np.allclose(results['red'], results['blue'], atol=1e-2)
+    assert not np.allclose(results["red"], results["green"], atol=1e-2)
+    assert not np.allclose(results["green"], results["blue"], atol=1e-2)
+    assert not np.allclose(results["red"], results["blue"], atol=1e-2)
 
 
 def test_lut_path_stays_close_to_direct_path(default_params) -> None:
@@ -221,13 +236,15 @@ def test_colour_film_onto_bw_print_uses_generalized_3d_lut() -> None:
     # output rather than assuming 3 (regression for the (17,17,17,3) reshape
     # crash). The final scan is still RGB.
     patch = _tile_rgb((0.30, 0.10, 0.05), 6)
-    params = make_fast_test_params(film_profile='kodak_portra_400', print_profile='kodak_2302')
+    params = make_fast_test_params(
+        film_profile="kodak_portra_400", print_profile="kodak_2302"
+    )
     params.workflow.route = "input > film > print > scan"
 
     result_direct = simulate(patch, params)
     _assert_valid_output(result_direct, shape=(6, 6, 3))
 
-    params.settings.use_enlarger_lut = True   # 3-in/1-out enlarger LUT
+    params.settings.use_enlarger_lut = True  # 3-in/1-out enlarger LUT
     params.settings.use_scanner_lut = True
     params.settings.lut_resolution = 17
     result_lut = simulate(patch, params)
@@ -241,7 +258,7 @@ def test_auto_exposure_normalizes_bright_inputs(default_params) -> None:
     default_params.camera.auto_exposure = True
     default_params.enlarger.print_exposure_compensation = False
 
-    for method in ('center_weighted', 'median'):
+    for method in ("center_weighted", "median"):
         default_params.camera.auto_exposure_method = method
         result = simulate(bright_patch, default_params)
         _assert_valid_output(result, shape=(8, 8, 3))
@@ -251,7 +268,7 @@ def test_auto_exposure_normalizes_bright_inputs(default_params) -> None:
     manual_result = simulate(bright_patch, default_params)
 
     default_params.camera.auto_exposure = True
-    default_params.camera.auto_exposure_method = 'center_weighted'
+    default_params.camera.auto_exposure_method = "center_weighted"
     auto_result = simulate(bright_patch, default_params)
 
     assert np.mean(auto_result) < np.mean(manual_result)

@@ -3,17 +3,16 @@ Gauss-Newton solver to within an imperceptible tolerance, and its cache must
 rebuild only when the scan model (illuminant / base / dye) changes — not when the
 device calibration or exposure gain (the analytic pre-transform) is tuned.
 """
-from __future__ import annotations
 
-from dataclasses import replace
+from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from .conftest import make_fast_test_params
-
 from spektrafilm.runtime.pipeline import SimulationPipeline
 from spektrafilm.runtime.services.spectral_lut_compute import SpectralLUTService
+
+from .conftest import make_fast_test_params
 
 
 def _realistic_negative(size: int = 64) -> np.ndarray:
@@ -31,7 +30,7 @@ def _realistic_negative(size: int = 64) -> np.ndarray:
     params.io.output_cctf_encoding = False
     rng = np.random.default_rng(0)
     base = rng.uniform(0.12, 0.85, (size, size, 3))
-    scene = 0.6 * base + 0.4 * base.mean(axis=-1, keepdims=True)   # pull toward neutral
+    scene = 0.6 * base + 0.4 * base.mean(axis=-1, keepdims=True)  # pull toward neutral
     return SimulationPipeline(params).process(scene, collect="rgb_out")
 
 
@@ -45,14 +44,21 @@ def _convert_pipeline(route: str, *, use_convert_lut: bool) -> SimulationPipelin
     return SimulationPipeline(params)
 
 
-@pytest.mark.parametrize("route", [
-    "input > convert-film > scan",
-    "input > convert-film > print > scan",
-])
+@pytest.mark.parametrize(
+    "route",
+    [
+        "input > convert-film > scan",
+        "input > convert-film > print > scan",
+    ],
+)
 def test_convert_lut_matches_solver(route) -> None:
     neg = _realistic_negative()
-    out_solver = _convert_pipeline(route, use_convert_lut=False).process(neg, collect="rgb_out")
-    out_lut = _convert_pipeline(route, use_convert_lut=True).process(neg, collect="rgb_out")
+    out_solver = _convert_pipeline(route, use_convert_lut=False).process(
+        neg, collect="rgb_out"
+    )
+    out_lut = _convert_pipeline(route, use_convert_lut=True).process(
+        neg, collect="rgb_out"
+    )
     assert out_lut.shape == out_solver.shape
     assert np.all(np.isfinite(out_lut))
     # Imperceptible on a realistic negative (c40: dE mean ~0.03). The recovered-
@@ -79,7 +85,9 @@ def test_convert_invert_pretransform_compose() -> None:
     pipe = _convert_pipeline("input > convert-film > scan", use_convert_lut=False)
     conv = pipe._converting_stage._converter
     rgb = _realistic_negative(16)
-    np.testing.assert_allclose(conv.convert(rgb), conv.invert(conv.pretransform(rgb)), rtol=0, atol=0)
+    np.testing.assert_allclose(
+        conv.convert(rgb), conv.invert(conv.pretransform(rgb)), rtol=0, atol=0
+    )
 
 
 def test_gamut_bounds_contain_negative_channels() -> None:
@@ -126,7 +134,11 @@ def test_spectral_compute_convert_passthrough_when_off() -> None:
 
     data = np.linspace(0, 1, 2 * 2 * 3).reshape(2, 2, 3)
     out = svc.spectral_compute_convert(
-        data, invert_fn=invert_fn, data_min=np.zeros(3), data_max=np.ones(3), use_lut=False,
+        data,
+        invert_fn=invert_fn,
+        data_min=np.zeros(3),
+        data_max=np.ones(3),
+        use_lut=False,
     )
     np.testing.assert_allclose(out, data * 2.0)
     assert svc.convert_lut_memory is None

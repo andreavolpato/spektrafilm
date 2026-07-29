@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE, clone_gui_state
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, GuiState, clone_gui_state
 
 
 class FakeLayer:
@@ -13,7 +13,7 @@ class FakeLayer:
         data: np.ndarray | None = None,
         metadata: dict[str, object] | None = None,
         *,
-        name: str = 'layer',
+        name: str = "layer",
         visible: bool = True,
     ):
         self.name = name
@@ -22,7 +22,7 @@ class FakeLayer:
         self.visible = visible
         self.scale = (1.0, 1.0)
         self.translate = (0.0, 0.0)
-        self._type_string = 'image'
+        self._type_string = "image"
 
 
 class FakeLayerSelection:
@@ -78,8 +78,8 @@ def make_test_gui_state() -> GuiState:
 
 def make_test_controller_gui_state() -> GuiState:
     state = make_test_gui_state()
-    state.simulation.io.output_color_space = 'ACES2065-1'
-    state.simulation.workflow.saving_color_space = 'Display P3'
+    state.simulation.io.output_color_space = "ACES2065-1"
+    state.simulation.workflow.saving_color_space = "Display P3"
     state.simulation.workflow.saving_cctf_encoding = False
     state.gui_only.display.use_display_transform = False
     state.gui_only.display.gray_18_canvas = False

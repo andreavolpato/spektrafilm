@@ -27,26 +27,35 @@ def test_rgb_to_film_raw_passes_linear_sensitivity_to_hanatos2025(monkeypatch) -
         tc_lut=None,
     ):
         del method, color_space, apply_cctf_decoding, reference_illuminant, tc_lut
-        captured['sensitivity'] = np.asarray(sensitivity, dtype=float)
+        captured["sensitivity"] = np.asarray(sensitivity, dtype=float)
         return np.ones(rgb.shape, dtype=float)
 
-    monkeypatch.setattr(filming_module, 'rgb_to_raw', fake_rgb_to_raw)
+    monkeypatch.setattr(filming_module, "rgb_to_raw", fake_rgb_to_raw)
 
     stage = object.__new__(filming_module.FilmingStage)
-    setattr(stage, '_film', SimpleNamespace(
-        info=SimpleNamespace(reference_illuminant='D55'),
-        data=SimpleNamespace(log_sensitivity=log_sensitivity),
-    ))
-    setattr(stage, '_camera', SimpleNamespace(color_filter='none'))
-    setattr(stage, '_settings', SimpleNamespace(rgb_to_raw_method='hanatos2025'))
-    setattr(stage, '_lut_service', SimpleNamespace(
-        get_filming_tc_lut=lambda method, sensitivity, reference_illuminant: None))
+    setattr(
+        stage,
+        "_film",
+        SimpleNamespace(
+            info=SimpleNamespace(reference_illuminant="D55"),
+            data=SimpleNamespace(log_sensitivity=log_sensitivity),
+        ),
+    )
+    setattr(stage, "_camera", SimpleNamespace(color_filter="none"))
+    setattr(stage, "_settings", SimpleNamespace(rgb_to_raw_method="hanatos2025"))
+    setattr(
+        stage,
+        "_lut_service",
+        SimpleNamespace(
+            get_filming_tc_lut=lambda method, sensitivity, reference_illuminant: None
+        ),
+    )
 
     rgb = np.ones((1, 1, 3), dtype=float)
 
-    getattr(stage, '_rgb_to_film_raw')(rgb)
+    getattr(stage, "_rgb_to_film_raw")(rgb)
 
-    np.testing.assert_allclose(captured['sensitivity'], 10.0 ** log_sensitivity)
+    np.testing.assert_allclose(captured["sensitivity"], 10.0**log_sensitivity)
 
 
 def test_rgb_to_film_raw_applies_color_filter_to_sensitivity(monkeypatch) -> None:
@@ -59,22 +68,35 @@ def test_rgb_to_film_raw_applies_color_filter_to_sensitivity(monkeypatch) -> Non
 
     def fake_rgb_to_raw(method, rgb, sensitivity, **kwargs):
         del method, kwargs
-        captured['sensitivity'] = np.asarray(sensitivity, dtype=float)
+        captured["sensitivity"] = np.asarray(sensitivity, dtype=float)
         return np.ones(rgb.shape, dtype=float)
 
-    monkeypatch.setattr(filming_module, 'rgb_to_raw', fake_rgb_to_raw)
-    monkeypatch.setattr(filming_module, 'color_filter_transmittance', lambda key: transmittance)
+    monkeypatch.setattr(filming_module, "rgb_to_raw", fake_rgb_to_raw)
+    monkeypatch.setattr(
+        filming_module, "color_filter_transmittance", lambda key: transmittance
+    )
 
     stage = object.__new__(filming_module.FilmingStage)
-    setattr(stage, '_film', SimpleNamespace(
-        info=SimpleNamespace(reference_illuminant='D55'),
-        data=SimpleNamespace(log_sensitivity=log_sensitivity),
-    ))
-    setattr(stage, '_camera', SimpleNamespace(color_filter='hoya_y2'))
-    setattr(stage, '_settings', SimpleNamespace(rgb_to_raw_method='hanatos2025'))
-    setattr(stage, '_lut_service', SimpleNamespace(
-        get_filming_tc_lut=lambda method, sensitivity, reference_illuminant: None))
+    setattr(
+        stage,
+        "_film",
+        SimpleNamespace(
+            info=SimpleNamespace(reference_illuminant="D55"),
+            data=SimpleNamespace(log_sensitivity=log_sensitivity),
+        ),
+    )
+    setattr(stage, "_camera", SimpleNamespace(color_filter="hoya_y2"))
+    setattr(stage, "_settings", SimpleNamespace(rgb_to_raw_method="hanatos2025"))
+    setattr(
+        stage,
+        "_lut_service",
+        SimpleNamespace(
+            get_filming_tc_lut=lambda method, sensitivity, reference_illuminant: None
+        ),
+    )
 
-    getattr(stage, '_rgb_to_film_raw')(np.ones((1, 1, 3), dtype=float))
+    getattr(stage, "_rgb_to_film_raw")(np.ones((1, 1, 3), dtype=float))
 
-    np.testing.assert_allclose(captured['sensitivity'], 10.0 ** log_sensitivity * transmittance[:, None])
+    np.testing.assert_allclose(
+        captured["sensitivity"], 10.0**log_sensitivity * transmittance[:, None]
+    )
