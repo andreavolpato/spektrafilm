@@ -16,9 +16,9 @@ consumers (notably the rosette-alignment regression test) can keep using
 from __future__ import annotations
 
 from spektrafilm_lut_creator.qa.tests._helpers import (
-    MIDGRAY_18_OKLAB_L,
-    _save,
+    MIDGRAY_18_OKLAB_L as MIDGRAY_18_OKLAB_L,
 )
+from spektrafilm_lut_creator.qa.tests._helpers import _save as _save
 from spektrafilm_lut_creator.qa.tests.gamut_compression import (
     input_gamut_compression_preview,
     input_gamut_compression_smoothness,
@@ -38,7 +38,9 @@ from spektrafilm_lut_creator.qa.tests.model_diagnostic import (
     spectral_locus_envelope,
 )
 from spektrafilm_lut_creator.qa.tests.picture_style import (
-    _polar_oklch_input_samples,
+    _polar_oklch_input_samples as _polar_oklch_input_samples,
+)
+from spektrafilm_lut_creator.qa.tests.picture_style import (
     noise_gradient,
     noise_sensitivity,
     output_gamut_edge_stress,

@@ -9,7 +9,7 @@ See studies/a40_lut_system/n030_lut_package_design.md §8.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
