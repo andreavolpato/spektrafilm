@@ -59,7 +59,7 @@ respect-gitignore = true
 # indent = 4  # Unordered list indentation
 
 # [MD013]
-# line-length = 100  # Line length
+line-length = 88  # Line length
 # code-blocks = false  # Exclude code blocks from line length check
 # tables = false  # Exclude tables from line length check
 # headings = true  # Include headings in line length check
