@@ -1,28 +1,27 @@
 # --- defaults
-[defaults.bw.negative] # roughly modeled after kodak_doublex
-rms_granularity = [14.0]
-uniformity = [0.6]
-density_min = [0.01]
+[defaults.bw.negative]  # roughly modeled after kodak_doublex
+rms_granularity          = [14.0]
+uniformity               = [0.6]
+density_min              = [0.01]
 particle_scale_sublayers = [1.0, 0.4, 0.25]
 
-[defaults.bw.positive] # roughly modeled after kodak_trix
-rms_granularity = [44.0]
-uniformity = [0.6]
-density_min = [0.003]
+[defaults.bw.positive]  # roughly modeled after kodak_trix
+rms_granularity          = [44.0]
+uniformity               = [0.6]
+density_min              = [0.003]
 particle_scale_sublayers = [1.0, 0.4, 0.25]
 
-[defaults.color.negative] # roughly modeled after kodak_vision3_50d
-rms_granularity = [7.0, 7.0, 12.0]
-uniformity = [0.97, 0.97, 0.97]
-density_min = [0.03, 0.03, 0.03]
+[defaults.color.negative]  # roughly modeled after kodak_vision3_50d
+rms_granularity          = [7.0, 7.0, 12.0]
+uniformity               = [0.97, 0.97, 0.97]
+density_min              = [0.03, 0.03, 0.03]
 particle_scale_sublayers = [1.0, 0.4, 0.25]
 
 [defaults.color.positive]
-rms_granularity = [7.0, 7.0, 12.0]
-uniformity = [0.97, 0.97, 0.97]
-density_min = [0.03, 0.03, 0.03]
+rms_granularity          = [7.0, 7.0, 12.0]
+uniformity               = [0.97, 0.97, 0.97]
+density_min              = [0.03, 0.03, 0.03]
 particle_scale_sublayers = [1.0, 0.4, 0.25]
-
 
 # --- still color
 [kodak_gold_200]
@@ -58,7 +57,6 @@ rms_granularity = [4.0, 4.0, 4.0]
 [fujifilm_pro_400h]
 rms_granularity = [4.0, 4.0, 4.0]
 
-
 # --- still color positive
 [kodak_ektachrome_100]
 rms_granularity = [8.0, 8.0, 8.0]
@@ -72,27 +70,25 @@ rms_granularity = [8.0, 8.0, 8.0]
 [fujifilm_provia_100f]
 rms_granularity = [8.0, 8.0, 8.0]
 
-
 # --- cine color negative
 [kodak_vision3_50d]
 rms_granularity = [7.0, 7.0, 12.0]
-uniformity = [0.97, 0.95, 0.97]
+uniformity      = [0.97, 0.95, 0.97]
 
 [kodak_vision3_250d]
 rms_granularity = [10.0, 11.0, 18.0]
-uniformity = [0.97, 0.94, 0.97]
-density_min = [0.10, 0.11, 0.12]
+uniformity      = [0.97, 0.94, 0.97]
+density_min     = [0.10, 0.11, 0.12]
 
 [kodak_vision3_200t]
 rms_granularity = [7.0, 8.0, 17.0]
-density_min = [0.03, 0.03, 0.12]
+density_min     = [0.03, 0.03, 0.12]
 
 [kodak_vision3_500t]
-rms_granularity = [9.0, 13.0, 30.0]
-uniformity = [0.93, 0.97, 0.99]
+rms_granularity          = [9.0, 13.0, 30.0]
+uniformity               = [0.93, 0.97, 0.99]
 particle_scale_sublayers = [1.0, 0.3, 0.25]
-density_min = [0.12, 0.10, 0.35]
-
+density_min              = [0.12, 0.10, 0.35]
 
 # --- cine bw negative
 [kodak_doublex]
@@ -101,4 +97,4 @@ rms_granularity = [14.0]
 # --- cine bw positive
 [kodak_trix]
 rms_granularity = [44.0]
-density_min = [0.003]
+density_min     = [0.003]
