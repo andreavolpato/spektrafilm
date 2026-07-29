@@ -186,9 +186,6 @@ cython_debug/
 # temporary files
 .temp
 
-# uv
-uv.lock
-
 # claude
 .claude
 
