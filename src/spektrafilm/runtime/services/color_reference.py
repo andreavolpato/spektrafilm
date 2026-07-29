@@ -166,7 +166,10 @@ class ColorReferenceService:
         black_level = self._black_level
         m = 1.0
         q = 0.0
-        correction_func = lambda y: y
+
+        def correction_func(y):
+            return y
+
         if self._black_correction and not self._white_correction:
             white_level = self._y_white
         if self._white_correction and not self._black_correction:

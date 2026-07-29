@@ -165,7 +165,7 @@ def apply_display_transform(
     source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
     source_image = pil_image_module.fromarray(srgb_preview_uint8, mode="RGB")
     transformed_image = imagecms_module.profileToProfile(
-        source_image, source_profile, display_profile, outputMode="RGB"
+        source_image, source_profile, display_profile, output_mode="RGB"
     )
     return np.asarray(
         transformed_image, dtype=np.uint8

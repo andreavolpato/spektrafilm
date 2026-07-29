@@ -462,6 +462,7 @@ class IntTupleEditor(TupleEditor):
         )
 
 
+# ruff: noqa: N802, N815
 class SliderFloatEditor(QtWidgets.QWidget):
     valueChanged = QtCore.Signal(float)
 

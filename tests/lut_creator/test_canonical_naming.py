@@ -14,16 +14,9 @@ from __future__ import annotations
 
 import pytest
 
-from spektrafilm_lut_creator.naming import (
-    lut_filename,
-    lut_title,
-)
-from spektrafilm_lut_creator.naming import (
-    normalize_stock as _normalize_stock,
-)
-from spektrafilm_lut_creator.naming import (
-    normalize_version as _normalize_version,
-)
+from spektrafilm_lut_creator.naming import lut_filename, lut_title
+from spektrafilm_lut_creator.naming import normalize_stock as _normalize_stock
+from spektrafilm_lut_creator.naming import normalize_version as _normalize_version
 
 from .factories import make_bundle_spec
 

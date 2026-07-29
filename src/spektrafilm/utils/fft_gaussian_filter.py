@@ -173,8 +173,7 @@ if __name__ == "__main__":
     time_scipy_2d = (time.time() - t0) / iterations
 
     print(
-        "2D - FFT-based filter (pyFFTW): %.5f s, SciPy: %.5f s"
-        % (time_fft_2d, time_scipy_2d)
+        f"2D - FFT-based filter (pyFFTW): {time_fft_2d:.5f} s, SciPy: {time_scipy_2d:.5f} s"
     )
 
     # 3D filtering with scalar sigma performance (sequential)
@@ -192,8 +191,7 @@ if __name__ == "__main__":
     time_scipy_3d_scalar = (time.time() - t0) / iterations
 
     print(
-        "3D (scalar sigma) - FFT-based filter (pyFFTW): %.5f s, SciPy: %.5f s"
-        % (time_fft_3d_scalar, time_scipy_3d_scalar)
+        f"3D (scalar sigma) - FFT-based filter (pyFFTW): {time_fft_3d_scalar:.5f} s, SciPy: {time_scipy_3d_scalar:.5f} s"
     )
 
     # (Optional) Visualize difference for 2D filtering

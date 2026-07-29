@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from spektrafilm.runtime.params_builder import (
-    digest_params,
-    init_params,
-)
+from spektrafilm.runtime.params_builder import digest_params, init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.runtime.pipeline import SimulationPipeline
 from spektrafilm.utils.preview import resize_for_preview

@@ -4,11 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol, cast
 
-from spektrafilm_gui.state import (
-    PROJECT_DEFAULT_GUI_STATE,
-    GuiState,
-    clone_gui_state,
-)
+from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, GuiState, clone_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
 
 

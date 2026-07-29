@@ -40,9 +40,7 @@ from spektrafilm_lut_creator.color_spaces import (
     input_gain,
     output_midgray_gain,
 )
-from spektrafilm_lut_creator.color_spaces import (
-    get as get_color_space,
-)
+from spektrafilm_lut_creator.color_spaces import get as get_color_space
 from spektrafilm_lut_creator.formats import Lut, get_format
 from spektrafilm_lut_creator.grid import cube_grid, grid_as_image
 from spektrafilm_lut_creator.metadata import (
@@ -119,9 +117,7 @@ from spektrafilm_lut_creator.bundle_text import (
 from spektrafilm_lut_creator.bundle_text import (
     bundle_readme_text as _bundle_readme_text,
 )
-from spektrafilm_lut_creator.bundle_text import (
-    cube_header_lines as _cube_header_lines,
-)
+from spektrafilm_lut_creator.bundle_text import cube_header_lines as _cube_header_lines
 
 
 def _input_exposure_meta(spec: BundleSpec) -> InputExposureMeta | None:
@@ -154,15 +150,9 @@ _DEFAULT_OUT_SUBPATH = Path("build") / "lut_bundles"
 # bundles.BundleSpec.__post_init__ can compute its default name without a
 # circular import. Re-exported here under the old underscored names to keep
 # this module's internal call sites unchanged.
-from spektrafilm_lut_creator.naming import (  # noqa: E402
-    lut_filename as _lut_filename,
-)
-from spektrafilm_lut_creator.naming import (
-    lut_title as _lut_title,
-)
-from spektrafilm_lut_creator.naming import (
-    normalize_version as _normalize_version,
-)
+from spektrafilm_lut_creator.naming import lut_filename as _lut_filename  # noqa: E402
+from spektrafilm_lut_creator.naming import lut_title as _lut_title
+from spektrafilm_lut_creator.naming import normalize_version as _normalize_version
 
 # ---------------------------------------------------------------------------
 # Sub-chain combinations (n130).

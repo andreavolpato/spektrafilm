@@ -143,7 +143,7 @@ def bundle_readme_text(
     # Combinations section (n130). Driven entirely off the bundle's
     # luts metadata: if any subchain_* entries are present, render the
     # section; otherwise skip silently.
-    subchain_luts = tuple(l for l in meta.luts if l.role.startswith("subchain_"))
+    subchain_luts = tuple(lut for lut in meta.luts if lut.role.startswith("subchain_"))
     if subchain_luts:
         lines.extend(_combinations_readme_section(subchain_luts))
     if meta.input_exposure is not None:
@@ -425,7 +425,7 @@ def cube_header_lines(meta: BundleMeta, rel_path: str) -> list[str]:
     lines.append("")
     lines.extend(_wrap_field("Notes", prov.notes))
     lines.append("")
-    this_lut = next((l for l in meta.luts if l.path == rel_path), None)
+    this_lut = next((lut for lut in meta.luts if lut.path == rel_path), None)
     if this_lut is not None and this_lut.role != "combined":
         lines.append(
             f"Role:    {this_lut.role}  (domain={this_lut.domain} → range={this_lut.range})"

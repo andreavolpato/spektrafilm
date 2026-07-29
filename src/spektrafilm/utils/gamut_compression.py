@@ -102,7 +102,7 @@ class InputGamutCompressSpec:
             )
         if not (self.hull_detail > 0.0):
             raise ValueError(f"hull_detail must be > 0, got {self.hull_detail}")
-        t, l, p = self.knee
+        t, l, p = self.knee  # noqa: E741
         if not (0.0 <= t < 1.0):
             raise ValueError(f"knee threshold must be in [0, 1), got {t}")
         if not (l > 0.0):
@@ -242,7 +242,7 @@ class OutputGamutCompressSpec:
             raise ValueError(
                 f"algorithm must be one of {valid_algos}, got {self.algorithm!r}"
             )
-        t, l, p = self.knee
+        t, l, p = self.knee  # noqa: E741
         if not (0.0 <= t < 1.0):
             raise ValueError(f"knee threshold must be in [0, 1), got {t}")
         if not (l > 0.0):

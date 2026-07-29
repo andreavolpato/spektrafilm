@@ -345,6 +345,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         napari_layout_module.QtWidgets, "QWidget", lambda: SimpleNamespace()
     )
 
+    # ruff: noqa: N802
     class FakeVBoxLayout:
         def __init__(self, _parent) -> None:
             pass

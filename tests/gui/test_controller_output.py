@@ -380,12 +380,12 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
     )
 
     def fake_profile_to_profile(
-        source_image, source_profile, display_profile, outputMode="RGB"
+        source_image, source_profile, display_profile, output_mode="RGB"
     ):
         captured["profile_to_profile"] = {
             "source_profile": source_profile,
             "display_profile": display_profile,
-            "output_mode": outputMode,
+            "output_mode": output_mode,
             "image_data": source_image.array.copy(),
         }
         return np.full((1, 1, 3), 64, dtype=np.uint8)

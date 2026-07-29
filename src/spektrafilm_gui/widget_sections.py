@@ -59,12 +59,8 @@ from spektrafilm_gui.widget_editors import (
     ProfileEnumEditor,
     StrEditor,
 )
-from spektrafilm_gui.widget_primitives import (
-    CollapsibleSection,
-)
-from spektrafilm_gui.widget_primitives import (
-    normalize_ui_text as _normalize_ui_text,
-)
+from spektrafilm_gui.widget_primitives import CollapsibleSection
+from spektrafilm_gui.widget_primitives import normalize_ui_text as _normalize_ui_text
 
 LOAD_RAW_FIELDS = (
     ParamSpec(

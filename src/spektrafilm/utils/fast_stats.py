@@ -1,6 +1,7 @@
 from math import exp, sqrt
 
 import numpy as np
+import scipy.stats
 from numba import njit, prange
 
 

@@ -21,11 +21,7 @@ import pytest
 from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
 from spektrafilm_lut_creator.builders import BundleBuilder
 from spektrafilm_lut_creator.bundles import BundleSpec
-from spektrafilm_lut_creator.color_spaces import (
-    decode_cctf,
-    encode_cctf,
-    input_gain,
-)
+from spektrafilm_lut_creator.color_spaces import decode_cctf, encode_cctf, input_gain
 from spektrafilm_lut_creator.formats import get_format
 from spektrafilm_lut_creator.grid import cube_grid
 from spektrafilm_lut_creator.qa.result import Result

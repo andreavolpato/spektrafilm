@@ -292,7 +292,7 @@ class GuiState:
         return self.simulation.selection
 
 
-def clone_state_section(section: StateSection) -> StateSection:
+def clone_state_section[StateSection](section: StateSection) -> StateSection:
     if not is_dataclass(section):
         raise TypeError("Expected a dataclass instance to clone.")
     if isinstance(section, InputImageState):

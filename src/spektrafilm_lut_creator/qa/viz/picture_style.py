@@ -9,6 +9,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import FormatStrFormatter
 
+from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
 from spektrafilm_lut_creator.qa.viz._base import (
     BG,
     DIM,
@@ -124,13 +125,8 @@ def rg_plane_slices(
     sRGB-encoded, and hard-clipped — so what's on screen is the LUT's
     R-G response at that B as it would appear on an sRGB display.
     """
-    from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf,
-        output_midgray_gain,
-    )
-    from spektrafilm_lut_creator.color_spaces import (
-        get as get_cs,
-    )
+    from spektrafilm_lut_creator.color_spaces import decode_cctf, output_midgray_gain
+    from spektrafilm_lut_creator.color_spaces import get as get_cs
 
     # Fixed 3x3 grid; default 9 slices fills it exactly. If the cube
     # resolution is too small for 9 slices we use as many as fit and
@@ -469,7 +465,7 @@ def noise_sensitivity(
         out_cs=out_cs,
         L_slice=L_slice,
     )
-    output_lab = np.asarray(field["output_oklab"], dtype=float)
+    # output_lab = np.asarray(field["output_oklab"], dtype=float)
     sigma1 = np.asarray(field["sigma1"], dtype=float)
 
     if sigma1.size > 0 and np.isfinite(sigma1).any():

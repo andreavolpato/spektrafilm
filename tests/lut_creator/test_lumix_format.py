@@ -82,7 +82,7 @@ class TestLumixLayout:
             header_lines=["spektrafilm v0", "Should not appear"],
         )
         text = path.read_text(encoding="utf-8")
-        comment_lines = [l for l in text.splitlines() if l.startswith("#")]
+        comment_lines = [line for line in text.splitlines() if line.startswith("#")]
         assert comment_lines == ["#LUMIXPHOTOSTYLE VLOG"]
 
     def test_fixed_decimal_precision_in_body(self, tmp_path):

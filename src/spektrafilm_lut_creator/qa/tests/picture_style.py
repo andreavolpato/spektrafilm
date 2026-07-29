@@ -523,12 +523,8 @@ def _build_gamut_edge_stress_panel(
     natively represent in its declared input gamut," kept even though
     the pipeline handles those pixels without clipping.
     """
-    from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf,
-    )
-    from spektrafilm_lut_creator.color_spaces import (
-        get as get_cs,
-    )
+    from spektrafilm_lut_creator.color_spaces import decode_cctf
+    from spektrafilm_lut_creator.color_spaces import get as get_cs
 
     W, H = width, height
 

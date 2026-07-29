@@ -19,9 +19,7 @@ from spektrafilm_lut_creator.delivery_targets import (
     list_targets,
     register,
 )
-from spektrafilm_lut_creator.delivery_targets import (
-    get as get_target,
-)
+from spektrafilm_lut_creator.delivery_targets import get as get_target
 
 from .factories import make_bundle_spec
 

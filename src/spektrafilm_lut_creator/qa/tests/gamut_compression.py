@@ -98,10 +98,7 @@ def input_gamut_compression_preview(ctx: QAContext) -> Result:
     """
     from matplotlib.path import Path as MplPath
 
-    from spektrafilm.utils.gamut_compression import (
-        compress_xy,
-        spectral_locus_xy,
-    )
+    from spektrafilm.utils.gamut_compression import compress_xy, spectral_locus_xy
 
     # Palette matches the tuning script (BG/FG/HI/DIM and the
     # OOG/compressed/arrow colors). Keeping these inline rather than
@@ -418,10 +415,7 @@ def input_gamut_compression_smoothness(ctx: QAContext) -> Result:
     - spektrafilm-research n100 §5.1 (smoothness probes).
     - ``tune_input_gamut_compression.py`` ``plot_smoothness_circumferential``.
     """
-    from spektrafilm.utils.gamut_compression import (
-        compress_xy,
-        spectral_locus_xy,
-    )
+    from spektrafilm.utils.gamut_compression import compress_xy, spectral_locus_xy
 
     # ``accent`` is the yellow-ish color used for the input-gamut
     # triangle overlay (visible against the dark BG); titles use the

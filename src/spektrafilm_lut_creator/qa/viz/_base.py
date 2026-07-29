@@ -217,7 +217,7 @@ def _format_output_gamut_compress(spec) -> str:
     ``algorithm='off'`` short-circuits to ``compress: off``."""
     if spec.algorithm == "off":
         return "compress: off"
-    t, l, p = spec.knee
+    t, l, p = spec.knee  # noqa: E741
     return f"compress: {spec.algorithm} · knee=(t={t:g}, l={l:g}, p={p:g})"
 
 

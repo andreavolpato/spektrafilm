@@ -447,12 +447,8 @@ def _run_unbounded_pipeline_for_rim(
     from spektrafilm.runtime.params_builder import digest_params, init_params
     from spektrafilm.runtime.pipeline import SimulationPipeline
     from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
-    from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf,
-    )
-    from spektrafilm_lut_creator.color_spaces import (
-        get as get_color_space,
-    )
+    from spektrafilm_lut_creator.color_spaces import decode_cctf
+    from spektrafilm_lut_creator.color_spaces import get as get_color_space
 
     spec = ctx.spec
     in_entry = get_color_space(spec.input_color_space)

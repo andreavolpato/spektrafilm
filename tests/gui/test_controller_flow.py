@@ -920,6 +920,7 @@ def test_request_auto_preview_schedules_once_and_runs_preview(monkeypatch) -> No
 
 
 def test_start_warmup_runs_on_working_thread_and_grays_out_buttons(monkeypatch) -> None:
+    # ruff: noqa: N802
     class FakeButton:
         def __init__(self) -> None:
             self.enabled = True

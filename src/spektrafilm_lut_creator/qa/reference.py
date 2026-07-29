@@ -28,10 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
-from spektrafilm_lut_creator.color_spaces import (
-    decode_cctf,
-    encode_cctf,
-)
+from spektrafilm_lut_creator.color_spaces import decode_cctf, encode_cctf
 
 # Off-grid sample count. 50k random points over [0,1]^3 — dense enough
 # to characterize a 33^3 cube's interpolation error well, cheap enough

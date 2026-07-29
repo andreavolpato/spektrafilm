@@ -150,7 +150,7 @@ def monotonicity_violations(table: np.ndarray) -> dict[str, int | float]:
         diagonal axes. ``worst_negative_diff``: most negative
         finite-difference (signed; 0.0 if no violations).
     """
-    n = table.shape[0]
+    # n = table.shape[0]
     table = np.asarray(table, dtype=float)
     # table indexing is [b, g, r, channel]. The diagonal pairs are:
     #   axis R (last spatial axis) vs channel 0
@@ -298,7 +298,7 @@ def gamut_self_intersection_score(table: np.ndarray) -> dict[str, float]:
     if n < 3:
         return {"flips": 0, "fraction": 0.0, "triangles": 0}
 
-    axis = np.linspace(0.0, 1.0, n)
+    # axis = np.linspace(0.0, 1.0, n)
     flips = 0
     total = 0
     # Six faces; for each, sweep two non-face axes to form quad cells,

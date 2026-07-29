@@ -29,7 +29,7 @@ import pytest
 
 from spektrafilm_lut_creator import ocio_emit
 from spektrafilm_lut_creator.builders import BundleBuilder
-from spektrafilm_lut_creator.bundles import BundleSpec
+from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
 
 from .factories import make_bundle_spec
 

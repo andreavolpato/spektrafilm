@@ -167,9 +167,12 @@ class SpectralLUTService:
     ) -> Hanatos2025SensitivityAdaptation | None:
         if adaptation is None:
             return None
+
         # Preserve None (absent adaptation, e.g. BW): np.array(None) would make a
         # 0-d object array that slips past the `is not None` guards downstream.
-        copy_params = lambda p: None if p is None else np.array(p, copy=True)
+        def copy_params(p):
+            return None if p is None else np.array(p, copy=True)
+
         return Hanatos2025SensitivityAdaptation(
             window_params=copy_params(adaptation.window_params),
             surface_params=copy_params(adaptation.surface_params),
@@ -267,12 +270,14 @@ class SpectralLUTService:
                 _adaptation_key(adaptation),
                 self.input_gamut_compress,
             )
-            compute = lambda: compute_tc_lut(
-                method,
-                sensitivity,
-                hanatos2025_adaptation=adaptation,
-                gamut_compress=self.input_gamut_compress,
-            )
+
+            def compute():
+                return compute_tc_lut(
+                    method,
+                    sensitivity,
+                    hanatos2025_adaptation=adaptation,
+                    gamut_compress=self.input_gamut_compress,
+                )
         else:
             scene_illuminant = descriptor["reflectance"]["scene_illuminant"]
             key = (
@@ -282,12 +287,15 @@ class SpectralLUTService:
                 scene_illuminant,
                 self.input_gamut_compress,
             )
-            compute = lambda: compute_tc_lut(
-                method,
-                sensitivity,
-                reference_illuminant,
-                gamut_compress=self.input_gamut_compress,
-            )
+
+            def compute():
+                return compute_tc_lut(
+                    method,
+                    sensitivity,
+                    reference_illuminant,
+                    gamut_compress=self.input_gamut_compress,
+                )
+
         return self._tc_lut_memo(method).get(key, compute)
 
     # -- CMY->spectral LUTs ----------------------------------------------------

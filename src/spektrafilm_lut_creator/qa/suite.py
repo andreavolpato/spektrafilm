@@ -125,7 +125,7 @@ def _effective_lut(bundle: Bundle, print_index: int) -> tuple[str, Lut]:
     """
     topology = bundle.meta.topology
     print_name = _print_name(bundle, print_index)
-    by_path: dict[str, Lut] = {p: l for p, l in bundle.luts}
+    by_path: dict[str, Lut] = {p: l for p, l in bundle.luts}  # noqa: E741
 
     def find(role: str, print_profile: str | None = None) -> tuple[str, Lut]:
         for entry in bundle.meta.luts:

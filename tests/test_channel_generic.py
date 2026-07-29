@@ -23,10 +23,7 @@ from spektrafilm.model.density_curves import (
     interpolate_exposure_to_density,
 )
 from spektrafilm.model.diffusion import apply_halation_um
-from spektrafilm.model.grain import (
-    apply_grain,
-    apply_grain_to_density_layers,
-)
+from spektrafilm.model.grain import apply_grain, apply_grain_to_density_layers
 from spektrafilm.runtime.params_builder import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
     DirCouplersParams,
@@ -108,7 +105,7 @@ class TestInterpolateExposureToDensity:
 class TestInterpDensityCmyLayers:
     def test_single_channel_layer_shape(self, bw_curve):
         log_exposure, density_curves = bw_curve
-        n_le = density_curves.shape[0]
+        # n_le = density_curves.shape[0]
         n_layers = 3
         # (n_le, n_layers, n_ch=1): each sublayer a fraction of the channel curve.
         density_curves_layers = (

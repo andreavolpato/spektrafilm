@@ -1,4 +1,4 @@
-from typing import Literal, TypeAlias
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,8 +17,8 @@ from spektrafilm.utils.morph_curves import (
     apply_print_curves_morph,
 )
 
-FloatArray: TypeAlias = NDArray[np.float64]
-ProfileType: TypeAlias = Literal["negative", "positive"]
+FloatArray = NDArray[np.float64]
+ProfileType = Literal["negative", "positive"]
 
 ################################################################################
 # Emulsion helpers
