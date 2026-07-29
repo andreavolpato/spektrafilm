@@ -1,78 +1,128 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+#:schema https://json.schemastore.org/pyproject.json
+#:tombi toml-version = "v1.1.0"
 
 [project]
-name = "spektrafilm"
-version = "0.3.4"
-description = "Spectral simulation of analog film photography"
-readme = "README.md"
+name            = "spektrafilm"
+dynamic         = ["version"]
+description     = "Spectral simulation of analog film photography"
+readme          = "README.md"
 requires-python = "~=3.13"
-license = { text = "GPLv3" }
-authors = [
-    { name = "Andrea Volpato", email = "volpedellenevi@gmail.com" },
+license         = { text = "GPLv3" }
+authors         = [
+  { name = "Andrea Volpato", email = "volpedellenevi@gmail.com" },
 ]
-dependencies = [
-    # Core runtime — the physical-pipeline core under `spektrafilm/`.
-    # See studies/a40_lut_system/n070_runtime_architecture_split.md for
-    # why the runtime is the one layer that imports nothing from the
-    # GUI or LUT-creator packages.
-    "numpy~=2.4",
-    "scipy~=1.17",
-    "colour-science~=0.4.6",
-    "scikit-image~=0.26",
-    "matplotlib~=3.10",
-    "opt-einsum~=3.4.0",
-    "numba~=0.64",
-    "OpenImageIO~=3.1.11",
-    "pyfftw~=0.15.0",
-    "rawpy~=0.26.1",
-    "exiv2~=0.18.1",
-    "lensfunpy~=1.18.0",
-    # GUI app dependencies — installed by default because the package
-    # ships the `spektrafilm` entry point, but not imported by the core
-    # physical runtime under `spektrafilm/`.
-    "qtpy~=2.4",
-    "pyside6~=6.9",
-    "napari~=0.6.6",
-    "Pillow~=12.1",
-    "pyconify~=0.2.1",
-    # LUT creator dependencies — also installed by default because the
-    # package ships the `spektrafilm-lut` entry point, but they are not
-    # required by the core runtime.
-    "markdown~=3.7",
+# tombi: format.rules.array-values-order.disabled = true
+dependencies    = [
+  # Core runtime — the physical-pipeline core under `spektrafilm/`.
+  # See studies/a40_lut_system/n070_runtime_architecture_split.md for
+  # why the runtime is the one layer that imports nothing from the
+  # GUI or LUT-creator packages.
+  "numpy~=2.4",
+  "scipy~=1.17",
+  "colour-science~=0.4.6",
+  "scikit-image~=0.26",
+  "matplotlib~=3.10",
+  "opt-einsum~=3.4.0",
+  "numba~=0.64",
+  "OpenImageIO~=3.1.11",
+  "pyfftw~=0.15.0",
+  "rawpy~=0.26.1",
+  "exiv2~=0.18.1",
+  "lensfunpy~=1.18.0",
+  # GUI app dependencies — installed by default because the package
+  # ships the `spektrafilm` entry point, but not imported by the core
+  # physical runtime under `spektrafilm/`.
+  "qtpy~=2.4",
+  "pyside6~=6.9",
+  "napari~=0.6.6",
+  "Pillow~=12.1",
+  "pyconify~=0.2.1",
+  # LUT creator dependencies — also installed by default because the
+  # package ships the `spektrafilm-lut` entry point, but they are not
+  # required by the core runtime.
+  "markdown~=3.7",
 ]
 
-[project.optional-dependencies]
+  [project.urls]
+  Issues     = "https://github.com/andreavolpato/spektrafilm/issues"
+  Repository = "https://github.com/andreavolpato/spektrafilm"
+
+  [project.scripts]
+  spektrafilm     = "spektrafilm_gui.app:main"
+  spektrafilm-lut = "spektrafilm_lut_creator.cli:main"
+
+[dependency-groups]
 # Test/dev tooling on top of the default install.
-dev = [
-    "pytest",
-    "opencolorio~=2.5",   # PyOpenColorIO; validates emitted config.ocio files
+dev = ["opencolorio~=2.5", "pytest", "pytest-cov"]
+
+[build-system]
+requires      = ["hatch-vcs", "hatchling"]
+build-backend = "hatchling.build"
+
+[tool.committed]
+style               = "conventional"
+line_length         = 80
+merge_commit        = false
+no_fixup            = false
+subject_capitalized = false
+allowed_types       = [
+  "fix",
+  "feat",
+  "chore",
+  "docs",
+  "style",
+  "refactor",
+  "perf",
+  "test",
+  "release",
+]
+ignore_author_re    = "(?i)^.*\\[bot\\] <.*>$"
+
+[tool.coverage.run]
+source = ["src"]
+omit   = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
 ]
 
-[project.scripts]
-spektrafilm = "spektrafilm_gui.app:main"
-spektrafilm-lut = "spektrafilm_lut_creator.cli:main"
+[tool.hatch.version]
+source = "vcs"
 
-[tool.setuptools]
-zip-safe = false
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = [
-    "spektrafilm",
-    "spektrafilm.*",
-    "spektrafilm_gui",
-    "spektrafilm_gui.*",
-    "spektrafilm_lut_creator",
-    "spektrafilm_lut_creator.*",
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/spektrafilm",
+  "src/spektrafilm_gui",
+  "src/spektrafilm_lut_creator",
 ]
 
-[tool.setuptools.package-data]
-spektrafilm = [
-    "data/**/*",
+[tool.pytest.ini_options]
+addopts   = "-p no:napari -p no:napari-plugin-engine -p no:npe2"
+markers   = [
+  "slow: longer-running regression or integration coverage",
+  "unit: fast local logic and data-shape checks with minimal mocking or I/O",
+  "integration: cross-module, GUI, or runtime behavior checks that exercise composed flows",
+  "regression: baseline or snapshot checks intended to detect drift over time",
 ]
-spektrafilm_gui = [
-    "assets/*",
-]
+testpaths = ["tests"]
 
+[tool.ruff]
+target-version = "py313"
+
+  [tool.ruff.lint]
+  select = ["E", "F", "I", "N", "W", "UP"]
+
+  [tool.ruff.format]
+  quote-style = "double"
+
+[tool.ty]
+  [tool.ty.environment]
+  root = ["./src"]
+
+  [tool.ty.src]
+  include = ["src", "tests"]
+
+  [tool.ty.rules]
+  unresolved-import = "ignore"
