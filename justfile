@@ -38,7 +38,7 @@ format:
 [group('lint')]
 lint:
     ruff check src/ tests/ scripts/
-    ty check src/
+    pyrefly check
     biome ci src/
     vale --no-global $(git ls-files --cached --others --exclude-standard '*.md') 2>&1
     just --fmt --check
