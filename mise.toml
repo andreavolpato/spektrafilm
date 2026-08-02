@@ -1,23 +1,26 @@
 [tools]
 # Language and runtimes
-"core:python" = "3.13"
+"core:python" = "3.13.14"
 
 # Package management
 "aqua:astral-sh/uv" = "0.11"
 
 # Version management
-"aqua:crate-ci/committed" = "1"
-"aqua:j178/prek"          = "0.4"
+"aqua:crate-ci/committed"      = "1.1.11"
+"aqua:j178/prek"               = "0.4.11"
+"aqua:betterleaks/betterleaks" = "1.7.3"
+
+# General CLI tools
+"aqua:casey/just" = "1.57.0"
 
 # Language tooling
-"aqua:astral-sh/ruff"   = "0.15"
-"aqua:astral-sh/ty"     = "0.0"
-"aqua:biomejs/biome"    = "2"
-"aqua:casey/just"       = "1"
-"aqua:crate-ci/typos"   = "1"
-"aqua:tombi-toml/tombi" = "1"
-"aqua:vale-cli/vale"    = "3"
-"github:rvben/rumdl"    = "v0.2"
+"aqua:astral-sh/ruff"   = "0.16.1"
+"aqua:biomejs/biome"    = "2.5.6"
+"aqua:crate-ci/typos"   = "1.48.0"
+"pipx:pyrefly"          = "1.2.0"
+"aqua:tombi-toml/tombi" = "1.2.5"
+"aqua:vale-cli/vale"    = "3.17.0"
+"github:rvben/rumdl"    = "v0.2.48"
 
 [settings]
 experimental = true
