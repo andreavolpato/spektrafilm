@@ -53,10 +53,15 @@ hooks = [
 ]
 
 # [[repos]]
-# repo = "https://github.com/astral-sh/ty-pre-commit"
-# rev = "v0.0.64"
+# repo  = "https://github.com/facebook/pyrefly-pre-commit"
+# rev   = "1.2.0"
 # hooks = [
-#   { id = "ty", args = ["--isolated"] },
+#   {
+#     id             = "pyrefly-check",
+#     name           = "Pyrefly (type checking)",
+#     pass_filenames = false,
+#     language       = "system"
+#   },
 # ]
 
 [[repos]]

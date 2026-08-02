@@ -79,6 +79,12 @@ packages = [
   "src/spektrafilm_lut_creator",
 ]
 
+[tool.pyrefly]
+project-includes = [
+  "**/*.py*",
+  "**/*.ipynb",
+]
+
 [tool.pytest.ini_options]
 addopts   = "-p no:napari -p no:napari-plugin-engine -p no:npe2"
 markers   = [
@@ -140,13 +146,3 @@ target-version = "py313"
   [tool.ruff.format]
   quote-style               = "double"
   skip-magic-trailing-comma = false
-
-[tool.ty]
-  [tool.ty.environment]
-  root = ["./src"]
-
-  [tool.ty.src]
-  include = ["src", "tests"]
-
-  [tool.ty.rules]
-  unresolved-import = "ignore"
