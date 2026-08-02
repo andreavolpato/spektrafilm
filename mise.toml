@@ -14,13 +14,14 @@
 "aqua:casey/just" = "1.57.0"
 
 # Language tooling
-"aqua:astral-sh/ruff"   = "0.16.1"
-"aqua:biomejs/biome"    = "2.5.6"
-"aqua:crate-ci/typos"   = "1.48.0"
-"pipx:pyrefly"          = "1.2.0"
-"aqua:tombi-toml/tombi" = "1.2.5"
-"aqua:vale-cli/vale"    = "3.17.0"
-"github:rvben/rumdl"    = "v0.2.48"
+"aqua:astral-sh/ruff"     = "0.16.1"
+"aqua:biomejs/biome"      = "2.5.6"
+"aqua:crate-ci/typos"     = "1.48.0"
+"aqua:lycheeverse/lychee" = "0.24.2"
+"pipx:pyrefly"            = "1.2.0"
+"aqua:tombi-toml/tombi"   = "1.2.5"
+"aqua:vale-cli/vale"      = "3.17.0"
+"github:rvben/rumdl"      = "v0.2.48"
 
 [settings]
 experimental = true
