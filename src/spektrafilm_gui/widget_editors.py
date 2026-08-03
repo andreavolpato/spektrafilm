@@ -128,6 +128,23 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
         if self.count() > 0 and self.currentIndex() < 0:
             self.setCurrentIndex(0)
 
+        # Compute the display width once, up front — sizeHint() is queried
+        # repeatedly during layout, and re-running _profile_meta_tokens()
+        # (which hits load_profile()/disk I/O) on every call is both slow
+        # and was triggering something worse than slow.
+        metrics = QtGui.QFontMetrics(self.font())
+        max_text_width = 0
+        for i in range(self.count()):
+            value = self.itemText(i)
+            display = self.display_text_for_value(value)
+            max_text_width = max(max_text_width, metrics.horizontalAdvance(display))
+        self._content_width = max_text_width + 40  # padding for the dropdown arrow
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API name
+        base = super().sizeHint()
+        return QSize(max(self._content_width, base.width()), base.height())
+
+
     @staticmethod
     def display_text_for_value(value: str) -> str:
         tokens = _profile_meta_tokens(value)
