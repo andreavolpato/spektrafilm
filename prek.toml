@@ -1,82 +1,72 @@
-#:schema https://raw.githubusercontent.com/j178/prek/refs/heads/master/prek.schema.json
-#:tombi toml-version = "v1.1.0"
+#:schema https://www.schemastore.org/prek.json
 
-default_install_hook_types = ["commit-msg", "pre-commit", "pre-push"]
-default_stages             = ["pre-commit", "pre-push"]
+default_install_hook_types = ["commit-msg", "pre-commit"]
+default_stages             = ["pre-commit"]
 
 [[repos]]
-repo  = "https://github.com/pre-commit/pre-commit-hooks"
-rev   = "v6.0.0"
+repo  = "builtin"
 hooks = [
   { id = "check-added-large-files" },
   { id = "check-case-conflict" },
+  { id = "check-illegal-windows-names" },
   { id = "check-executables-have-shebangs" },
   { id = "check-shebang-scripts-are-executable" },
   { id = "check-symlinks" },
   { id = "destroyed-symlinks" },
-  { id = "end-of-file-fixer", exclude = { glob = ["**/*.age", "**/*.gpg"] } },
-  { id = "mixed-line-ending", exclude = { glob = ["**/*.age", "**/*.gpg"] } },
-  { id = "trailing-whitespace" },
+  { id = "check-vcs-permalinks" },
+  { id = "check-merge-conflict" },
+  { id = "check-json" },
   { id = "check-toml" },
   { id = "check-xml" },
   { id = "check-yaml" },
+  { id = "detect-private-key" },
+  { id = "trailing-whitespace" },
+  { id = "mixed-line-ending" },
+  { id = "end-of-file-fixer" },
+]
+
+# [[repos]]
+# repo  = "https://github.com/editorconfig-checker/editorconfig-checker"
+# rev   = "v3.11.1"
+# hooks = [
+#   { id = "editorconfig-checker" },
+# ]
+
+[[repos]]
+repo  = "https://github.com/google/yamlfmt"
+rev   = "v0.21.0"
+hooks = [
+  { id = "yamlfmt" },
 ]
 
 [[repos]]
-repo  = "https://github.com/lyz-code/yamlfix/"
-rev   = "1.19.1"
+repo  = "https://github.com/owenlamont/ryl-pre-commit"
+rev   = "v0.21.0"
 hooks = [
-  { id = "yamlfix", args = ["--config-file=.yamlfix.toml"] },
-]
-
-[[repos]]
-repo  = "https://github.com/biomejs/pre-commit"
-rev   = "v2.5.6"
-hooks = [
-  { id = "biome-check", files = "\\.json$" },
+  { id = "ryl", args = ["--fix"] },
 ]
 
 [[repos]]
 repo  = "https://github.com/tombi-toml/tombi-pre-commit"
-rev   = "v1.2.5"
+rev   = "v1.4.1"
 hooks = [
   { id = "tombi-format", exclude = '(^|/)Cargo\.lock$' },
-  { id = "tombi-lint" },
+  { id = "tombi-lint", exclude = '(^|/)Cargo\.lock$' },
 ]
 
 [[repos]]
-repo  = "https://github.com/astral-sh/ruff-pre-commit"
-rev   = "v0.16.1"
+repo  = "https://github.com/biomejs/pre-commit"
+rev   = "v2.5.10"
 hooks = [
-  { id = "ruff", args = ["--fix", "--exit-non-zero-on-fix"] },
-  { id = "ruff-format" },
-]
-
-# [[repos]]
-# repo  = "https://github.com/facebook/pyrefly-pre-commit"
-# rev   = "1.2.0"
-# hooks = [
-#   {
-#     id             = "pyrefly-check",
-#     name           = "Pyrefly (type checking)",
-#     pass_filenames = false,
-#     language       = "system"
-#   },
-# ]
-
-[[repos]]
-repo  = "https://github.com/crate-ci/committed"
-rev   = "v1.1.11"
-hooks = [
-  { id = "committed" },
+  { id = "biome-check" },
 ]
 
 [[repos]]
 repo  = "https://github.com/rvben/rumdl-pre-commit"
-rev   = "v0.2.48"
+rev   = "v0.2.60"
 hooks = [
-  { id = "rumdl" },
   { id = "rumdl-fmt" },
+  { id = "rumdl" },
 ]
 
 # [[repos]]
@@ -87,17 +77,28 @@ hooks = [
 # ]
 
 [[repos]]
-repo  = "https://github.com/crate-ci/typos"
-rev   = "v1.48.0"
+repo  = "local"
 hooks = [
   {
-    id = "typos",
+    id             = "just-fmt",
+    name           = "just-fmt",
+    language       = "system",
+    entry          = "just --fmt --unstable --check",
+    files          = "(^|/)(justfile|Justfile)(\\..*)?$|\\.just$",
+    pass_filenames = false,
   },
 ]
 
 [[repos]]
+repo  = "https://github.com/scop/pre-commit-shfmt"
+rev   = "v3.13.1-1"
+hooks = [
+  { id = "shfmt", args = ["-i", "2", "-ci", "-s"] },
+]
+
+[[repos]]
 repo  = "https://github.com/shellcheck-py/shellcheck-py"
-rev   = "v0.11.0.1"
+rev   = "v0.11.0.1-1"
 hooks = [
   {
     id   = "shellcheck",
@@ -106,41 +107,76 @@ hooks = [
 ]
 
 [[repos]]
-repo  = "https://github.com/scop/pre-commit-shfmt"
-rev   = "v3.13.1-1"
+repo  = "https://github.com/astral-sh/ruff-pre-commit"
+rev   = "v0.16.4"
 hooks = [
-  { id = "shfmt" },
+  { id = "ruff-check", args = ["--fix", "--exit-non-zero-on-fix", "--show-fixes"], types_or = ["python", "pyi"] },
+  { id = "ruff-format", types_or = ["python", "pyi"] },
+]
+
+# [[repos]]
+# repo  = "https://github.com/astral-sh/ty-pre-commit"
+# rev   = "v0.0.74"
+# hooks = [
+#   { id = "ty" },
+# ]
+
+[[repos]]
+repo  = "https://github.com/rhysd/actionlint"
+rev   = "v1.7.12"
+hooks = [
+  { id = "actionlint" },
+]
+
+[[repos]]
+repo  = "https://github.com/zizmorcore/zizmor-pre-commit"
+rev   = "v1.29.0"
+hooks = [
+  {
+    id             = "zizmor",
+    args           = ["--min-severity", "low", "--min-confidence", "medium", "."],
+    pass_filenames = false,
+  },
+]
+
+[[repos]]
+repo  = "https://github.com/hadolint/hadolint"
+rev   = "v2.15.1"
+hooks = [
+  { id = "hadolint" },
+]
+
+[[repos]]
+repo  = "https://github.com/crate-ci/committed"
+rev   = "v1.1.11"
+hooks = [
+  { id = "committed" },
+]
+
+# [[repos]]
+# repo  = "local"
+# hooks = [
+#   {
+#     id             = "vale",
+#     name           = "vale",
+#     entry          = "vale",
+#     args           = ["--no-global", "--output=line", "--minAlertLevel=error"],
+#     language       = "system",
+#     types          = ["markdown"],
+#     require_serial = true,
+#   },
+# ]
+
+[[repos]]
+repo  = "https://github.com/crate-ci/typos"
+rev   = "v1.49.0"
+hooks = [
+  { id = "typos" },
 ]
 
 [[repos]]
 repo  = "https://github.com/betterleaks/betterleaks"
-rev   = "v1.7.3"
+rev   = "v1.8.1"
 hooks = [
   { id = "betterleaks" },
-]
-
-[[repos]]
-repo  = "local"
-hooks = [
-  # {
-  #   id             = "vale",
-  #   name           = "vale",
-  #   entry          = "vale",
-  #   args           = ["--no-global", "--output=line", "--minAlertLevel=error"],
-  #   language       = "system",
-  #   types          = ["markdown"],
-  #   require_serial = true,
-  # },
-  {
-    id             = "check-gitignore",
-    name           = "Check no gitignored files are tracked",
-    entry          = "bash",
-    args           = [
-      "-c",
-      "f=$(git ls-files --cached --ignored --exclude-standard); if [ -n \"$f\" ]; then echo 'ERROR: These files are gitignored but still tracked:'; echo \"$f\"; exit 1; fi"
-    ],
-    language       = "system",
-    pass_filenames = false,
-    always_run     = true
-  },
 ]

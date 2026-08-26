@@ -1,7 +1,4 @@
-#:schema https://www.schemastore.org/any.json
-## Configuration for committed
-##
-## See <https://github.com/crate-ci/committed/blob/master/docs/reference.md>
+#:schema https://raw.githubusercontent.com/crate-ci/committed/master/config.schema.json
 
 style = "conventional"
 

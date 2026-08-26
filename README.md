@@ -69,18 +69,18 @@ Full resolution export is very slow at the moment.
 > - Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel
 >   the next all-nighter coding session :)
 >
-> *The project is GPLv3 licensed*, so any derivative work must also be open source under
+> _The project is GPLv3 licensed_, so any derivative work must also be open source under
 > the same license. Derivatve work includes any software, plugin, or tool that
 > incorporates spektrafilm code or is directly inspired by its methods.
 >
-> *JSON profiles and LUTs are CC BY-SA 4.0.*
+> _JSON profiles and LUTs are CC BY-SA 4.0._
 >
-> If *GPLv3 is not compatible with your project*, please reach out to discuss
+> If _GPLv3 is not compatible with your project_, please reach out to discuss
 > alternative options.
 > I am very open to collaboration and integration, but I want to ensure that spektrafilm
 > remains open source and for the community.
 >
-> LUTs are on a strict “*commercial use, free share, no resale*” custom
+> LUTs are on a strict “_commercial use, free share, no resale_” custom
 > [license](SPEKTRAFILM_LICENSE.txt).
 >
 > This helps sustain open color science.
@@ -336,10 +336,10 @@ conda env remove -n spektrafilm
 
 ### Install options
 
-| Install command | What you get |
-| --- | --- |
-| `pip install -e .` | Default install: core runtime + GUI + LUT creator. Provides both the `spektrafilm` and `spektrafilm-lut` commands. |
-| `pip install -e ".[dev]"` | Default install + test tooling (`pytest`, OCIO config validation). |
+| Install command           | What you get                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `pip install -e .`        | Default install: core runtime + GUI + LUT creator. Provides both the `spektrafilm` and `spektrafilm-lut` commands. |
+| `pip install -e ".[dev]"` | Default install + test tooling (`pytest`, OCIO config validation).                                                 |
 
 The same `[extras]` syntax works with `uv pip install` and `uv tool install`. For
 one-off runs with `uvx`, use `--from` as shown above.
@@ -469,7 +469,8 @@ dedicate more time to the project and giving back to the
 
 [^2]: Hung, The Reproduction of Color, 6th edition, 2004 Wiley
 
-[^3]: Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB
+[^3]:
+    Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB
     Reflectance, Eurographics Symposium on Rendering - DL-only and Industry Track, 2019,
     doi:10.2312/SR.20191216
 
