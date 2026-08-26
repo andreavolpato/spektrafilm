@@ -4,27 +4,33 @@ No BW profile exists yet, so these exercise the model functions directly with
 single-channel arrays: the closest validation to the eventual scan-from-negative
 spike. Color (n_ch=3) is covered by the existing test_couplers/test_grain suites.
 """
+
 import numpy as np
 import pytest
 
-from spektrafilm.model.density_curves import (
-    interpolate_exposure_to_density,
-    interp_density_cmy_layers,
-)
-from spektrafilm.model.diffusion import apply_halation_um
-from spektrafilm.model.grain import (
-    apply_grain,
-    apply_grain_to_density_layers,
+from spektrafilm.data.profiles_loader import (
+    DensityCurvesModel,
+    Profile,
+    ProfileData,
+    ProfileInfo,
 )
 from spektrafilm.model.couplers import (
     apply_density_correction_dir_couplers,
     compute_dir_couplers_matrix,
 )
-from spektrafilm.data.profiles_loader import DensityCurvesModel, Profile, ProfileData, ProfileInfo
-from spektrafilm.runtime.params_builder import init_params, digest_params
-from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams, HalationParams
+from spektrafilm.model.density_curves import (
+    interp_density_cmy_layers,
+    interpolate_exposure_to_density,
+)
+from spektrafilm.model.diffusion import apply_halation_um
+from spektrafilm.model.grain import apply_grain, apply_grain_to_density_layers
+from spektrafilm.runtime.params_builder import digest_params, init_params
+from spektrafilm.runtime.params_schema import (
+    DirCouplersParams,
+    GrainParams,
+    HalationParams,
+)
 from spektrafilm.runtime.pipeline import SimulationPipeline
-
 
 pytestmark = pytest.mark.unit
 
@@ -32,7 +38,7 @@ pytestmark = pytest.mark.unit
 def _synthetic_bw_negative():
     """A minimal single-channel panchromatic BW negative on the working grid."""
     wl = np.arange(380, 781, 5, dtype=float)
-    sens = 0.5 * np.exp(-((wl - 560.0) / 130.0) ** 2) + 1e-3
+    sens = 0.5 * np.exp(-(((wl - 560.0) / 130.0) ** 2)) + 1e-3
     log_exposure = np.linspace(-3.0, 1.5, 256)
     density_curves = (0.1 + 1.9 / (1 + np.exp(-(log_exposure + 0.5) / 0.4)))[:, None]
     # The runtime derives density curves from the parametric model; give this
@@ -40,7 +46,7 @@ def _synthetic_bw_negative():
     # above (center -0.5, amplitude 1.9, sigma ~0.64 for the 0.4 logistic scale;
     # the 0.1 base is normalized away in develop).
     density_curves_model = DensityCurvesModel(
-        model_type='norm_cdfs',
+        model_type="norm_cdfs",
         centers=[[-0.5]],
         amplitudes=[[1.9]],
         sigmas=[[0.64]],
@@ -55,9 +61,16 @@ def _synthetic_bw_negative():
         density_curves=density_curves,
         density_curves_model=density_curves_model,
     )
-    info = ProfileInfo(stock='synthetic_bw_pan', name='Synthetic BW Pan',
-                       type='negative', support='film', stage='filming',
-                       channel_model='bw', reference_illuminant='D55', viewing_illuminant='D50')
+    info = ProfileInfo(
+        stock="synthetic_bw_pan",
+        name="Synthetic BW Pan",
+        type="negative",
+        support="film",
+        stage="filming",
+        channel_model="bw",
+        reference_illuminant="D55",
+        viewing_illuminant="D50",
+    )
     return Profile(info=info, data=data)
 
 
@@ -73,7 +86,9 @@ class TestInterpolateExposureToDensity:
     def test_single_channel_output_shape(self, bw_curve):
         log_exposure, density_curves = bw_curve
         log_raw = np.full((8, 8, 1), -0.5)
-        out = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, 1.0)
+        out = interpolate_exposure_to_density(
+            log_raw, density_curves, log_exposure, 1.0
+        )
         assert out.shape == (8, 8, 1)
         assert np.all(np.isfinite(out))
 
@@ -81,21 +96,25 @@ class TestInterpolateExposureToDensity:
         # gamma_factor as a scalar must expand to n_ch=1, not the old [g, g, g].
         log_exposure, density_curves = bw_curve
         log_raw = np.full((4, 4, 1), -0.5)
-        out = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, 1.2)
+        out = interpolate_exposure_to_density(
+            log_raw, density_curves, log_exposure, 1.2
+        )
         assert out.shape == (4, 4, 1)
 
 
 class TestInterpDensityCmyLayers:
     def test_single_channel_layer_shape(self, bw_curve):
         log_exposure, density_curves = bw_curve
-        n_le = density_curves.shape[0]
+        # n_le = density_curves.shape[0]
         n_layers = 3
         # (n_le, n_layers, n_ch=1): each sublayer a fraction of the channel curve.
         density_curves_layers = (
             density_curves[:, None, :] * np.array([0.5, 0.3, 0.2])[None, :, None]
         )
         density_cmy = np.full((8, 8, 1), 1.0)
-        out = interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers)
+        out = interp_density_cmy_layers(
+            density_cmy, density_curves, density_curves_layers
+        )
         assert out.shape == (8, 8, n_layers, 1)
         assert np.all(np.isfinite(out))
 
@@ -110,7 +129,7 @@ class TestGrainSingleChannel:
             grain=GrainParams(),
             density_curves=density_curves,
             density_curves_layers=None,
-            profile_type='negative',
+            profile_type="negative",
         )
         assert out.shape == (16, 16, 1)
         assert np.all(np.isfinite(out))
@@ -167,7 +186,9 @@ class TestDirCouplersSingleChannel:
         log_exposure, density_curves = bw_curve
         ramp = np.linspace(-1.5, 0.5, 8)
         log_raw = np.tile(ramp[None, :, None], (8, 1, 1))  # spatial gradient, (8,8,1)
-        density_cmy = interpolate_exposure_to_density(log_raw, density_curves, log_exposure, 1.0)
+        density_cmy = interpolate_exposure_to_density(
+            log_raw, density_curves, log_exposure, 1.0
+        )
         dir_couplers = DirCouplersParams(
             active=True,
             amount=0.7,
@@ -177,7 +198,13 @@ class TestDirCouplersSingleChannel:
             diffusion_size_um=6.0,
         )
         result = apply_density_correction_dir_couplers(
-            density_cmy, log_raw, 2.0, log_exposure, density_curves, dir_couplers, 'negative',
+            density_cmy,
+            log_raw,
+            2.0,
+            log_exposure,
+            density_curves,
+            dir_couplers,
+            "negative",
         )
         assert result.shape == (8, 8, 1)
         assert np.all(np.isfinite(result))
@@ -192,6 +219,7 @@ class TestSelectDevelopmentTime:
     @staticmethod
     def _family():
         from types import SimpleNamespace
+
         n_le, n_wl = 8, 5
         # column j is the constant j, so the selected column is trivial to check.
         return SimpleNamespace(
@@ -204,6 +232,7 @@ class TestSelectDevelopmentTime:
 
     def test_none_picks_floor_middle_and_collapses_base(self):
         from spektrafilm.model.density_curves import select_development_time
+
         data = self._family()
         select_development_time(data, None)  # middle of 5 -> index 2 (6.5 min)
         assert data.development_time.tolist() == [6.5]
@@ -213,6 +242,7 @@ class TestSelectDevelopmentTime:
 
     def test_explicit_value_picks_nearest(self):
         from spektrafilm.model.density_curves import select_development_time
+
         data = self._family()
         select_development_time(data, 8.0)  # nearest to 9.0 -> index 3
         assert data.development_time.tolist() == [9.0]
@@ -221,7 +251,9 @@ class TestSelectDevelopmentTime:
 
     def test_single_curve_is_noop(self):
         from types import SimpleNamespace
+
         from spektrafilm.model.density_curves import select_development_time
+
         data = SimpleNamespace(
             development_time=np.array([7.0]),
             density_curves=np.ones((8, 1)),
@@ -258,7 +290,9 @@ class TestBwScanFromNegativePipeline:
 
         pipe = SimulationPipeline(params)
         ramp = np.linspace(0.02, 0.95, 16)
-        img = np.repeat(np.repeat(ramp[None, :, None], 6, axis=0), 3, axis=2)  # (6,16,3)
+        img = np.repeat(
+            np.repeat(ramp[None, :, None], 6, axis=0), 3, axis=2
+        )  # (6,16,3)
         return pipe.process(img)
 
     def test_runs_end_to_end_and_is_finite(self):
@@ -284,7 +318,7 @@ class TestBwScanFromNegativePipeline:
         assert np.all(np.isfinite(out))
 
     def test_runs_with_luts_enabled(self):
-        params = init_params(film_profile='kodak_trix')
+        params = init_params(film_profile="kodak_trix")
         params.workflow.route = "input > film > scan"
         params.io.upscale_factor = 1.0
         params.io.crop = False

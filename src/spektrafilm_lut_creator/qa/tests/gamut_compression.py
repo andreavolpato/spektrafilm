@@ -1,24 +1,22 @@
 """Input-gamut-compression QA diagnostics — preview + smoothness probes."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import colour
 import matplotlib.pyplot as plt
 import numpy as np
 
-import colour
-import spektrafilm_lut_creator.color_spaces as color_spaces
-
-from spektrafilm_lut_creator.color_spaces import to_xyz
-from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, reference, viz
+from spektrafilm_lut_creator.qa import viz
 from spektrafilm_lut_creator.qa.result import Result
-from spektrafilm_lut_creator.qa.tests._helpers import _save, MIDGRAY_18_OKLAB_L
+from spektrafilm_lut_creator.qa.tests._helpers import _save
 
 if TYPE_CHECKING:
     from spektrafilm_lut_creator.qa.suite import QAContext
 
 
-def _cube_xy_in_film_frame(ctx: "QAContext", reference_illuminant: str):
+def _cube_xy_in_film_frame(ctx: QAContext, reference_illuminant: str):
     """Project the QA cube's input samples to CIE xy in the film's
     reference-illuminant frame — same path ``_rgb_to_tc_b`` runs at
     runtime, minus the LUT lookup.
@@ -27,19 +25,22 @@ def _cube_xy_in_film_frame(ctx: "QAContext", reference_illuminant: str):
     ``X+Y+Z`` (for the brightness threshold).
     """
     from spektrafilm_lut_creator.color_spaces import get as get_cs
+
     in_cs = get_cs(ctx.spec.input_color_space)
     rgb = ctx.grid_input  # encoded; ctx.reference uses encoded inputs too
     # Decode to linear if the input space has a CCTF.
     if in_cs.cctf is not None:
         rgb_linear = np.asarray(
-            colour.cctf_decoding(rgb, function=in_cs.cctf), dtype=float,
+            colour.cctf_decoding(rgb, function=in_cs.cctf),
+            dtype=float,
         )
     else:
         rgb_linear = np.asarray(rgb, dtype=float)
     ref_xy = np.asarray(
         colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"][
             reference_illuminant
-        ], dtype=float,
+        ],
+        dtype=float,
     )
     xyz = colour.RGB_to_XYZ(
         rgb_linear,
@@ -53,7 +54,8 @@ def _cube_xy_in_film_frame(ctx: "QAContext", reference_illuminant: str):
     xy = xyz[..., :2] / safe_b[..., None]
     return np.asarray(xy, dtype=float), b
 
-def _film_reference_illuminant(ctx: "QAContext") -> str:
+
+def _film_reference_illuminant(ctx: QAContext) -> str:
     """Resolve the film's reference illuminant by loading its profile.
 
     The film profile carries the illuminant the spectral sensitivities
@@ -65,13 +67,15 @@ def _film_reference_illuminant(ctx: "QAContext") -> str:
     """
     try:
         from spektrafilm.data.profiles_loader import load_profile
+
         profile = load_profile(ctx.spec.film_profile)
         ref = profile.info.reference_illuminant
         return str(ref) if ref else "D55"
     except Exception:
         return "D55"
 
-def input_gamut_compression_preview(ctx: "QAContext") -> Result:
+
+def input_gamut_compression_preview(ctx: QAContext) -> Result:
     """Visualize what the input gamut compression does for this bundle.
 
     For the bundle's input color space, we project the QA cube to CIE
@@ -92,10 +96,9 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
     - Hanatos et al., *Sigmoidal Compression for Reflectance Manifold* (2025).
     - spektrafilm-research n100 §5.
     """
-    from spektrafilm.utils.gamut_compression import (
-        compress_xy, spectral_locus_xy,
-    )
     from matplotlib.path import Path as MplPath
+
+    from spektrafilm.utils.gamut_compression import compress_xy, spectral_locus_xy
 
     # Palette matches the tuning script (BG/FG/HI/DIM and the
     # OOG/compressed/arrow colors). Keeping these inline rather than
@@ -112,9 +115,8 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
     spec = ctx.spec.input_gamut_compress
     ref_illuminant = _film_reference_illuminant(ctx)
     ref_xy_arr = np.asarray(
-        colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"][
-            ref_illuminant
-        ], dtype=float,
+        colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"][ref_illuminant],
+        dtype=float,
     )
 
     xy, b = _cube_xy_in_film_frame(ctx, ref_illuminant)
@@ -145,35 +147,56 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
     ax.grid(True, alpha=0.12, color=accent)
 
     # Spectral locus.
-    ax.plot(locus[:, 0], locus[:, 1], color=fg, lw=1.3, alpha=0.95,
-            label="spectral locus")
+    ax.plot(
+        locus[:, 0], locus[:, 1], color=fg, lw=1.3, alpha=0.95, label="spectral locus"
+    )
 
     # Input gamut triangle (native primaries, native white).
     try:
         from spektrafilm_lut_creator.color_spaces import get as _get_cs
+
         in_entry = _get_cs(ctx.spec.input_color_space)
         in_cs_obj = colour.RGB_COLOURSPACES[in_entry.primaries]
         pri = np.asarray(in_cs_obj.primaries, dtype=float)
         tri = np.vstack([pri, pri[:1]])
-        ax.plot(tri[:, 0], tri[:, 1], color=accent, lw=1.4, alpha=0.7,
-                label=f"{ctx.spec.input_color_space} gamut")
+        ax.plot(
+            tri[:, 0],
+            tri[:, 1],
+            color=accent,
+            lw=1.4,
+            alpha=0.7,
+            label=f"{ctx.spec.input_color_space} gamut",
+        )
         ax.fill(tri[:, 0], tri[:, 1], color=accent, alpha=0.04)
     except Exception:
         pass
 
     # Reference illuminant marker.
-    ax.plot(ref_xy_arr[0], ref_xy_arr[1], "D", color=dim, markersize=8,
-            markeredgecolor=fg, markeredgewidth=0.8,
-            label=f"film ref illum ({ref_illuminant})")
+    ax.plot(
+        ref_xy_arr[0],
+        ref_xy_arr[1],
+        "D",
+        color=dim,
+        markersize=8,
+        markeredgecolor=fg,
+        markeredgewidth=0.8,
+        label=f"film ref illum ({ref_illuminant})",
+    )
 
     # Background: in-locus samples (faint), then OOG originals (red),
     # then compressed positions (cyan) for both OOG and the in-locus
     # samples the knee actually shifted, then arrows on top.
     in_locus_valid = in_locus & valid
     if in_locus_valid.any():
-        ax.scatter(xy[in_locus_valid, 0], xy[in_locus_valid, 1],
-                   c=ok_color, s=2, alpha=0.25, edgecolors="none",
-                   zorder=2)
+        ax.scatter(
+            xy[in_locus_valid, 0],
+            xy[in_locus_valid, 1],
+            c=ok_color,
+            s=2,
+            alpha=0.25,
+            edgecolors="none",
+            zorder=2,
+        )
         # In-locus samples the compression actually moved. The 1e-3 xy
         # threshold filters samples well below the knee onset whose
         # nominal displacement is just floating-point noise, so the
@@ -183,55 +206,94 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
             if in_locus_bright.any():
                 bright_in_idx = np.flatnonzero(in_locus_bright)
                 disp_in = np.linalg.norm(
-                    xy_out[bright_in_idx] - xy[bright_in_idx], axis=-1,
+                    xy_out[bright_in_idx] - xy[bright_in_idx],
+                    axis=-1,
                 )
                 moved_idx = bright_in_idx[disp_in > 1e-3]
                 if moved_idx.size > 0:
                     ax.scatter(
-                        xy_out[moved_idx, 0], xy_out[moved_idx, 1],
-                        c=moved_color, s=3, alpha=0.7,
-                        edgecolors="none", zorder=3.8,
+                        xy_out[moved_idx, 0],
+                        xy_out[moved_idx, 1],
+                        c=moved_color,
+                        s=3,
+                        alpha=0.7,
+                        edgecolors="none",
+                        zorder=3.8,
                     )
                     n_in = min(moved_idx.size, 400)
                     pick_in = np.random.default_rng(1).choice(
-                        moved_idx, size=n_in, replace=False,
+                        moved_idx,
+                        size=n_in,
+                        replace=False,
                     )
                     ax.quiver(
-                        xy[pick_in, 0], xy[pick_in, 1],
+                        xy[pick_in, 0],
+                        xy[pick_in, 1],
                         xy_out[pick_in, 0] - xy[pick_in, 0],
                         xy_out[pick_in, 1] - xy[pick_in, 1],
-                        color=arrow_color, alpha=0.4,
-                        angles="xy", scale_units="xy", scale=1.0,
-                        width=0.0018, headwidth=4, headlength=5,
+                        color=arrow_color,
+                        alpha=0.4,
+                        angles="xy",
+                        scale_units="xy",
+                        scale=1.0,
+                        width=0.0018,
+                        headwidth=4,
+                        headlength=5,
                         zorder=3.3,
                     )
     if oog_mask.any():
-        ax.scatter(xy[oog_mask, 0], xy[oog_mask, 1], c=oog_color,
-                   s=4, alpha=0.45, edgecolors="none", zorder=3,
-                   label="OOG (original)")
+        ax.scatter(
+            xy[oog_mask, 0],
+            xy[oog_mask, 1],
+            c=oog_color,
+            s=4,
+            alpha=0.45,
+            edgecolors="none",
+            zorder=3,
+            label="OOG (original)",
+        )
     if oog_bright_mask.any() and spec.active:
-        ax.scatter(xy_out[oog_bright_mask, 0], xy_out[oog_bright_mask, 1],
-                   c=moved_color, s=5, alpha=0.85, edgecolors="none",
-                   zorder=4, label="compressed")
+        ax.scatter(
+            xy_out[oog_bright_mask, 0],
+            xy_out[oog_bright_mask, 1],
+            c=moved_color,
+            s=5,
+            alpha=0.85,
+            edgecolors="none",
+            zorder=4,
+            label="compressed",
+        )
         # Displacement arrows on bright OOG only, capped at 400 for
         # legibility on dense V-Gamut-like inputs.
         bright_idx = np.flatnonzero(oog_bright_mask)
         n_arrows = min(len(bright_idx), 400)
         rng = np.random.default_rng(0)
         pick = rng.choice(bright_idx, size=n_arrows, replace=False)
-        x0 = xy[pick, 0]; y0 = xy[pick, 1]
-        x1 = xy_out[pick, 0]; y1 = xy_out[pick, 1]
+        x0 = xy[pick, 0]
+        y0 = xy[pick, 1]
+        x1 = xy_out[pick, 0]
+        y1 = xy_out[pick, 1]
         ax.quiver(
-            x0, y0, x1 - x0, y1 - y0,
-            color=arrow_color, alpha=0.55,
-            angles="xy", scale_units="xy", scale=1.0,
-            width=0.0025, headwidth=4, headlength=5, zorder=3.5,
+            x0,
+            y0,
+            x1 - x0,
+            y1 - y0,
+            color=arrow_color,
+            alpha=0.55,
+            angles="xy",
+            scale_units="xy",
+            scale=1.0,
+            width=0.0025,
+            headwidth=4,
+            headlength=5,
+            zorder=3.5,
         )
 
     # Stats panel in the upper left, monospace so the columns line up.
     if oog_bright_mask.any() and spec.active:
         disp = np.linalg.norm(
-            xy_out[oog_bright_mask] - xy[oog_bright_mask], axis=-1,
+            xy_out[oog_bright_mask] - xy[oog_bright_mask],
+            axis=-1,
         )
         text = (
             f"algorithm:    {spec.algorithm}\n"
@@ -265,11 +327,21 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
             f"\n(no bright OOG samples — nothing to compress)"
         )
     ax.text(
-        0.02, 0.98, text,
-        transform=ax.transAxes, va="top", ha="left",
-        color=fg, family="monospace", fontsize=9,
-        bbox=dict(facecolor="#1a1a1a", edgecolor="#555555",
-                  alpha=0.92, boxstyle="round,pad=0.5"),
+        0.02,
+        0.98,
+        text,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        color=fg,
+        family="monospace",
+        fontsize=9,
+        bbox=dict(
+            facecolor="#1a1a1a",
+            edgecolor="#555555",
+            alpha=0.92,
+            boxstyle="round,pad=0.5",
+        ),
     )
 
     ax.set_xlim(-0.05, 0.85)
@@ -281,10 +353,17 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
         f"compression preview — {ctx.spec.input_color_space} via "
         f"{spec.algorithm} (t={spec.knee[0]}, l={spec.knee[1]}, "
         f"p={spec.knee[2]})",
-        color=viz.HI, fontsize=viz.SUPTITLE_FS, pad=viz.SUPTITLE_PAD,
+        color=viz.HI,
+        fontsize=viz.SUPTITLE_FS,
+        pad=viz.SUPTITLE_PAD,
     )
-    ax.legend(facecolor="#1a1a1a", labelcolor=fg, framealpha=0.9,
-              loc="upper right", fontsize=8)
+    ax.legend(
+        facecolor="#1a1a1a",
+        labelcolor=fg,
+        framealpha=0.9,
+        loc="upper right",
+        fontsize=8,
+    )
 
     path = _save(ctx, fig, "input_gamut_compression_preview")
 
@@ -317,7 +396,8 @@ def input_gamut_compression_preview(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
+
+def input_gamut_compression_smoothness(ctx: QAContext) -> Result:
     """Probe the compression's smoothness on a circumferential ring.
 
     A circle around the film reference illuminant that crosses the
@@ -335,9 +415,7 @@ def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
     - spektrafilm-research n100 §5.1 (smoothness probes).
     - ``tune_input_gamut_compression.py`` ``plot_smoothness_circumferential``.
     """
-    from spektrafilm.utils.gamut_compression import (
-        compress_xy, spectral_locus_xy,
-    )
+    from spektrafilm.utils.gamut_compression import compress_xy, spectral_locus_xy
 
     # ``accent`` is the yellow-ish color used for the input-gamut
     # triangle overlay (visible against the dark BG); titles use the
@@ -347,9 +425,8 @@ def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
     spec = ctx.spec.input_gamut_compress
     ref_illuminant = _film_reference_illuminant(ctx)
     ref_xy_arr = np.asarray(
-        colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"][
-            ref_illuminant
-        ], dtype=float,
+        colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"][ref_illuminant],
+        dtype=float,
     )
 
     # Radius matches the tuning script default (0.30 puts about half the
@@ -370,6 +447,7 @@ def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
     pri = None
     try:
         from spektrafilm_lut_creator.color_spaces import get as _get_cs
+
         in_entry = _get_cs(ctx.spec.input_color_space)
         in_cs_obj = colour.RGB_COLOURSPACES[in_entry.primaries]
         pri = np.asarray(in_cs_obj.primaries, dtype=float)
@@ -392,29 +470,48 @@ def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
     ax.grid(True, alpha=0.12, color=accent)
 
     # Spectral locus.
-    ax.plot(locus[:, 0], locus[:, 1], color=fg, lw=1.0, alpha=0.85,
-            label="spectral locus")
+    ax.plot(
+        locus[:, 0], locus[:, 1], color=fg, lw=1.0, alpha=0.85, label="spectral locus"
+    )
 
     # Input gamut triangle.
     if pri is not None:
         tri = np.vstack([pri, pri[:1]])
-        ax.plot(tri[:, 0], tri[:, 1], color=accent, lw=1.0, alpha=0.5,
-                label=f"{ctx.spec.input_color_space} gamut")
+        ax.plot(
+            tri[:, 0],
+            tri[:, 1],
+            color=accent,
+            lw=1.0,
+            alpha=0.5,
+            label=f"{ctx.spec.input_color_space} gamut",
+        )
 
     # Input circle as a dashed reference.
-    ax.plot(probe_input[:, 0], probe_input[:, 1], color=dim, lw=0.6,
-            ls="--", alpha=0.5)
+    ax.plot(probe_input[:, 0], probe_input[:, 1], color=dim, lw=0.6, ls="--", alpha=0.5)
 
     # Compressed output colored by input angle — the visual signature of
     # smoothness is a clean rainbow ring with no color discontinuities.
-    ax.scatter(probe_output[:, 0], probe_output[:, 1],
-               c=angles_deg, cmap=plt.cm.hsv, s=6, alpha=0.95,
-               edgecolors="none")
+    ax.scatter(
+        probe_output[:, 0],
+        probe_output[:, 1],
+        c=angles_deg,
+        cmap=plt.cm.hsv,
+        s=6,
+        alpha=0.95,
+        edgecolors="none",
+    )
 
     # Reference illuminant.
-    ax.plot(ref_xy_arr[0], ref_xy_arr[1], "D", color=dim, markersize=7,
-            markeredgecolor=fg, markeredgewidth=0.7,
-            label=f"film ref ({ref_illuminant})")
+    ax.plot(
+        ref_xy_arr[0],
+        ref_xy_arr[1],
+        "D",
+        color=dim,
+        markersize=7,
+        markeredgecolor=fg,
+        markeredgewidth=0.7,
+        label=f"film ref ({ref_illuminant})",
+    )
 
     ax.set_xlim(-0.05, 0.85)
     ax.set_ylim(-0.05, 0.95)
@@ -427,11 +524,17 @@ def input_gamut_compression_smoothness(ctx: "QAContext") -> Result:
         f"(t={spec.knee[0]}, l={spec.knee[1]}, p={spec.knee[2]})\n"
         f"r = {radius} from {ref_illuminant}    "
         f"worst/median step {ratio:.2f}",
-        color=viz.HI, fontsize=viz.SUPTITLE_FS, pad=viz.SUPTITLE_PAD,
+        color=viz.HI,
+        fontsize=viz.SUPTITLE_FS,
+        pad=viz.SUPTITLE_PAD,
     )
-    leg = ax.legend(loc="upper right", fontsize=8,
-                    facecolor="#1a1a1a", edgecolor="#555555",
-                    labelcolor=fg)
+    leg = ax.legend(
+        loc="upper right",
+        fontsize=8,
+        facecolor="#1a1a1a",
+        edgecolor="#555555",
+        labelcolor=fg,
+    )
     leg.get_frame().set_alpha(0.9)
 
     path = _save(ctx, fig, "input_gamut_compression_smoothness")

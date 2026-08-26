@@ -7,6 +7,7 @@ metadata describing them, ready to be written to disk by
 
 See studies/a40_lut_system/n030_lut_package_design.md §6.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,7 +18,6 @@ from spektrafilm.utils.gamut_compression import (
 )
 from spektrafilm_lut_creator.formats import Lut
 from spektrafilm_lut_creator.metadata import BundleMeta
-
 
 _VALID_TOPOLOGIES = frozenset({"1lut", "2lut", "3lut", "4lut"})
 _VALID_CONTAINERS = frozenset({"directory", "zip"})
@@ -39,6 +39,7 @@ class BundleSpec:
     multi-print bundles, the auto-name omits the print segment (the
     bundle covers all of them — naming after one is misleading).
     """
+
     film_profile: str
     print_profiles: tuple[str, ...]
     input_color_space: str
@@ -70,7 +71,9 @@ class BundleSpec:
     explicit integer runs QA for only that print. Validated against the
     bundle's print count up-front so a wrong index fails fast at spec
     construction rather than partway through a long build."""
-    input_gamut_compress: InputGamutCompressSpec = field(default_factory=InputGamutCompressSpec)
+    input_gamut_compress: InputGamutCompressSpec = field(
+        default_factory=InputGamutCompressSpec
+    )
     """Input gamut compression spec (algorithm + Reinhard knee parameters)
     used when baking the per-film tc_lut. Default is the ACES Reference
     Gamut Compression v1.3 cyan threshold and power with the asymptote
@@ -141,8 +144,13 @@ class BundleSpec:
         # entry's short_tag slug ("rec2100pq"); normalize to canonical
         # so every downstream consumer sees the same string.
         from spektrafilm_lut_creator.color_spaces import resolve as _resolve_cs
-        object.__setattr__(self, "input_color_space", _resolve_cs(self.input_color_space))
-        object.__setattr__(self, "output_color_space", _resolve_cs(self.output_color_space))
+
+        object.__setattr__(
+            self, "input_color_space", _resolve_cs(self.input_color_space)
+        )
+        object.__setattr__(
+            self, "output_color_space", _resolve_cs(self.output_color_space)
+        )
         if isinstance(self.exposure_ev, bool) or not isinstance(
             self.exposure_ev, (int, float)
         ):
@@ -175,13 +183,18 @@ class BundleSpec:
         # report directory all derive from it.
         if not self.name:
             from spektrafilm_lut_creator.naming import default_bundle_name
-            object.__setattr__(self, "name", default_bundle_name(
-                film_profile=self.film_profile,
-                print_profiles=self.print_profiles,
-                topology=self.topology,
-                input_color_space=self.input_color_space,
-                output_color_space=self.output_color_space,
-            ))
+
+            object.__setattr__(
+                self,
+                "name",
+                default_bundle_name(
+                    film_profile=self.film_profile,
+                    print_profiles=self.print_profiles,
+                    topology=self.topology,
+                    input_color_space=self.input_color_space,
+                    output_color_space=self.output_color_space,
+                ),
+            )
         # For 1lut topology with multiple print profiles, the builder
         # bakes one (film, print) cube per print and packs them all
         # into the same bundle. The 2lut / 4lut topologies share the
@@ -206,6 +219,7 @@ class BundleSpec:
             # between bundles and delivery_targets (the target registry
             # references format names that bundles also know about).
             from spektrafilm_lut_creator.delivery_targets import get as _get_target
+
             target = _get_target(self.target)
             if self.input_color_space not in target.valid_inputs:
                 raise ValueError(
@@ -223,6 +237,7 @@ class BundleSpec:
         context. Convenience shortcut for
         :meth:`color_spaces.BakeFrame.from_spec`."""
         from spektrafilm_lut_creator.color_spaces import BakeFrame
+
         return BakeFrame.from_spec(self)
 
 
@@ -242,6 +257,7 @@ class Bundle:
     from the spec, so reference and bake cannot diverge. Runtime-only
     (not serialized); ``bundle.json`` carries the asdict snapshot.
     """
+
     luts: list[tuple[str, Lut]] = field(default_factory=list)
     meta: BundleMeta = field(default_factory=BundleMeta)
     baked_params: dict = field(default_factory=dict)

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from spektrafilm_gui.state import GuiState
 from spektrafilm.runtime.api import init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
+from spektrafilm_gui.state import GuiState
 
 
 def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
@@ -31,9 +31,10 @@ def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
 
 
 def _apply_special(params: RuntimePhotoParams, state: GuiState) -> None:
-    def swap_channels(profile, new_cmy_order=(0,2,1)):
-        profile.data.channel_density = profile.data.channel_density[:,new_cmy_order]
+    def swap_channels(profile, new_cmy_order=(0, 2, 1)):
+        profile.data.channel_density = profile.data.channel_density[:, new_cmy_order]
         return profile
+
     if state.special.film_channel_swap != (0, 1, 2):
         params.film = swap_channels(params.film, state.special.film_channel_swap)
     if state.special.print_channel_swap != (0, 1, 2):
@@ -100,7 +101,9 @@ def _apply_film_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
 def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
     params.enlarger.illuminant = state.simulation.enlarger.illuminant
     params.enlarger.print_exposure = state.simulation.enlarger.print_exposure
-    params.enlarger.print_exposure_compensation = state.simulation.enlarger.print_exposure_compensation
+    params.enlarger.print_exposure_compensation = (
+        state.simulation.enlarger.print_exposure_compensation
+    )
     params.enlarger.y_filter_shift = state.simulation.enlarger.y_filter_shift
     params.enlarger.m_filter_shift = state.simulation.enlarger.m_filter_shift
     params.enlarger.diffusion_filter = replace(state.enlarger_diffusion)

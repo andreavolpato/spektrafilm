@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
-
-DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
+DISPLAY_PREVIEW_COLOR_SPACE = "sRGB"
 
 
 @dataclass(slots=True)
@@ -49,10 +49,12 @@ def apply_white_padding(image_data: np.ndarray, padding_pixels: float) -> np.nda
     if image.ndim < 2:
         return image
 
-    fill_value = np.iinfo(image.dtype).max if np.issubdtype(image.dtype, np.integer) else 1.0
+    fill_value = (
+        np.iinfo(image.dtype).max if np.issubdtype(image.dtype, np.integer) else 1.0
+    )
     pad_width = [(padding, padding), (padding, padding)]
     pad_width.extend((0, 0) for _ in range(image.ndim - 2))
-    return np.pad(image, pad_width, mode='constant', constant_values=fill_value)
+    return np.pad(image, pad_width, mode="constant", constant_values=fill_value)
 
 
 def padding_pixels_for_image(image_data: np.ndarray, padding_fraction: float) -> int:
@@ -72,25 +74,29 @@ def display_profile_name(display_profile: object, *, imagecms_module: Any) -> st
         profile_name = None
 
     if isinstance(profile_name, str):
-        cleaned_name = profile_name.replace('\x00', ' ').strip()
+        cleaned_name = profile_name.replace("\x00", " ").strip()
         if cleaned_name:
-            return ' '.join(cleaned_name.split())
+            return " ".join(cleaned_name.split())
 
-    profile_filename = getattr(display_profile, 'filename', None)
+    profile_filename = getattr(display_profile, "filename", None)
     if isinstance(profile_filename, str) and profile_filename.strip():
         return Path(profile_filename).stem
 
     return type(display_profile).__name__
 
 
-def display_profile_details(*, imagecms_module: Any) -> tuple[object | None, str | None]:
+def display_profile_details(
+    *, imagecms_module: Any
+) -> tuple[object | None, str | None]:
     try:
         display_profile = imagecms_module.get_display_profile()
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
         return None, None
     if display_profile is None:
         return None, None
-    return display_profile, display_profile_name(display_profile, imagecms_module=imagecms_module)
+    return display_profile, display_profile_name(
+        display_profile, imagecms_module=imagecms_module
+    )
 
 
 def display_profile_available(*, imagecms_module: Any) -> bool:
@@ -102,11 +108,13 @@ def display_profile_available(*, imagecms_module: Any) -> bool:
 
 def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> str:
     if not enabled:
-        return 'Display transform: disabled'
-    display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
+        return "Display transform: disabled"
+    display_profile, profile_name = display_profile_details(
+        imagecms_module=imagecms_module
+    )
     if display_profile is None:
-        return 'Display transform: no display profile, using raw preview'
-    return f'Display transform: display profile found ({profile_name})'
+        return "Display transform: no display profile, using raw preview"
+    return f"Display transform: display profile found ({profile_name})"
 
 
 def prepare_input_color_preview_image(
@@ -138,9 +146,13 @@ def apply_display_transform(
     imagecms_module: Any,
     pil_image_module: Any,
 ) -> tuple[np.ndarray, str]:
-    display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
+    display_profile, profile_name = display_profile_details(
+        imagecms_module=imagecms_module
+    )
     if display_profile is None:
-        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
+        return np.uint8(
+            np.clip(image_data, 0.0, 1.0) * 255
+        ), "Display transform: no display profile, using raw preview"
 
     srgb_preview = colour_module.RGB_to_RGB(
         image_data,
@@ -151,9 +163,13 @@ def apply_display_transform(
     )
     srgb_preview_uint8 = np.uint8(np.clip(srgb_preview, 0.0, 1.0) * 255)
     source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
-    source_image = pil_image_module.fromarray(srgb_preview_uint8, mode='RGB')
-    transformed_image = imagecms_module.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
-    return np.asarray(transformed_image, dtype=np.uint8), f'Display transform: active ({profile_name})'
+    source_image = pil_image_module.fromarray(srgb_preview_uint8, mode="RGB")
+    transformed_image = imagecms_module.profileToProfile(
+        source_image, source_profile, display_profile, output_mode="RGB"
+    )
+    return np.asarray(
+        transformed_image, dtype=np.uint8
+    ), f"Display transform: active ({profile_name})"
 
 
 def prepare_output_display_image(
@@ -170,7 +186,9 @@ def prepare_output_display_image(
     normalized_image = normalized_image_data(np.asarray(image_data)[..., :3])
     preview_image = np.uint8(np.clip(normalized_image, 0.0, 1.0) * 255)
     if not use_display_transform:
-        return preview_image, display_transform_status_message(False, imagecms_module=imagecms_module)
+        return preview_image, display_transform_status_message(
+            False, imagecms_module=imagecms_module
+        )
     try:
         transformed_image, status = apply_display_transform(
             normalized_image,
@@ -181,7 +199,7 @@ def prepare_output_display_image(
         )
         return transformed_image, status
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return preview_image, 'Display transform: transform failed, using raw preview'
+        return preview_image, "Display transform: transform failed, using raw preview"
 
 
 def execute_simulation_request(

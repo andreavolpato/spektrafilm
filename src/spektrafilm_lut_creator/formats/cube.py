@@ -5,6 +5,7 @@ fields supported: ``TITLE``, ``DOMAIN_MIN``, ``DOMAIN_MAX``,
 ``LUT_3D_SIZE``. Body is one ``r g b`` triplet per line, with R varying
 fastest, then G, then B.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +13,6 @@ from pathlib import Path
 import numpy as np
 
 from spektrafilm_lut_creator.formats import Lut, register
-
 
 _VALUE_FORMAT = "{:.10g}"
 
@@ -29,7 +29,7 @@ class CubeFormat:
         header_lines: list[str] | None = None,
     ) -> None:
         n = lut.resolution
-        flat = np.asarray(lut.table, dtype=float).reshape(n ** 3, 3)
+        flat = np.asarray(lut.table, dtype=float).reshape(n**3, 3)
         lines: list[str] = []
         if header_lines:
             for raw in header_lines:
@@ -38,8 +38,12 @@ class CubeFormat:
                 lines.append(f"# {raw}" if raw else "#")
         if lut.title:
             lines.append(f'TITLE "{lut.title}"')
-        lines.append("DOMAIN_MIN " + " ".join(_VALUE_FORMAT.format(v) for v in lut.domain_min))
-        lines.append("DOMAIN_MAX " + " ".join(_VALUE_FORMAT.format(v) for v in lut.domain_max))
+        lines.append(
+            "DOMAIN_MIN " + " ".join(_VALUE_FORMAT.format(v) for v in lut.domain_min)
+        )
+        lines.append(
+            "DOMAIN_MAX " + " ".join(_VALUE_FORMAT.format(v) for v in lut.domain_max)
+        )
         lines.append(f"LUT_3D_SIZE {n}")
         for r, g, b in flat:
             lines.append(" ".join(_VALUE_FORMAT.format(v) for v in (r, g, b)))
@@ -74,12 +78,14 @@ class CubeFormat:
 
         if size is None:
             raise ValueError(f"{path}: missing LUT_3D_SIZE header")
-        if len(values) != size ** 3:
+        if len(values) != size**3:
             raise ValueError(
-                f"{path}: body has {len(values)} entries, expected size**3 = {size ** 3}"
+                f"{path}: body has {len(values)} entries, expected size**3 = {size**3}"
             )
         table = np.asarray(values, dtype=float).reshape(size, size, size, 3)
-        return Lut(table=table, domain_min=domain_min, domain_max=domain_max, title=title)
+        return Lut(
+            table=table, domain_min=domain_min, domain_max=domain_max, title=title
+        )
 
 
 def _parse_triplet(text: str) -> tuple[float, float, float]:

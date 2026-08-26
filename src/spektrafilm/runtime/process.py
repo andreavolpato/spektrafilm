@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
+from spektrafilm.runtime.params_builder import digest_params, init_params
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.runtime.pipeline import SimulationPipeline
 from spektrafilm.utils.preview import resize_for_preview
-from spektrafilm.runtime.params_builder import (
-    digest_params,
-    init_params,
-)
+
 
 class Simulator:
     """User-facing wrapper around the runtime simulation pipeline.
@@ -17,7 +15,7 @@ class Simulator:
     """
 
     def __init__(self, params: RuntimePhotoParams):
-        self._pipeline = SimulationPipeline(params) # should stay private
+        self._pipeline = SimulationPipeline(params)  # should stay private
 
     def process(self, image):
         """Process the input image through the simulation pipeline and return the final result."""
@@ -53,9 +51,13 @@ class Simulator:
 ######################################################################################
 # Convenience functions for single-call simulation without needing to instantiate the Simulator class.
 
-def simulate(image, params: RuntimePhotoParams,
-             digest_params_first: bool = True,
-             print_timings: bool = False):
+
+def simulate(
+    image,
+    params: RuntimePhotoParams,
+    digest_params_first: bool = True,
+    print_timings: bool = False,
+):
     """Convenience function to run the simulation pipeline with a single call.
     The simulator needs digested parameters to run. By default they are digested on the fly.
     If you already have digested parameters or want to digest them yourself, set digest_params_first=False.
@@ -69,27 +71,35 @@ def simulate(image, params: RuntimePhotoParams,
     return result
 
 
-def simulate_preview(image, params: RuntimePhotoParams,
-                     digest_params_first: bool = True,
-                     print_timings: bool = False):
+def simulate_preview(
+    image,
+    params: RuntimePhotoParams,
+    digest_params_first: bool = True,
+    print_timings: bool = False,
+):
     """Convenience function to run the simulation pipeline with a single call.
     The simulator needs digested parameters to run. By default they are digested on the fly.
     If you already have digested parameters or want to digest them yourself, set digest_params_first=False.
     """
     max_size = params.settings.preview_max_size
-    result = simulate(resize_for_preview(image, max_size), params,
-                      digest_params_first=digest_params_first,
-                      print_timings=print_timings)
+    result = simulate(
+        resize_for_preview(image, max_size),
+        params,
+        digest_params_first=digest_params_first,
+        print_timings=print_timings,
+    )
     return result
 
 
 #######################################################################################################
 # Legacy for ART, to be removed in the future when the old API is fully deprecated.
 
+
 class AgXPhoto(Simulator):
     def __init__(self, params: RuntimePhotoParams):
         digested_params = digest_params(params)
         super().__init__(digested_params)
+
 
 # photo_params is init_params
 def photo_params(film_profile, print_profile) -> RuntimePhotoParams:
@@ -100,15 +110,16 @@ def photo_params(film_profile, print_profile) -> RuntimePhotoParams:
     print_profile - label string for the print profile to use, e.g. "kodak_portra_endura"
     """
     params = init_params(film_profile=film_profile, print_profile=print_profile)
-    params.io.full_image = True # legacy compatibility, has no effect
-    params.io.preview_resize_factor = 1.0 # legacy compatibility, has no effect
+    params.io.full_image = True  # legacy compatibility, has no effect
+    params.io.preview_resize_factor = 1.0  # legacy compatibility, has no effect
     return params
+
 
 __all__ = [
     "RuntimePhotoParams",
     "Simulator",
     "simulate",
     "simulate_preview",
-    "AgXPhoto", # legacy for ART
-    "photo_params", # legacy for ART
+    "AgXPhoto",  # legacy for ART
+    "photo_params",  # legacy for ART
 ]

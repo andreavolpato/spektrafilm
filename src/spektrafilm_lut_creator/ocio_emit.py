@@ -37,6 +37,7 @@ decode normalized code values back to physical units.
 
 See ``studies/a40_lut_system/n120_ocio_config_emission.md``.
 """
+
 from __future__ import annotations
 
 from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
@@ -44,7 +45,6 @@ from spektrafilm_lut_creator.color_spaces import get as get_color_space
 from spektrafilm_lut_creator.metadata import PER_PRINT_LUT_ROLES, SHARED_LUT_ROLES
 from spektrafilm_lut_creator.naming import normalize_stock
 from spektrafilm_lut_creator.wires import DensityWire, LogEWire
-
 
 OCIO_PROFILE_VERSION = (2, 4)
 """Major.minor of the emitted ``ocio_profile_version``. OCIO 2.4 syntax
@@ -75,50 +75,49 @@ its transform as ``from_scene_reference`` into this space."""
 _COLORSPACE_BUILTIN: dict[str, list[tuple[str, str]]] = {
     # ACES family.
     "ACES2065-1": [],
-    "ACEScg":  [("ACEScg_to_ACES2065-1", "inverse")],
+    "ACEScg": [("ACEScg_to_ACES2065-1", "inverse")],
     "ACEScct": [("ACEScct_to_ACES2065-1", "inverse")],
-    "ACEScc":  [("ACEScc_to_ACES2065-1", "inverse")],
-
+    "ACEScc": [("ACEScc_to_ACES2065-1", "inverse")],
     # Camera log spaces with direct AP0 builtins in OCIO 2.5.
-    "Panasonic V-Log":              [("PANASONIC_VLOG-VGAMUT_to_ACES2065-1", "inverse")],
-    "Sony S-Log3":                  [("SONY_SLOG3-SGAMUT3_to_ACES2065-1", "inverse")],
-    "Sony S-Log3 (S-Gamut3.Cine)":  [("SONY_SLOG3-SGAMUT3.CINE_to_ACES2065-1", "inverse")],
-    "ARRI LogC3 (EI800)":           [("ARRI_ALEXA-LOGC-EI800-AWG_to_ACES2065-1", "inverse")],
-    "ARRI LogC4":                   [("ARRI_LOGC4_to_ACES2065-1", "inverse")],
-    "Apple Log":                    [("APPLE_LOG_to_ACES2065-1", "inverse")],
-    "Canon Log 3":                  [("CANON_CLOG3-CGAMUT_to_ACES2065-1", "inverse")],
-    "RED Log3G10":                  [("RED_LOG3G10-RWG_to_ACES2065-1", "inverse")],
-
+    "Panasonic V-Log": [("PANASONIC_VLOG-VGAMUT_to_ACES2065-1", "inverse")],
+    "Sony S-Log3": [("SONY_SLOG3-SGAMUT3_to_ACES2065-1", "inverse")],
+    "Sony S-Log3 (S-Gamut3.Cine)": [
+        ("SONY_SLOG3-SGAMUT3.CINE_to_ACES2065-1", "inverse")
+    ],
+    "ARRI LogC3 (EI800)": [("ARRI_ALEXA-LOGC-EI800-AWG_to_ACES2065-1", "inverse")],
+    "ARRI LogC4": [("ARRI_LOGC4_to_ACES2065-1", "inverse")],
+    "Apple Log": [("APPLE_LOG_to_ACES2065-1", "inverse")],
+    "Canon Log 3": [("CANON_CLOG3-CGAMUT_to_ACES2065-1", "inverse")],
+    "RED Log3G10": [("RED_LOG3G10-RWG_to_ACES2065-1", "inverse")],
     # SDR display spaces. AP0 -> CIE-XYZ-D65 (Bradford CAT) -> encoded.
     "sRGB": [
         ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_sRGB",          "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_sRGB", "forward"),
     ],
     "Rec.709": [
-        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD",      "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_REC.1886-REC.709",   "forward"),
+        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_REC.1886-REC.709", "forward"),
     ],
     "Rec.2020": [
-        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD",       "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_REC.1886-REC.2020",   "forward"),
+        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_REC.1886-REC.2020", "forward"),
     ],
     "Display P3": [
         ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_DisplayP3",     "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_DisplayP3", "forward"),
     ],
     "DCI-P3": [
-        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD",   "forward"),
+        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
         ("DISPLAY - CIE-XYZ-D65_to_G2.6-P3-DCI-BFD", "forward"),
     ],
-
     # HDR display spaces.
     "Rec.2100 PQ": [
-        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD",  "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_REC.2100-PQ",    "forward"),
+        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_REC.2100-PQ", "forward"),
     ],
     "Rec.2100 HLG": [
-        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD",         "forward"),
-        ("DISPLAY - CIE-XYZ-D65_to_REC.2100-HLG-1000nit",  "forward"),
+        ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
+        ("DISPLAY - CIE-XYZ-D65_to_REC.2100-HLG-1000nit", "forward"),
     ],
     "P3-D65 PQ": [
         ("UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", "forward"),
@@ -197,7 +196,9 @@ def _spektrafilm_colorspace_name(film_profile: str, print_profile: str) -> str:
     Mirrors the inline construction in :func:`_spektrafilm_colorspace_yaml`
     so display/view emitters can reference the same colorspace by name.
     """
-    return f"spektrafilm_{normalize_stock(film_profile)}_{normalize_stock(print_profile)}"
+    return (
+        f"spektrafilm_{normalize_stock(film_profile)}_{normalize_stock(print_profile)}"
+    )
 
 
 def _spektrafilm_view_name(film_profile: str, print_profile: str) -> str:
@@ -226,6 +227,7 @@ def _humanize_stock(stock: str) -> str:
 # Section emitters.
 # ---------------------------------------------------------------------------
 
+
 def _header_lines(spec: BundleSpec) -> list[str]:
     major, minor = OCIO_PROFILE_VERSION
     prints = ", ".join(spec.print_profiles)
@@ -244,17 +246,21 @@ def _header_lines(spec: BundleSpec) -> list[str]:
         # Discoverability nudge for OCIO users curious about the
         # `combinations/` folder. The config itself doesn't reference
         # those cubes — see n130 §6 for rationale.
-        lines.extend([
-            "  Note: this bundle also ships pre-collapsed sub-chain cubes under",
-            "  `combinations/` for single-LUT-slot grading apps. The OCIO config",
-            "  references only the canonical chain (see n130 sec 6).",
-        ])
-    lines.extend([
-        "",
-        "search_path: .",
-        "family_separator: /",
-        "",
-    ])
+        lines.extend(
+            [
+                "  Note: this bundle also ships pre-collapsed sub-chain cubes under",
+                "  `combinations/` for single-LUT-slot grading apps. The OCIO config",
+                "  references only the canonical chain (see n130 sec 6).",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "search_path: .",
+            "family_separator: /",
+            "",
+        ]
+    )
     return lines
 
 
@@ -297,10 +303,12 @@ def _displays_block(spec: BundleSpec) -> list[str]:
 
     if spec.topology == "1lut":
         for print_profile in spec.print_profiles:
-            views.append((
-                _spektrafilm_view_name(spec.film_profile, print_profile),
-                _spektrafilm_colorspace_name(spec.film_profile, print_profile),
-            ))
+            views.append(
+                (
+                    _spektrafilm_view_name(spec.film_profile, print_profile),
+                    _spektrafilm_colorspace_name(spec.film_profile, print_profile),
+                )
+            )
     # Raw view is always emitted last — provides the "no look" comparison
     # point for any topology, including 1-LUT.
     views.append(("Raw", out_cs))
@@ -313,9 +321,7 @@ def _displays_block(spec: BundleSpec) -> list[str]:
         )
     lines.append("")
     lines.append(f"active_displays: [{_yaml_str(out_cs)}]")
-    lines.append(
-        f"active_views: [{', '.join(_yaml_str(name) for name, _ in views)}]"
-    )
+    lines.append(f"active_views: [{', '.join(_yaml_str(name) for name, _ in views)}]")
     lines.append("")
     return lines
 
@@ -385,15 +391,17 @@ def _io_colorspace_yaml(name: str, *, family: str) -> list[str]:
     ]
     if entry.ocio_alias:
         lines.append(f"    aliases: [{_yaml_str(entry.ocio_alias)}]")
-    lines.extend([
-        f"    family: {family}",
-        f"    encoding: {encoding}",
-        "    description: |",
-        f"      Bundle {family.lower()} color space: {name}.",
-        "    isdata: false",
-        "    from_scene_reference: !<GroupTransform>",
-        "      children:",
-    ])
+    lines.extend(
+        [
+            f"    family: {family}",
+            f"    encoding: {encoding}",
+            "    description: |",
+            f"      Bundle {family.lower()} color space: {name}.",
+            "    isdata: false",
+            "    from_scene_reference: !<GroupTransform>",
+            "      children:",
+        ]
+    )
     lines.extend(_builtin_transform_lines(builtins, indent="        "))
     lines.append("")
     return lines
@@ -444,57 +452,69 @@ def _intermediate_specs(
 
     if spec.topology == "2lut":
         # chain = [film.cube, print.cube]; intermediate is cmy_film after film.cube.
-        intermediates.append({
-            "name": f"cmy_film_{film_tag}",
-            "family_suffix": film_tag,
-            "encoding": "log",
-            "description": _cmy_film_description(wires.cmy_film),
-            "chain_relpaths": [chain[0]],
-        })
+        intermediates.append(
+            {
+                "name": f"cmy_film_{film_tag}",
+                "family_suffix": film_tag,
+                "encoding": "log",
+                "description": _cmy_film_description(wires.cmy_film),
+                "chain_relpaths": [chain[0]],
+            }
+        )
 
     elif spec.topology == "3lut":
         # chain = [l1.cube, l2.cube, l3_combined.cube].
-        intermediates.append({
-            "name": f"log_e_film_{film_tag}",
-            "family_suffix": film_tag,
-            "encoding": "log",
-            "description": _log_e_description(wires.log_e_film, stage="film"),
-            "chain_relpaths": [chain[0]],
-        })
-        intermediates.append({
-            "name": f"cmy_film_{film_tag}",
-            "family_suffix": film_tag,
-            "encoding": "log",
-            "description": _cmy_film_description(wires.cmy_film),
-            "chain_relpaths": [chain[0], chain[1]],
-        })
+        intermediates.append(
+            {
+                "name": f"log_e_film_{film_tag}",
+                "family_suffix": film_tag,
+                "encoding": "log",
+                "description": _log_e_description(wires.log_e_film, stage="film"),
+                "chain_relpaths": [chain[0]],
+            }
+        )
+        intermediates.append(
+            {
+                "name": f"cmy_film_{film_tag}",
+                "family_suffix": film_tag,
+                "encoding": "log",
+                "description": _cmy_film_description(wires.cmy_film),
+                "chain_relpaths": [chain[0], chain[1]],
+            }
+        )
 
     elif spec.topology == "4lut":
         # chain = [l1.cube, l2.cube, l3.cube, l4.cube].
-        intermediates.append({
-            "name": f"log_e_film_{film_tag}",
-            "family_suffix": film_tag,
-            "encoding": "log",
-            "description": _log_e_description(wires.log_e_film, stage="film"),
-            "chain_relpaths": [chain[0]],
-        })
-        intermediates.append({
-            "name": f"cmy_film_{film_tag}",
-            "family_suffix": film_tag,
-            "encoding": "log",
-            "description": _cmy_film_description(wires.cmy_film),
-            "chain_relpaths": [chain[0], chain[1]],
-        })
+        intermediates.append(
+            {
+                "name": f"log_e_film_{film_tag}",
+                "family_suffix": film_tag,
+                "encoding": "log",
+                "description": _log_e_description(wires.log_e_film, stage="film"),
+                "chain_relpaths": [chain[0]],
+            }
+        )
+        intermediates.append(
+            {
+                "name": f"cmy_film_{film_tag}",
+                "family_suffix": film_tag,
+                "encoding": "log",
+                "description": _cmy_film_description(wires.cmy_film),
+                "chain_relpaths": [chain[0], chain[1]],
+            }
+        )
         # log_e_print is per-print: L3's normalized output depends on
         # the print's exposure characteristics. Wire constants are
         # shared across prints (n090 §7), but the cube data differs.
-        intermediates.append({
-            "name": f"log_e_print_{film_tag}_{print_tag}",
-            "family_suffix": f"{film_tag}/{print_tag}",
-            "encoding": "log",
-            "description": _log_e_description(wires.log_e_print, stage="print"),
-            "chain_relpaths": [chain[0], chain[1], chain[2]],
-        })
+        intermediates.append(
+            {
+                "name": f"log_e_print_{film_tag}_{print_tag}",
+                "family_suffix": f"{film_tag}/{print_tag}",
+                "encoding": "log",
+                "description": _log_e_description(wires.log_e_print, stage="print"),
+                "chain_relpaths": [chain[0], chain[1], chain[2]],
+            }
+        )
 
     return intermediates
 
@@ -516,13 +536,15 @@ def _intermediate_colorspace_yaml(spec: BundleSpec, inter: dict) -> list[str]:
     ]
     for desc_line in description.splitlines():
         lines.append(f"      {desc_line}")
-    lines.extend([
-        "    isdata: false",
-        "    from_scene_reference: !<GroupTransform>",
-        "      children:",
-        f"        - !<ColorSpaceTransform> {{src: {_yaml_str(REFERENCE_COLORSPACE)}, "
-        f"dst: {_yaml_str(spec.input_color_space)}}}",
-    ])
+    lines.extend(
+        [
+            "    isdata: false",
+            "    from_scene_reference: !<GroupTransform>",
+            "      children:",
+            f"        - !<ColorSpaceTransform> {{src: {_yaml_str(REFERENCE_COLORSPACE)}, "
+            f"dst: {_yaml_str(spec.input_color_space)}}}",
+        ]
+    )
     for cube_relpath in chain:
         lines.append(
             f"        - !<FileTransform> {{src: {_yaml_str(cube_relpath)}, "
@@ -547,9 +569,7 @@ def _spektrafilm_colorspace_yaml(
     out_entry = get_color_space(spec.output_color_space)
     encoding = _encoding_for_kind(out_entry.kind)
     n_cubes = len(chain_relpaths)
-    topology_desc = (
-        "single combined LUT" if n_cubes == 1 else f"chained {n_cubes}-LUT"
-    )
+    topology_desc = "single combined LUT" if n_cubes == 1 else f"chained {n_cubes}-LUT"
 
     lines = [
         "  - !<ColorSpace>",
@@ -582,6 +602,7 @@ def _spektrafilm_colorspace_yaml(
 # colorspace descriptions so a consumer working at that tap can decode
 # normalized code values back to physical units (density, log10(E)).
 # ---------------------------------------------------------------------------
+
 
 def _cmy_film_description(wire: DensityWire | None) -> str:
     if wire is None:
@@ -635,14 +656,14 @@ def _log_e_description(wire: LogEWire | None, stage: str) -> str:
         f"  min: {wire.min:.4f}\n"
         f"  max: {wire.max:.4f}\n"
         "Decode: log10(E) = code * (max - min) + min; E = 10^log10(E).\n"
-        "Asymmetric: from_scene_reference only. "
-        + _LOG_E_STAGE_ADVICE[stage]
+        "Asymmetric: from_scene_reference only. " + _LOG_E_STAGE_ADVICE[stage]
     )
 
 
 # ---------------------------------------------------------------------------
 # Helpers.
 # ---------------------------------------------------------------------------
+
 
 def _builtin_transform_lines(
     builtins: list[tuple[str, str]], *, indent: str
@@ -666,9 +687,7 @@ def _builtin_transform_lines(
                 f"{{style: {_yaml_str(style)}, direction: inverse}}"
             )
         else:
-            out.append(
-                f"{indent}- !<BuiltinTransform> {{style: {_yaml_str(style)}}}"
-            )
+            out.append(f"{indent}- !<BuiltinTransform> {{style: {_yaml_str(style)}}}")
     return out
 
 
@@ -680,9 +699,9 @@ def _encoding_for_kind(kind: str) -> str:
     breaking the chain.
     """
     return {
-        "linear":      "scene-linear",
+        "linear": "scene-linear",
         "encoded_sdr": "sdr-video",
-        "log":         "log",
+        "log": "log",
     }.get(kind, "scene-linear")
 
 

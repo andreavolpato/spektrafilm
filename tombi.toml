@@ -1,0 +1,8 @@
+#:schema https://www.schemastore.org/tombi.json
+
+toml-version = "v1.1.0"
+
+[format]
+  [format.rules]
+  indent-sub-tables               = true
+  key-value-equals-sign-alignment = true

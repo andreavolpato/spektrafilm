@@ -1,101 +1,127 @@
 ![spektrafilm banner](img/readme/banner.jpg)
 
-> [!WARNING]
->
-> **I love building spektrafilm**, and I invested already hundreds of hours in it. Right now it’s a nights-and-weekends project. If it will help pay some bills, I can keep improving it for everyone. 🙂 Any **support** is really appreciated: [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
-> 
-> **2026/05/28 big git history cleanup** (140MB -> 45MB) --> please reclone!
-> 
-
 # Spectral film simulations of analog photography
 
-An exploration of how to make good use of spectroscopic data from manufacturer datasheets in an end-to-end, physically based model with spectral calculations, with the goal of turning that data into convincing film, print, and scan renderings that can be explored interactively.
+> [!WARNING]
+> **I love building spektrafilm**, and I invested already hundreds of hours in it.
+> Right now it’s a nights-and-weekends project.
+> If it will help pay some bills, I can keep improving it for everyone.
+> 🙂 Any **support** is really appreciated:
+> [Buy me a coffee](https://buymeacoffee.com/andreavolpato)
+>
+> **2026/05/28 big git history cleanup** (140MB -> 45MB) --> please reclone!
+
+An exploration of how to make good use of spectroscopic data from manufacturer
+datasheets in an end-to-end, physically based model with spectral calculations, with the
+goal of turning that data into convincing film, print, and scan renderings that can be
+explored interactively.
 
 Here are some useful links and spin-off projects:
-- Discussion about the project is happeing at [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
+
+- Discussion about the project is happening at
+  [discuss.pixls.us](https://discuss.pixls.us/c/software/spektrafilm/).
 - Join us at the official [subreddit](https://www.reddit.com/r/spektrafilm/).
-- A [high-level writeup](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/) is available as a gentle entrypoint to the spectral framework.
-- Vote [your next stock](https://discuss.pixls.us/t/2026-q2-data-sheets-digitization-campaign/58032) you would like to see in spektrafilm.
-- A blazing fast Vulkan implementation is available in [vkdt](https://jo.dreggn.org/vkdt/src/pipe/modules/filmsim/readme.html) by [hanatos](https://github.com/hanatos).
-- An [OFX plugin](https://spektrafilm.114c.de/) was developed by [Aedan](https://github.com/chaert-s).
-- A fast [rust implementaion](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
-- A LUT-based bridge is available in [ART](https://artraweditor.github.io/SpectralFilmSimHowto) by [agriggio](https://github.com/agriggio).
+- A
+  [high-level writeup](https://discuss.pixls.us/t/spectral-film-simulations-from-scratch/)
+  is available as a gentle entrypoint to the spectral framework.
+- Vote
+  [your next stock](https://discuss.pixls.us/t/2026-q2-data-sheets-digitization-campaign/58032)
+  you would like to see in spektrafilm.
+- A blazing fast Vulkan implementation is available in
+  [vkdt](https://jo.dreggn.org/vkdt/src/pipe/modules/filmsim/readme.html) by
+  [hanatos](https://github.com/hanatos).
+- An [OFX plugin](https://spektrafilm.114c.de/) was developed by
+  [Aedan](https://github.com/chaert-s).
+- A fast [rust implementation](https://github.com/turbasvin/spektrafilm-rs) is being
+  developed by [turbasvin](https://github.com/turbasvin).
+- A LUT-based bridge is available in
+  [ART](https://artraweditor.github.io/SpectralFilmSimHowto) by
+  [agriggio](https://github.com/agriggio).
 
+In practice, this Python repository is **the reference implementation** for other
+developments, and the place where I am growing the underlying model.
+It lets you start from a camera image, pass it through a virtual negative, print, and
+scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain,
+halation, and other photographic effects shape the final result.
+The aim is not just to imitate a generic “film look,” but to build a model that is
+grounded in measurements and predicts real-world behaviors of photographic materials.
 
-In practice, this Python repository is **the reference implementation** for other developments, and the place where I am growing the underlying model. It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that is grounded in measurements and predicts real-world behaviors of photographic materials.
+![Example of GUI interface with color test image.](img/readme/gui_screenshot.png)
 
-![Example of GUI interface with color test
-image.](img/readme/gui_screenshot.png)
-
-The desktop GUI exposes the Python tech-demo functionality without writing code,
-letting you import RAW files or prepared linear images, explore different film
-and paper profiles, adjust the simulation interactively, and move quickly
-between fast(-ish) previews and more detailed final scans. Full resolution
-export is very slow at the moment.
+The desktop GUI exposes the Python tech-demo functionality without writing code, letting
+you import RAW files or prepared linear images, explore different film and paper
+profiles, adjust the simulation interactively, and move quickly between fast(-ish)
+previews and more detailed final scans.
+Full resolution export is very slow at the moment.
 
 > [!IMPORTANT]
->   spektrafilm (all lower caps) is open for research, integration, and production use. The project is in rapid development, some ares are still being build and will change fast.
+> spektrafilm (all lower caps) is open for research, integration, and production use.
+> The project is in rapid development, some ares are still being build and will change
+> fast.
 >
 > If you find it useful:
->  * Acknowledge spektrafilm in plugin descriptions, marketing, or credits (e.g.
->    "film modeling powered by `spektrafilm`" or "film modeling inspired by
->    `spektrafilm`", see `CITATION.cff`).
->  * Consider starring the repo or sharing your results.
->  * Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
->  * Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel the next all-nighter coding session :)
 >
->  *The project is GPLv3 licensed*, so any derivative work must also be open source under the same license. Derivatve work includes any software, plugin, or tool that incorporates spektrafilm code or is directly inspired by its methods.
+> - Acknowledge spektrafilm in plugin descriptions, marketing, or credits (e.g. “film
+>   modeling powered by `spektrafilm`” or “film modeling inspired by `spektrafilm`”, see
+>   `CITATION.cff`).
+> - Consider starring the repo or sharing your results.
+> - Cite the repo/Zenodo DOI in academic work (see `CITATION.cff`).
+> - Consider [buying me a coffee](https://www.buymeacoffee.com/andreavolpato) to fuel
+>   the next all-nighter coding session :)
 >
-> *JSON profiles and LUTs are CC BY-SA 4.0.*
->  
->  If *GPLv3 is not compatible with your project*, please reach out to discuss
->  alternative options. I am very open to collaboration and integration, but I
->  want to ensure that spektrafilm remains open source and for the community. 
+> _The project is GPLv3 licensed_, so any derivative work must also be open source under
+> the same license. Derivatve work includes any software, plugin, or tool that
+> incorporates spektrafilm code or is directly inspired by its methods.
 >
-> LUTs are on a strict "*commercial use, free share, no resale*" custom [license](SPEKTRAFILM_LICENSE.txt).
+> _JSON profiles and LUTs are CC BY-SA 4.0._
 >
->  This helps sustain open color science. Thanks!
-
+> If _GPLv3 is not compatible with your project_, please reach out to discuss
+> alternative options.
+> I am very open to collaboration and integration, but I want to ensure that spektrafilm
+> remains open source and for the community.
+>
+> LUTs are on a strict “_commercial use, free share, no resale_” custom
+> [license](SPEKTRAFILM_LICENSE.txt).
+>
+> This helps sustain open color science.
+> Thanks!
 
 ## Introduction
 
-The simulation emulates negative or positive film emulsions starting from
-published data for film stocks. An example of the curves for Kodak Portra 400
-(data-sheet e4050, 2016) is shown in the following figure (note that the CMY
-diffuse densities are generic because they are usually not published).
+The simulation emulates negative or positive film emulsions starting from published data
+for film stocks. An example of the curves for Kodak Portra 400 (data-sheet e4050, 2016)
+is shown in the following figure (note that the CMY diffuse densities are generic
+because they are usually not published).
 
-![Data extracted from the datasheet of Kodak Portra
-400](img/readme/example_data_kodak_portra_400.png)
+![Data extracted from the datasheet of Kodak Portra 400](img/readme/example_data_kodak_portra_400.png)
 
-An example of data for Kodak Portra Endura print paper (data-sheet e4021, 2009)
-is shown in the next figure.
+An example of data for Kodak Portra Endura print paper (data-sheet e4021, 2009) is shown
+in the next figure.
 
-![Data extracted from the datasheet of Kodak Ektacolor
-Edge](img/readme/example_data_kodak_portra_endura.png)
+![Data extracted from the datasheet of Kodak Ektacolor Edge](img/readme/example_data_kodak_portra_endura.png)
 
-The left panel shows the spectral log sensitivities of each color layer. The
-central panel shows the log-exposure-density characteristic curves for each
-layer when the medium is exposed to a neutral gray gradient under a reference
-light. The panel on the right shows the absorption spectra of the dyes formed on
-the medium during chemical development. 'Min' and 'Mid' are the absorption
-values for the unexposed processed medium and a neutral gray "middle" exposure,
-respectively.
+The left panel shows the spectral log sensitivities of each color layer.
+The central panel shows the log-exposure-density characteristic curves for each layer
+when the medium is exposed to a neutral gray gradient under a reference light.
+The panel on the right shows the absorption spectra of the dyes formed on the medium
+during chemical development.
+‘Min’ and ‘Mid’ are the absorption values for the unexposed processed medium and a
+neutral gray “middle” exposure, respectively.
 
-Starting from linear RGB data from a camera RAW file, the simulation
-reconstructs the spectral data, projects the virtual light transmitted through
-the negative onto print paper, and uses a simplified color enlarger with
-dichroic filters to balance the print. Finally, it scans the virtual print using
-the light reflected from the print.
+Starting from linear RGB data from a camera RAW file, the simulation reconstructs the
+spectral data, projects the virtual light transmitted through the negative onto print
+paper, and uses a simplified color enlarger with dichroic filters to balance the print.
+Finally, it scans the virtual print using the light reflected from the print.
 
-The pipeline is sketched in this figure, adapted from [^1]: ![The color
-photography process.](img/readme/pipeline_color_digital_management.png) Here,
-light from a scene (a RAW file from your camera) is exposed onto a virtual
-negative with specific spectral sensitivities, then a chemical process creates
-the dye densities using density curves and more complex interactions that model
-the couplers. The virtual negative is projected with a specific illuminant onto
-paper that is developed again with simple density curves and no couplers in this
-case. Print paper is already designed to reduce channel cross-talk, since it
-does not need to sample a scene, only the dyes on the negative.
+The pipeline is sketched in this figure, adapted from [^1]:
+![The color photography process.](img/readme/pipeline_color_digital_management.png)
+Here, light from a scene (a RAW file from your camera) is exposed onto a virtual
+negative with specific spectral sensitivities, then a chemical process creates the dye
+densities using density curves and more complex interactions that model the couplers.
+The virtual negative is projected with a specific illuminant onto paper that is
+developed again with simple density curves and no couplers in this case.
+Print paper is already designed to reduce channel cross-talk, since it does not need to
+sample a scene, only the dyes on the negative.
 
 The pipeline allows many characteristics to be added in a physically sound way.
 For example:
@@ -104,48 +130,49 @@ For example:
 - film grain generated on the negative (using a stochastic model)
 - pre-flashing of the print to retain highlights
 
-From my experience experimenting with film simulation, data-sheet curves are
-really not enough to reproduce a decent film look. The key is to understand that
-film emulsions contain couplers, chemicals that are produced during development
-alongside the actual CMY dyes, and these are very important for achieving the
-desired saturation. The main ones are:
+From my experience experimenting with film simulation, data-sheet curves are really not
+enough to reproduce a decent film look.
+The key is to understand that film emulsions contain couplers, chemicals that are
+produced during development alongside the actual CMY dyes, and these are very important
+for achieving the desired saturation.
+The main ones are:
 
-- masking couplers, which give the typical orange color to unexposed developed
-film. These couplers are consumed locally where density is formed and are used
-to reduce the effect of cross-talk in layer absorption, thus increasing
-saturation. The presence of masking couplers is simulated with a negative
-absorption contribution in the isolated dye absorption spectra. See, for
-example, data for Portra 400 updated to include the masking couplers and with
-unmixed print density characteristic curves: ![Portra 400 data modified for
-masking couplers and unmixing of
-densities.](img/readme/example_data_kodak_portra_400_couplers.png)
+- masking couplers, which give the typical orange color to unexposed developed film.
+  These couplers are consumed locally where density is formed and are used to reduce the
+  effect of cross-talk in layer absorption, thus increasing saturation.
+  The presence of masking couplers is simulated with a negative absorption contribution
+  in the isolated dye absorption spectra.
+  See, for example, data for Portra 400 updated to include the masking couplers and with
+  unmixed print density characteristic curves:
+  ![Portra 400 data modified for masking couplers and unmixing of densities.](img/readme/example_data_kodak_portra_400_couplers.png)
 
-- direct inhibitor couplers, which are released locally when density is formed
-  and inhibit the formation of density in nearby layers or in the same layer.
-  This increases saturation and contrast. Also, if we let the couplers diffuse
-  in space, they can increase local contrast and perceived sharpness.
+- direct inhibitor couplers, which are released locally when density is formed and
+  inhibit the formation of density in nearby layers or in the same layer.
+  This increases saturation and contrast.
+  Also, if we let the couplers diffuse in space, they can increase local contrast and
+  perceived sharpness.
 
-A more detailed description of colour couplers can be found in Chapter 15 of
-Hunt's book [^2].
+A more detailed description of colour couplers can be found in Chapter 15 of Hunt’s book
+[^2].
 
 ## Package layout
 
 The codebase is organized as three packages under `src/`:
 
 1. [src/spektrafilm](src/spektrafilm): runtime simulation pipeline (the
-   physical-pipeline core). Linear-in / linear-out, no GUI or LUT concerns.
-2. [src/spektrafilm_gui](src/spektrafilm_gui): desktop Qt + napari GUI built on
-   top of the runtime.
-3. [src/spektrafilm_lut_creator](src/spektrafilm_lut_creator): LUT bake + QA +
-   OCIO config emission. Builds `.cube` / `.3dl` / Hald-CLUT PNG bundles in
-   1-LUT / 2-LUT / 3-LUT / 4-LUT topologies with optional standalone OCIO 2
-   configs for pipeline integration. Drives via the `spektrafilm-lut`
-   command-line tool or the Python `BundleBuilder` API.
+   physical-pipeline core).
+   Linear-in / linear-out, no GUI or LUT concerns.
+2. [src/spektrafilm_gui](src/spektrafilm_gui): desktop Qt + napari GUI built on top of
+   the runtime.
+3. [src/spektrafilm_lut_creator](src/spektrafilm_lut_creator): LUT bake + QA + OCIO
+   config emission. Builds `.cube` / `.3dl` / Hald-CLUT PNG bundles in 1-LUT / 2-LUT /
+   3-LUT / 4-LUT topologies with optional standalone OCIO 2 configs for pipeline
+   integration. Drives via the `spektrafilm-lut` command-line tool or the Python
+   `BundleBuilder` API.
 
 Canonical import surfaces:
 
-1. Runtime API:
-   [src/spektrafilm/runtime/api.py](src/spektrafilm/runtime/api.py).
+1. Runtime API: [src/spektrafilm/runtime/api.py](src/spektrafilm/runtime/api.py).
 2. GUI entry point: [src/spektrafilm_gui/app.py](src/spektrafilm_gui/app.py).
 3. LUT bundle builder:
    [src/spektrafilm_lut_creator/builders.py](src/spektrafilm_lut_creator/builders.py).
@@ -177,14 +204,14 @@ spec = BundleSpec(
       resolution=33,
       ocio_config=True,   # opt-in: also emit a standalone OCIO 2 config
       qa=True,            # opt-in: run the QA suite and emit report.html
-      target="lumix_reatlime_vlog",  # special .cube files for lumix realtime 
+      target="lumix_reatlime_vlog",  # special .cube files for lumix realtime
 )
 builder = BundleBuilder(spec)
 builder.write(builder.build())   # lands in build/lut_bundles/<auto-name>/
 ```
 
-Equivalent on the command line — color spaces accept canonical
-registry names or `short_tag` slugs (`vlog`, `srgb`, `acescg`, ...):
+Equivalent on the command line — color spaces accept canonical registry names or
+`short_tag` slugs (`vlog`, `srgb`, `acescg`, ...):
 
 ```bash
 spektrafilm-lut build \
@@ -204,9 +231,8 @@ spektrafilm-lut list output       # discover output color spaces
 spektrafilm-lut list target       # discover supported target (eg lumix realtime)
 ```
 
-For complex specs (nested gamut-compression settings, multi-paper
-bundles), pass `--from spec.toml` to load the full `BundleSpec` from
-a TOML file.
+For complex specs (nested gamut-compression settings, multi-paper bundles), pass
+`--from spec.toml` to load the full `BundleSpec` from a TOML file.
 
 Dependency direction:
 
@@ -216,56 +242,57 @@ Dependency direction:
 
 ## Installation
 
-> [!NOTE] 
-> Since spektrafilm is not compatible with the latest Python version, an
-> older version like 3.13 must be used.
+> [!NOTE]
+> Since spektrafilm is not compatible with the latest Python version, an older version
+> like 3.13 must be used.
 
-I reccomend to install spektrafilm with `conda`+`pip` for now, just because it 
-is my current workflow and thus it has more chances to be tested right after 
-commit.
+I recommend to install spektrafilm with `conda`+`pip` for now, just because it is my
+current workflow and thus it has more chances to be tested right after commit.
 
 ### Using `uv`
 
-You can easily run the latest version of spektrafilm directly from the Git
-repository using [uv](https://docs.astral.sh/uv/). The default install now
-includes the desktop GUI and LUT-creator dependencies; only development tools
-remain optional:
+You can easily run the latest version of spektrafilm directly from the Git repository
+using [uv](https://docs.astral.sh/uv/). The default install now includes the desktop GUI
+and LUT-creator dependencies; only development tools remain optional:
 
 ```bash
 uvx --python 3.13 --from git+https://github.com/andreavolpato/spektrafilm.git spektrafilm
 ```
 
 Or from a local working copy:
+
 ```bash
 uvx --python 3.13 --from /path/to/local/working_copy spektrafilm
 ```
 
-Alternatively, you can install spektrafilm permanently which will provide you
-the `spektrafilm` command:
+Alternatively, you can install spektrafilm permanently which will provide you the
+`spektrafilm` command:
 
 ```bash
 uv tool install --python 3.13 git+https://github.com/andreavolpato/spektrafilm.git
 ```
 
-For full development, install the project with `[dev]` to add the test tooling
-on top of the default install.
+For full development, install the project with `[dev]` to add the test tooling on top of
+the default install.
 
 #### Installing uv
 
-Under Windows you can install `uv` using the following command, which you only
-need to execute once:
+Under Windows you can install `uv` using the following command, which you only need to
+execute once:
+
 ```bash
-# ! you only need to exeucte this command the first time to install uv!
+# ! you only need to execute this command the first time to install uv!
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
-Instructions for macOS and Linux are
-[here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
+Instructions for macOS and Linux are
+[available in the uv documentation](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
 ### Using `pip`
 
-You can also use `pip` normally. The default install already includes the GUI
-and LUT-creator dependencies; `dev` is the only remaining optional extra.
+You can also use `pip` normally.
+The default install already includes the GUI and LUT-creator dependencies; `dev` is the
+only remaining optional extra.
 
 ```bash
 # install the default package (desktop app + LUT creator included):
@@ -276,10 +303,12 @@ pip install -e .
 # run
 spektrafilm
 ```
-I recommend creating a clean virtual environment to install the dependencies,
-for example by using `conda`.
+
+I recommend creating a clean virtual environment to install the dependencies, for
+example by using `conda`.
 
 #### Using `conda`
+
 From a terminal:
 
 ```bash
@@ -287,35 +316,37 @@ conda create -n spektrafilm python=3.13
 conda activate spektrafilm
 ```
 
-Install the package `spektrafilm` by going to the repository
-folder and running:
+Install the package `spektrafilm` by going to the repository folder and running:
 
 ```bash
 pip install -e .
 ```
+
 Launch the GUI by activating the environment and:
 
 ```bash
 spektrafilm
 ```
+
 To remove the environment:
+
 ```bash
 conda env remove -n spektrafilm
 ```
 
 ### Install options
 
-| Install command | What you get |
-|---|---|
-| `pip install -e .` | Default install: core runtime + GUI + LUT creator. Provides both the `spektrafilm` and `spektrafilm-lut` commands. |
-| `pip install -e ".[dev]"` | Default install + test tooling (`pytest`, OCIO config validation). |
+| Install command           | What you get                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `pip install -e .`        | Default install: core runtime + GUI + LUT creator. Provides both the `spektrafilm` and `spektrafilm-lut` commands. |
+| `pip install -e ".[dev]"` | Default install + test tooling (`pytest`, OCIO config validation).                                                 |
 
-The same `[extras]` syntax works with `uv pip install` and `uv tool install`.
-For one-off runs with `uvx`, use `--from` as shown above.
+The same `[extras]` syntax works with `uv pip install` and `uv tool install`. For
+one-off runs with `uvx`, use `--from` as shown above.
 
 > [!NOTE]
-> On Windows PowerShell and on macOS zsh, quote the brackets to prevent
-> shell glob expansion: `pip install -e ".[dev]"`.
+> On Windows PowerShell and on macOS zsh, quote the brackets to prevent shell glob
+> expansion: `pip install -e ".[dev]"`.
 
 ## Testing
 
@@ -326,9 +357,9 @@ pip install -e ".[dev]"
 python -m pytest tests -v
 ```
 
-Regression snapshots are stored as committed `.npz` files in `tests/baselines/`
-and are checked by `tests/test_regression_baselines.py`. When a simulation
-change is intentional, regenerate snapshots manually:
+Regression snapshots are stored as committed `.npz` files in `tests/baselines/` and are
+checked by `tests/test_regression_baselines.py`. When a simulation change is
+intentional, regenerate snapshots manually:
 
 ```bash
 python scripts/regenerate_test_baselines.py
@@ -337,106 +368,111 @@ python scripts/regenerate_test_baselines.py
 Snapshot files are never updated automatically during pytest runs.
 
 ## GUI
-When launching the GUI, a `napari` window should appear. Note that `napari` is
-not color-managed. The way I work is to set the screen and operating system
-color profile to sRGB, and I set the output color space of the simulation to
-sRGB. On Windows, the GUI will try to get the display profile and convert the
-final image for viewing; if successful, this will be indicated in the status
-bar.
 
-You can import camera RAW files directly from the `import raw` section. Choose
-the white balance mode (`as shot`, `daylight`, `tungsten`, or `custom`), set
-temperature and tint when using `custom`, then click `select file`. The RAW
-importer uses `rawpy` and converts the image to the current `input color space`
-and `apply CCTF decoding` settings. You can use `reprocess raw` to reload the
-same file and reprocess it with the new settings.
+When launching the GUI, a `napari` window should appear.
+Note that `napari` is not color-managed.
+The way I work is to set the screen and operating system color profile to sRGB, and I
+set the output color space of the simulation to sRGB. On Windows, the GUI will try to
+get the display profile and convert the final image for viewing; if successful, this
+will be indicated in the status bar.
 
-> [!TIP] 
+You can import camera RAW files directly from the `import raw` section.
+Choose the white balance mode (`as shot`, `daylight`, `tungsten`, or `custom`), set
+temperature and tint when using `custom`, then click `select file`. The RAW importer
+uses `rawpy` and converts the image to the current `input color space` and
+`apply CCTF decoding` settings.
+You can use `reprocess raw` to reload the same file and reprocess it with the new
+settings.
+
+> [!TIP]
 > Hover over the widgets and controls to see a helpful tooltip.
 
-You can still load externally prepared linear images through the `file loader`.
-This is useful if you want a fully manual raw-development workflow or if you
-prefer preprocessing in another tool. For best results, keep the image
-scene-referred and linear, ideally as a 16-bit or 32-bit float TIFF/EXR in a
-wide-gamut color space such as linear Rec2020 or linear ProPhoto RGB.
+You can still load externally prepared linear images through the `file loader`. This is
+useful if you want a fully manual raw-development workflow or if you prefer
+preprocessing in another tool.
+For best results, keep the image scene-referred and linear, ideally as a 16-bit or
+32-bit float TIFF/EXR in a wide-gamut color space such as linear Rec2020 or linear
+ProPhoto RGB.
 
-> [!IMPORTANT] 
-> The `file loader` imports 16-bit and 32-bit image files as new
-> layers using OpenImageIo. PNG, TIFF, and EXR are known to work, and other
-> formats may work too.
+> [!IMPORTANT]
+> The `file loader` imports 16-bit and 32-bit image files as new layers using
+> OpenImageIo. PNG, TIFF, and EXR are known to work, and other formats may work too.
 
-Please bear in mind that this is a highly experimental project, and many
-controls are exposed in the GUI with little or no documentation. Use the
-tooltips by hovering over the controls, or explore the code. Adjust
-`exposure_compensation_ev` to change the exposure of the negative. You can
-visualize a virtual scan of the negative by setting the `Workflow` selector
-to `input-film-scan` and pressing `PREVIEW/SCAN`.
+Please bear in mind that this is a highly experimental project, and many controls are
+exposed in the GUI with little or no documentation.
+Use the tooltips by hovering over the controls, or explore the code.
+Adjust `exposure_compensation_ev` to change the exposure of the negative.
+You can visualize a virtual scan of the negative by setting the `Workflow` selector to
+`input-film-scan` and pressing `PREVIEW/SCAN`.
 
 For fine-tuning halation, adjust `scattering size`, `scattering strength`,
-`halation size`, and `halation strength`. There are three controls for each,
-defining the effect on the three color channels (RGB). `scattering size` and
-`halation size` represent the sigma value for Gaussian blurring. `scattering
-strength` and `halation strength` refer to the percentage of scattered or
-halated light. `y filter shift` and `m filter shift` are the controls for the
-virtual yellow and magenta filters of the color enlarger. They are the number of
-steps shifted from a neutral position, that is, the starting settings that make
-an 18% gray target photographed with the correct reference illuminant fully
-neutral in the final print.
+`halation size`, and `halation strength`. There are three controls for each, defining
+the effect on the three color channels (RGB). `scattering size` and `halation size`
+represent the sigma value for Gaussian blurring.
+`scattering strength` and `halation strength` refer to the percentage of scattered or
+halated light. `y filter shift` and `m filter shift` are the controls for the virtual
+yellow and magenta filters of the color enlarger.
+They are the number of steps shifted from a neutral position, that is, the starting
+settings that make an 18% gray target photographed with the correct reference illuminant
+fully neutral in the final print.
 
-There are controls to apply lens blur at several stages of the pipeline, for
-example in the camera lens, the color enlarger lens, or the scanner. There is
-also a control for blurring density to simulate diffusion during development,
-`grain > blur`. The scanner also has sharpness controls via a simple unsharp
-mask filter.
+There are controls to apply lens blur at several stages of the pipeline, for example in
+the camera lens, the color enlarger lens, or the scanner.
+There is also a control for blurring density to simulate diffusion during development,
+`grain > blur`. The scanner also has sharpness controls via a simple unsharp mask
+filter.
 
 For example, upscaling a small crop of the film 12 times reveals the dye clouds.
 
-![Example of GUI interface with color test
-image.](img/readme/gui_grain_magnified.png)
+![Example of GUI interface with color test image.](img/readme/gui_grain_magnified.png)
 
-This is one of the most appealing aspects for me, especially when I think of
-printing large, high-resolution simulated images while retaining all this
-low-level grain detail that is not present in the original picture.
+This is one of the most appealing aspects for me, especially when I think of printing
+large, high-resolution simulated images while retaining all this low-level grain detail
+that is not present in the original picture.
 
 ## Preparing input images manually with darktable
 
-Direct RAW import in the GUI is the simplest workflow, but manual development is
-still useful when you want tighter control over the input rendering.
+Direct RAW import in the GUI is the simplest workflow, but manual development is still
+useful when you want tighter control over the input rendering.
 
-The simulation expects linear scene-referred files as input, with or without a
-transfer function. I usually open RAW files from digital cameras with
-[darktable](https://www.darktable.org/), deactivate the non-linear mappings done
-by `filmic` or `sigmoid`, and adjust the exposure to preserve all the
-information while avoiding clipping. Then I export the file as a 32-bit float
-TIFF in linear ProPhoto RGB.
+The simulation expects linear scene-referred files as input, with or without a transfer
+function. I usually open RAW files from digital cameras with
+[darktable](https://www.darktable.org/), deactivate the non-linear mappings done by
+`filmic` or `sigmoid`, and adjust the exposure to preserve all the information while
+avoiding clipping. Then I export the file as a 32-bit float TIFF in linear ProPhoto RGB.
 
 ## Example usage of the GUI
 
-[Watch the GUI demo
-video](https://github.com/user-attachments/assets/534746b5-87ec-4bd0-96c9-5214ef7e381b)
+[Watch the GUI demo video](https://github.com/user-attachments/assets/534746b5-87ec-4bd0-96c9-5214ef7e381b)
 
 ## Things to consider
 
-- The simulation is quite slow for full-resolution images. On my laptop it takes
-  roughly 10 seconds to process 6 MP images. I usually adjust most values with
-  `PREVIEW`. When a final image is needed, use `SCAN`, which bypasses image
-  scaling.
-- Based on my experience building the profiles, Fujifilm data are less
-  self-consistent than Kodak data.
+- The simulation is quite slow for full-resolution images.
+  On my laptop it takes roughly 10 seconds to process 6 MP images.
+  I usually adjust most values with `PREVIEW`. When a final image is needed, use `SCAN`,
+  which bypasses image scaling.
+- Based on my experience building the profiles, Fujifilm data are less self-consistent
+  than Kodak data.
 
 ## Support
 
-spektrafilm is developed in my free time, often during late nights after my research work at KTH. If you'd like to support continued development and help fuel the next all-nighter coding session, consider [buying me a coffee](https://buymeacoffee.com/andreavolpato). Your contributions help me dedicate more time to the project and giving back to the [pixls.us](https://discuss.pixls.us/) community.
+spektrafilm is developed in my free time, often during late nights after my research
+work at KTH. If you’d like to support continued development and help fuel the next
+all-nighter coding session, consider
+[buying me a coffee](https://buymeacoffee.com/andreavolpato).Your contributions help me
+dedicate more time to the project and giving back to the
+[pixls.us](https://discuss.pixls.us/) community.
 
 ## References
 
 [^1]: Giorgianni, Madden, Digital Color Management, 2nd edition, 2008 Wiley
+
 [^2]: Hung, The Reproduction of Color, 6th edition, 2004 Wiley
-[^3]: Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB
-    Reflectance, Eurographics Symposium on Rendering - DL-only and Industry
-    Track, 2019, doi:10.2312/SR.20191216
+
+[^3]:
+    Mallett, Yuksel, Spectral Primary Decomposition for Rendering with sRGB
+    Reflectance, Eurographics Symposium on Rendering - DL-only and Industry Track, 2019,
+    doi:10.2312/SR.20191216
 
 Sample images are from
 [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
-
-

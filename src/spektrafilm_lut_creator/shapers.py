@@ -8,6 +8,7 @@ arbitrary-shape ndarrays.
 
 See studies/a40_lut_system/n030_lut_package_design.md §3.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,9 @@ def log_e_to_code(log_e: np.ndarray, wire: LogEWire) -> np.ndarray:
     """
     span = wire.max - wire.min
     if span <= 0.0:
-        raise ValueError(f"LogEWire span must be positive: min={wire.min}, max={wire.max}")
+        raise ValueError(
+            f"LogEWire span must be positive: min={wire.min}, max={wire.max}"
+        )
     return (np.asarray(log_e, dtype=float) - wire.min) / span
 
 
@@ -33,7 +36,9 @@ def code_to_log_e(code: np.ndarray, wire: LogEWire) -> np.ndarray:
     """Decode [0, 1] code values back to log10(E)."""
     span = wire.max - wire.min
     if span <= 0.0:
-        raise ValueError(f"LogEWire span must be positive: min={wire.min}, max={wire.max}")
+        raise ValueError(
+            f"LogEWire span must be positive: min={wire.min}, max={wire.max}"
+        )
     return np.asarray(code, dtype=float) * span + wire.min
 
 

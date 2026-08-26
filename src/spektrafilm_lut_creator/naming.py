@@ -23,17 +23,24 @@ falsely naming after one print. Every tag is normalized:
 - ``<input>`` / ``<output>``: the color-space registry's ``short_tag``
   (``Panasonic V-Log`` → ``vlog``; ``Rec.2020`` → ``rec2020``)
 """
+
 from __future__ import annotations
 
 from spektrafilm_lut_creator.metadata import _spektrafilm_version
-
 
 # Brand prefixes stripped from profile stock names when building canonical
 # camera-safe filename tags. Order matters when prefixes share a stem
 # (none here yet). Extend as new vendors arrive.
 _BRAND_PREFIXES: tuple[str, ...] = (
-    "kodak", "fujifilm", "fuji", "ilford", "agfa",
-    "cinestill", "polaroid", "ferrania", "lomography",
+    "kodak",
+    "fujifilm",
+    "fuji",
+    "ilford",
+    "agfa",
+    "cinestill",
+    "polaroid",
+    "ferrania",
+    "lomography",
 )
 
 _TOPOLOGY_TAGS: dict[str, str] = {

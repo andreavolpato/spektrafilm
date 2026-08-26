@@ -11,15 +11,16 @@ read on the profiles that informed it.
 
 See studies/a40_lut_system/n030_lut_package_design.md §4.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
-from importlib.metadata import PackageNotFoundError, version as distribution_version
+from datetime import UTC, date, datetime
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
 from typing import Any
 
 from spektrafilm_lut_creator.wires import DensityWire, LogEWire
-
 
 # 2: input_exposure records exposure_ev (midgray-pinned model, n200)
 # instead of stops_above_midgray; params_snapshot keys exposure_ev /
@@ -31,7 +32,9 @@ from spektrafilm_lut_creator.wires import DensityWire, LogEWire
 SCHEMA_VERSION = 3
 
 _PROJECT_URL = "https://github.com/andreavolpato/spektrafilm"
-_LUT_LICENSE_URL = "https://github.com/andreavolpato/spektrafilm/blob/main/SPEKTRAFILM_LICENSE.txt"
+_LUT_LICENSE_URL = (
+    "https://github.com/andreavolpato/spektrafilm/blob/main/SPEKTRAFILM_LICENSE.txt"
+)
 
 
 def _spektrafilm_version() -> str:
@@ -44,7 +47,7 @@ def _spektrafilm_version() -> str:
 
 def _created_iso8601() -> str:
     """UTC build timestamp in ISO 8601 (seconds resolution)."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _copyright_statement() -> str:
@@ -66,6 +69,7 @@ class ProvenanceMeta:
     the work correctly. The defaults mirror the spektrafilm profile
     metadata pattern.
     """
+
     spektrafilm_version: str = field(default_factory=_spektrafilm_version)
     # The LUT creator ships inside the spektrafilm distribution; it
     # has no separate version of its own.
@@ -94,6 +98,7 @@ class ProvenanceMeta:
 @dataclass(frozen=True)
 class ColorSpaceMeta:
     """One end of the bundle's color-space contract."""
+
     name: str
     cctf: bool  # True if the wire carries an encoded (CCTF-applied) signal
 
@@ -101,6 +106,7 @@ class ColorSpaceMeta:
 @dataclass(frozen=True)
 class StocksMeta:
     """Stock identifiers used to build the bundle."""
+
     film: str
     prints: tuple[str, ...]  # one entry for 1lut, >=1 otherwise
 
@@ -113,6 +119,7 @@ class WiresMeta:
     corresponding tap (e.g. 1lut bundles need none of these
     because the intermediate taps aren't materialized as separate LUTs).
     """
+
     log_e_film: LogEWire | None = None
     cmy_film: DensityWire | None = None
     log_e_print: LogEWire | None = None
@@ -123,20 +130,24 @@ class WiresMeta:
 # (notably ``ocio_emit`` for chain composition) can branch by frozenset
 # membership instead of string-matching, and so the docstring on
 # :class:`LutFileMeta` doesn't drift from what the builder writes.
-SHARED_LUT_ROLES: frozenset[str] = frozenset({
-    "film",
-    "filming_expose",
-    "filming_develop",
-})
+SHARED_LUT_ROLES: frozenset[str] = frozenset(
+    {
+        "film",
+        "filming_expose",
+        "filming_develop",
+    }
+)
 """Roles that appear at most once per bundle (shared across all prints)."""
 
-PER_PRINT_LUT_ROLES: frozenset[str] = frozenset({
-    "combined",
-    "print",
-    "printing_combined",
-    "printing_expose",
-    "printing_develop_scan",
-})
+PER_PRINT_LUT_ROLES: frozenset[str] = frozenset(
+    {
+        "combined",
+        "print",
+        "printing_combined",
+        "printing_expose",
+        "printing_develop_scan",
+    }
+)
 """Roles that appear once per print in the bundle."""
 
 
@@ -157,10 +168,11 @@ class LutFileMeta:
     The shared-vs-per-print classification lives in
     :data:`SHARED_LUT_ROLES` and :data:`PER_PRINT_LUT_ROLES`.
     """
+
     role: str
-    path: str            # relative to the bundle root
-    domain: str          # source tap name (e.g. "input_rgb", "cmy_film")
-    range: str           # destination tap name (e.g. "cmy_film", "output_rgb")
+    path: str  # relative to the bundle root
+    domain: str  # source tap name (e.g. "input_rgb", "cmy_film")
+    range: str  # destination tap name (e.g. "cmy_film", "output_rgb")
     print_profile: str | None = None  # set for per-print roles
 
 
@@ -175,6 +187,7 @@ class InputExposureMeta:
     ``BundleMeta.input_exposure`` field stays ``None``) for the default
     midgray-pinned colorimetric behavior.
     """
+
     exposure_ev: float
     gain: float  # 2**exposure_ev, applied on top of the midgray bridge
 
@@ -182,6 +195,7 @@ class InputExposureMeta:
 @dataclass
 class BundleMeta:
     """The full ``bundle.json`` payload."""
+
     schema_version: int = SCHEMA_VERSION
     name: str = ""
     topology: str = "1lut"  # "1lut" | "2lut" | "3lut" | "4lut"

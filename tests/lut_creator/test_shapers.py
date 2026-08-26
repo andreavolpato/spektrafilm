@@ -1,4 +1,5 @@
 """Tests for the LUT wire shapers (analytic inverse + boundary behavior)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -51,9 +52,7 @@ class TestDensityShaper:
 
     def test_inverse_within_range(self):
         wire = DensityWire(d_max=(3.8, 4.1, 3.6))
-        density = np.array([[0.0, 1.0, 2.0],
-                            [3.0, 2.5, 1.5],
-                            [0.5, 0.8, 0.1]])
+        density = np.array([[0.0, 1.0, 2.0], [3.0, 2.5, 1.5], [0.5, 0.8, 0.1]])
         code = density_to_code(density, wire)
         np.testing.assert_allclose(code_to_density(code, wire), density, atol=1e-12)
 
@@ -92,9 +91,7 @@ class TestDensityShaper:
         """A grain sample that dips below zero must round-trip cleanly when
         it stays within the wire's [d_min, d_max] band."""
         wire = DensityWire(d_max=(3.8, 4.1, 3.6), d_min=(-0.2, -0.2, -0.2))
-        density = np.array([[-0.15, 0.0, 0.05],
-                            [-0.2, 2.0, 3.6],
-                            [-0.05, 1.0, 0.5]])
+        density = np.array([[-0.15, 0.0, 0.05], [-0.2, 2.0, 3.6], [-0.05, 1.0, 0.5]])
         code = density_to_code(density, wire)
         # Every sample is inside the band, so nothing clips.
         assert np.all(code >= 0.0) and np.all(code <= 1.0)

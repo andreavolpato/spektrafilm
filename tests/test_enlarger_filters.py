@@ -10,7 +10,6 @@ from spektrafilm.config import SPECTRAL_SHAPE
 from spektrafilm.model.color_filters import color_enlarger
 from spektrafilm.runtime.services.filter_enlarger_source import EnlargerService
 
-
 pytestmark = pytest.mark.unit
 
 
@@ -36,7 +35,7 @@ def test_enlarger_service_passes_filters_in_cmy_order(monkeypatch) -> None:
         captured_calls.append(np.asarray(filter_cc_values, dtype=np.float64))
         return np.ones(3, dtype=np.float64)
 
-    monkeypatch.setattr(filter_source_module, 'color_enlarger', fake_color_enlarger)
+    monkeypatch.setattr(filter_source_module, "color_enlarger", fake_color_enlarger)
     service = EnlargerService(params)
     light_source = np.ones(3, dtype=np.float64)
 
@@ -51,21 +50,20 @@ def test_color_enlarger_cc_filters_target_expected_spectral_bands() -> None:
     wavelengths = SPECTRAL_SHAPE.wavelengths
     light_source = np.ones_like(wavelengths, dtype=np.float64)
     bands = {
-        'blue': wavelengths < 480,
-        'green': (wavelengths >= 500) & (wavelengths < 600),
-        'red': wavelengths >= 620,
+        "blue": wavelengths < 480,
+        "green": (wavelengths >= 500) & (wavelengths < 600),
+        "red": wavelengths >= 620,
     }
     cases = [
-        ((100.0, 0.0, 0.0), 'red'),
-        ((0.0, 100.0, 0.0), 'green'),
-        ((0.0, 0.0, 100.0), 'blue'),
+        ((100.0, 0.0, 0.0), "red"),
+        ((0.0, 100.0, 0.0), "green"),
+        ((0.0, 0.0, 100.0), "blue"),
     ]
 
     for filter_values, attenuated_band in cases:
         filtered = color_enlarger(light_source, filter_values)
         band_means = {
-            band: float(np.nanmean(filtered[mask]))
-            for band, mask in bands.items()
+            band: float(np.nanmean(filtered[mask])) for band, mask in bands.items()
         }
 
         assert band_means[attenuated_band] < 0.2
@@ -75,7 +73,7 @@ def test_color_enlarger_cc_filters_target_expected_spectral_bands() -> None:
                 assert mean > 0.7
 
 
-@pytest.mark.parametrize('cc_value', [30.0, 60.0, 100.0])
+@pytest.mark.parametrize("cc_value", [30.0, 60.0, 100.0])
 def test_color_enlarger_cc_scale_matches_density_definition(cc_value: float) -> None:
     wavelengths = SPECTRAL_SHAPE.wavelengths
     light_source = np.ones_like(wavelengths, dtype=np.float64)
@@ -83,4 +81,6 @@ def test_color_enlarger_cc_scale_matches_density_definition(cc_value: float) -> 
     filtered = color_enlarger(light_source, (0.0, 0.0, cc_value))
     expected_minimum_transmittance = 10 ** (-cc_value / 100.0)
 
-    assert np.nanmin(filtered) == pytest.approx(expected_minimum_transmittance, abs=1e-3)
+    assert np.nanmin(filtered) == pytest.approx(
+        expected_minimum_transmittance, abs=1e-3
+    )

@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib.resources as pkg_resources
 import tomllib
 
-
 _GRAIN_CHANNELS = 3
 
 
@@ -16,7 +15,7 @@ def _read_presets(filename, transform):
     is what distinguishes one preset family from another (grain pads to a fixed
     channel count, couplers keep each gamma's native arity).
     """
-    package = pkg_resources.files('spektrafilm.data.presets')
+    package = pkg_resources.files("spektrafilm.data.presets")
     resource = package / filename
     with resource.open("rb") as file:
         data = tomllib.load(file)
@@ -67,7 +66,7 @@ def read_grain_presets():
     converted to per-channel tuples (padded with ``None``) to match the
     runtime grain fields.
     """
-    return _read_presets('grain.toml', _to_grain_values)
+    return _read_presets("grain.toml", _to_grain_values)
 
 
 def read_coupler_presets():
@@ -79,5 +78,4 @@ def read_coupler_presets():
     to tuples of their native length (3-vector same-layer gammas, 2-vector
     interlayer gammas) to match the ``DirCouplersParams`` fields.
     """
-    return _read_presets('couplers.toml', _to_tuples)
-
+    return _read_presets("couplers.toml", _to_tuples)

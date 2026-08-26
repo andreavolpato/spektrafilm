@@ -19,6 +19,7 @@ Both evaluators take a LUT table of shape ``(N, N, N, 3)`` indexed
 ``[b, g, r, :]`` (Adobe canonical) and a flat sample array of shape
 ``(M, 3)`` of RGB values in ``[0, 1]``, and return ``(M, 3)``.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -49,9 +50,9 @@ def apply_trilinear(table: np.ndarray, samples: np.ndarray) -> np.ndarray:
     # a sample at 1.0 lands on grid index N-1.
     lattice = samples * (n - 1)
     i0 = np.floor(lattice).astype(int)
-    i0 = np.clip(i0, 0, n - 2)              # leave room for i0+1
+    i0 = np.clip(i0, 0, n - 2)  # leave room for i0+1
     i1 = i0 + 1
-    frac = lattice - i0                      # shape (M, 3), in [0, 1]
+    frac = lattice - i0  # shape (M, 3), in [0, 1]
 
     fr, fg, fb = frac[:, 0], frac[:, 1], frac[:, 2]
     r0, r1 = i0[:, 0], i1[:, 0]

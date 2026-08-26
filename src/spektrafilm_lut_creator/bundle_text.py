@@ -10,12 +10,12 @@ The bundle layout filenames (``README.md``, the LUT license) live here
 as canonical constants — builders.py imports them when writing the
 files on disk so there is one source of truth.
 """
+
 from __future__ import annotations
 
 import textwrap
 
 from spektrafilm_lut_creator.metadata import BundleMeta, LutFileMeta
-
 
 BUNDLE_README_FILENAME = "README.md"
 LUT_LICENSE_FILENAME = "SPEKTRAFILM_LICENSE.txt"
@@ -27,23 +27,24 @@ LUT_LICENSE_FILENAME = "SPEKTRAFILM_LICENSE.txt"
 # bundle.json with the same vocabulary see consistent names in the
 # README.
 _TAP_DOMAIN_LABEL: dict[str, str] = {
-    "input_rgb":   "input RGB",
-    "log_e_film":  "log_e_film code",
-    "cmy_film":    "cmy_film code",
+    "input_rgb": "input RGB",
+    "log_e_film": "log_e_film code",
+    "cmy_film": "cmy_film code",
     "log_e_print": "log_e_print code",
 }
 
 _TAP_RANGE_LABEL: dict[str, str] = {
-    "log_e_film":  "log_e_film code",
-    "cmy_film":    "cmy_film code",
+    "log_e_film": "log_e_film code",
+    "cmy_film": "cmy_film code",
     "log_e_print": "log_e_print code",
-    "output_rgb":  "output RGB",
+    "output_rgb": "output RGB",
 }
 
 
 # ---------------------------------------------------------------------------
 # Bundle README.
 # ---------------------------------------------------------------------------
+
 
 def bundle_readme_text(
     meta: BundleMeta,
@@ -98,15 +99,17 @@ def bundle_readme_text(
     ]
     if qa_results:
         lines.extend(_quality_readme_section(qa_results))
-    lines.extend([
-        "## Quick info",
-        f"- Name: {meta.name}",
-        f"- Topology: {meta.topology}",
-        f"- Resolution: {meta.resolution}^3",
-        f"- Delivery target: {meta.target or 'generic Adobe .cube'}",
-        f"- Created: {prov.created}",
-        f"- spektrafilm version: {prov.spektrafilm_version}",
-    ])
+    lines.extend(
+        [
+            "## Quick info",
+            f"- Name: {meta.name}",
+            f"- Topology: {meta.topology}",
+            f"- Resolution: {meta.resolution}^3",
+            f"- Delivery target: {meta.target or 'generic Adobe .cube'}",
+            f"- Created: {prov.created}",
+            f"- spektrafilm version: {prov.spektrafilm_version}",
+        ]
+    )
     if meta.stocks is not None:
         lines.append(f"- Film stock: {meta.stocks.film}")
         if meta.stocks.prints:
@@ -125,30 +128,34 @@ def bundle_readme_text(
         lines.append(
             f"- Output color space: {output_cs.name} (cctf {'on' if output_cs.cctf else 'off'})"
         )
-    lines.extend([
-        "",
-        "## Files",
-        f"- {BUNDLE_README_FILENAME}: this summary",
-        "- bundle.json: full metadata payload",
-        f"- {LUT_LICENSE_FILENAME}: LUT license text",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Files",
+            f"- {BUNDLE_README_FILENAME}: this summary",
+            "- bundle.json: full metadata payload",
+            f"- {LUT_LICENSE_FILENAME}: LUT license text",
+        ]
+    )
     for lut in meta.luts:
         lines.append(f"- {lut.path}: {_lut_role_description(lut)}")
     lines.extend(_apply_order_block(meta.topology))
     # Combinations section (n130). Driven entirely off the bundle's
     # luts metadata: if any subchain_* entries are present, render the
     # section; otherwise skip silently.
-    subchain_luts = tuple(l for l in meta.luts if l.role.startswith("subchain_"))
+    subchain_luts = tuple(lut for lut in meta.luts if lut.role.startswith("subchain_"))
     if subchain_luts:
         lines.extend(_combinations_readme_section(subchain_luts))
     if meta.input_exposure is not None:
         lines.extend(_input_exposure_block(meta, input_cs, output_cs))
-    lines.extend([
-        "",
-        "## Notes",
-        f"- {prov.notes}",
-        "- See bundle.json for the complete structured metadata.",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            f"- {prov.notes}",
+            "- See bundle.json for the complete structured metadata.",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -163,7 +170,9 @@ def _lut_role_description(lut: LutFileMeta) -> str:
     if lut.role == "filming_expose":
         return "shared L1 — filming.expose (input RGB → normalized log_e_film code)"
     if lut.role == "filming_develop":
-        return "shared L2 — filming.develop (log_e_film code → normalized cmy_film code)"
+        return (
+            "shared L2 — filming.develop (log_e_film code → normalized cmy_film code)"
+        )
     if lut.role == "printing_expose":
         return (
             f"L3 for {lut.print_profile} — printing.expose "
@@ -180,7 +189,7 @@ def _lut_role_description(lut: LutFileMeta) -> str:
             f"(cmy_film code → output RGB)"
         )
     if lut.role.startswith("subchain_"):
-        ids = lut.role[len("subchain_"):]
+        ids = lut.role[len("subchain_") :]
         scope = f"for {lut.print_profile}" if lut.print_profile else "shared"
         return (
             f"L{ids} sub-chain ({scope}) — pre-collapsed canonical stages {ids} "
@@ -318,17 +327,17 @@ def _quality_readme_section(qa_results: dict[str, list]) -> list[str]:
         n_pass = sum(1 for r in results if r.passed is True)
         n_fail = sum(1 for r in results if r.passed is False)
         n_info = sum(1 for r in results if r.passed is None)
-        lines.extend([
-            f"{n_pass} pass · {n_fail} fail · {n_info} info "
-            f"— full report at `qa/<print-folder>/report.md`.",
-            "",
-            "| Test | Status | Headline |",
-            "|------|--------|----------|",
-        ])
+        lines.extend(
+            [
+                f"{n_pass} pass · {n_fail} fail · {n_info} info "
+                f"— full report at `qa/<print-folder>/report.md`.",
+                "",
+                "| Test | Status | Headline |",
+                "|------|--------|----------|",
+            ]
+        )
         for r in results:
-            lines.append(
-                f"| `{r.name}` | {badges[r.status()]} | {r.short_summary()} |"
-            )
+            lines.append(f"| `{r.name}` | {badges[r.status()]} | {r.short_summary()} |")
         lines.append("")
     return lines
 
@@ -356,27 +365,30 @@ def _combinations_readme_section(
         "|------|------|----------------|",
     ]
     for lut in subchain_luts:
-        ids = lut.role[len("subchain_"):]
+        ids = lut.role[len("subchain_") :]
         label = f"l{ids}"
         domain_label = _TAP_DOMAIN_LABEL.get(lut.domain, lut.domain)
         range_label = _TAP_RANGE_LABEL.get(lut.range, lut.range)
         print_specific = "yes" if lut.print_profile else "no"
         lines.append(f"| {label} | {domain_label} → {range_label} | {print_specific} |")
-    lines.extend([
-        "",
-        "The canonical L1..LN cubes in the bundle root remain the recommended "
-        "chain — they expose every intermediate tap for grain, halation, "
-        "diffusion, and enlarger-stage manipulation. Use the combinations "
-        "when you want a single-cube application of a particular sub-chain. "
-        "Wire contracts and decode formulas for each tap are the same as in "
-        "the apply-order section above, and recorded in `bundle.json/wires`.",
-    ])
+    lines.extend(
+        [
+            "",
+            "The canonical L1..LN cubes in the bundle root remain the recommended "
+            "chain — they expose every intermediate tap for grain, halation, "
+            "diffusion, and enlarger-stage manipulation. Use the combinations "
+            "when you want a single-cube application of a particular sub-chain. "
+            "Wire contracts and decode formulas for each tap are the same as in "
+            "the apply-order section above, and recorded in `bundle.json/wires`.",
+        ]
+    )
     return lines
 
 
 # ---------------------------------------------------------------------------
 # Cube file headers.
 # ---------------------------------------------------------------------------
+
 
 def cube_header_lines(meta: BundleMeta, rel_path: str) -> list[str]:
     """Render the bundle's provenance into ``# ``-prefixable comment lines
@@ -407,13 +419,13 @@ def cube_header_lines(meta: BundleMeta, rel_path: str) -> list[str]:
     lines.append("")
     lines.append(prov.copyright)
     lines.append("")
-    lines.extend(_wrap_field("License",  prov.license))
+    lines.extend(_wrap_field("License", prov.license))
     lines.append("")
     lines.extend(_wrap_field("Citation", prov.citation))
     lines.append("")
-    lines.extend(_wrap_field("Notes",    prov.notes))
+    lines.extend(_wrap_field("Notes", prov.notes))
     lines.append("")
-    this_lut = next((l for l in meta.luts if l.path == rel_path), None)
+    this_lut = next((lut for lut in meta.luts if lut.path == rel_path), None)
     if this_lut is not None and this_lut.role != "combined":
         lines.append(
             f"Role:    {this_lut.role}  (domain={this_lut.domain} → range={this_lut.range})"

@@ -16,6 +16,7 @@ When no base params are given, the simulator is built from
 
 See spektrafilm-research/studies/b00/b60_lut_compute_with_params/n010.
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,7 +55,8 @@ def bake_params(spec, print_profile: str, base=None):
 
     if base is None:
         params = init_params(
-            film_profile=spec.film_profile, print_profile=print_profile,
+            film_profile=spec.film_profile,
+            print_profile=print_profile,
         )
         params.io.input_gamut_compress = spec.input_gamut_compress
         params.io.output_gamut_compress = spec.output_gamut_compress

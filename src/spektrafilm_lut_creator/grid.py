@@ -13,6 +13,7 @@ compromise.
 
 See studies/a40_lut_system/n030_lut_package_design.md §7.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -46,12 +47,12 @@ def grid_as_image(grid: np.ndarray, resolution: int) -> np.ndarray:
     Default layout is ``(resolution, resolution ** 2, 3)``; the caller
     can re-reshape further if a different aspect is desired.
     """
-    expected = (resolution ** 3, 3)
+    expected = (resolution**3, 3)
     if grid.shape != expected:
         raise ValueError(
             f"grid shape {grid.shape} does not match (resolution**3, 3) = {expected}"
         )
-    return grid.reshape(resolution, resolution ** 2, 3)
+    return grid.reshape(resolution, resolution**2, 3)
 
 
 def image_as_grid(image: np.ndarray, resolution: int) -> np.ndarray:
@@ -61,8 +62,8 @@ def image_as_grid(image: np.ndarray, resolution: int) -> np.ndarray:
     if image.shape[-1] != 3:
         raise ValueError(f"image last axis must be 3, got shape {image.shape}")
     n_samples = int(np.prod(image.shape[:-1]))
-    if n_samples != resolution ** 3:
+    if n_samples != resolution**3:
         raise ValueError(
-            f"image has {n_samples} samples, expected resolution**3 = {resolution ** 3}"
+            f"image has {n_samples} samples, expected resolution**3 = {resolution**3}"
         )
-    return image.reshape(resolution ** 3, 3)
+    return image.reshape(resolution**3, 3)

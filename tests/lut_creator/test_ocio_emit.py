@@ -19,6 +19,7 @@ under ``tmp_path_factory``, so every assertion in this file shares it.
 
 See ``studies/a40_lut_system/n120_ocio_config_emission.md``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,15 +29,14 @@ import pytest
 
 from spektrafilm_lut_creator import ocio_emit
 from spektrafilm_lut_creator.builders import BundleBuilder
-from spektrafilm_lut_creator.bundles import BundleSpec
+from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
 
 from .factories import make_bundle_spec
-
 
 pytest.importorskip(
     "PyOpenColorIO",
     reason="PyOpenColorIO required for OCIO config validation tests; "
-           "install with `pip install opencolorio`.",
+    "install with `pip install opencolorio`.",
 )
 
 
@@ -50,6 +50,7 @@ _OUTPUT_CS = "sRGB"
 # ---------------------------------------------------------------------------
 # Pure-function tests (no bundle build).
 # ---------------------------------------------------------------------------
+
 
 class TestSupportedPredicate:
     def _spec(self, **overrides) -> BundleSpec:
@@ -89,8 +90,9 @@ class TestSupportedPredicate:
 # Bundle-based fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
-def written_bundle(tmp_path_factory) -> tuple[Path, BundleSpec, "Bundle"]:
+def written_bundle(tmp_path_factory) -> tuple[Path, BundleSpec, Bundle]:
     """Build and write one tiny 1-LUT bundle. Used by every test below."""
     from spektrafilm_lut_creator.bundles import Bundle  # noqa: F401 (typing)
 
@@ -105,6 +107,7 @@ def written_bundle(tmp_path_factory) -> tuple[Path, BundleSpec, "Bundle"]:
 # ---------------------------------------------------------------------------
 # Validation tests.
 # ---------------------------------------------------------------------------
+
 
 class TestConfigOnDisk:
     def test_config_ocio_written(self, written_bundle):
@@ -165,14 +168,14 @@ class TestConfigLoad:
 class TestProcessorEvaluation:
     """The spektrafilm colorspace path resolves to a finite-output processor."""
 
-    def test_processor_from_ap0_to_spektrafilm_produces_finite_output(self, written_bundle):
+    def test_processor_from_ap0_to_spektrafilm_produces_finite_output(
+        self, written_bundle
+    ):
         import PyOpenColorIO as ocio
 
         bundle_dir, _spec, _bundle = written_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
-        proc = config.getProcessor(
-            "ACES2065-1", "spektrafilm_portra400_portraendura"
-        )
+        proc = config.getProcessor("ACES2065-1", "spektrafilm_portra400_portraendura")
         cpu = proc.getDefaultCPUProcessor()
         rng = np.random.default_rng(seed=0)
         samples = rng.uniform(0.0, 1.0, size=(64, 3)).astype(np.float32)
@@ -203,13 +206,18 @@ class TestCubeApplicationConsistency:
         # colorspace's from_scene_reference encodes inline.
         lut_relpath = bundle.luts[0][0]
         group = ocio.GroupTransform()
-        group.appendTransform(ocio.ColorSpaceTransform(
-            src="ACES2065-1", dst=_INPUT_CS,
-        ))
-        group.appendTransform(ocio.FileTransform(
-            src=str(bundle_dir / lut_relpath),
-            interpolation=ocio.INTERP_TETRAHEDRAL,
-        ))
+        group.appendTransform(
+            ocio.ColorSpaceTransform(
+                src="ACES2065-1",
+                dst=_INPUT_CS,
+            )
+        )
+        group.appendTransform(
+            ocio.FileTransform(
+                src=str(bundle_dir / lut_relpath),
+                interpolation=ocio.INTERP_TETRAHEDRAL,
+            )
+        )
         proc_explicit = config.getProcessor(group).getDefaultCPUProcessor()
 
         # Apply both processors to a moderately-sized random grid in AP0.
@@ -250,7 +258,7 @@ _EXPECTED_INTERMEDIATES: dict[str, list[str]] = {
 
 
 @pytest.fixture(scope="module", params=["1lut", "2lut", "3lut", "4lut"])
-def topology_bundle(request, tmp_path_factory) -> tuple[Path, BundleSpec, "Bundle"]:
+def topology_bundle(request, tmp_path_factory) -> tuple[Path, BundleSpec, Bundle]:
     """One built+written bundle per topology, shared across the tests below."""
     from spektrafilm_lut_creator.bundles import Bundle  # noqa: F401
 
@@ -272,12 +280,14 @@ class TestAllTopologies:
 
     def test_config_validates(self, topology_bundle):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = topology_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         config.validate()
 
     def test_intermediates_emitted_per_topology(self, topology_bundle):
         import PyOpenColorIO as ocio
+
         bundle_dir, spec, _bundle = topology_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         names = {cs.getName() for cs in config.getColorSpaces()}
@@ -289,6 +299,7 @@ class TestAllTopologies:
 
     def test_spektrafilm_colorspace_evaluates_to_finite_output(self, topology_bundle):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = topology_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         proc = config.getProcessor(
@@ -305,6 +316,7 @@ class TestAllTopologies:
         finite output. Catches chain-construction bugs where an intermediate's
         prefix chain is malformed."""
         import PyOpenColorIO as ocio
+
         bundle_dir, spec, _bundle = topology_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         rng = np.random.default_rng(seed=1)
@@ -363,6 +375,7 @@ class TestMultiPrintFourLut:
 
     def test_shared_intermediates_deduped(self, multi_print_4lut):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = multi_print_4lut
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         names = [cs.getName() for cs in config.getColorSpaces()]
@@ -371,6 +384,7 @@ class TestMultiPrintFourLut:
 
     def test_per_print_intermediates_distinct(self, multi_print_4lut):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = multi_print_4lut
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         names = {cs.getName() for cs in config.getColorSpaces()}
@@ -379,6 +393,7 @@ class TestMultiPrintFourLut:
 
     def test_prints_produce_distinct_output(self, multi_print_4lut):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = multi_print_4lut
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         rng = np.random.default_rng(seed=2)
@@ -403,6 +418,7 @@ class TestMultiPrintFourLut:
 # Display + View structure (M8c).
 # ---------------------------------------------------------------------------
 
+
 class TestDisplayAndViews:
     """1-LUT bundles expose each print as a View on the output Display.
     Multi-LUT bundles keep the minimal stub (Raw view only) so the value
@@ -410,6 +426,7 @@ class TestDisplayAndViews:
 
     def test_one_lut_single_print_emits_spektrafilm_view(self, written_bundle):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = written_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         views = list(config.getViews(_OUTPUT_CS))
@@ -429,9 +446,8 @@ class TestDisplayAndViews:
         builder = BundleBuilder(spec)
         builder.write(builder.build(), tmp_path / spec.name)
         import PyOpenColorIO as ocio
-        config = ocio.Config.CreateFromFile(
-            str(tmp_path / spec.name / "config.ocio")
-        )
+
+        config = ocio.Config.CreateFromFile(str(tmp_path / spec.name / "config.ocio"))
         views = list(config.getViews(_OUTPUT_CS))
         spektrafilm_views = [v for v in views if v.startswith("Spektrafilm ")]
         # N prints -> N spektrafilm views, plus Raw.
@@ -442,6 +458,7 @@ class TestDisplayAndViews:
         """The View's colorspace pointer must resolve to the spektrafilm
         colorspace, not the bare output color space (which is the Raw view)."""
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = written_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         spektrafilm_view = next(
@@ -463,16 +480,14 @@ class TestDisplayAndViews:
         builder = BundleBuilder(spec)
         builder.write(builder.build(), tmp_path / spec.name)
         import PyOpenColorIO as ocio
-        config = ocio.Config.CreateFromFile(
-            str(tmp_path / spec.name / "config.ocio")
-        )
+
+        config = ocio.Config.CreateFromFile(str(tmp_path / spec.name / "config.ocio"))
         views = list(config.getViews(_OUTPUT_CS))
-        assert views == ["Raw"], (
-            f"{topo} should emit only Raw view; got {views}"
-        )
+        assert views == ["Raw"], f"{topo} should emit only Raw view; got {views}"
 
     def test_active_views_lists_all_emitted(self, written_bundle):
         import PyOpenColorIO as ocio
+
         bundle_dir, _spec, _bundle = written_bundle
         config = ocio.Config.CreateFromFile(str(bundle_dir / "config.ocio"))
         active = list(config.getActiveViews())
@@ -537,6 +552,5 @@ class TestExtendedColorSpaceCoverage:
         # Cubes can clip mildly outside that for extreme scene values, but
         # 18% gray should land well inside the cube.
         assert (out_rgb >= 0.0).all() and (out_rgb <= 1.0).all(), (
-            f"{input_cs} -> {output_cs}: 18% gray output {out_rgb[0]} "
-            f"escapes [0, 1]"
+            f"{input_cs} -> {output_cs}: 18% gray output {out_rgb[0]} escapes [0, 1]"
         )

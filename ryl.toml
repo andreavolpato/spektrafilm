@@ -1,0 +1,33 @@
+#:schema https://www.schemastore.org/ryl.json
+
+[rules]
+braces                  = "enable"
+brackets                = "enable"
+colons                  = "enable"
+commas                  = "enable"
+comments-indentation    = "enable"
+hyphens                 = "enable"
+new-line-at-end-of-file = "enable"
+trailing-spaces         = "enable"
+
+  [rules.document-start]
+  present = false
+
+  [rules.comments]
+  min-spaces-from-content = 1
+
+  [rules.new-lines]
+  type = "unix"
+
+  [rules.empty-lines]
+  max = 2
+
+  [rules.indentation]
+  spaces           = 2
+  indent-sequences = true
+
+  [rules.quoted-strings]
+  required = "only-when-needed"
+
+  [rules.line-length]
+  max = 120

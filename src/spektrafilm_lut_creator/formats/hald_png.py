@@ -29,12 +29,13 @@ Hald CLUT format every consumer (Photoshop *Color Lookup*, OBS *Apply
 LUT*, ImageMagick ``hald:``) expects; 16-bit RGB-PNG support is
 patchy across these tools, and the 8-bit round-trip error
 (``1/255`` per channel ≈ ``0.4%``) is acceptable for the workflows
-Hald PNGs are used in. The PNG carries the LUT values verbatim;
+Hald ONGs are used in. The PNG carries the LUT values verbatim;
 consumers apply the relevant transfer functions themselves.
 
 See [n090 §4.1](../../../../spektrafilm-research/studies/a40_lut_system/n090_industry_grade_bundles.md)
 for the multi-format roadmap.
 """
+
 from __future__ import annotations
 
 import math
@@ -43,7 +44,6 @@ from pathlib import Path
 import numpy as np
 
 from spektrafilm_lut_creator.formats import Lut, register
-
 
 _MAX_8BIT = (1 << 8) - 1
 
@@ -72,8 +72,8 @@ class HaldPNGFormat:
 
         n = lut.resolution
         level = _hald_level(n)
-        side = n * level   # == L³ == sqrt(N³)
-        flat = np.asarray(lut.table, dtype=float).reshape(n ** 3, 3)
+        side = n * level  # == L³ == sqrt(N³)
+        flat = np.asarray(lut.table, dtype=float).reshape(n**3, 3)
         image_array = (
             np.clip(np.round(flat * _MAX_8BIT), 0, _MAX_8BIT)
             .astype(np.uint8)
@@ -96,15 +96,14 @@ class HaldPNGFormat:
             )
         # side = L³, so cube resolution N = L² = side**(2/3).
         level = round(side ** (1.0 / 3.0))
-        if level ** 3 != side:
+        if level**3 != side:
             raise ValueError(
                 f"{path}: image side {side} is not a Hald-CLUT level "
                 f"(L³ with integer L)"
             )
         n = level * level
         table = arr.reshape(n, n, n, 3).astype(float) / float(_MAX_8BIT)
-        return Lut(table=table, domain_min=(0.0, 0.0, 0.0),
-                   domain_max=(1.0, 1.0, 1.0))
+        return Lut(table=table, domain_min=(0.0, 0.0, 0.0), domain_max=(1.0, 1.0, 1.0))
 
 
 def _hald_level(resolution: int) -> int:

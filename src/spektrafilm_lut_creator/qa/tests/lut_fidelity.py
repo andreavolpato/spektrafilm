@@ -1,24 +1,21 @@
 """LUT-fidelity QA tests — does the cube preserve the pipeline within industry tolerance."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
+import colour
 import numpy as np
 
-import colour
-import spektrafilm_lut_creator.color_spaces as color_spaces
-
-from spektrafilm_lut_creator.color_spaces import to_xyz
-from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, reference, viz
+from spektrafilm_lut_creator.qa import evaluators, metrics, patterns, viz
 from spektrafilm_lut_creator.qa.result import Result
-from spektrafilm_lut_creator.qa.tests._helpers import _save, MIDGRAY_18_OKLAB_L
+from spektrafilm_lut_creator.qa.tests._helpers import _save
 
 if TYPE_CHECKING:
     from spektrafilm_lut_creator.qa.suite import QAContext
 
 
-def off_grid_identity(ctx: "QAContext") -> Result:
+def off_grid_identity(ctx: QAContext) -> Result:
     """Off-grid ΔE₀₀ between the LUT (trilinear + tetrahedral) and the
     live spektrafilm pipeline.
 
@@ -47,14 +44,20 @@ def off_grid_identity(ctx: "QAContext") -> Result:
     lut_out_tri = evaluators.apply_trilinear(table, ref.rng_samples_encoded)
     lut_out_tet = evaluators.apply_tetrahedral(table, ref.rng_samples_encoded)
 
-    de_tri = metrics.delta_e_2000(lut_out_tri, ref.pipeline_out_encoded, output_color_space=out_cs)
-    de_tet = metrics.delta_e_2000(lut_out_tet, ref.pipeline_out_encoded, output_color_space=out_cs)
+    de_tri = metrics.delta_e_2000(
+        lut_out_tri, ref.pipeline_out_encoded, output_color_space=out_cs
+    )
+    de_tet = metrics.delta_e_2000(
+        lut_out_tet, ref.pipeline_out_encoded, output_color_space=out_cs
+    )
     stats_tri = metrics.summary_stats(de_tri)
     stats_tet = metrics.summary_stats(de_tet)
 
     # Secondary ΔITP for HDR-side comparability; not used for pass/fail
     # while bundles are SDR-dominant.
-    itp_tri = metrics.delta_itp(lut_out_tri, ref.pipeline_out_encoded, output_color_space=out_cs)
+    itp_tri = metrics.delta_itp(
+        lut_out_tri, ref.pipeline_out_encoded, output_color_space=out_cs
+    )
     stats_itp = metrics.summary_stats(itp_tri)
 
     summary = {
@@ -68,14 +71,19 @@ def off_grid_identity(ctx: "QAContext") -> Result:
         "trilinear_dITP_p99": stats_itp["p99"],
     }
     passed = bool(
-        stats_tri["max"] <= 2.0 and stats_tri["p99"] <= 1.0
-        and stats_tet["max"] <= 2.0 and stats_tet["p99"] <= 1.0
+        stats_tri["max"] <= 2.0
+        and stats_tri["p99"] <= 1.0
+        and stats_tet["max"] <= 2.0
+        and stats_tet["p99"] <= 1.0
     )
 
     fig = viz.offgrid_error_scatter(
-        ref.rng_samples_encoded, de_tri,
-        title=(f"Off-grid ΔE₀₀ (trilinear) — max={stats_tri['max']:.3f}, "
-               f"p99={stats_tri['p99']:.3f}"),
+        ref.rng_samples_encoded,
+        de_tri,
+        title=(
+            f"Off-grid ΔE₀₀ (trilinear) — max={stats_tri['max']:.3f}, "
+            f"p99={stats_tri['p99']:.3f}"
+        ),
         cbar_label="ΔE₀₀",
     )
     path = _save(ctx, fig, "off_grid_identity")
@@ -104,7 +112,8 @@ def off_grid_identity(ctx: "QAContext") -> Result:
         passed=passed,
     )
 
-def monotonicity(ctx: "QAContext") -> Result:
+
+def monotonicity(ctx: QAContext) -> Result:
     """Diagonal axes of the cube must be non-decreasing in their
     matching output channel.
 
@@ -173,8 +182,10 @@ def monotonicity(ctx: "QAContext") -> Result:
 
     pin_label = f"{pin:.3f} (mid-gray encoded)"
     fig = viz.transfer_curves(
-        sweep, sweep_outputs,
-        pin_label=pin_label, violation_marks=masks,
+        sweep,
+        sweep_outputs,
+        pin_label=pin_label,
+        violation_marks=masks,
         suptitle=(
             f"Per-axis transfer curves through middle-gray "
             f"({ctx.spec.input_color_space} encoded {pin:.3f})"
@@ -182,7 +193,7 @@ def monotonicity(ctx: "QAContext") -> Result:
     )
     path = _save(ctx, fig, "monotonicity")
 
-    passed = (info["violations"] == 0)
+    passed = info["violations"] == 0
     return Result(
         name="monotonicity",
         summary={
@@ -215,7 +226,8 @@ def monotonicity(ctx: "QAContext") -> Result:
         passed=passed,
     )
 
-def jacobian_condition(ctx: "QAContext") -> Result:
+
+def jacobian_condition(ctx: QAContext) -> Result:
     """Local 3×3 Jacobian condition number — a smoothness diagnostic.
 
     Gamut compression and density shoulders produce regions where the
@@ -256,7 +268,8 @@ def jacobian_condition(ctx: "QAContext") -> Result:
         passed=None,  # informational — no hard threshold
     )
 
-def total_variation(ctx: "QAContext") -> Result:
+
+def total_variation(ctx: QAContext) -> Result:
     """Per-axis total variation + axial-FFT high-band energy.
 
     A noisy bake (NaN propagation, numerical instability, bad
@@ -286,7 +299,8 @@ def total_variation(ctx: "QAContext") -> Result:
         passed=None,
     )
 
-def output_gamut_compression(ctx: "QAContext") -> Result:
+
+def output_gamut_compression(ctx: QAContext) -> Result:
     """Detect cube-face folds, report gamut compression ratio, and
     visualize the output gamut before/after compression.
 
@@ -313,14 +327,15 @@ def output_gamut_compression(ctx: "QAContext") -> Result:
     - spektrafilm-research n110 (output compression design).
     - ACES Reference Gamut Compression v1.3 (AMPAS, 2020).
     """
-    from spektrafilm_lut_creator.qa import patterns
     from spektrafilm.utils.gamut_compression import compress_rgb
     from spektrafilm_lut_creator.color_spaces import get as _get_cs
 
     table = ctx.lut.table
     flips = metrics.gamut_self_intersection_score(table)
     hull = metrics.gamut_hull_volume_ratio(
-        ctx.grid_input, ctx.grid_output, ctx.spec.output_color_space,
+        ctx.grid_input,
+        ctx.grid_output,
+        ctx.spec.output_color_space,
     )
 
     # Rim — saturated cube edges — and its unbounded pipeline output.
@@ -331,9 +346,11 @@ def output_gamut_compression(ctx: "QAContext") -> Result:
 
     rim_unbounded = _run_unbounded_pipeline_for_rim(ctx, rim_samples)
     rim_compressed = (
-        compress_rgb(rim_unbounded, compression_spec,
-                     output_color_space=out_primaries_name)
-        if compression_spec.active else rim_unbounded.copy()
+        compress_rgb(
+            rim_unbounded, compression_spec, output_color_space=out_primaries_name
+        )
+        if compression_spec.active
+        else rim_unbounded.copy()
     )
 
     hsv = np.asarray(colour.RGB_to_HSV(rim_samples), dtype=float)
@@ -359,16 +376,17 @@ def output_gamut_compression(ctx: "QAContext") -> Result:
         "compression_algorithm": compression_spec.algorithm,
         "rim_oog_fraction": oog_fraction,
         "rim_oog_samples": int(oog_mask.sum()),
-        "rim_max_displacement":
-            float(rim_disp[oog_mask].max()) if oog_mask.any() else 0.0,
-        "rim_mean_displacement":
-            float(rim_disp[oog_mask].mean()) if oog_mask.any() else 0.0,
+        "rim_max_displacement": float(rim_disp[oog_mask].max())
+        if oog_mask.any()
+        else 0.0,
+        "rim_mean_displacement": float(rim_disp[oog_mask].mean())
+        if oog_mask.any()
+        else 0.0,
     }
     # Hard failure when face folds appear. Compression ratio > 1.05 is
     # suspicious (rare expansion); < 0.05 is suspicious (extreme
     # collapse). Rim displacement/OOG is informational only.
-    passed = (flips["flips"] == 0
-              and 0.05 <= hull["compression_ratio"] <= 1.05)
+    passed = flips["flips"] == 0 and 0.05 <= hull["compression_ratio"] <= 1.05
 
     fig = viz.gamut_compression_3d_xy(
         grid_output_compressed=ctx.grid_output,
@@ -412,8 +430,10 @@ def output_gamut_compression(ctx: "QAContext") -> Result:
 # Model diagnostic.
 # ---------------------------------------------------------------------------
 
+
 def _run_unbounded_pipeline_for_rim(
-    ctx: "QAContext", samples_encoded: np.ndarray,
+    ctx: QAContext,
+    samples_encoded: np.ndarray,
 ) -> np.ndarray:
     """Run a one-off pipeline with output gamut compression *off* to
     capture the simulation's unbounded reach in output-primaries linear
@@ -427,16 +447,16 @@ def _run_unbounded_pipeline_for_rim(
     from spektrafilm.runtime.params_builder import digest_params, init_params
     from spektrafilm.runtime.pipeline import SimulationPipeline
     from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
-    from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf, get as get_color_space,
-    )
+    from spektrafilm_lut_creator.color_spaces import decode_cctf
+    from spektrafilm_lut_creator.color_spaces import get as get_color_space
 
     spec = ctx.spec
     in_entry = get_color_space(spec.input_color_space)
     out_entry = get_color_space(spec.output_color_space)
     print_profile = (
         ctx.bundle.meta.stocks.prints[ctx.print_index]
-        if ctx.bundle.meta.stocks else spec.print_profiles[ctx.print_index]
+        if ctx.bundle.meta.stocks
+        else spec.print_profiles[ctx.print_index]
     )
 
     params = init_params(film_profile=spec.film_profile, print_profile=print_profile)

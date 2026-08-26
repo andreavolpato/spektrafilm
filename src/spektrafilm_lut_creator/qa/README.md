@@ -64,7 +64,7 @@ To QA every print in a multi-print bundle, iterate over
 
 ## Layout
 
-```
+```text
 qa/
   __init__.py     # public API
   result.py       # Result dataclass

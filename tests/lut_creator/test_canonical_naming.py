@@ -9,17 +9,14 @@ looks like on disk. The normalization rules are:
 - filename: ``lut_{version}_{film}_{print}.cube``
 - title (inside the cube): ``{version}_{film}_{print}`` (compact)
 """
+
 from __future__ import annotations
 
 import pytest
 
-from spektrafilm_lut_creator.bundles import BundleSpec
-from spektrafilm_lut_creator.naming import (
-    lut_filename,
-    lut_title,
-    normalize_stock as _normalize_stock,
-    normalize_version as _normalize_version,
-)
+from spektrafilm_lut_creator.naming import lut_filename, lut_title
+from spektrafilm_lut_creator.naming import normalize_stock as _normalize_stock
+from spektrafilm_lut_creator.naming import normalize_version as _normalize_version
 
 from .factories import make_bundle_spec
 
@@ -27,36 +24,43 @@ from .factories import make_bundle_spec
 def _canonical_lut_filename(spec, print_stock, version_tag):
     """Test helper — mirrors the old combined-1-LUT shape."""
     return lut_filename(
-        film_profile=spec.film_profile, version_tag=version_tag,
-        print_profile=print_stock, suffix=None,
+        film_profile=spec.film_profile,
+        version_tag=version_tag,
+        print_profile=print_stock,
+        suffix=None,
     )
 
 
 def _canonical_lut_title(spec, print_stock, version_tag):
     """Test helper — mirrors the old combined-1-LUT title shape."""
     return lut_title(
-        film_profile=spec.film_profile, version_tag=version_tag,
-        print_profile=print_stock, suffix=None,
+        film_profile=spec.film_profile,
+        version_tag=version_tag,
+        print_profile=print_stock,
+        suffix=None,
     )
 
 
 class TestNormalizeStock:
-    @pytest.mark.parametrize("stock,expected", [
-        ("kodak_portra_400", "portra400"),
-        ("kodak_supra_endura", "supraendura"),
-        ("kodak_ultra_endura", "ultraendura"),
-        ("kodak_portra_endura", "portraendura"),
-        ("kodak_endura_premier", "endurapremier"),
-        ("kodak_ektacolor_edge", "ektacoloredge"),
-        ("kodak_2383", "2383"),
-        ("kodak_vision3_500t", "vision3500t"),
-        ("fujifilm_pro_400h", "pro400h"),
-        ("fujifilm_c200", "c200"),
-        ("fujifilm_crystal_archive_typeii", "crystalarchive"),
-        ("fujifilm_velvia_100", "velvia100"),
-        # Already short — fall-through.
-        ("portra400", "portra400"),
-    ])
+    @pytest.mark.parametrize(
+        "stock,expected",
+        [
+            ("kodak_portra_400", "portra400"),
+            ("kodak_supra_endura", "supraendura"),
+            ("kodak_ultra_endura", "ultraendura"),
+            ("kodak_portra_endura", "portraendura"),
+            ("kodak_endura_premier", "endurapremier"),
+            ("kodak_ektacolor_edge", "ektacoloredge"),
+            ("kodak_2383", "2383"),
+            ("kodak_vision3_500t", "vision3500t"),
+            ("fujifilm_pro_400h", "pro400h"),
+            ("fujifilm_c200", "c200"),
+            ("fujifilm_crystal_archive_typeii", "crystalarchive"),
+            ("fujifilm_velvia_100", "velvia100"),
+            # Already short — fall-through.
+            ("portra400", "portra400"),
+        ],
+    )
     def test_known_stocks(self, stock, expected):
         assert _normalize_stock(stock) == expected
 
@@ -66,15 +70,18 @@ class TestNormalizeStock:
 
 
 class TestNormalizeVersion:
-    @pytest.mark.parametrize("version,expected", [
-        ("0.3.2", "v032"),
-        ("0.4.1", "v041"),
-        ("1.0.0", "v100"),
-        # PEP 440 dev suffix gets stripped before joining.
-        ("0.3.2.dev0", "v032"),
-        ("0.3.2+abc123", "v032"),
-        ("0.3.2.dev0+abc123", "v032"),
-    ])
+    @pytest.mark.parametrize(
+        "version,expected",
+        [
+            ("0.3.2", "v032"),
+            ("0.4.1", "v041"),
+            ("1.0.0", "v100"),
+            # PEP 440 dev suffix gets stripped before joining.
+            ("0.3.2.dev0", "v032"),
+            ("0.3.2+abc123", "v032"),
+            ("0.3.2.dev0+abc123", "v032"),
+        ],
+    )
     def test_known_versions(self, version, expected):
         assert _normalize_version(version) == expected
 

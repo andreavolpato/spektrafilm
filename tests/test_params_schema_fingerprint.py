@@ -19,6 +19,7 @@ it fails:
    - *inert under lut_mode*: nothing to do.
 2. Update ``EXPECTED_LEAF_PATHS`` below.
 """
+
 from __future__ import annotations
 
 from dataclasses import fields, is_dataclass

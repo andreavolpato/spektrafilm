@@ -11,13 +11,13 @@ callers never need to import it directly.
 
 See studies/a40_lut_system/n040_color_space_registry.md.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import colour
 import numpy as np
-
 
 VERSION = "0.1.0"
 
@@ -42,6 +42,7 @@ class ColorSpaceEntry:
     alphanumeric, no brand names where avoidable) used when composing
     LUT filenames.
     """
+
     name: str
     primaries: str
     cctf: str | None
@@ -189,9 +190,13 @@ def decode_cctf(rgb, name: str) -> np.ndarray:
     if entry.cctf is None:
         return rgb
     if entry.cctf == _BT2100_PQ_CCTF:
-        return np.asarray(colour.models.eotf_BT2100_PQ(np.clip(rgb, 0.0, 1.0)), dtype=float)
+        return np.asarray(
+            colour.models.eotf_BT2100_PQ(np.clip(rgb, 0.0, 1.0)), dtype=float
+        )
     if entry.cctf == _BT2100_HLG_CCTF:
-        return np.asarray(colour.models.eotf_BT2100_HLG(np.clip(rgb, 0.0, 1.0)), dtype=float)
+        return np.asarray(
+            colour.models.eotf_BT2100_HLG(np.clip(rgb, 0.0, 1.0)), dtype=float
+        )
     return np.asarray(colour.cctf_decoding(rgb, function=entry.cctf), dtype=float)
 
 
@@ -224,7 +229,9 @@ def to_xyz(rgb, name: str) -> np.ndarray:
     entry = get(name)
     linear = decode_cctf(rgb, name)
     return np.asarray(
-        colour.RGB_to_XYZ(linear, colourspace=entry.primaries, apply_cctf_decoding=False),
+        colour.RGB_to_XYZ(
+            linear, colourspace=entry.primaries, apply_cctf_decoding=False
+        ),
         dtype=float,
     )
 
@@ -233,9 +240,11 @@ def from_xyz(xyz, name: str) -> np.ndarray:
     """Convert CIE XYZ to RGB in the named space (encoded as the space requires)."""
     entry = get(name)
     linear = np.asarray(
-        colour.XYZ_to_RGB(np.asarray(xyz, dtype=float),
-                          colourspace=entry.primaries,
-                          apply_cctf_encoding=False),
+        colour.XYZ_to_RGB(
+            np.asarray(xyz, dtype=float),
+            colourspace=entry.primaries,
+            apply_cctf_encoding=False,
+        ),
         dtype=float,
     )
     return encode_cctf(linear, name)
@@ -259,126 +268,319 @@ def from_xyz(xyz, name: str) -> np.ndarray:
 # resolves these names; ``list_input_spaces()`` hides them and
 # ``BundleBuilder`` rejects them via the ``"input" in entry.role`` check.
 # When n150 lands, restore ``role=("input",)``.
-register(ColorSpaceEntry("ACES2065-1",       "ACES2065-1",   None, "linear", (),
-                         short_tag="aces20651",
-                         ocio_alias="ACES - ACES2065-1",
-                         scene_referred_input=True,
-                         notes="ACES interchange (AP0 primaries). Silenced pending shaper support."))
-register(ColorSpaceEntry("ACEScg",           "ACEScg",       None, "linear", (),
-                         short_tag="acescg",
-                         ocio_alias="ACES - ACEScg",
-                         scene_referred_input=True,
-                         notes="AP1 primaries; VFX rendering workhorse. Silenced pending shaper support."))
-register(ColorSpaceEntry("Rec.709 Linear",   "ITU-R BT.709", None, "linear", (),
-                         short_tag="rec709lin",
-                         scene_referred_input=True,
-                         notes="Silenced pending shaper support."))
-register(ColorSpaceEntry("Rec.2020 Linear",  "ITU-R BT.2020", None, "linear", (),
-                         short_tag="rec2020lin",
-                         scene_referred_input=True,
-                         notes="Silenced pending shaper support."))
-register(ColorSpaceEntry("ProPhoto Linear",  "ProPhoto RGB", None, "linear", (),
-                         short_tag="prophotolin",
-                         scene_referred_input=True,
-                         notes="Current spektrafilm default. Silenced pending shaper support."))
-register(ColorSpaceEntry("sRGB Linear",      "sRGB",         None, "linear", (),
-                         short_tag="srgblin",
-                         scene_referred_input=True,
-                         notes="Same primaries as sRGB, no CCTF. Silenced pending shaper support."))
+register(
+    ColorSpaceEntry(
+        "ACES2065-1",
+        "ACES2065-1",
+        None,
+        "linear",
+        (),
+        short_tag="aces20651",
+        ocio_alias="ACES - ACES2065-1",
+        scene_referred_input=True,
+        notes="ACES interchange (AP0 primaries). Silenced pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "ACEScg",
+        "ACEScg",
+        None,
+        "linear",
+        (),
+        short_tag="acescg",
+        ocio_alias="ACES - ACEScg",
+        scene_referred_input=True,
+        notes="AP1 primaries; VFX rendering workhorse. Silenced pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Rec.709 Linear",
+        "ITU-R BT.709",
+        None,
+        "linear",
+        (),
+        short_tag="rec709lin",
+        scene_referred_input=True,
+        notes="Silenced pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Rec.2020 Linear",
+        "ITU-R BT.2020",
+        None,
+        "linear",
+        (),
+        short_tag="rec2020lin",
+        scene_referred_input=True,
+        notes="Silenced pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "ProPhoto Linear",
+        "ProPhoto RGB",
+        None,
+        "linear",
+        (),
+        short_tag="prophotolin",
+        scene_referred_input=True,
+        notes="Current spektrafilm default. Silenced pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "sRGB Linear",
+        "sRGB",
+        None,
+        "linear",
+        (),
+        short_tag="srgblin",
+        scene_referred_input=True,
+        notes="Same primaries as sRGB, no CCTF. Silenced pending shaper support.",
+    )
+)
 
 # Encoded SDR (input and output).
-register(ColorSpaceEntry("sRGB",        "sRGB",         "sRGB",          "encoded_sdr", ("input", "output"),
-                         short_tag="srgb",
-                         ocio_alias="sRGB - Display",
-                         notes="The web default."))
-register(ColorSpaceEntry("Rec.709",     "ITU-R BT.709", "ITU-R BT.1886", "encoded_sdr", ("input", "output"),
-                         short_tag="rec709",
-                         ocio_alias="Rec.1886 Rec.709 - Display",
-                         notes="Broadcast; BT.1886 EOTF."))
-register(ColorSpaceEntry("Display P3",  "Display P3",   "sRGB",          "encoded_sdr", ("input", "output"),
-                         short_tag="displayp3",
-                         ocio_alias="Display P3 - Display",
-                         notes="Apple devices."))
-register(ColorSpaceEntry("Rec.2020",    "ITU-R BT.2020", "ITU-R BT.1886","encoded_sdr", ("input", "output"),
-                         short_tag="rec2020",
-                         ocio_alias="Rec.1886 Rec.2020 - Display",
-                         notes="Wide-gamut SDR."))
-register(ColorSpaceEntry("DCI-P3",      "DCI-P3",       "Gamma 2.6",     "encoded_sdr", ("input", "output"),
-                         short_tag="dcip3",
-                         ocio_alias="G2.6-P3-DCI - Display",
-                         notes="Theatrical (xenon white ~6300K, gamma 2.6)."))
-register(ColorSpaceEntry("Adobe RGB",   "Adobe RGB (1998)", "Gamma 2.2", "encoded_sdr", ("input", "output"),
-                         short_tag="adobergb",
-                         notes="Standard inkjet/lab print delivery. Adobe's spec uses gamma 2.19921875; we approximate as 2.2 (error ~1e-4, below LUT precision)."))
+register(
+    ColorSpaceEntry(
+        "sRGB",
+        "sRGB",
+        "sRGB",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="srgb",
+        ocio_alias="sRGB - Display",
+        notes="The web default.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Rec.709",
+        "ITU-R BT.709",
+        "ITU-R BT.1886",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="rec709",
+        ocio_alias="Rec.1886 Rec.709 - Display",
+        notes="Broadcast; BT.1886 EOTF.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Display P3",
+        "Display P3",
+        "sRGB",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="displayp3",
+        ocio_alias="Display P3 - Display",
+        notes="Apple devices.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Rec.2020",
+        "ITU-R BT.2020",
+        "ITU-R BT.1886",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="rec2020",
+        ocio_alias="Rec.1886 Rec.2020 - Display",
+        notes="Wide-gamut SDR.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "DCI-P3",
+        "DCI-P3",
+        "Gamma 2.6",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="dcip3",
+        ocio_alias="G2.6-P3-DCI - Display",
+        notes="Theatrical (xenon white ~6300K, gamma 2.6).",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Adobe RGB",
+        "Adobe RGB (1998)",
+        "Gamma 2.2",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="adobergb",
+        notes="Standard inkjet/lab print delivery. Adobe's spec uses gamma 2.19921875; we approximate as 2.2 (error ~1e-4, below LUT precision).",
+    )
+)
 
 # Camera log (input only).
-register(ColorSpaceEntry("ACEScct",                  "ACEScct",            "ACEScct",
-                         "log", ("input",),
-                         short_tag="acescct",
-                         ocio_alias="ACEScct"))
-register(ColorSpaceEntry("ARRI LogC3 (EI800)",       "ARRI Wide Gamut 3",  "ARRI LogC3",
-                         "log", ("input",),
-                         short_tag="logc3",
-                         ocio_alias="ARRI LogC3 (EI800) - AWG3",
-                         notes="EI800 is colour-science's default LogC3 curve."))
-register(ColorSpaceEntry("ARRI LogC4",               "ARRI Wide Gamut 4",  "ARRI LogC4",
-                         "log", ("input",),
-                         short_tag="logc4",
-                         ocio_alias="ARRI LogC4 - AWG4"))
-register(ColorSpaceEntry("Sony S-Log3",              "S-Gamut3",           "S-Log3",
-                         "log", ("input",),
-                         short_tag="slog3",
-                         ocio_alias="Sony S-Log3 - S-Gamut3"))
-register(ColorSpaceEntry("Sony S-Log3 (S-Gamut3.Cine)", "S-Gamut3.Cine",   "S-Log3",
-                         "log", ("input",),
-                         short_tag="slog3cine",
-                         ocio_alias="Sony S-Log3 - S-Gamut3.Cine"))
-register(ColorSpaceEntry("Panasonic V-Log",          "V-Gamut",            "V-Log",
-                         "log", ("input",),
-                         short_tag="vlog",
-                         ocio_alias="Panasonic V-Log - V-Gamut"))
-register(ColorSpaceEntry("Fujifilm F-Log",           "F-Gamut",            "F-Log",
-                         "log", ("input",),
-                         short_tag="flog"))
-register(ColorSpaceEntry("Fujifilm F-Log2",          "F-Gamut",            "F-Log2",
-                         "log", ("input",),
-                         short_tag="flog2"))
-register(ColorSpaceEntry("Canon Log 3",              "Cinema Gamut",       "Canon Log 3",
-                         "log", ("input",),
-                         short_tag="canonlog3",
-                         ocio_alias="Canon Log 3 - Cinema Gamut"))
-register(ColorSpaceEntry("RED Log3G10",              "REDWideGamutRGB",    "Log3G10",
-                         "log", ("input",),
-                         short_tag="redlog3g10",
-                         ocio_alias="RED Log3G10 - REDWideGamutRGB"))
-register(ColorSpaceEntry("DaVinci Intermediate",     "DaVinci Wide Gamut", "DaVinci Intermediate",
-                         "log", ("input",),
-                         short_tag="davinciintermediate"))
-register(ColorSpaceEntry("Apple Log",                "ITU-R BT.2020",      "Apple Log Profile",
-                         "log", ("input",),
-                         short_tag="applelog",
-                         ocio_alias="Apple Log",
-                         notes="iPhone 15+ Pro, iPhone 17 Pro, Vision Pro Immersive. Apple Log pairs with BT.2020 primaries per Apple's spec."))
-register(ColorSpaceEntry("Blackmagic Film Gen 5",    "Blackmagic Wide Gamut", "Blackmagic Film Generation 5",
-                         "log", ("input",),
-                         short_tag="bmfilmgen5",
-                         notes="Resolve-native. All current Blackmagic bodies (Pocket 4K/6K, URSA, Cine 12K, Pyxis)."))
+register(
+    ColorSpaceEntry(
+        "ACEScct",
+        "ACEScct",
+        "ACEScct",
+        "log",
+        ("input",),
+        short_tag="acescct",
+        ocio_alias="ACEScct",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "ARRI LogC3 (EI800)",
+        "ARRI Wide Gamut 3",
+        "ARRI LogC3",
+        "log",
+        ("input",),
+        short_tag="logc3",
+        ocio_alias="ARRI LogC3 (EI800) - AWG3",
+        notes="EI800 is colour-science's default LogC3 curve.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "ARRI LogC4",
+        "ARRI Wide Gamut 4",
+        "ARRI LogC4",
+        "log",
+        ("input",),
+        short_tag="logc4",
+        ocio_alias="ARRI LogC4 - AWG4",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Sony S-Log3",
+        "S-Gamut3",
+        "S-Log3",
+        "log",
+        ("input",),
+        short_tag="slog3",
+        ocio_alias="Sony S-Log3 - S-Gamut3",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Sony S-Log3 (S-Gamut3.Cine)",
+        "S-Gamut3.Cine",
+        "S-Log3",
+        "log",
+        ("input",),
+        short_tag="slog3cine",
+        ocio_alias="Sony S-Log3 - S-Gamut3.Cine",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Panasonic V-Log",
+        "V-Gamut",
+        "V-Log",
+        "log",
+        ("input",),
+        short_tag="vlog",
+        ocio_alias="Panasonic V-Log - V-Gamut",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Fujifilm F-Log", "F-Gamut", "F-Log", "log", ("input",), short_tag="flog"
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Fujifilm F-Log2", "F-Gamut", "F-Log2", "log", ("input",), short_tag="flog2"
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Canon Log 3",
+        "Cinema Gamut",
+        "Canon Log 3",
+        "log",
+        ("input",),
+        short_tag="canonlog3",
+        ocio_alias="Canon Log 3 - Cinema Gamut",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "RED Log3G10",
+        "REDWideGamutRGB",
+        "Log3G10",
+        "log",
+        ("input",),
+        short_tag="redlog3g10",
+        ocio_alias="RED Log3G10 - REDWideGamutRGB",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "DaVinci Intermediate",
+        "DaVinci Wide Gamut",
+        "DaVinci Intermediate",
+        "log",
+        ("input",),
+        short_tag="davinciintermediate",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Apple Log",
+        "ITU-R BT.2020",
+        "Apple Log Profile",
+        "log",
+        ("input",),
+        short_tag="applelog",
+        ocio_alias="Apple Log",
+        notes="iPhone 15+ Pro, iPhone 17 Pro, Vision Pro Immersive. Apple Log pairs with BT.2020 primaries per Apple's spec.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Blackmagic Film Gen 5",
+        "Blackmagic Wide Gamut",
+        "Blackmagic Film Generation 5",
+        "log",
+        ("input",),
+        short_tag="bmfilmgen5",
+        notes="Resolve-native. All current Blackmagic bodies (Pocket 4K/6K, URSA, Cine 12K, Pyxis).",
+    )
+)
 
 # HDR — Rec.2100 family. Both PQ and HLG are valid in both input and output roles:
 #  - Input: source camera HDR (e.g., a PQ-graded delivery being processed through spektrafilm)
 #  - Output: final master deliverable (streaming HDR master = PQ; broadcast HDR = HLG)
 # See studies/a40_lut_system/n060_color_space_v2_research.md for film-LUT-in-HDR gotchas
 # (peak-nit assumption, never apply Rec.709 LUTs to PQ signal, etc.).
-register(ColorSpaceEntry("Rec.2100 PQ", "ITU-R BT.2020", "ITU-R BT.2100 PQ", "log", ("input", "output"),
-                         short_tag="rec2100pq",
-                         ocio_alias="Rec.2100-PQ - Display",
-                         midgray_linear=100.0,
-                         notes="HDR streaming master (Netflix/Apple TV+/Disney+/Amazon/Max). ST.2084 transfer. Domain [0,1] = 0..10,000 nits; document per-LUT peak-luminance assumption."))
-register(ColorSpaceEntry("Rec.2100 HLG", "ITU-R BT.2020", "ITU-R BT.2100 HLG", "log", ("input", "output"),
-                         short_tag="rec2100hlg",
-                         ocio_alias="Rec.2100-HLG - Display",
-                         midgray_linear=26.238265737,
-                         notes="HDR broadcast (BBC/NHK/EBU live, YouTube HDR). HLG bakes OOTF + nominal peak luminance; not portable across display peaks the way PQ is. Midgray is BT.2408's 18% grey card: HLG signal 38% -> 26.24 nits on the 1000-nit reference display (= eotf_BT2100_HLG(0.38))."))
+register(
+    ColorSpaceEntry(
+        "Rec.2100 PQ",
+        "ITU-R BT.2020",
+        "ITU-R BT.2100 PQ",
+        "log",
+        ("input", "output"),
+        short_tag="rec2100pq",
+        ocio_alias="Rec.2100-PQ - Display",
+        midgray_linear=100.0,
+        notes="HDR streaming master (Netflix/Apple TV+/Disney+/Amazon/Max). ST.2084 transfer. Domain [0,1] = 0..10,000 nits; document per-LUT peak-luminance assumption.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "Rec.2100 HLG",
+        "ITU-R BT.2020",
+        "ITU-R BT.2100 HLG",
+        "log",
+        ("input", "output"),
+        short_tag="rec2100hlg",
+        ocio_alias="Rec.2100-HLG - Display",
+        midgray_linear=26.238265737,
+        notes="HDR broadcast (BBC/NHK/EBU live, YouTube HDR). HLG bakes OOTF + nominal peak luminance; not portable across display peaks the way PQ is. Midgray is BT.2408's 18% grey card: HLG signal 38% -> 26.24 nits on the 1000-nit reference display (= eotf_BT2100_HLG(0.38)).",
+    )
+)
 
 # ---------------------------------------------------------------------------
 # v2 Tier 2 additions (n060 §3).
@@ -393,65 +595,107 @@ register(ColorSpaceEntry("Rec.2100 HLG", "ITU-R BT.2020", "ITU-R BT.2100 HLG", "
 # ---------------------------------------------------------------------------
 
 # ACEScc — pure-log sibling of ACEScct, legacy VFX working space.
-register(ColorSpaceEntry("ACEScc", "ACEScg", "ACEScc",
-                         "log", ("input",),
-                         short_tag="acescc",
-                         ocio_alias="ACEScc",
-                         notes="Legacy VFX log working space (AP1 primaries, ACES1.0-era). "
-                               "Same primaries as ACEScg; differs from ACEScct only in the "
-                               "removal of the small linear toe near zero."))
+register(
+    ColorSpaceEntry(
+        "ACEScc",
+        "ACEScg",
+        "ACEScc",
+        "log",
+        ("input",),
+        short_tag="acescc",
+        ocio_alias="ACEScc",
+        notes="Legacy VFX log working space (AP1 primaries, ACES1.0-era). "
+        "Same primaries as ACEScg; differs from ACEScct only in the "
+        "removal of the small linear toe near zero.",
+    )
+)
 
 # P3-D65 — the mastering-display container inside Dolby Vision / HDR10.
 # Linear is a working space (input only); PQ-encoded is the actual delivery
 # format used inside Rec.2020 HDR containers (input + output).
-register(ColorSpaceEntry("P3-D65 Linear", "P3-D65", None,
-                         "linear", (),
-                         short_tag="p3d65lin",
-                         scene_referred_input=True,
-                         notes="Linear P3-D65 working space. Used alongside the PQ-encoded "
-                               "variant for HDR pipelines that want a separate scene-linear stage. "
-                               "Silenced as bundle input pending shaper support."))
-register(ColorSpaceEntry("P3-D65 PQ", "P3-D65", "ITU-R BT.2100 PQ",
-                         "log", ("input", "output"),
-                         short_tag="p3d65pq",
-                         ocio_alias="ST2084 P3-D65 - Display",
-                         midgray_linear=100.0,
-                         notes="The mastering-display container inside DoVi/HDR10. P3-D65 "
-                               "primaries with ST.2084 transfer; same curve as Rec.2100 PQ "
-                               "but a narrower color volume. Use when the deliverable spec "
-                               "calls for 'P3-limited inside Rec.2020' or when matching a "
-                               "1000-nit P3 mastering display directly."))
+register(
+    ColorSpaceEntry(
+        "P3-D65 Linear",
+        "P3-D65",
+        None,
+        "linear",
+        (),
+        short_tag="p3d65lin",
+        scene_referred_input=True,
+        notes="Linear P3-D65 working space. Used alongside the PQ-encoded "
+        "variant for HDR pipelines that want a separate scene-linear stage. "
+        "Silenced as bundle input pending shaper support.",
+    )
+)
+register(
+    ColorSpaceEntry(
+        "P3-D65 PQ",
+        "P3-D65",
+        "ITU-R BT.2100 PQ",
+        "log",
+        ("input", "output"),
+        short_tag="p3d65pq",
+        ocio_alias="ST2084 P3-D65 - Display",
+        midgray_linear=100.0,
+        notes="The mastering-display container inside DoVi/HDR10. P3-D65 "
+        "primaries with ST.2084 transfer; same curve as Rec.2100 PQ "
+        "but a narrower color volume. Use when the deliverable spec "
+        "calls for 'P3-limited inside Rec.2020' or when matching a "
+        "1000-nit P3 mastering display directly.",
+    )
+)
 
 # DJI D-Log — Ronin 4D / Inspire 3 / X9 sensor. colour-science added both
 # the D-Gamut primaries and the D-Log curve since n060.
-register(ColorSpaceEntry("DJI D-Log", "DJI D-Gamut", "D-Log",
-                         "log", ("input",),
-                         short_tag="dlog",
-                         notes="DJI cinema cameras (Ronin 4D, Inspire 3, X9 sensor). "
-                               "D-Gamut is wider than P3, narrower than Rec.2020."))
+register(
+    ColorSpaceEntry(
+        "DJI D-Log",
+        "DJI D-Gamut",
+        "D-Log",
+        "log",
+        ("input",),
+        short_tag="dlog",
+        notes="DJI cinema cameras (Ronin 4D, Inspire 3, X9 sensor). "
+        "D-Gamut is wider than P3, narrower than Rec.2020.",
+    )
+)
 
 # ProPhoto RGB (encoded) — Lightroom histogram + ACR→Photoshop handoff,
 # high-gamut stills delivery for printing. colour-science's CCTF
 # implements the standard ProPhoto curve (linear toe + gamma 1.8 main
 # segment) which is the Melissa-equivalent for everything outside the
 # deepest shadows.
-register(ColorSpaceEntry("ProPhoto RGB", "ProPhoto RGB", "ProPhoto RGB",
-                         "encoded_sdr", ("input", "output"),
-                         short_tag="prophoto",
-                         notes="High-gamut stills working space + delivery target. Lightroom "
-                               "internal histogram and ACR→Photoshop interchange. D50 white "
-                               "point; chromatic adaptation handled by the XYZ conversion."))
+register(
+    ColorSpaceEntry(
+        "ProPhoto RGB",
+        "ProPhoto RGB",
+        "ProPhoto RGB",
+        "encoded_sdr",
+        ("input", "output"),
+        short_tag="prophoto",
+        notes="High-gamut stills working space + delivery target. Lightroom "
+        "internal histogram and ACR→Photoshop interchange. D50 white "
+        "point; chromatic adaptation handled by the XYZ conversion.",
+    )
+)
 
 # Nikon N-Log paired with Rec.2020 — per the n060 camera-log research,
 # this is the de-facto pipeline pairing in Resolve / Baselight (Nikon
 # itself doesn't publish a distinct gamut, and BT.2020 is the conventional
 # wrapper).
-register(ColorSpaceEntry("Nikon N-Log", "ITU-R BT.2020", "N-Log",
-                         "log", ("input",),
-                         short_tag="nlog",
-                         notes="Nikon Z 6/7/8/9 N-Log. No distinct Nikon gamut is published; "
-                               "ITU-R BT.2020 is the de-facto wrapper per Resolve/Baselight "
-                               "and the n060 camera-log research."))
+register(
+    ColorSpaceEntry(
+        "Nikon N-Log",
+        "ITU-R BT.2020",
+        "N-Log",
+        "log",
+        ("input",),
+        short_tag="nlog",
+        notes="Nikon Z 6/7/8/9 N-Log. No distinct Nikon gamut is published; "
+        "ITU-R BT.2020 is the de-facto wrapper per Resolve/Baselight "
+        "and the n060 camera-log research.",
+    )
+)
 
 
 # ---------------------------------------------------------------------------
@@ -474,7 +718,8 @@ _MID_GRAY_LINEAR = 0.18
 
 
 def encode_qa_input(
-    linear_reflectance, input_color_space: str,
+    linear_reflectance,
+    input_color_space: str,
     exposure_ev: float = 0.0,
 ) -> np.ndarray:
     """Encode a reflectance-scale linear RGB stimulus into the input
@@ -512,7 +757,8 @@ def to_xyz_qa(encoded_rgb, output_color_space: str) -> np.ndarray:
     linear_reflectance = linear / output_midgray_gain(output_color_space)
     return np.asarray(
         colour.RGB_to_XYZ(
-            linear_reflectance, colourspace=entry.primaries,
+            linear_reflectance,
+            colourspace=entry.primaries,
             apply_cctf_decoding=False,
         ),
         dtype=float,
@@ -520,7 +766,8 @@ def to_xyz_qa(encoded_rgb, output_color_space: str) -> np.ndarray:
 
 
 def effective_input_midgray_linear(
-    input_color_space: str, exposure_ev: float = 0.0,
+    input_color_space: str,
+    exposure_ev: float = 0.0,
 ) -> float:
     """Linear value (in the input space's native scale) that the LUT
     treats as midgray after its input gain.
@@ -604,6 +851,7 @@ class BakeFrame:
     For SDR specs at ``exposure_ev=0`` both gains collapse to ``1.0``
     and the methods are identical to their non-QA counterparts.
     """
+
     input_color_space: str
     output_color_space: str
     exposure_ev: float
@@ -616,7 +864,7 @@ class BakeFrame:
     :attr:`ColorSpaceEntry.midgray_linear`."""
 
     @classmethod
-    def from_spec(cls, spec) -> "BakeFrame":
+    def from_spec(cls, spec) -> BakeFrame:
         """Build the frame from a :class:`BundleSpec`-shaped object
         (anything exposing ``input_color_space`` / ``output_color_space``
         / ``exposure_ev``)."""

@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from spektrafilm.runtime.params_builder import digest_params, init_params
-from spektrafilm.runtime.process import (
-    Simulator,
-    simulate,
-    simulate_preview,
-)
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
+from spektrafilm.runtime.process import Simulator, simulate, simulate_preview
 
 __all__ = [
     "Simulator",

@@ -1,28 +1,36 @@
 import numpy as np
 import pytest
 
+from spektrafilm.data.profiles_loader import Profile, ProfileData, ProfileInfo
 from spektrafilm.model.couplers import apply_density_correction_dir_couplers
 from spektrafilm.model.develop import develop, develop_simple
 from spektrafilm.model.grain import apply_grain
-from spektrafilm.data.profiles_loader import Profile, ProfileData, ProfileInfo
-from spektrafilm.runtime.params_schema import DirCouplersParams, FilmRenderingParams, GrainParams
-
+from spektrafilm.runtime.params_schema import (
+    DirCouplersParams,
+    FilmRenderingParams,
+    GrainParams,
+)
 
 pytestmark = pytest.mark.unit
 
 
 def _make_test_profile(profile_type: str) -> Profile:
     log_exposure = np.linspace(-3.0, 1.0, 24)
-    density_curves = np.column_stack([
-        np.clip(log_exposure + 2.3, 0.2, 2.6),
-        np.clip(log_exposure + 2.0, 0.3, 2.3),
-        np.clip(log_exposure + 1.7, 0.4, 2.0),
-    ])
-    density_curves_layers = np.stack([
-        density_curves * np.array([0.52, 0.48, 0.45]),
-        density_curves * np.array([0.31, 0.34, 0.35]),
-        density_curves * np.array([0.17, 0.18, 0.20]),
-    ], axis=1)
+    density_curves = np.column_stack(
+        [
+            np.clip(log_exposure + 2.3, 0.2, 2.6),
+            np.clip(log_exposure + 2.0, 0.3, 2.3),
+            np.clip(log_exposure + 1.7, 0.4, 2.0),
+        ]
+    )
+    density_curves_layers = np.stack(
+        [
+            density_curves * np.array([0.52, 0.48, 0.45]),
+            density_curves * np.array([0.31, 0.34, 0.35]),
+            density_curves * np.array([0.17, 0.18, 0.20]),
+        ],
+        axis=1,
+    )
     return Profile(
         info=ProfileInfo(type=profile_type, support="film"),
         data=ProfileData(
@@ -68,7 +76,9 @@ def test_top_level_develop_matches_manual_pipeline(profile_type: str) -> None:
     log_raw = np.full((5, 5, 3), -0.9, dtype=float)
     log_raw[:, :, 1] -= 0.15
     log_raw[:, :, 2] -= 0.3
-    normalized_density_curves = profile.data.density_curves - np.nanmin(profile.data.density_curves, axis=0)
+    normalized_density_curves = profile.data.density_curves - np.nanmin(
+        profile.data.density_curves, axis=0
+    )
 
     result = develop(
         log_raw.copy(),

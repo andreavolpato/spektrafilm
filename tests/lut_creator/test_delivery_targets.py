@@ -7,22 +7,21 @@ well-formed, that BundleSpec validates against the target's allowed
 inputs and outputs, and that the builder emits the target-specific file
 in addition to the generic .cube.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from spektrafilm_lut_creator.bundles import BundleSpec
 from spektrafilm_lut_creator.delivery_targets import (
     DeliveryTarget,
-    get as get_target,
     list_targets,
     register,
 )
+from spektrafilm_lut_creator.delivery_targets import get as get_target
 
 from .factories import make_bundle_spec
-
 
 _LUT_LICENSE_PATH = Path(__file__).resolve().parents[2] / "SPEKTRAFILM_LICENSE.txt"
 
@@ -48,23 +47,27 @@ class TestRegistry:
 
     def test_register_rejects_unknown_format(self):
         with pytest.raises(KeyError, match="unknown format"):
-            register(DeliveryTarget(
-                name="invalid_test",
-                description="x",
-                format="not_a_real_format",
-                valid_inputs=("sRGB",),
-                valid_outputs=("sRGB",),
-            ))
+            register(
+                DeliveryTarget(
+                    name="invalid_test",
+                    description="x",
+                    format="not_a_real_format",
+                    valid_inputs=("sRGB",),
+                    valid_outputs=("sRGB",),
+                )
+            )
 
     def test_register_rejects_empty_inputs(self):
         with pytest.raises(ValueError, match="valid_inputs"):
-            register(DeliveryTarget(
-                name="invalid_test_inputs",
-                description="x",
-                format="cube",
-                valid_inputs=(),
-                valid_outputs=("sRGB",),
-            ))
+            register(
+                DeliveryTarget(
+                    name="invalid_test_inputs",
+                    description="x",
+                    format="cube",
+                    valid_inputs=(),
+                    valid_outputs=("sRGB",),
+                )
+            )
 
 
 class TestBundleSpecTargetValidation:
@@ -151,6 +154,7 @@ class TestBuilderEmitsTargetVariant:
         assert "spektrafilm LUT" not in text
 
         import json
+
         payload = json.loads((out_dir / "bundle.json").read_text(encoding="utf-8"))
         assert payload["target"] == "lumix_realtime_vlog"
 
@@ -190,7 +194,9 @@ class TestBuilderEmitsTargetVariant:
         bundle = builder.build()
         out_dir = builder.write(bundle, tmp_path / "target_license")
 
-        assert (out_dir / "SPEKTRAFILM_LICENSE.txt").read_text(encoding="utf-8") == _LUT_LICENSE_PATH.read_text(encoding="utf-8")
+        assert (out_dir / "SPEKTRAFILM_LICENSE.txt").read_text(
+            encoding="utf-8"
+        ) == _LUT_LICENSE_PATH.read_text(encoding="utf-8")
 
     def test_no_target_write_copies_lut_license(self, tmp_path):
         from spektrafilm_lut_creator.builders import BundleBuilder
@@ -204,4 +210,6 @@ class TestBuilderEmitsTargetVariant:
         bundle = builder.build()
         out_dir = builder.write(bundle, tmp_path / "generic_license")
 
-        assert (out_dir / "SPEKTRAFILM_LICENSE.txt").read_text(encoding="utf-8") == _LUT_LICENSE_PATH.read_text(encoding="utf-8")
+        assert (out_dir / "SPEKTRAFILM_LICENSE.txt").read_text(
+            encoding="utf-8"
+        ) == _LUT_LICENSE_PATH.read_text(encoding="utf-8")

@@ -18,22 +18,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from spektrafilm.model.color_filters import CameraColorFilters
+from spektrafilm.model.illuminants import Illuminants
 from spektrafilm.runtime.params_schema import (
+    CameraParams,
     ConvertFilmParams,
-    FilmBaseParams,
-    PrintBaseParams,
-    EnlargerParams,
     DiffusionFilterParams,
     DirCouplersParams,
+    EnlargerParams,
+    FilmBaseParams,
     GlareParams,
     GrainParams,
     HalationParams,
+    PrintBaseParams,
     ScannerParams,
 )
-from spektrafilm.runtime.params_schema import CameraParams
-from spektrafilm.model.illuminants import Illuminants
-from spektrafilm.model.color_filters import CameraColorFilters
-from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
+from spektrafilm.utils.gamut_compression import (
+    InputGamutCompressSpec,
+    OutputGamutCompressSpec,
+)
 from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
 from spektrafilm_gui.options import (
     AutoExposureMethods,
@@ -151,7 +154,9 @@ DIR_COUPLERS_MANIFEST = GroupManifest(
     group_cls=DirCouplersParams,
     collapsed_by_default=True,
     fields=(
-        ParamSpec(f"{_DC}.active", tier="basic", tooltip="Enable DIR coupler inhibition."),
+        ParamSpec(
+            f"{_DC}.active", tier="basic", tooltip="Enable DIR coupler inhibition."
+        ),
         ParamSpec(
             f"{_DC}.amount",
             tier="basic",
@@ -200,22 +205,22 @@ DIR_COUPLERS_MANIFEST = GroupManifest(
             min=0.1,
             step=0.1,
             tooltip="NEGATIVE film: per-channel Langmuir saturation of DIR "
-                    "inhibitor release, normalized to each layer's d_max (R, G, B). "
-                    "Lower = earlier, stronger roll-off at high density (gentler "
-                    "shoulder, tames high-amount breakage); large values approach "
-                    "the linear model.",
+            "inhibitor release, normalized to each layer's d_max (R, G, B). "
+            "Lower = earlier, stronger roll-off at high density (gentler "
+            "shoulder, tames high-amount breakage); large values approach "
+            "the linear model.",
         ),
         ParamSpec(
             f"{_DC}.langmuir_receiver_k_rgb",
             min=0.1,
             step=0.1,
             tooltip="POSITIVE/reversal film: per-channel receiver-side Langmuir "
-                    "saturation (R, G, B), normalized to the arrived-inhibitor "
-                    "ceiling (the receiver analogue of langmuir_donor_k_rgb's d_max "
-                    "normalization). The donor (silver release) stays linear; "
-                    "this rolls off the receiving layer's response under a pushed "
-                    "amount. Lower = harder, more crash-proof knee (alters the "
-                    "operating-point look); large values approach linear.",
+            "saturation (R, G, B), normalized to the arrived-inhibitor "
+            "ceiling (the receiver analogue of langmuir_donor_k_rgb's d_max "
+            "normalization). The donor (silver release) stays linear; "
+            "this rolls off the receiving layer's response under a pushed "
+            "amount. Lower = harder, more crash-proof knee (alters the "
+            "operating-point look); large values approach linear.",
         ),
         ParamSpec(
             f"{_DC}.diffusion_size_um",
@@ -248,7 +253,11 @@ HALATION_MANIFEST = GroupManifest(
     group_cls=HalationParams,
     collapsed_by_default=True,
     fields=(
-        ParamSpec(f"{_H}.active", tier="basic", tooltip="Enable halation and in-emulsion scatter."),
+        ParamSpec(
+            f"{_H}.active",
+            tier="basic",
+            tooltip="Enable halation and in-emulsion scatter.",
+        ),
         ParamSpec(
             f"{_H}.scatter_amount",
             tier="basic",
@@ -448,12 +457,45 @@ FILM_BASE_MANIFEST = GroupManifest(
     group_path=_BD,
     group_cls=FilmBaseParams,
     fields=(
-        ParamSpec(f"{_BD}.active", tier="basic", tooltip="Enable film base-density (film base + fog / orange mask) tuning."),
-        ParamSpec(f"{_BD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the film base density."),
-        ParamSpec(f"{_BD}.tilt", tier="basic", step=0.05, tooltip="Spectral tilt of the film base, pivoting at 555 nm (1.0 = +0.1 density at 650 nm; negative tilts the other way)."),
-        ParamSpec(f"{_BD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel film base density shift around 650 nm (1.0 = neutral; adds (value - 1) density)."),
-        ParamSpec(f"{_BD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel film base density shift around 555 nm (1.0 = neutral; adds (value - 1) density)."),
-        ParamSpec(f"{_BD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel film base density shift around 460 nm (1.0 = neutral; adds (value - 1) density)."),
+        ParamSpec(
+            f"{_BD}.active",
+            tier="basic",
+            tooltip="Enable film base-density (film base + fog / orange mask) tuning.",
+        ),
+        ParamSpec(
+            f"{_BD}.scale",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Overall multiplier on the film base density.",
+        ),
+        ParamSpec(
+            f"{_BD}.tilt",
+            tier="basic",
+            step=0.05,
+            tooltip="Spectral tilt of the film base, pivoting at 555 nm (1.0 = +0.1 density at 650 nm; negative tilts the other way).",
+        ),
+        ParamSpec(
+            f"{_BD}.cyan",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Cyan-channel film base density shift around 650 nm (1.0 = neutral; adds (value - 1) density).",
+        ),
+        ParamSpec(
+            f"{_BD}.magenta",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Magenta-channel film base density shift around 555 nm (1.0 = neutral; adds (value - 1) density).",
+        ),
+        ParamSpec(
+            f"{_BD}.yellow",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Yellow-channel film base density shift around 460 nm (1.0 = neutral; adds (value - 1) density).",
+        ),
     ),
 )
 
@@ -472,8 +514,8 @@ CONVERT_MANIFEST = GroupManifest(
             tier="basic",
             enum=ScanIlluminants,
             tooltip="Light source of the scanning / capture rig used to digitize the negative. "
-                    "Set it to match your rig (a physical input); the film Base is the creative "
-                    "lever. Only used by the 'convert-film' workflow routes.",
+            "Set it to match your rig (a physical input); the film Base is the creative "
+            "lever. Only used by the 'convert-film' workflow routes.",
         ),
         ParamSpec(
             f"{_CV}.exposure_compensation_ev",
@@ -483,7 +525,7 @@ CONVERT_MANIFEST = GroupManifest(
             max=100,
             step=0.25,
             tooltip="Aligns the scan's overall brightness to the model (gain = 2^ev). "
-                    "Brighter input -> less recovered film density.",
+            "Brighter input -> less recovered film density.",
         ),
         ParamSpec(
             f"{_CV}.base_percentile",
@@ -493,19 +535,19 @@ CONVERT_MANIFEST = GroupManifest(
             max=100,
             step=0.5,
             tooltip="Brightest-pixels percentile used by 'Detect base' to sample the clear / "
-                    "unexposed film (99 = brightest 1%). Detect base fits the film Base so that "
-                    "clear film maps to density 0 (unexposed -> neutral).",
+            "unexposed film (99 = brightest 1%). Detect base fits the film Base so that "
+            "clear film maps to density 0 (unexposed -> neutral).",
         ),
         ParamSpec(
             f"{_CV}.calibration",
             label="Calibration",
             tier="basic",
             tooltip="3x3 device-correction matrix (9 numbers, row-major) applied to the input "
-                    "before inversion, to undo the scanner/camera colour rendering vs the "
-                    "standard observer over the film dyes (the cross-channel cast that the scan "
-                    "illuminant and base cannot reach). Editable and copy/paste-able; an invalid "
-                    "string falls back to identity (no correction). Use 'Blind calibration' to "
-                    "fit it from the current image.",
+            "before inversion, to undo the scanner/camera colour rendering vs the "
+            "standard observer over the film dyes (the cross-channel cast that the scan "
+            "illuminant and base cannot reach). Editable and copy/paste-able; an invalid "
+            "string falls back to identity (no correction). Use 'Blind calibration' to "
+            "fit it from the current image.",
         ),
     ),
     actions=(
@@ -513,23 +555,23 @@ CONVERT_MANIFEST = GroupManifest(
             "detect_base",
             label="Detect base",
             tooltip="Sample the clear/unexposed film from the brightest pixels of the current "
-                    "image (see Base percentile) and fit the film Base + exposure so the "
-                    "unexposed film maps to density 0. Run this first.",
+            "image (see Base percentile) and fit the film Base + exposure so the "
+            "unexposed film maps to density 0. Run this first.",
         ),
         ActionSpec(
             "blind_calibration",
             label="Blind calibration",
             tooltip="Fit the Calibration matrix from the CURRENT image and write it above. "
-                    "Works best on a vibrant, colour-filled frame (it aligns the scanned "
-                    "colours to the film's dye gamut); a flat/neutral frame gives a weak fit. "
-                    "Review/edit the values afterwards.",
+            "Works best on a vibrant, colour-filled frame (it aligns the scanned "
+            "colours to the film's dye gamut); a flat/neutral frame gives a weak fit. "
+            "Review/edit the values afterwards.",
         ),
         ActionSpec(
             "neutralize_filters",
             label="Neutralize print filters",
             tooltip="Solve the print enlarger M and Y filter shifts so the current film + base "
-                    "midgray prints neutral. Image-independent; run it after Detect base (a tuned "
-                    "base changes the print balance). Writes Print M/Y filter shift in Enlarger.",
+            "midgray prints neutral. Image-independent; run it after Detect base (a tuned "
+            "base changes the print balance). Writes Print M/Y filter shift in Enlarger.",
         ),
     ),
 )
@@ -542,11 +584,37 @@ PRINT_BASE_MANIFEST = GroupManifest(
     group_path=_PBD,
     group_cls=PrintBaseParams,
     fields=(
-        ParamSpec(f"{_PBD}.active", tier="basic", tooltip="Enable print base-density tuning."),
-        ParamSpec(f"{_PBD}.scale", tier="basic", min=0, step=0.05, tooltip="Overall multiplier on the print base density."),
-        ParamSpec(f"{_PBD}.cyan", tier="basic", min=0, step=0.05, tooltip="Cyan-channel multiplicative scale of the print base min around 610 nm (1.0 = neutral)."),
-        ParamSpec(f"{_PBD}.magenta", tier="basic", min=0, step=0.05, tooltip="Magenta-channel multiplicative scale of the print base min around 530 nm (1.0 = neutral)."),
-        ParamSpec(f"{_PBD}.yellow", tier="basic", min=0, step=0.05, tooltip="Yellow-channel multiplicative scale of the print base min around 445 nm (1.0 = neutral)."),
+        ParamSpec(
+            f"{_PBD}.active", tier="basic", tooltip="Enable print base-density tuning."
+        ),
+        ParamSpec(
+            f"{_PBD}.scale",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Overall multiplier on the print base density.",
+        ),
+        ParamSpec(
+            f"{_PBD}.cyan",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Cyan-channel multiplicative scale of the print base min around 610 nm (1.0 = neutral).",
+        ),
+        ParamSpec(
+            f"{_PBD}.magenta",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Magenta-channel multiplicative scale of the print base min around 530 nm (1.0 = neutral).",
+        ),
+        ParamSpec(
+            f"{_PBD}.yellow",
+            tier="basic",
+            min=0,
+            step=0.05,
+            tooltip="Yellow-channel multiplicative scale of the print base min around 445 nm (1.0 = neutral).",
+        ),
     ),
 )
 
@@ -559,9 +627,29 @@ GLARE_MANIFEST = GroupManifest(
     group_cls=GlareParams,
     fields=(
         ParamSpec(f"{_GL}.active", tier="basic", tooltip="Add glare to the print"),
-        ParamSpec(f"{_GL}.percent", tier="basic", min=0, max=1, step=0.01, tooltip="Percentage of the glare light (typically 0.1-0.25)"),
-        ParamSpec(f"{_GL}.roughness", tier="basic", min=0, max=1, step=0.05, tooltip="Roughness of the glare light (0-1)"),
-        ParamSpec(f"{_GL}.blur", tier="basic", min=0, step=0.1, tooltip="Sigma of gaussian blur in pixels for the glare"),
+        ParamSpec(
+            f"{_GL}.percent",
+            tier="basic",
+            min=0,
+            max=1,
+            step=0.01,
+            tooltip="Percentage of the glare light (typically 0.1-0.25)",
+        ),
+        ParamSpec(
+            f"{_GL}.roughness",
+            tier="basic",
+            min=0,
+            max=1,
+            step=0.05,
+            tooltip="Roughness of the glare light (0-1)",
+        ),
+        ParamSpec(
+            f"{_GL}.blur",
+            tier="basic",
+            min=0,
+            step=0.1,
+            tooltip="Sigma of gaussian blur in pixels for the glare",
+        ),
     ),
 )
 
@@ -581,7 +669,11 @@ CHEMISTRY_MANIFEST = GroupManifest(
             tier="basic",
             tooltip="Development time for a BW development-time family: selects the density curve and base+fog to render. '—' uses the representative middle development; ignored for single-curve and color stocks.",
         ),
-        ParamSpec(f"{_CH}.active", tier="basic", tooltip="Enable print density-curve morphing."),
+        ParamSpec(
+            f"{_CH}.active",
+            tier="basic",
+            tooltip="Enable print density-curve morphing.",
+        ),
         ParamSpec(
             f"{_CH}.gamma_factor",
             label="Gamma factor",
@@ -656,7 +748,11 @@ FILM_CHEMISTRY_MANIFEST = GroupManifest(
             tier="basic",
             tooltip="Development time for a BW development-time family: selects the density curve and base+fog to render. '—' uses the representative middle development; ignored for single-curve and color stocks.",
         ),
-        ParamSpec(f"{_FCH}.active", tier="basic", tooltip="Enable film density-curve morphing."),
+        ParamSpec(
+            f"{_FCH}.active",
+            tier="basic",
+            tooltip="Enable film density-curve morphing.",
+        ),
         ParamSpec(
             f"{_FCH}.gamma_factor",
             label="Gamma factor",
@@ -762,7 +858,11 @@ def _diffusion_manifest(title: str, group_path: str) -> GroupManifest:
         group_path=_D,
         group_cls=DiffusionFilterParams,
         fields=(
-            ParamSpec(f"{_D}.active", tier="basic", tooltip="Toggle the diffusion filter (Pro-Mist family)."),
+            ParamSpec(
+                f"{_D}.active",
+                tier="basic",
+                tooltip="Toggle the diffusion filter (Pro-Mist family).",
+            ),
             ParamSpec(
                 f"{_D}.filter_family",
                 tier="basic",
@@ -790,18 +890,56 @@ def _diffusion_manifest(title: str, group_path: str) -> GroupManifest:
                 step=0.05,
                 tooltip="Additive offset on the family's halo warmth axis. Positive = warm outer halo / cool inner halo. Energy-preserving per channel. 0 = use family default.",
             ),
-            ParamSpec(f"{_D}.core_intensity", min=0, max=4, step=0.05, tooltip="Advanced. Multiplier on the core weight; the three group weights are renormalized to sum to 1. 1.0 = use family default."),
-            ParamSpec(f"{_D}.core_size", min=0.1, max=4, step=0.05, tooltip="Advanced. Multiplier on the core lambda. 1.0 = use family default."),
-            ParamSpec(f"{_D}.halo_intensity", min=0, max=4, step=0.05, tooltip="Advanced. Multiplier on the halo weight; the three group weights are renormalized to sum to 1. 1.0 = use family default."),
-            ParamSpec(f"{_D}.halo_size", min=0.1, max=4, step=0.05, tooltip="Advanced. Multiplier on the halo lambda. 1.0 = use family default."),
-            ParamSpec(f"{_D}.bloom_intensity", min=0, max=4, step=0.05, tooltip="Advanced. Multiplier on the bloom weight; the three group weights are renormalized to sum to 1. 1.0 = use family default."),
-            ParamSpec(f"{_D}.bloom_size", min=0.1, max=4, step=0.05, tooltip="Advanced. Multiplier on the bloom lambda. 1.0 = use family default."),
+            ParamSpec(
+                f"{_D}.core_intensity",
+                min=0,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the core weight; the three group weights are renormalized to sum to 1. 1.0 = use family default.",
+            ),
+            ParamSpec(
+                f"{_D}.core_size",
+                min=0.1,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the core lambda. 1.0 = use family default.",
+            ),
+            ParamSpec(
+                f"{_D}.halo_intensity",
+                min=0,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the halo weight; the three group weights are renormalized to sum to 1. 1.0 = use family default.",
+            ),
+            ParamSpec(
+                f"{_D}.halo_size",
+                min=0.1,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the halo lambda. 1.0 = use family default.",
+            ),
+            ParamSpec(
+                f"{_D}.bloom_intensity",
+                min=0,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the bloom weight; the three group weights are renormalized to sum to 1. 1.0 = use family default.",
+            ),
+            ParamSpec(
+                f"{_D}.bloom_size",
+                min=0.1,
+                max=4,
+                step=0.05,
+                tooltip="Advanced. Multiplier on the bloom lambda. 1.0 = use family default.",
+            ),
         ),
     )
 
 
 CAMERA_DIFFUSION_MANIFEST = _diffusion_manifest("Diffusion", "camera.diffusion_filter")
-ENLARGER_DIFFUSION_MANIFEST = _diffusion_manifest("Diffusion", "enlarger.diffusion_filter")
+ENLARGER_DIFFUSION_MANIFEST = _diffusion_manifest(
+    "Diffusion", "enlarger.diffusion_filter"
+)
 
 
 _CAM = "camera"
@@ -866,7 +1004,11 @@ SCANNER_MANIFEST = GroupManifest(
             step=0.05,
             tooltip="Sigma of gaussian filter in pixel for the scanner lens blur.",
         ),
-        ParamSpec(f"{_SC}.white_correction", tier="basic", tooltip="Enable white point correction applied to the scanner output."),
+        ParamSpec(
+            f"{_SC}.white_correction",
+            tier="basic",
+            tooltip="Enable white point correction applied to the scanner output.",
+        ),
         ParamSpec(
             f"{_SC}.white_level",
             tier="basic",
@@ -876,7 +1018,11 @@ SCANNER_MANIFEST = GroupManifest(
             decimals=3,
             tooltip="Target white level applied when white correction is enabled.",
         ),
-        ParamSpec(f"{_SC}.black_correction", tier="basic", tooltip="Enable black point correction applied to the scanner output."),
+        ParamSpec(
+            f"{_SC}.black_correction",
+            tier="basic",
+            tooltip="Enable black point correction applied to the scanner output.",
+        ),
         ParamSpec(
             f"{_SC}.black_level",
             tier="basic",
@@ -904,7 +1050,11 @@ INPUT_GAMUT_COMPRESS_MANIFEST = GroupManifest(
     group_cls=InputGamutCompressSpec,
     collapsed_by_default=True,
     fields=(
-        ParamSpec(f"{_IGC}.active", tier="basic", tooltip="Compress input chromaticities toward the visible spectral locus before spectral upsampling. Off passes input through unchanged."),
+        ParamSpec(
+            f"{_IGC}.active",
+            tier="basic",
+            tooltip="Compress input chromaticities toward the visible spectral locus before spectral upsampling. Off passes input through unchanged.",
+        ),
         ParamSpec(
             f"{_IGC}.algorithm",
             tier="basic",
@@ -985,10 +1135,34 @@ INPUT_PANEL_FIELDS = (
 )
 
 CROP_PANEL_FIELDS = (
-    ParamSpec("io.upscale_factor", label="Upscale factor", min=0.0, step=0.5, tooltip="Scale image size up to increase resolution"),
-    ParamSpec("io.crop", label="Crop", tooltip="Crop image to a fraction of the original size to preview details at full scale"),
-    ParamSpec("io.crop_center", label="Crop center", min=0, max=1, step=0.01, tooltip="Center of the crop region in relative coordinates in x, y (0-1)"),
-    ParamSpec("io.crop_size", label="Crop size", min=0, max=1, step=0.01, tooltip="Normalized size of the crop region in x, y (0,1), as fraction of the long side."),
+    ParamSpec(
+        "io.upscale_factor",
+        label="Upscale factor",
+        min=0.0,
+        step=0.5,
+        tooltip="Scale image size up to increase resolution",
+    ),
+    ParamSpec(
+        "io.crop",
+        label="Crop",
+        tooltip="Crop image to a fraction of the original size to preview details at full scale",
+    ),
+    ParamSpec(
+        "io.crop_center",
+        label="Crop center",
+        min=0,
+        max=1,
+        step=0.01,
+        tooltip="Center of the crop region in relative coordinates in x, y (0-1)",
+    ),
+    ParamSpec(
+        "io.crop_size",
+        label="Crop size",
+        min=0,
+        max=1,
+        step=0.01,
+        tooltip="Normalized size of the crop region in x, y (0,1), as fraction of the long side.",
+    ),
 )
 
 SPECTRAL_PANEL_FIELDS = (
@@ -1046,12 +1220,12 @@ DISPLAY_PANEL_FIELDS = (
     ParamSpec(
         "use_display_transform",
         label="Use display transform",
-        tooltip="Use Pillow.ImageCms to retrive the display transform (only in Windows) and apply it to the napari viewer output, if disabled the output color space is used",
+        tooltip="Use Pillow.ImageCms to retrieve the display transform (only in Windows) and apply it to the napari viewer output, if disabled the output color space is used",
     ),
     ParamSpec(
         "gray_18_canvas",
         label="Gray 18% canvas",
-        tooltip="Use neutral 18% gray as backgroung to judge the exposure and neutral colors",
+        tooltip="Use neutral 18% gray as background to judge the exposure and neutral colors",
     ),
     ParamSpec(
         "white_padding",
@@ -1078,8 +1252,18 @@ DISPLAY_PANEL_FIELDS = (
 
 
 SIMULATION_PROFILE_PANEL_FIELDS = (
-    ParamSpec("selection.film_stock", label="Film profile", tooltip="Film stock to simulate", enum=FilmStocks),
-    ParamSpec("selection.print_paper", label="Print profile", tooltip="Print stock to simulate", enum=PrintStocks),
+    ParamSpec(
+        "selection.film_stock",
+        label="Film profile",
+        tooltip="Film stock to simulate",
+        enum=FilmStocks,
+    ),
+    ParamSpec(
+        "selection.print_paper",
+        label="Print profile",
+        tooltip="Print stock to simulate",
+        enum=PrintStocks,
+    ),
 )
 
 SIMULATION_SPECIAL_BORROWED_FIELDS = (
@@ -1129,9 +1313,23 @@ SIMULATION_ENLARGER_PANEL_FIELDS = (
 )
 
 SIMULATION_OUTPUT_PANEL_FIELDS = (
-    ParamSpec("io.output_color_space", label="Output color space", tooltip="Output color space of the simulation", enum=RGBColorSpaces),
-    ParamSpec("workflow.saving_color_space", label="Saving color space", tooltip="Color space of the saved image file", enum=RGBColorSpaces),
-    ParamSpec("workflow.saving_cctf_encoding", label="Saving CCTF encoding", tooltip="Add or not the CCTF to the saved image file"),
+    ParamSpec(
+        "io.output_color_space",
+        label="Output color space",
+        tooltip="Output color space of the simulation",
+        enum=RGBColorSpaces,
+    ),
+    ParamSpec(
+        "workflow.saving_color_space",
+        label="Saving color space",
+        tooltip="Color space of the saved image file",
+        enum=RGBColorSpaces,
+    ),
+    ParamSpec(
+        "workflow.saving_cctf_encoding",
+        label="Saving CCTF encoding",
+        tooltip="Add or not the CCTF to the saved image file",
+    ),
 )
 
 SIMULATION_FOOTER_FIELDS = (

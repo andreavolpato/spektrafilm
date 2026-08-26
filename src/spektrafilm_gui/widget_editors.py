@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from typing import Any
 
 from qtpy import QtCore, QtGui, QtWidgets
 
-QPointF = getattr(QtCore, 'QPointF')
-QRect = getattr(QtCore, 'QRect')
-QSize = getattr(QtCore, 'QSize')
+QPointF = getattr(QtCore, "QPointF")
+QRect = getattr(QtCore, "QRect")
+QSize = getattr(QtCore, "QSize")
 QStyle = QtWidgets.QStyle
 QStyleOptionComboBox = QtWidgets.QStyleOptionComboBox
 QStyledItemDelegate = QtWidgets.QStyledItemDelegate
 QStylePainter = QtWidgets.QStylePainter
 
 from spektrafilm.data.profiles_loader import load_profile
+from spektrafilm_gui.theme import resolve_theme_qcolor
 from spektrafilm_gui.theme_palette import (
     ACCENT_COLOR_TEXT,
     ACCENT_COLOR_TEXT_SECONDARY,
-    TEXT_DIM,
     BOOL_EDITOR_BORDER_CHECKED,
     BOOL_EDITOR_BORDER_UNCHECKED,
     BOOL_EDITOR_CHECKED_DISABLED,
@@ -26,11 +26,11 @@ from spektrafilm_gui.theme_palette import (
     BOOL_EDITOR_FILL_DISABLED,
     BOOL_EDITOR_FILL_ENABLED,
     BOOL_EDITOR_HOVER_BG,
+    TEXT_DIM,
 )
-from spektrafilm_gui.theme import resolve_theme_qcolor
 
 
-@lru_cache(maxsize=None)
+@cache
 def _profile_meta_tokens(profile_name: str) -> tuple[str, ...]:
     """Metadata badge tokens for a profile, e.g. ('still', 'neg', 'color').
 
@@ -44,18 +44,20 @@ def _profile_meta_tokens(profile_name: str) -> tuple[str, ...]:
         profile = load_profile(profile_name)
     except (FileNotFoundError, TypeError, ValueError):
         return ()
-    use = 'cine' if profile.is_cine else 'still' if profile.is_still else ''
-    profile_type = 'pos' if profile.is_positive else 'neg' if profile.is_negative else ''
-    channel = 'bw' if profile.is_bw else 'color' if profile.is_color else ''
+    use = "cine" if profile.is_cine else "still" if profile.is_still else ""
+    profile_type = (
+        "pos" if profile.is_positive else "neg" if profile.is_negative else ""
+    )
+    channel = "bw" if profile.is_bw else "color" if profile.is_color else ""
     return tuple(token for token in (use, profile_type, channel) if token)
 
 
 def _profile_token_color(token: str) -> str:
     """Accent color for the use token (still/cine); gray for everything else
     (type/channel badges)."""
-    if token == 'still':
+    if token == "still":
         return ACCENT_COLOR_TEXT
-    if token == 'cine':
+    if token == "cine":
         return ACCENT_COLOR_TEXT_SECONDARY
     return TEXT_DIM
 
@@ -72,7 +74,9 @@ def _draw_profile_display_text(
     tokens = _profile_meta_tokens(profile_name)
     if not tokens:
         painter.setPen(base_color)
-        painter.drawText(rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, profile_name)
+        painter.drawText(
+            rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, profile_name
+        )
         return
 
     # Per-segment coloring: still/cine in their accent colors, the type/channel
@@ -81,7 +85,7 @@ def _draw_profile_display_text(
     segments: list[tuple[str, QtGui.QColor]] = []
     for token in tokens:
         segments.append((token, QtGui.QColor(_profile_token_color(token))))
-        segments.append((' / ', bar_color))
+        segments.append((" / ", bar_color))
     segments.append((profile_name, base_color))
 
     font_metrics = QtGui.QFontMetrics(font)
@@ -93,24 +97,38 @@ def _draw_profile_display_text(
         width = font_metrics.horizontalAdvance(text)
         seg_rect = QRect(x, rect.y(), min(width, right - x), rect.height())
         painter.setPen(color)
-        painter.drawText(seg_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, text)
+        painter.drawText(
+            seg_rect,
+            QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine,
+            text,
+        )
         x += width
 
 
 class ProfileEnumItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index) -> None:  # noqa: N802 - Qt API name
-        display_value = index.data(QtCore.Qt.DisplayRole) or ''
+        display_value = index.data(QtCore.Qt.DisplayRole) or ""
         style_option = QtWidgets.QStyleOptionViewItem(option)
         self.initStyleOption(style_option, index)
-        style_option.text = ''
+        style_option.text = ""
 
-        style = style_option.widget.style() if style_option.widget is not None else QtWidgets.QApplication.style()
-        style.drawControl(QStyle.CE_ItemViewItem, style_option, painter, style_option.widget)
+        style = (
+            style_option.widget.style()
+            if style_option.widget is not None
+            else QtWidgets.QApplication.style()
+        )
+        style.drawControl(
+            QStyle.CE_ItemViewItem, style_option, painter, style_option.widget
+        )
 
         text_color = style_option.palette.color(
-            QtGui.QPalette.HighlightedText if style_option.state & QStyle.State_Selected else QtGui.QPalette.Text,
+            QtGui.QPalette.HighlightedText
+            if style_option.state & QStyle.State_Selected
+            else QtGui.QPalette.Text,
         )
-        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, style_option, style_option.widget)
+        text_rect = style.subElementRect(
+            QStyle.SE_ItemViewItemText, style_option, style_option.widget
+        )
         _draw_profile_display_text(
             painter,
             text_rect.adjusted(0, 0, -4, 0),
@@ -152,11 +170,15 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
         painter = QStylePainter(self)
         option = QStyleOptionComboBox()
         self.initStyleOption(option)
-        current_value = self.currentText() or (self.itemText(0) if self.count() > 0 else '')
-        option.currentText = ''
+        current_value = self.currentText() or (
+            self.itemText(0) if self.count() > 0 else ""
+        )
+        option.currentText = ""
         painter.drawComplexControl(QStyle.CC_ComboBox, option)
         painter.drawControl(QStyle.CE_ComboBoxLabel, option)
-        text_rect = self.style().subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, self)
+        text_rect = self.style().subControlRect(
+            QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, self
+        )
         _draw_profile_display_text(
             painter,
             text_rect.adjusted(1, 0, -1, 0),
@@ -167,7 +189,13 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
 
 
 class FloatEditor(QtWidgets.QDoubleSpinBox):
-    def __init__(self, *, decimals: int = 2, minimum: float = -1_000_000.0, maximum: float = 1_000_000.0):
+    def __init__(
+        self,
+        *,
+        decimals: int = 2,
+        minimum: float = -1_000_000.0,
+        maximum: float = 1_000_000.0,
+    ):
         super().__init__()
         self.setDecimals(decimals)
         self.setMinimum(minimum)
@@ -204,7 +232,7 @@ class IntEditor(QtWidgets.QSpinBox):
 class BoolEditor(QtWidgets.QCheckBox):
     def __init__(self):
         super().__init__()
-        self.setText('')
+        self.setText("")
         self.setMouseTracking(True)
         self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.setFixedHeight(24)
@@ -233,12 +261,24 @@ class BoolEditor(QtWidgets.QCheckBox):
             is_enabled = self.isEnabled()
             is_hovered = is_enabled and self.underMouse()
             fill_color = resolve_theme_qcolor(
-                BOOL_EDITOR_HOVER_BG if is_hovered else BOOL_EDITOR_FILL_ENABLED if is_enabled else BOOL_EDITOR_FILL_DISABLED,
+                BOOL_EDITOR_HOVER_BG
+                if is_hovered
+                else BOOL_EDITOR_FILL_ENABLED
+                if is_enabled
+                else BOOL_EDITOR_FILL_DISABLED,
             )
             checked_color = resolve_theme_qcolor(
-                BOOL_EDITOR_HOVER_BG if is_hovered else BOOL_EDITOR_CHECKED_ENABLED if is_enabled else BOOL_EDITOR_CHECKED_DISABLED,
+                BOOL_EDITOR_HOVER_BG
+                if is_hovered
+                else BOOL_EDITOR_CHECKED_ENABLED
+                if is_enabled
+                else BOOL_EDITOR_CHECKED_DISABLED,
             )
-            border_color = resolve_theme_qcolor(BOOL_EDITOR_BORDER_CHECKED if self.isChecked() else BOOL_EDITOR_BORDER_UNCHECKED)
+            border_color = resolve_theme_qcolor(
+                BOOL_EDITOR_BORDER_CHECKED
+                if self.isChecked()
+                else BOOL_EDITOR_BORDER_UNCHECKED
+            )
 
             painter.setPen(QtGui.QPen(border_color, 1))
             painter.setBrush(checked_color if self.isChecked() else fill_color)
@@ -263,7 +303,13 @@ class BoolEditor(QtWidgets.QCheckBox):
     @staticmethod
     def _draw_check_mark(painter: QtGui.QPainter, indicator_rect) -> None:
         painter.setPen(
-            QtGui.QPen(resolve_theme_qcolor(BOOL_EDITOR_CHECKMARK), 1.6, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin),
+            QtGui.QPen(
+                resolve_theme_qcolor(BOOL_EDITOR_CHECKMARK),
+                1.6,
+                QtCore.Qt.SolidLine,
+                QtCore.Qt.RoundCap,
+                QtCore.Qt.RoundJoin,
+            ),
         )
         painter.drawLine(
             QPointF(indicator_rect.left() + 3.0, indicator_rect.center().y() + 0.5),
@@ -331,7 +377,7 @@ class DevelopmentTimeEditor(QtWidgets.QComboBox):
         self.clear()
         self._values = list(times)
         for time in times:
-            self.addItem(f'{time:g} min')
+            self.addItem(f"{time:g} min")
         self.blockSignals(False)
         if previous is not None and previous in self._values:
             # Keep an explicit prior selection that still exists in the new stock.
@@ -365,7 +411,9 @@ class TupleEditor(QtWidgets.QWidget):
         layout.setSpacing(6)
         for editor in self._editors:
             editor.setMinimumWidth(56)
-            editor.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+            editor.setSizePolicy(
+                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+            )
             layout.addWidget(editor)
         self.setLayout(layout)
 
@@ -389,19 +437,44 @@ class TupleEditor(QtWidgets.QWidget):
 
 
 class FloatTupleEditor(TupleEditor):
-    def __init__(self, length: int, *, decimals: int = 2, minimum: float = -1_000_000.0, maximum: float = 1_000_000.0):
-        super().__init__([FloatEditor(decimals=decimals, minimum=minimum, maximum=maximum) for _ in range(length)])
+    def __init__(
+        self,
+        length: int,
+        *,
+        decimals: int = 2,
+        minimum: float = -1_000_000.0,
+        maximum: float = 1_000_000.0,
+    ):
+        super().__init__(
+            [
+                FloatEditor(decimals=decimals, minimum=minimum, maximum=maximum)
+                for _ in range(length)
+            ]
+        )
 
 
 class IntTupleEditor(TupleEditor):
-    def __init__(self, length: int, *, minimum: int = -1_000_000, maximum: int = 1_000_000):
-        super().__init__([IntEditor(minimum=minimum, maximum=maximum) for _ in range(length)])
+    def __init__(
+        self, length: int, *, minimum: int = -1_000_000, maximum: int = 1_000_000
+    ):
+        super().__init__(
+            [IntEditor(minimum=minimum, maximum=maximum) for _ in range(length)]
+        )
 
 
+# ruff: noqa: N802, N815
 class SliderFloatEditor(QtWidgets.QWidget):
     valueChanged = QtCore.Signal(float)
 
-    def __init__(self, *, minimum: float = 0.0, maximum: float = 100.0, step: float = 1.0, decimals: int = 0, suffix: str = ''):
+    def __init__(
+        self,
+        *,
+        minimum: float = 0.0,
+        maximum: float = 100.0,
+        step: float = 1.0,
+        decimals: int = 0,
+        suffix: str = "",
+    ):
         super().__init__()
         self._minimum = minimum
         self._maximum = maximum
@@ -436,7 +509,7 @@ class SliderFloatEditor(QtWidgets.QWidget):
         self.valueChanged.emit(self.value)
 
     def _update_label(self) -> None:
-        self._label.setText(f'{self.value:.{self._decimals}f}{self._suffix}')
+        self._label.setText(f"{self.value:.{self._decimals}f}{self._suffix}")
 
     @property
     def value(self) -> float:

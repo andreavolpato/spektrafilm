@@ -3,8 +3,8 @@ from dataclasses import replace
 import numpy as np
 import scipy
 import scipy.stats
-from spektrafilm.utils.fast_interp import fast_interp
 
+from spektrafilm.utils.fast_interp import fast_interp
 
 ################################################################################
 # Parametric density-curve model (source of truth)
@@ -26,8 +26,8 @@ from spektrafilm.utils.fast_interp import fast_interp
 #                    research study b70/s010.
 
 SEPT_K = 5.8013  # septic support width in sigmas (minimax vs Gaussian CDF)
-_GAUSS_MODEL_TYPES = ('norm_cdfs',)
-_SEPT_MODEL_TYPE = 'sept_norm_cdfs'
+_GAUSS_MODEL_TYPES = ("norm_cdfs",)
+_SEPT_MODEL_TYPE = "sept_norm_cdfs"
 
 
 def _septic_smoothstep(v):
@@ -38,7 +38,7 @@ def _septic_smoothstep(v):
 
 def _septic_smoothstep_deriv(v):
     """d/dv of the septic smoothstep: 140 v^3 (1 - v)^3."""
-    return 140.0 * (v ** 3) * ((1.0 - v) ** 3)
+    return 140.0 * (v**3) * ((1.0 - v) ** 3)
 
 
 def _septic_warp(z, alpha=0.0):
@@ -90,7 +90,9 @@ def _require_model(density_curves_model):
     return density_curves_model
 
 
-def evaluate_density_curves(density_curves_model, log_exposure, profile_type='negative'):
+def evaluate_density_curves(
+    density_curves_model, log_exposure, profile_type="negative"
+):
     """Sample the model's total density curves onto `log_exposure`.
 
     Returns an array shaped (n_le, n_channels). Mirrors the per-channel sum
@@ -103,19 +105,22 @@ def evaluate_density_curves(density_curves_model, log_exposure, profile_type='ne
     sigmas = np.asarray(model.sigmas, dtype=float)
     alphas = None if model.alphas is None else np.asarray(model.alphas, dtype=float)
     n_ch, n_layers = centers.shape
-    sign = -1.0 if profile_type == 'positive' else 1.0
+    sign = -1.0 if profile_type == "positive" else 1.0
 
     out = np.zeros((x.size, n_ch), dtype=float)
     for ch in range(n_ch):
         for i in range(n_layers):
             z = sign * (x - centers[ch, i]) / sigmas[ch, i]
             alpha = float(alphas[ch, i]) if alphas is not None else 0.0
-            out[:, ch] += amplitudes[ch, i] * _layer_cdf_values(z, model.model_type, alpha)
+            out[:, ch] += amplitudes[ch, i] * _layer_cdf_values(
+                z, model.model_type, alpha
+            )
     return out
 
 
-def evaluate_density_curves_layers(density_curves_model, log_exposure,
-                                   profile_type='negative'):
+def evaluate_density_curves_layers(
+    density_curves_model, log_exposure, profile_type="negative"
+):
     """Sample the model's per-layer density curves onto `log_exposure`.
 
     Returns an array shaped (n_le, n_layers, n_channels) — one slice per
@@ -128,18 +133,20 @@ def evaluate_density_curves_layers(density_curves_model, log_exposure,
     sigmas = np.asarray(model.sigmas, dtype=float)
     alphas = None if model.alphas is None else np.asarray(model.alphas, dtype=float)
     n_ch, n_layers = centers.shape
-    sign = -1.0 if profile_type == 'positive' else 1.0
+    sign = -1.0 if profile_type == "positive" else 1.0
 
     out = np.zeros((x.size, n_layers, n_ch), dtype=float)
     for ch in range(n_ch):
         for i in range(n_layers):
             z = sign * (x - centers[ch, i]) / sigmas[ch, i]
             alpha = float(alphas[ch, i]) if alphas is not None else 0.0
-            out[:, i, ch] = amplitudes[ch, i] * _layer_cdf_values(z, model.model_type, alpha)
+            out[:, i, ch] = amplitudes[ch, i] * _layer_cdf_values(
+                z, model.model_type, alpha
+            )
     return out
 
 
-def refresh_density_curves_from_model(profile_data, profile_type='negative'):
+def refresh_density_curves_from_model(profile_data, profile_type="negative"):
     """Repopulate `density_curves` and `density_curves_layers` on `profile_data`
     from its `density_curves_model`, in place.
 
@@ -153,10 +160,13 @@ def refresh_density_curves_from_model(profile_data, profile_type='negative'):
     """
     model = _require_model(profile_data.density_curves_model)
     log_exposure = np.asarray(profile_data.log_exposure, dtype=float)
-    profile_data.density_curves = evaluate_density_curves(model, log_exposure, profile_type)
+    profile_data.density_curves = evaluate_density_curves(
+        model, log_exposure, profile_type
+    )
     if model.n_layers > 1:
         profile_data.density_curves_layers = evaluate_density_curves_layers(
-            model, log_exposure, profile_type)
+            model, log_exposure, profile_type
+        )
     else:
         profile_data.density_curves_layers = None
     return profile_data
@@ -186,24 +196,28 @@ def select_development_time(profile_data, development_time):
     else:
         index = int(np.argmin(np.abs(times - float(development_time))))
 
-    profile_data.density_curves = np.asarray(curves)[:, index:index + 1]
+    profile_data.density_curves = np.asarray(curves)[:, index : index + 1]
     if profile_data.density_curves_layers is not None:
-        profile_data.density_curves_layers = (
-            np.asarray(profile_data.density_curves_layers)[:, :, index:index + 1])
+        profile_data.density_curves_layers = np.asarray(
+            profile_data.density_curves_layers
+        )[:, :, index : index + 1]
     base = profile_data.base_density
     if base is not None and np.asarray(base).ndim == 2:
         profile_data.base_density = np.asarray(base)[:, index]
-    profile_data.development_time = times[index:index + 1]
+    profile_data.development_time = times[index : index + 1]
 
     model = profile_data.density_curves_model
     if model is not None and model.centers is not None:
         profile_data.density_curves_model = replace(
             model,
-            centers=np.asarray(model.centers)[index:index + 1],
-            amplitudes=np.asarray(model.amplitudes)[index:index + 1],
-            sigmas=np.asarray(model.sigmas)[index:index + 1],
-            alphas=(None if model.alphas is None
-                    else np.asarray(model.alphas)[index:index + 1]),
+            centers=np.asarray(model.centers)[index : index + 1],
+            amplitudes=np.asarray(model.amplitudes)[index : index + 1],
+            sigmas=np.asarray(model.sigmas)[index : index + 1],
+            alphas=(
+                None
+                if model.alphas is None
+                else np.asarray(model.alphas)[index : index + 1]
+            ),
         )
     return profile_data
 
@@ -212,7 +226,10 @@ def select_development_time(profile_data, development_time):
 # Denstity curves
 ################################################################################
 
-def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposure, gamma_factor):
+
+def interpolate_exposure_to_density(
+    log_exposure_rgb, density_curves, log_exposure, gamma_factor
+):
     """
     Interpolates the exposure values to density values using the provided density curves.
     Parameters:
@@ -224,17 +241,20 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
     numpy.ndarray: A 3D array of shape (height, width, n_ch) representing the interpolated density values.
     """
     n_ch = log_exposure_rgb.shape[-1]
-    if np.size(gamma_factor)==1:
+    if np.size(gamma_factor) == 1:
         gamma_factor = [gamma_factor] * n_ch
     gamma_factor = np.array(gamma_factor)
-    density_cmy = fast_interp(np.ascontiguousarray(log_exposure_rgb),
-                              log_exposure[:,None]/gamma_factor[None,:],
-                              density_curves)
+    density_cmy = fast_interp(
+        np.ascontiguousarray(log_exposure_rgb),
+        log_exposure[:, None] / gamma_factor[None, :],
+        density_curves,
+    )
     return density_cmy
 
 
-def interp_density_cmy_layers_channel(density_cmy_ch, density_curves_ch, density_curves_layers_ch,
-                                      positive_film=False):
+def interp_density_cmy_layers_channel(
+    density_cmy_ch, density_curves_ch, density_curves_layers_ch, positive_film=False
+):
     """Sub-layer densities for a single colour channel: ``(H, W, n_layers)``.
 
     ``interp_density_cmy_layers`` is just this looped over channels. Exposed
@@ -248,16 +268,25 @@ def interp_density_cmy_layers_channel(density_cmy_ch, density_curves_ch, density
     return fast_interp(stacked, density_curves_ch, density_curves_layers_ch)
 
 
-def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers, positive_film=False):
+def interp_density_cmy_layers(
+    density_cmy, density_curves, density_curves_layers, positive_film=False
+):
     # density_curves_layers is (n_le, n_layers, n_ch); channel is the last axis.
     n_ch = density_cmy.shape[-1]
     n_layers = density_curves_layers.shape[1]
-    density_cmy_layers = np.zeros((density_cmy.shape[0], density_cmy.shape[1], n_layers, n_ch)) # x,y,layer,channel
+    density_cmy_layers = np.zeros(
+        (density_cmy.shape[0], density_cmy.shape[1], n_layers, n_ch)
+    )  # x,y,layer,channel
     for ch in np.arange(n_ch):
-        density_cmy_layers[:,:,:,ch] = interp_density_cmy_layers_channel(
-            density_cmy[:,:,ch], density_curves[:,ch], density_curves_layers[:,:,ch], positive_film)
+        density_cmy_layers[:, :, :, ch] = interp_density_cmy_layers_channel(
+            density_cmy[:, :, ch],
+            density_curves[:, ch],
+            density_curves_layers[:, :, ch],
+            positive_film,
+        )
     return density_cmy_layers
-    
+
+
 # This method was used for multilayer grain, but it is not used anymore
 # def interpolate_layers(self, exposure_rgb):
 #     density_curves_layers = density_curves_layers_model(self.log_exposure, self.parameters, self.type)
@@ -270,14 +299,17 @@ def interp_density_cmy_layers(density_cmy, density_curves, density_curves_layers
 #                                                               density_curves_layers[:,channel,layer])
 #     return density_cmy_layers
 
-def apply_gamma_shift_correction(log_exposure, density_curves, gamma_correction, log_exposure_correction):
+
+def apply_gamma_shift_correction(
+    log_exposure, density_curves, gamma_correction, log_exposure_correction
+):
     dc = density_curves
     le = log_exposure
     gc = gamma_correction
     les = log_exposure_correction
     dc_out = np.zeros_like(dc)
     for i in np.arange(3):
-        dc_out[:,i] = np.interp(le, le/gc[i] + les[i], dc[:,i])
+        dc_out[:, i] = np.interp(le, le / gc[i] + les[i], dc[:, i])
     return dc_out
 
 
@@ -293,15 +325,16 @@ def remove_viewing_glare_comp(le, dc, factor=0.2, density=1.0, transition=0.3):
     Returns:
     numpy.ndarray: density curves with viewing glare compensation removed.
     """
+
     def _measure_slope(le, density_curve, le_center, range_ev=1):
-        le_delta = np.log10(2**range_ev)/2
+        le_delta = np.log10(2**range_ev) / 2
         le_0 = le_center - le_delta
         le_1 = le_center + le_delta
         density_0 = np.interp(le_0, le, density_curve)
         density_1 = np.interp(le_1, le, density_curve)
-        slope = (density_1 - density_0)/(le_1 - le_0)
-        return slope    
-    
+        slope = (density_1 - density_0) / (le_1 - le_0)
+        return slope
+
     dc_mean = np.mean(dc, axis=1)
     le_center = np.interp(density, dc_mean, le)
     slope = _measure_slope(le, dc_mean, le_center)
@@ -309,8 +342,8 @@ def remove_viewing_glare_comp(le, dc, factor=0.2, density=1.0, transition=0.3):
     dc_out = np.zeros_like(dc)
     for i in np.arange(3):
         le_nl = np.copy(le)
-        le_nl[le>le_center] -= (le[le>le_center]-le_center)*factor
-        le_transition = transition/slope
-        le_nl = scipy.ndimage.gaussian_filter(le_nl, le_transition/le_step)
-        dc_out[:,i] = np.interp(le_nl, le, dc[:,i])
+        le_nl[le > le_center] -= (le[le > le_center] - le_center) * factor
+        le_transition = transition / slope
+        le_nl = scipy.ndimage.gaussian_filter(le_nl, le_transition / le_step)
+        dc_out[:, i] = np.interp(le_nl, le, dc[:, i])
     return dc_out

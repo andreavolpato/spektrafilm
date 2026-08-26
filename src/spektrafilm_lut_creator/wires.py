@@ -7,6 +7,7 @@ formats require. The contracts live here; the shaper math lives in
 
 See studies/a40_lut_system/n030_lut_package_design.md §3.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ class LogEWire:
     The encoding is ``code = (log_e - min) / (max - min)``; the decode is
     the inverse. Constants are per-bundle and recorded in ``bundle.json``.
     """
+
     min: float
     max: float
 
@@ -39,6 +41,7 @@ class DensityWire:
     for downstream grain models that can dip below zero (grain
     fluctuates *around* the dye density, including in the fog).
     """
+
     d_max: tuple[float, float, float]
     d_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
@@ -55,6 +58,7 @@ class BoundaryWires:
     (the wires at ``rgb_in`` / ``rgb_out``) are read from
     :class:`BundleSpec` directly, not stored here.
     """
+
     log_e_film: LogEWire | None = None
     cmy_film: DensityWire | None = None
     log_e_print: LogEWire | None = None
@@ -69,5 +73,6 @@ class RgbWire:
     indicates whether the wire carries encoded (CCTF-applied) RGB or
     decoded linear RGB.
     """
+
     color_space: str
     cctf_applied: bool

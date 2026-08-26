@@ -33,7 +33,7 @@ def _whitepoint_xyz_from_temperature(temperature: float) -> np.ndarray:
     tungsten are modelled with the Kang 2002 Planckian approximation.
     """
 
-    method = 'CIE Illuminant D Series' if temperature >= 4000.0 else 'Kang 2002'
+    method = "CIE Illuminant D Series" if temperature >= 4000.0 else "Kang 2002"
     xy = colour.CCT_to_xy(np.float64(temperature), method=method)
     return np.asarray(colour.xy_to_XYZ(xy), dtype=np.float64)
 
@@ -60,7 +60,7 @@ def _apply_white_balance_adaptation(
         xyz,
         source_white_xyz,
         target_white_xyz,
-        method='Von Kries',
+        method="Von Kries",
     )
     return colour.XYZ_to_RGB(
         xyz,
@@ -96,16 +96,20 @@ def _postprocess_params(
     """
 
     params: dict[str, object] = {
-        'output_color': getattr(rawpy, 'ColorSpace').ACES,
-        'output_bps': 16,
-        'no_auto_bright': True,
-        'gamma': (1, 1),
+        "output_color": getattr(rawpy, "ColorSpace").ACES,
+        "output_bps": 16,
+        "no_auto_bright": True,
+        "gamma": (1, 1),
     }
     postprocess_adaptation: tuple[np.ndarray, np.ndarray] | None = None
     tint_multiplier: float | None = None
-    reference_white_xyz = _whitepoint_xyz_from_temperature(_DAYLIGHT_REFERENCE_TEMPERATURE)
+    reference_white_xyz = _whitepoint_xyz_from_temperature(
+        _DAYLIGHT_REFERENCE_TEMPERATURE
+    )
 
-    def set_colour_science_adjustment(target_temperature: float, target_tint: float | None) -> None:
+    def set_colour_science_adjustment(
+        target_temperature: float, target_tint: float | None
+    ) -> None:
         nonlocal postprocess_adaptation, tint_multiplier
 
         scene_white_xyz = _whitepoint_xyz_from_temperature(target_temperature)
@@ -113,15 +117,15 @@ def _postprocess_params(
             postprocess_adaptation = (scene_white_xyz, reference_white_xyz)
         tint_multiplier = target_tint
 
-    if white_balance == 'as_shot':
-        params['use_camera_wb'] = True
-    elif white_balance == 'daylight':
+    if white_balance == "as_shot":
+        params["use_camera_wb"] = True
+    elif white_balance == "daylight":
         pass
-    elif white_balance == 'tungsten':
+    elif white_balance == "tungsten":
         set_colour_science_adjustment(_TUNGSTEN_TEMPERATURE, 1.0)
-    elif white_balance == 'custom':
+    elif white_balance == "custom":
         if temperature is None:
-            raise ValueError('A custom raw white balance requires a temperature value.')
+            raise ValueError("A custom raw white balance requires a temperature value.")
         set_colour_science_adjustment(temperature, tint)
     else:
         custom_temperature, custom_tint = white_balance
@@ -186,13 +190,13 @@ def _read_exif_metadata(raw_path: str | PathLike[str]) -> ExifData:
 def _normalize_lens_text(value: object) -> str:
     """Normalize lens metadata strings for case-insensitive comparisons."""
 
-    return ' '.join(str(value).strip().lower().split())
+    return " ".join(str(value).strip().lower().split())
 
 
 def _compact_lens_text(value: object) -> str:
     """Collapse lens metadata to alphanumeric characters for loose matching."""
 
-    return ''.join(character.lower() for character in str(value) if character.isalnum())
+    return "".join(character.lower() for character in str(value) if character.isalnum())
 
 
 def _lens_model_score(lens_model: object, exif_lens_model: str) -> tuple[int, int, int]:
@@ -226,11 +230,13 @@ def _lens_matches_aperture(lens: object, f_number: float) -> bool:
     max_aperture = getattr(lens, "max_aperture", None)
     if min_aperture is None or f_number <= 0:
         return False
-    upper_bound = float(max_aperture) if max_aperture is not None else float('inf')
+    upper_bound = float(max_aperture) if max_aperture is not None else float("inf")
     return float(min_aperture) <= f_number <= upper_bound
 
 
-def _find_lens_candidates(db: object, camera: object, exif_metadata: ExifData) -> list[object]:
+def _find_lens_candidates(
+    db: object, camera: object, exif_metadata: ExifData
+) -> list[object]:
     """Find lensfun candidates with direct queries before a broad fallback search."""
 
     queries = [
@@ -244,12 +250,12 @@ def _find_lens_candidates(db: object, camera: object, exif_metadata: ExifData) -
         seen: set[tuple[object, ...]] = set()
         for lens in lenses:
             identity = (
-                _normalize_lens_text(getattr(lens, 'maker', '')),
-                _normalize_lens_text(getattr(lens, 'model', '')),
-                getattr(lens, 'min_focal', None),
-                getattr(lens, 'max_focal', None),
-                getattr(lens, 'min_aperture', None),
-                getattr(lens, 'max_aperture', None),
+                _normalize_lens_text(getattr(lens, "maker", "")),
+                _normalize_lens_text(getattr(lens, "model", "")),
+                getattr(lens, "min_focal", None),
+                getattr(lens, "max_focal", None),
+                getattr(lens, "min_aperture", None),
+                getattr(lens, "max_aperture", None),
             )
             if identity in seen:
                 continue
@@ -258,31 +264,40 @@ def _find_lens_candidates(db: object, camera: object, exif_metadata: ExifData) -
         return candidates
 
     for lens_make, lens_model, loose_search in queries:
-        direct_candidates = dedupe(db.find_lenses(camera, lens_make, lens_model, loose_search=loose_search))
+        direct_candidates = dedupe(
+            db.find_lenses(camera, lens_make, lens_model, loose_search=loose_search)
+        )
         if direct_candidates:
             return direct_candidates
 
     broader_candidates = dedupe(db.find_lenses(camera, None, None, loose_search=True))
     return [
-        lens for lens in broader_candidates
-        if _lens_model_score(getattr(lens, 'model', ''), exif_metadata.lens_model) > (0, 0, 0)
+        lens
+        for lens in broader_candidates
+        if _lens_model_score(getattr(lens, "model", ""), exif_metadata.lens_model)
+        > (0, 0, 0)
     ]
 
 
 def _select_lens_candidate(lenses: list[object], exif_metadata: ExifData) -> object:
     """Pick the best lens candidate using model, maker, focal and aperture cues."""
 
-    focal_matches = [lens for lens in lenses if _lens_matches_focal(lens, exif_metadata.focal_length)]
+    focal_matches = [
+        lens for lens in lenses if _lens_matches_focal(lens, exif_metadata.focal_length)
+    ]
     candidates = focal_matches if focal_matches else lenses
     normalized_maker = _normalize_lens_text(exif_metadata.lens_make)
 
     def lens_score(lens: object) -> tuple[tuple[int, int, int], int, int, int, float]:
         return (
-            _lens_model_score(getattr(lens, 'model', ''), exif_metadata.lens_model),
-            int(bool(normalized_maker) and _normalize_lens_text(getattr(lens, 'maker', '')) == normalized_maker),
+            _lens_model_score(getattr(lens, "model", ""), exif_metadata.lens_model),
+            int(
+                bool(normalized_maker)
+                and _normalize_lens_text(getattr(lens, "maker", "")) == normalized_maker
+            ),
             int(_lens_matches_focal(lens, exif_metadata.focal_length)),
             int(_lens_matches_aperture(lens, exif_metadata.f_number)),
-            float(getattr(lens, 'score', 0.0) or 0.0),
+            float(getattr(lens, "score", 0.0) or 0.0),
         )
 
     candidates.sort(key=lens_score, reverse=True)
@@ -324,7 +339,9 @@ def _apply_lens_correction(
         return rgb, ""
 
     db = lensfunpy.Database()
-    cameras = db.find_cameras(exif_metadata.make, exif_metadata.model, loose_search=True)
+    cameras = db.find_cameras(
+        exif_metadata.make, exif_metadata.model, loose_search=True
+    )
 
     if not cameras:
         return rgb, ""
@@ -337,8 +354,10 @@ def _apply_lens_correction(
         return rgb, ""
 
     lens = _select_lens_candidate(lenses, exif_metadata)
-    lens_label = getattr(lens, 'model', None) or exif_metadata.lens_model or str(lens)
-    lens_info = f"{lens_label} @ {exif_metadata.focal_length}mm f/{exif_metadata.f_number}"
+    lens_label = getattr(lens, "model", None) or exif_metadata.lens_model or str(lens)
+    lens_info = (
+        f"{lens_label} @ {exif_metadata.focal_length}mm f/{exif_metadata.f_number}"
+    )
 
     height, width = rgb.shape[:2]
 
@@ -371,7 +390,7 @@ def _apply_lens_correction(
 
 def load_and_process_raw_file(
     raw_path: str | PathLike[str],
-    white_balance='as_shot',
+    white_balance="as_shot",
     temperature: float | None = None,
     tint: float | None = None,
     lens_correction: bool = False,
@@ -416,7 +435,9 @@ def load_and_process_raw_file(
     """
 
     with rawpy.imread(str(raw_path)) as raw:
-        params, postprocess_adaptation, tint_multiplier = _postprocess_params(white_balance, temperature, tint)
+        params, postprocess_adaptation, tint_multiplier = _postprocess_params(
+            white_balance, temperature, tint
+        )
         rgb = raw.postprocess(**params).astype(np.float32) / np.float32(65535.0)
 
     if lens_correction:
@@ -431,7 +452,7 @@ def load_and_process_raw_file(
 
     rgb = _apply_tint_adjustment(rgb, tint_multiplier)
 
-    if output_colorspace != 'ACES2065-1':
+    if output_colorspace != "ACES2065-1":
         rgb = colour.RGB_to_RGB(
             rgb,
             input_colourspace=_ACES_COLOURSPACE,
@@ -443,4 +464,4 @@ def load_and_process_raw_file(
     return rgb
 
 
-__all__ = ['load_and_process_raw_file']
+__all__ = ["load_and_process_raw_file"]

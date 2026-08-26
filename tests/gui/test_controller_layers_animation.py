@@ -20,7 +20,7 @@ class _FakeSignal:
 
 
 class _FakeTimer:
-    created: list['_FakeTimer'] = []
+    created: list[_FakeTimer] = []
 
     def __init__(self) -> None:
         self.timeout = _FakeSignal()
@@ -43,7 +43,7 @@ class _FakeTimer:
             if self.stopped:
                 return
             self.timeout.emit()
-        raise AssertionError('output animation did not stop during test')
+        raise AssertionError("output animation did not stop during test")
 
     def stop(self) -> None:
         self.stopped = True
@@ -53,14 +53,24 @@ class _FakeTimer:
 
 
 class _FakeLayer:
-    def __init__(self, data: np.ndarray | None = None, *, name: str = 'layer', visible: bool = True) -> None:
+    def __init__(
+        self,
+        data: np.ndarray | None = None,
+        *,
+        name: str = "layer",
+        visible: bool = True,
+    ) -> None:
         self.name = name
-        self._data = np.zeros((1, 1, 3), dtype=np.float32) if data is None else np.array(data, copy=True)
+        self._data = (
+            np.zeros((1, 1, 3), dtype=np.float32)
+            if data is None
+            else np.array(data, copy=True)
+        )
         self.metadata: dict[str, object] = {}
         self.visible = visible
         self.scale = (1.0, 1.0)
         self.translate = (0.0, 0.0)
-        self._type_string = 'image'
+        self._type_string = "image"
         self.data_history: list[np.ndarray] = []
         self.refresh_calls = 0
 
@@ -106,30 +116,38 @@ class _FakeViewer:
 def _make_service() -> ViewerLayerService:
     return ViewerLayerService(
         viewer=_FakeViewer(),
-        output_float_data_key='float',
-        output_color_space_key='color',
-        output_cctf_encoding_key='cctf',
-        output_display_transform_key='display',
+        output_float_data_key="float",
+        output_color_space_key="color",
+        output_cctf_encoding_key="cctf",
+        output_display_transform_key="display",
     )
 
 
 @pytest.fixture(autouse=True)
 def _stub_virtual_paper_back(monkeypatch) -> None:
     def fake_virtual_photo_paper_back(*, canvas_size, **_kwargs):
-        width, height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        width, height = (
+            (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        )
         return np.full((int(height), int(width), 3), 0.2, dtype=np.float32)
 
     controller_layers_module.clear_watermark_image_cache()
-    monkeypatch.setattr(controller_layers_module, 'virtual_photo_paper_back', fake_virtual_photo_paper_back)
+    monkeypatch.setattr(
+        controller_layers_module,
+        "virtual_photo_paper_back",
+        fake_virtual_photo_paper_back,
+    )
     yield
     controller_layers_module.clear_watermark_image_cache()
 
 
 def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:
     _FakeTimer.created.clear()
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _FakeTimer)
     service = _make_service()
-    service.set_or_add_input_preview_layer(np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1
+    )
     white_border = service.white_border_layer()
     assert white_border is not None
     output_image = np.full((4, 4, 3), 77, dtype=np.uint8)
@@ -137,7 +155,7 @@ def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:
     service.set_or_add_output_layer(
         output_image,
         float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -156,7 +174,7 @@ def test_first_output_preview_runs_polaroid_frame_sequence(monkeypatch) -> None:
 
 def test_reused_input_preview_layer_refreshes_after_data_swap(monkeypatch) -> None:
     _FakeTimer.created.clear()
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _FakeTimer)
     service = _make_service()
     first_preview = np.full((2, 1, 3), 0.25, dtype=np.float32)
     second_preview = np.full((2, 1, 3), 0.75, dtype=np.float32)
@@ -174,18 +192,22 @@ def test_reused_input_preview_layer_refreshes_after_data_swap(monkeypatch) -> No
     assert preview_layer.refresh_calls > initial_refresh_calls
 
 
-def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(monkeypatch) -> None:
+def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(
+    monkeypatch,
+) -> None:
     _FakeTimer.created.clear()
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _FakeTimer)
     service = _make_service()
-    service.set_or_add_input_preview_layer(np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1
+    )
     first_image = np.full((4, 4, 3), 77, dtype=np.uint8)
     second_image = np.full((4, 4, 3), 88, dtype=np.uint8)
 
     service.set_or_add_output_layer(
         first_image,
         float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -196,7 +218,7 @@ def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(
     service.set_or_add_output_layer(
         second_image,
         float_image=np.full((4, 4, 3), 0.6, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -211,18 +233,22 @@ def test_visible_output_updates_crossfade_without_restarting_polaroid_animation(
     np.testing.assert_array_equal(new_frames[-1], second_image)
 
 
-def test_preview_to_scan_shape_change_recreates_output_layer_without_restarting_animation(monkeypatch) -> None:
+def test_preview_to_scan_shape_change_recreates_output_layer_without_restarting_animation(
+    monkeypatch,
+) -> None:
     _FakeTimer.created.clear()
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _FakeTimer)
     service = _make_service()
-    service.set_or_add_input_preview_layer(np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1
+    )
     preview_image = np.full((4, 4, 3), 77, dtype=np.uint8)
     scan_image = np.full((8, 8, 3), 88, dtype=np.uint8)
 
     service.set_or_add_output_layer(
         preview_image,
         float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -233,7 +259,7 @@ def test_preview_to_scan_shape_change_recreates_output_layer_without_restarting_
     service.set_or_add_output_layer(
         scan_image,
         float_image=np.full((8, 8, 3), 0.6, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -248,16 +274,20 @@ def test_preview_to_scan_shape_change_recreates_output_layer_without_restarting_
 
 def test_large_output_skips_polaroid_animation(monkeypatch) -> None:
     _FakeTimer.created.clear()
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _FakeTimer)
-    monkeypatch.setattr(controller_layers_module, 'OUTPUT_LAYER_ANIMATION_MAX_PIXELS', 4)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _FakeTimer)
+    monkeypatch.setattr(
+        controller_layers_module, "OUTPUT_LAYER_ANIMATION_MAX_PIXELS", 4
+    )
     service = _make_service()
-    service.set_or_add_input_preview_layer(np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1)
+    service.set_or_add_input_preview_layer(
+        np.full((2, 1, 3), 0.75, dtype=np.float32), white_padding=0.1
+    )
     output_image = np.full((3, 2, 3), 77, dtype=np.uint8)
 
     service.set_or_add_output_layer(
         output_image,
         float_image=np.full((3, 2, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )

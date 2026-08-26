@@ -16,16 +16,16 @@ Three families:
 
 References: Panasonic V-Log/V-Gamut Reference Manual; spektrafilm-research n200.
 """
+
 from __future__ import annotations
 
+import colour
 import numpy as np
 import pytest
 
-import colour
-
 from spektrafilm_lut_creator import color_spaces as cs
-from spektrafilm_lut_creator.bundles import BundleSpec
 from spektrafilm_lut_creator.builders import BundleBuilder
+from spektrafilm_lut_creator.bundles import BundleSpec
 from spektrafilm_lut_creator.color_spaces import to_xyz_qa
 from spektrafilm_lut_creator.qa import evaluators
 
@@ -47,7 +47,7 @@ class TestVLogTransferMatchesPanasonicSpec:
     def test_18pct_gray_encodes_to_code_433(self):
         code = float(cs.encode_cctf(np.array([MIDGRAY]), VLOG)[0])
         assert code == pytest.approx(0.42331, abs=1e-3)
-        assert _ten_bit(code) == 433   # Panasonic Reference Manual, Fig. 2.2
+        assert _ten_bit(code) == 433  # Panasonic Reference Manual, Fig. 2.2
 
     def test_90pct_white_encodes_to_code_602(self):
         code = float(cs.encode_cctf(np.array([0.90]), VLOG)[0])
@@ -57,12 +57,16 @@ class TestVLogTransferMatchesPanasonicSpec:
     def test_black_is_code_128(self):
         # 0% reflection sits at 10-bit 128 (≈0.125); decoding it returns ~0.
         assert _ten_bit(0.125) == 128
-        assert float(cs.decode_cctf(np.array([0.125]), VLOG)[0]) == pytest.approx(0.0, abs=1e-2)
+        assert float(cs.decode_cctf(np.array([0.125]), VLOG)[0]) == pytest.approx(
+            0.0, abs=1e-2
+        )
 
     def test_code_1_decodes_to_native_headroom(self):
         white = float(cs.decode_cctf(np.array([1.0]), VLOG)[0])
-        assert white == pytest.approx(46.0855, rel=1e-4)            # ≈4609% reflection
-        assert np.log2(white / MIDGRAY) == pytest.approx(8.0, abs=0.01)  # ~8 stops above gray
+        assert white == pytest.approx(46.0855, rel=1e-4)  # ≈4609% reflection
+        assert np.log2(white / MIDGRAY) == pytest.approx(
+            8.0, abs=0.01
+        )  # ~8 stops above gray
 
     def test_18pct_code_round_trips_to_018(self):
         code = cs.encode_cctf(np.array([MIDGRAY]), VLOG)
@@ -72,7 +76,8 @@ class TestVLogTransferMatchesPanasonicSpec:
         space = colour.RGB_COLOURSPACES[cs.get(VLOG).primaries]
         np.testing.assert_allclose(
             space.primaries,
-            [[0.730, 0.280], [0.165, 0.840], [0.100, -0.030]], atol=1e-4,
+            [[0.730, 0.280], [0.165, 0.840], [0.100, -0.030]],
+            atol=1e-4,
         )
         np.testing.assert_allclose(space.whitepoint, [0.3127, 0.3290], atol=1e-4)  # D65
 
@@ -95,11 +100,15 @@ class TestVLogMidgrayConfiguration:
 
     def test_default_spec_is_midgray_pinned(self):
         spec = BundleSpec(
-            film_profile="kodak_ektar_100", print_profiles=("kodak_ultra_endura",),
-            input_color_space="vlog", output_color_space="srgb",
+            film_profile="kodak_ektar_100",
+            print_profiles=("kodak_ultra_endura",),
+            input_color_space="vlog",
+            output_color_space="srgb",
         )
         assert spec.exposure_ev == 0.0
-        assert cs.input_gain(spec.input_color_space, spec.exposure_ev) == pytest.approx(1.0)
+        assert cs.input_gain(spec.input_color_space, spec.exposure_ev) == pytest.approx(
+            1.0
+        )
 
 
 @pytest.mark.integration
@@ -113,16 +122,21 @@ class TestVLogLutMidgrayEndToEnd:
         """Reflectance-scale output luminance Y for the camera's 18% gray,
         applied through a freshly-baked (film, print) cube."""
         spec = BundleSpec(
-            film_profile="kodak_ektar_100", print_profiles=("kodak_ultra_endura",),
-            input_color_space=input_cs, output_color_space="srgb",
-            topology="1lut", resolution=resolution,
+            film_profile="kodak_ektar_100",
+            print_profiles=("kodak_ultra_endura",),
+            input_color_space=input_cs,
+            output_color_space="srgb",
+            topology="1lut",
+            resolution=resolution,
         )
         bundle = BundleBuilder(spec).build()
         lut = bundle.luts[0][1]
         entry = cs.get(spec.input_color_space)
         # The camera's true 18% gray as a native input code (0.18 for log/SDR).
         code = np.asarray(
-            cs.encode_cctf(np.full((1, 3), entry.midgray_linear), spec.input_color_space),
+            cs.encode_cctf(
+                np.full((1, 3), entry.midgray_linear), spec.input_color_space
+            ),
             dtype=float,
         )
         out_enc = evaluators.apply_trilinear(lut.table, code)
@@ -135,7 +149,9 @@ class TestVLogLutMidgrayEndToEnd:
         # Within half a stop of a faithful 18% (the small residual is the film's
         # own rendering of midgray). Crucially NOT the ~-5 stops the old
         # gain=0.25 bug produced.
-        assert abs(offset_stops) < 0.5, f"V-Log midgray off by {offset_stops:+.2f} stops (Y={y:.4f})"
+        assert abs(offset_stops) < 0.5, (
+            f"V-Log midgray off by {offset_stops:+.2f} stops (Y={y:.4f})"
+        )
         assert y > 0.09, f"V-Log midgray crushed dark (Y={y:.4f}) — exposure regression"
 
     def test_midgray_matches_slog3(self):

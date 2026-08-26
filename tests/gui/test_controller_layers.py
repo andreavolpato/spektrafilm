@@ -13,9 +13,9 @@ from spektrafilm_gui.controller import (
 from spektrafilm_gui.controller_layers import (
     INPUT_PREVIEW_LAYER_NAME,
     OUTPUT_LAYER_NAME,
-    ViewerLayerService,
     WATERMARK_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
+    ViewerLayerService,
 )
 
 from .helpers import FakeLayer, FakeLayerList, FakeViewer
@@ -32,13 +32,19 @@ def _make_service(viewer: FakeViewer) -> ViewerLayerService:
 
 
 class VisibilityTrackingLayer:
-    def __init__(self, data: np.ndarray | None = None, *, name: str = 'layer', visible: bool = True) -> None:
+    def __init__(
+        self,
+        data: np.ndarray | None = None,
+        *,
+        name: str = "layer",
+        visible: bool = True,
+    ) -> None:
         self.name = name
         self.data = np.zeros((1, 1, 3), dtype=np.float32) if data is None else data
         self.metadata: dict[str, object] = {}
         self.scale = (1.0, 1.0)
         self.translate = (0.0, 0.0)
-        self._type_string = 'image'
+        self._type_string = "image"
         self.visible_set_calls = 0
         self._visible = bool(visible)
 
@@ -111,7 +117,7 @@ class _ImmediateTimer:
             if self.stopped:
                 return
             self.timeout.emit()
-        raise AssertionError('output animation did not stop during test')
+        raise AssertionError("output animation did not stop during test")
 
     def stop(self) -> None:
         self.stopped = True
@@ -122,23 +128,31 @@ class _ImmediateTimer:
 
 @pytest.fixture(autouse=True)
 def _complete_output_animation(monkeypatch) -> None:
-    monkeypatch.setattr(controller_layers_module, 'QTimer', _ImmediateTimer)
+    monkeypatch.setattr(controller_layers_module, "QTimer", _ImmediateTimer)
 
 
 @pytest.fixture(autouse=True)
 def _stub_virtual_paper_back(monkeypatch) -> None:
     def fake_virtual_photo_paper_back(*, canvas_size, **_kwargs):
-        width, height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        width, height = (
+            (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        )
         return np.full((int(height), int(width), 3), 0.2, dtype=np.float32)
 
     controller_layers_module.clear_watermark_image_cache()
-    monkeypatch.setattr(controller_layers_module, 'virtual_photo_paper_back', fake_virtual_photo_paper_back)
+    monkeypatch.setattr(
+        controller_layers_module,
+        "virtual_photo_paper_back",
+        fake_virtual_photo_paper_back,
+    )
     yield
     controller_layers_module.clear_watermark_image_cache()
 
 
-def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_frame() -> None:
-    viewer = FakeViewer([FakeLayer(name='older-1'), FakeLayer(name='older-2')])
+def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_frame() -> (
+    None
+):
+    viewer = FakeViewer([FakeLayer(name="older-1"), FakeLayer(name="older-2")])
     service = _make_service(viewer)
     preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
 
@@ -164,7 +178,7 @@ def test_set_or_add_input_preview_layer_creates_fixed_layers_with_shared_world_f
     assert watermark_layer.visible is True
     assert preview_layer.visible is False
     assert watermark_layer.data.shape == (1024, 512, 3)
-    assert watermark_layer.interpolation2d == 'spline36'
+    assert watermark_layer.interpolation2d == "spline36"
     assert preview_layer.scale == (0.5, 0.5)
     assert white_border.scale == (0.75, 1.0)
 
@@ -186,6 +200,8 @@ def test_repeated_input_preview_updates_skip_stack_reorder() -> None:
     )
 
     assert viewer.layers.move_calls == move_calls
+
+
 def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None:
     viewer = FakeViewer()
     service = _make_service(viewer)
@@ -199,7 +215,7 @@ def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None
     service.set_or_add_output_layer(
         image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -210,11 +226,13 @@ def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None
     assert preview_layer is not None
     assert viewer.layers[-1] is output_layer
     np.testing.assert_array_equal(output_layer.data, image)
-    np.testing.assert_allclose(output_layer.metadata[OUTPUT_FLOAT_DATA_KEY], float_image)
-    assert output_layer.metadata[OUTPUT_COLOR_SPACE_KEY] == 'ACES2065-1'
+    np.testing.assert_allclose(
+        output_layer.metadata[OUTPUT_FLOAT_DATA_KEY], float_image
+    )
+    assert output_layer.metadata[OUTPUT_COLOR_SPACE_KEY] == "ACES2065-1"
     assert output_layer.metadata[OUTPUT_CCTF_ENCODING_KEY] is True
     assert output_layer.metadata[OUTPUT_DISPLAY_TRANSFORM_KEY] is False
-    assert output_layer.interpolation2d == 'spline36'
+    assert output_layer.interpolation2d == "spline36"
     assert output_layer.visible is True
     assert preview_layer.visible is False
     assert viewer.layers.selection.active is output_layer
@@ -232,18 +250,20 @@ def test_set_or_add_output_layer_applies_requested_interpolation_mode() -> None:
     service.set_or_add_output_layer(
         np.full((8, 4, 3), 77, dtype=np.uint8),
         float_image=np.full((8, 4, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
-        output_interpolation_mode='nearest',
+        output_interpolation_mode="nearest",
     )
 
     output_layer = service.output_layer()
     assert output_layer is not None
-    assert output_layer.interpolation2d == 'nearest'
+    assert output_layer.interpolation2d == "nearest"
 
 
-def test_set_or_add_output_layer_preserves_square_pixels_for_cropped_aspect_changes() -> None:
+def test_set_or_add_output_layer_preserves_square_pixels_for_cropped_aspect_changes() -> (
+    None
+):
     viewer = FakeViewer()
     service = _make_service(viewer)
     service.set_or_add_input_preview_layer(
@@ -256,7 +276,7 @@ def test_set_or_add_output_layer_preserves_square_pixels_for_cropped_aspect_chan
     service.set_or_add_output_layer(
         image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -267,7 +287,9 @@ def test_set_or_add_output_layer_preserves_square_pixels_for_cropped_aspect_chan
     assert output_layer.translate == (-0.25, -0.25)
 
 
-def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hidden_layer() -> None:
+def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hidden_layer() -> (
+    None
+):
     viewer = VisibilityTrackingViewer()
     service = _make_service(viewer)
     service.set_or_add_input_preview_layer(
@@ -280,7 +302,7 @@ def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hid
     service.set_or_add_output_layer(
         image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -292,7 +314,7 @@ def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hid
     service.set_or_add_output_layer(
         image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -304,7 +326,7 @@ def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hid
     service.set_or_add_output_layer(
         image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -313,7 +335,9 @@ def test_repeated_output_updates_skip_redundant_visibility_write_but_restore_hid
     assert output_layer.visible_set_calls == visible_set_calls + 2
 
 
-def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output() -> None:
+def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output() -> (
+    None
+):
     viewer = TrackingViewer()
     service = _make_service(viewer)
     preview_image = np.full((2, 1, 3), 0.75, dtype=np.float32)
@@ -328,7 +352,7 @@ def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output
     service.set_or_add_output_layer(
         output_image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -350,7 +374,7 @@ def test_input_preview_hides_existing_output_layer_but_reuses_it_for_next_output
     service.set_or_add_output_layer(
         output_image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -374,7 +398,7 @@ def test_hidden_output_with_changed_shape_is_recreated_for_next_output() -> None
     service.set_or_add_output_layer(
         first_output,
         float_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -390,7 +414,7 @@ def test_hidden_output_with_changed_shape_is_recreated_for_next_output() -> None
     service.set_or_add_output_layer(
         second_output,
         float_image=np.full((8, 8, 3), 0.6, dtype=np.float32),
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -416,7 +440,7 @@ def test_input_preview_update_can_preserve_visible_output_and_active_layer() -> 
     service.set_or_add_output_layer(
         output_image,
         float_image=float_image,
-        output_color_space='ACES2065-1',
+        output_color_space="ACES2065-1",
         output_cctf_encoding=True,
         use_display_transform=False,
     )
@@ -442,12 +466,14 @@ def test_input_preview_update_can_preserve_visible_output_and_active_layer() -> 
 
 
 def test_output_layer_render_settings_fall_back_without_output_layer() -> None:
-    service = _make_service(FakeViewer([FakeLayer(name='input')]))
+    service = _make_service(FakeViewer([FakeLayer(name="input")]))
 
-    assert service.output_layer_render_settings(default_color_space='sRGB', default_cctf_encoding=True) == ('sRGB', True)
+    assert service.output_layer_render_settings(
+        default_color_space="sRGB", default_cctf_encoding=True
+    ) == ("sRGB", True)
 
 
 def test_output_layer_float_data_returns_none_without_metadata() -> None:
-    service = _make_service(FakeViewer([FakeLayer(name='output')]))
+    service = _make_service(FakeViewer([FakeLayer(name="output")]))
 
     assert service.output_layer_float_data() is None

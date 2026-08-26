@@ -30,9 +30,9 @@ from spektrafilm_gui.theme_palette import (
     SIZE_FORM_SPACING,
     SIZE_HEADER_PADDING,
     SIZE_SCROLLBAR_HANDLE_MIN,
+    SIZE_SPIN_BUTTON_WIDTH,
     SIZE_SPLITTER_HANDLE_MARGIN_LEFT,
     SIZE_SPLITTER_HANDLE_WIDTH,
-    SIZE_SPIN_BUTTON_WIDTH,
     SIZE_TAB_MARGIN_RIGHT,
     SIZE_TAB_PADDING,
     SIZE_TAB_STRIP_OFFSET,
@@ -55,7 +55,7 @@ from spektrafilm_gui.theme_palette import (
 
 
 def join_style_sections(*sections: str) -> str:
-    return '\n\n'.join(section.strip() for section in sections if section.strip())
+    return "\n\n".join(section.strip() for section in sections if section.strip())
 
 
 WINDOW_STYLE = f"""

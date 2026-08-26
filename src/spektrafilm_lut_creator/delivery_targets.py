@@ -23,10 +23,11 @@ context recorded in the ``verified`` field.
 See [n080](../../../spektrafilm-research/studies/a40_lut_system/n080_lut_quality_and_visualization.md)
 for the broader LUT-export plan.
 """
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class DeliveryTarget:
         verified: how / where this target was field-tested.
         notes: anything else worth surfacing in code reviews / docs.
     """
+
     name: str
     description: str
     format: str
@@ -66,6 +68,7 @@ def register(entry: DeliveryTarget) -> None:
     # Defer the import to avoid a registration-time cycle through
     # formats/__init__.py.
     from spektrafilm_lut_creator.formats import LUT_FORMATS
+
     if entry.format not in LUT_FORMATS:
         raise KeyError(
             f"DeliveryTarget {entry.name!r}: unknown format "
@@ -101,32 +104,38 @@ def list_targets() -> list[str]:
 # Built-in entries — extend only with field-verified additions.
 # ---------------------------------------------------------------------------
 
-register(DeliveryTarget(
-    name="lumix_realtime_vlog",
-    description=(
-        "Panasonic Lumix Real-Time LUT, V-Log input. The LUT loads "
-        "in-camera (Photo Style → Real-Time LUT) and applies live to "
-        "monitor preview and recording. Output is the camera's display "
-        "encoding (sRGB / Rec.709 for SDR, Rec.2020 for HDR modes)."
-    ),
-    format="lumix",
-    valid_inputs=("Panasonic V-Log",),
-    valid_outputs=("sRGB", "Rec.709", "Rec.2020"),
-    recommended_resolution=33,
-    writer_kwargs={"photo_style_tag": "VLOG"},
-    cameras=(
-        "Panasonic Lumix S5II", "Lumix S5IIX", "Lumix S9",
-        "Lumix S1II", "Lumix S1IIE", "Lumix GH7",
-    ),
-    verified=(
-        "Field-tested with a 33^3 .cube using this exact header layout "
-        "(TITLE → #LUMIXPHOTOSTYLE VLOG → LUT_3D_SIZE → DOMAIN_MIN → "
-        "DOMAIN_MAX → blank → data). Loads via Lumix Lab and SD-card "
-        "import. Reference: user's pre-spektrafilm script."
-    ),
-    notes=(
-        "Only the VLOG photo-style tag is currently included. HLG / STD "
-        "/ other Lumix photo styles will land as separate targets once "
-        "each is verified on a real camera."
-    ),
-))
+register(
+    DeliveryTarget(
+        name="lumix_realtime_vlog",
+        description=(
+            "Panasonic Lumix Real-Time LUT, V-Log input. The LUT loads "
+            "in-camera (Photo Style → Real-Time LUT) and applies live to "
+            "monitor preview and recording. Output is the camera's display "
+            "encoding (sRGB / Rec.709 for SDR, Rec.2020 for HDR modes)."
+        ),
+        format="lumix",
+        valid_inputs=("Panasonic V-Log",),
+        valid_outputs=("sRGB", "Rec.709", "Rec.2020"),
+        recommended_resolution=33,
+        writer_kwargs={"photo_style_tag": "VLOG"},
+        cameras=(
+            "Panasonic Lumix S5II",
+            "Lumix S5IIX",
+            "Lumix S9",
+            "Lumix S1II",
+            "Lumix S1IIE",
+            "Lumix GH7",
+        ),
+        verified=(
+            "Field-tested with a 33^3 .cube using this exact header layout "
+            "(TITLE → #LUMIXPHOTOSTYLE VLOG → LUT_3D_SIZE → DOMAIN_MIN → "
+            "DOMAIN_MAX → blank → data). Loads via Lumix Lab and SD-card "
+            "import. Reference: user's pre-spektrafilm script."
+        ),
+        notes=(
+            "Only the VLOG photo-style tag is currently included. HLG / STD "
+            "/ other Lumix photo styles will land as separate targets once "
+            "each is verified on a real camera."
+        ),
+    )
+)

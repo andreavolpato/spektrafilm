@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from spektrafilm_lut_creator.bundles import BundleSpec
 
-
 DEFAULT_FILM_PROFILE = "kodak_portra_400"
 DEFAULT_PRINT_PROFILES = ("kodak_portra_endura",)
 DEFAULT_INPUT_COLOR_SPACE = "ACEScct"

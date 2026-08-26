@@ -1,10 +1,10 @@
 import numpy as np
 from numba import njit, prange
 
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 @njit(cache=True)
 def _gaussian_kernel_1d(sigma, truncate):
@@ -22,7 +22,7 @@ def _gaussian_kernel_1d(sigma, truncate):
     return kernel, radius
 
 
-@njit(inline='always', cache=True)
+@njit(inline="always", cache=True)
 def _reflect(i, n):
     # scipy.ndimage mode='reflect': (d c b a | a b c d | d c b a).
     if 0 <= i < n:
@@ -118,6 +118,7 @@ def _gaussian_filter_2d_small(image, sigma, truncate):
 # with ~10 multiply-adds per pixel. Edge handling is sample-replication;
 # max error vs the analytic Gaussian is around 1e-3.
 # ---------------------------------------------------------------------------
+
 
 def _yvv_coeffs(sigma):
     if sigma >= 2.5:
@@ -249,16 +250,14 @@ def _apply_per_channel(image, sigma, truncate, filter_2d):
             sigmas = np.asarray(sigma, dtype=np.float64).ravel()
             if sigmas.shape[0] != c:
                 raise ValueError(
-                    "sigma length {} does not match channel count {}".format(
-                        sigmas.shape[0], c
-                    )
+                    f"sigma length {sigmas.shape[0]} does not match channel count {c}"
                 )
         output = np.empty_like(image)
         for ch in range(c):
             ch_in = np.ascontiguousarray(image[:, :, ch])
             output[:, :, ch] = filter_2d(ch_in, sigmas[ch], truncate)
         return output
-    raise ValueError("Unsupported image dimension: {}".format(image.ndim))
+    raise ValueError(f"Unsupported image dimension: {image.ndim}")
 
 
 def fast_gaussian_filter(image, sigma, truncate=3.0):
@@ -289,7 +288,9 @@ def fast_gaussian_filter_large(image, sigma):
     pixel regardless of sigma. Max error vs analytic Gaussian ~1e-3, with
     minor edge approximation from sample-replication boundary handling.
     """
-    return _apply_per_channel(image, sigma, 0.0, lambda img, s, _t: _gaussian_filter_2d_large(img, s))
+    return _apply_per_channel(
+        image, sigma, 0.0, lambda img, s, _t: _gaussian_filter_2d_large(img, s)
+    )
 
 
 # Gaussian-mixture approximations of a 2D isotropic exponential PSF
@@ -297,15 +298,21 @@ def fast_gaussian_filter_large(image, sigma):
 # amplitudes sum to 1 so total energy is preserved. Placeholder fits, to be
 # refined with a least-squares fit against measured film MTFs.
 _EXPONENTIAL_GAUSSIAN_FITS: dict[int, np.ndarray] = {
-    2: np.array([
-        [0.6235, 0.9401],
-        [0.3765, 2.5177],
-    ], dtype=np.float64),
-    3: np.array([
-        [0.1633, 0.5360],
-        [0.6496, 1.5236],
-        [0.1870, 2.7684],
-    ], dtype=np.float64),
+    2: np.array(
+        [
+            [0.6235, 0.9401],
+            [0.3765, 2.5177],
+        ],
+        dtype=np.float64,
+    ),
+    3: np.array(
+        [
+            [0.1633, 0.5360],
+            [0.6496, 1.5236],
+            [0.1870, 2.7684],
+        ],
+        dtype=np.float64,
+    ),
 }
 
 
@@ -352,8 +359,9 @@ def warmup_fast_gaussian_filter():
     fast_exponential_filter(dummy3d, np.array([3.0, 5.0, 7.0]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import time
+
     from scipy.ndimage import gaussian_filter
 
     print("Warming up...")
@@ -375,39 +383,61 @@ if __name__ == '__main__':
     sigma = 1.0
     truncate = 4.0
     fast2d = fast_gaussian_filter_small(img2d, sigma, truncate)
-    ref2d = gaussian_filter(img2d, sigma, truncate=truncate, mode='reflect')
-    print("Small sigma=%.1f, 2D max err vs SciPy: %.2e" % (sigma, np.abs(fast2d - ref2d).max()))
+    ref2d = gaussian_filter(img2d, sigma, truncate=truncate, mode="reflect")
+    print(
+        f"Small sigma={sigma:.1f}, 2D max err vs SciPy: {np.abs(fast2d - ref2d).max():.2e}"
+    )
 
     t_fast = bench(fast_gaussian_filter_small, img2d, sigma, truncate)
-    t_scipy = bench(lambda x: gaussian_filter(x, sigma, truncate=truncate, mode='reflect'), img2d)
-    print("  2D  fast_small: %.4fs  scipy: %.4fs  speedup: %.2fx" % (t_fast, t_scipy, t_scipy / t_fast))
+    t_scipy = bench(
+        lambda x: gaussian_filter(x, sigma, truncate=truncate, mode="reflect"), img2d
+    )
+    print(
+        f"  2D  fast_small: {t_fast:.4f}s  scipy: {t_scipy:.4f}s  speedup: {t_scipy / t_fast:.2f}x"
+    )
 
     t_fast = bench(fast_gaussian_filter_small, img3d, sigma, truncate)
+
     def scipy_3d_small(x):
         out = np.empty_like(x)
         for ch in range(x.shape[2]):
-            out[:, :, ch] = gaussian_filter(x[:, :, ch], sigma, truncate=truncate, mode='reflect')
+            out[:, :, ch] = gaussian_filter(
+                x[:, :, ch], sigma, truncate=truncate, mode="reflect"
+            )
         return out
+
     t_scipy = bench(scipy_3d_small, img3d)
-    print("  3D  fast_small: %.4fs  scipy: %.4fs  speedup: %.2fx" % (t_fast, t_scipy, t_scipy / t_fast))
+    print(
+        f"  3D  fast_small: {t_fast:.4f}s  scipy: {t_scipy:.4f}s  speedup: {t_scipy / t_fast:.2f}x"
+    )
 
     # ---------- large sigma ----------
     sigma = 20.0
     fast2d = fast_gaussian_filter_large(img2d, sigma)
-    ref2d = gaussian_filter(img2d, sigma, truncate=4.0, mode='reflect')
+    ref2d = gaussian_filter(img2d, sigma, truncate=4.0, mode="reflect")
     err = np.abs(fast2d - ref2d).max()
     rel = err / np.abs(ref2d).max()
-    print("Large sigma=%.1f, 2D max err vs SciPy: %.2e (rel %.2e)" % (sigma, err, rel))
+    print(f"Large sigma={sigma:.1f}, 2D max err vs SciPy: {err:.2e} (rel {rel:.2e})")
 
     t_fast = bench(fast_gaussian_filter_large, img2d, sigma)
-    t_scipy = bench(lambda x: gaussian_filter(x, sigma, truncate=4.0, mode='reflect'), img2d)
-    print("  2D  fast_large: %.4fs  scipy: %.4fs  speedup: %.2fx" % (t_fast, t_scipy, t_scipy / t_fast))
+    t_scipy = bench(
+        lambda x: gaussian_filter(x, sigma, truncate=4.0, mode="reflect"), img2d
+    )
+    print(
+        f"  2D  fast_large: {t_fast:.4f}s  scipy: {t_scipy:.4f}s  speedup: {t_scipy / t_fast:.2f}x"
+    )
 
     t_fast = bench(fast_gaussian_filter_large, img3d, sigma)
+
     def scipy_3d_large(x):
         out = np.empty_like(x)
         for ch in range(x.shape[2]):
-            out[:, :, ch] = gaussian_filter(x[:, :, ch], sigma, truncate=4.0, mode='reflect')
+            out[:, :, ch] = gaussian_filter(
+                x[:, :, ch], sigma, truncate=4.0, mode="reflect"
+            )
         return out
+
     t_scipy = bench(scipy_3d_large, img3d)
-    print("  3D  fast_large: %.4fs  scipy: %.4fs  speedup: %.2fx" % (t_fast, t_scipy, t_scipy / t_fast))
+    print(
+        f"  3D  fast_large: {t_fast:.4f}s  scipy: {t_scipy:.4f}s  speedup: {t_scipy / t_fast:.2f}x"
+    )

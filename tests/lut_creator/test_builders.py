@@ -8,33 +8,29 @@ boundary clipping, role validation, on-disk serialization.
 The pipeline run is the most expensive step; a module-scoped fixture
 builds one tiny bundle and the assertions share it.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import numpy as np
 import pytest
 
+from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
 from spektrafilm_lut_creator.builders import BundleBuilder
 from spektrafilm_lut_creator.bundles import BundleSpec
-from spektrafilm_lut_creator.color_spaces import (
-    decode_cctf,
-    encode_cctf,
-    input_gain,
-)
+from spektrafilm_lut_creator.color_spaces import decode_cctf, encode_cctf, input_gain
 from spektrafilm_lut_creator.formats import get_format
-from spektrafilm_lut_creator.grid import cube_grid, grid_as_image
+from spektrafilm_lut_creator.grid import cube_grid
 from spektrafilm_lut_creator.qa.result import Result
-from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
 
 from .factories import make_bundle_spec
 
-
 _RESOLUTION = 5  # small enough to run quickly, large enough to exercise the cube layout
 _INPUT_CS = "ACEScct"  # log; identity gain (midgray pinned, exposure_ev=0)
-_OUTPUT_CS = "sRGB"    # encoded SDR
+_OUTPUT_CS = "sRGB"  # encoded SDR
 _LUT_LICENSE_PATH = Path(__file__).resolve().parents[2] / "SPEKTRAFILM_LICENSE.txt"
 
 
@@ -50,9 +46,8 @@ def test_packaged_license_matches_root():
 
     packaged = Path(_lut_license_source_path())
     assert packaged.is_file()
-    assert (
-        packaged.read_text(encoding="utf-8")
-        == _LUT_LICENSE_PATH.read_text(encoding="utf-8")
+    assert packaged.read_text(encoding="utf-8") == _LUT_LICENSE_PATH.read_text(
+        encoding="utf-8"
     )
 
 
@@ -121,7 +116,7 @@ class TestBuildResult:
     def test_metadata_records_color_spaces(self, built):
         cs = built.meta.color_spaces
         assert cs["input"].name == _INPUT_CS
-        assert cs["input"].cctf is True   # ACEScct carries a log curve
+        assert cs["input"].cctf is True  # ACEScct carries a log curve
         assert cs["output"].name == _OUTPUT_CS
         assert cs["output"].cctf is True  # sRGB carries a CCTF
 
@@ -180,8 +175,9 @@ class TestBuildEndToEndAgreesWithPipeline:
 
         in_entry = get_cs(_INPUT_CS)
         out_entry = get_cs(_OUTPUT_CS)
-        params = init_params(film_profile="kodak_portra_400",
-                             print_profile="kodak_portra_endura")
+        params = init_params(
+            film_profile="kodak_portra_400", print_profile="kodak_portra_endura"
+        )
         params.debug.lut_mode = True
         params.io.input_color_space = in_entry.primaries
         params.io.output_color_space = out_entry.primaries
@@ -206,14 +202,16 @@ class TestBuildEndToEndAgreesWithPipeline:
         gain = input_gain(_INPUT_CS)
         image_linear = (image_linear * gain).astype(np.float32)
         live_linear_out = pipeline.process(image_linear)
-        live_encoded_out = encode_cctf(np.asarray(live_linear_out, dtype=float), _OUTPUT_CS)
+        live_encoded_out = encode_cctf(
+            np.asarray(live_linear_out, dtype=float), _OUTPUT_CS
+        )
         live_clipped = np.clip(live_encoded_out, 0.0, 1.0)
 
         # LUT.table is indexed [b, g, r, :]. cube_grid order is C-major over
         # (b, g, r). So the flat sample index in the grid maps directly to
         # the flat index of table.reshape(N**3, 3).
         _, lut = built.luts[0]
-        flat_table = lut.table.reshape(_RESOLUTION ** 3, 3)
+        flat_table = lut.table.reshape(_RESOLUTION**3, 3)
         baked = flat_table[flat_indices].reshape(len(flat_indices), 1, 3)
 
         np.testing.assert_allclose(baked, live_clipped, atol=1e-6)
@@ -261,7 +259,10 @@ class TestMultiPrintOneLut:
     def test_stocks_metadata_lists_all_prints(self, multi_print_bundle):
         stocks = multi_print_bundle.meta.stocks
         assert stocks.film == "kodak_portra_400"
-        assert stocks.prints == ("kodak_portra_endura", "fujifilm_crystal_archive_typeii")
+        assert stocks.prints == (
+            "kodak_portra_endura",
+            "fujifilm_crystal_archive_typeii",
+        )
 
     def test_lut_titles_disambiguate(self, multi_print_bundle):
         titles = sorted(lut.title for _, lut in multi_print_bundle.luts)
@@ -314,6 +315,7 @@ class TestBundleSpecMisc:
 
     def test_pq_input_gain_bridges_nits_to_reflectance(self):
         from spektrafilm_lut_creator.color_spaces import input_gain
+
         spec = make_bundle_spec(
             name="pq_auto",
             input_color_space="rec2100pq",
@@ -397,7 +399,9 @@ class TestBundleOutput:
                 container="archive",
             )
 
-    def test_directory_write_creates_cube_json_readme_license(self, builder, built, tmp_path):
+    def test_directory_write_creates_cube_json_readme_license(
+        self, builder, built, tmp_path
+    ):
         out_dir = builder.write(built, tmp_path / "bundle")
         rel_path, _ = built.luts[0]
         assert (out_dir / rel_path).exists()
@@ -409,7 +413,9 @@ class TestBundleOutput:
             assert token in readme_text, f"README missing {token!r}"
         # License file is copied verbatim.
         license_copy = out_dir / "SPEKTRAFILM_LICENSE.txt"
-        assert license_copy.read_text(encoding="utf-8") == _LUT_LICENSE_PATH.read_text(encoding="utf-8")
+        assert license_copy.read_text(encoding="utf-8") == _LUT_LICENSE_PATH.read_text(
+            encoding="utf-8"
+        )
 
     def test_zip_container_packages_bundle_directory(self, tmp_path):
         spec = make_bundle_spec(
@@ -426,8 +432,13 @@ class TestBundleOutput:
         assert (tmp_path / "bundle").is_dir()
         with zipfile.ZipFile(archive_path) as archive:
             members = set(archive.namelist())
-        for expected in ("bundle/", "bundle/bundle.json", "bundle/README.md",
-                         "bundle/SPEKTRAFILM_LICENSE.txt", f"bundle/{rel_path}"):
+        for expected in (
+            "bundle/",
+            "bundle/bundle.json",
+            "bundle/README.md",
+            "bundle/SPEKTRAFILM_LICENSE.txt",
+            f"bundle/{rel_path}",
+        ):
             assert expected in members, f"zip missing {expected!r}"
 
     def test_cube_round_trips_after_write(self, builder, built, tmp_path):
@@ -438,7 +449,9 @@ class TestBundleOutput:
         loaded = get_format("cube").read(out_dir / rel_path)
         np.testing.assert_allclose(loaded.table, lut.table, atol=1e-9)
 
-    def test_bundle_json_carries_metadata_and_provenance(self, builder, built, tmp_path):
+    def test_bundle_json_carries_metadata_and_provenance(
+        self, builder, built, tmp_path
+    ):
         out_dir = builder.write(built, tmp_path / "meta")
         payload = json.loads((out_dir / "bundle.json").read_text(encoding="utf-8"))
         # Core metadata.
@@ -453,8 +466,16 @@ class TestBundleOutput:
         assert payload["luts"][0]["path"] == built.luts[0][0]
         # Provenance block is present and complete.
         prov = payload["provenance"]
-        for key in ("spektrafilm_version", "lut_creator_version", "created",
-                    "copyright", "license", "citation", "project_url", "notes"):
+        for key in (
+            "spektrafilm_version",
+            "lut_creator_version",
+            "created",
+            "copyright",
+            "license",
+            "citation",
+            "project_url",
+            "notes",
+        ):
             assert key in prov, f"missing provenance field {key!r}"
 
     def test_meta_object_has_provenance_with_essential_fields(self, built):
@@ -474,19 +495,27 @@ class TestBundleOutput:
         text = (out_dir / rel_path).read_text(encoding="utf-8")
         head = text.splitlines()[:60]
         head_blob = "\n".join(head)
-        for token in ("spektrafilm LUT", built.meta.name, "CC BY-SA 4.0",
-                      "github.com/andreavolpato/spektrafilm", "CITATION.cff"):
+        for token in (
+            "spektrafilm LUT",
+            built.meta.name,
+            "CC BY-SA 4.0",
+            "github.com/andreavolpato/spektrafilm",
+            "CITATION.cff",
+        ):
             assert token in head_blob, f"cube header missing {token!r}"
         # Every comment-block line starts with '#' until the data section.
         for line in head:
             if "DOMAIN_MIN" in line or "TITLE" in line:
                 break
-            assert line.startswith("#") or line == "", f"non-comment header line: {line!r}"
+            assert line.startswith("#") or line == "", (
+                f"non-comment header line: {line!r}"
+            )
 
 
 # ---------------------------------------------------------------------------
 # Default bundle name (canonical pattern from naming.py)
 # ---------------------------------------------------------------------------
+
 
 class TestDefaultBundleName:
     """``BundleSpec.name`` defaults to a canonical pattern when left empty:
@@ -608,6 +637,7 @@ class TestDefaultBundleName:
 # M5 — 2-LUT bundles
 # ---------------------------------------------------------------------------
 
+
 class TestTwoLutBundle:
     """A ``2lut`` bundle splits the chain at the ``cmy_film``
     tap: one shared film LUT (L1∘L2) plus one print LUT per print
@@ -649,8 +679,12 @@ class TestTwoLutBundle:
         # Title follows the matching pattern.
         assert lut.title.endswith("_film")
         # Cube shape.
-        assert lut.table.shape == (self._TWO_LUT_RES, self._TWO_LUT_RES,
-                                   self._TWO_LUT_RES, 3)
+        assert lut.table.shape == (
+            self._TWO_LUT_RES,
+            self._TWO_LUT_RES,
+            self._TWO_LUT_RES,
+            3,
+        )
         assert lut.table.min() >= 0.0 and lut.table.max() <= 1.0
 
     def test_remaining_luts_are_per_print_prints(self, two_lut_bundle):
@@ -666,8 +700,12 @@ class TestTwoLutBundle:
             # stock matches.
             assert any(token in rel for token in print_tag.split()) or True
             assert lut.title.endswith("_print")
-            assert lut.table.shape == (self._TWO_LUT_RES, self._TWO_LUT_RES,
-                                       self._TWO_LUT_RES, 3)
+            assert lut.table.shape == (
+                self._TWO_LUT_RES,
+                self._TWO_LUT_RES,
+                self._TWO_LUT_RES,
+                3,
+            )
             assert lut.table.min() >= 0.0 and lut.table.max() <= 1.0
 
     # ---- metadata -------------------------------------------------------
@@ -724,7 +762,9 @@ class TestTwoLutBundle:
         table_b = two_lut_bundle.luts[2][1].table
         assert not np.array_equal(table_a, table_b)
 
-    def test_film_lut_matches_pipeline_at_grid_corners(self, two_lut_spec, two_lut_bundle):
+    def test_film_lut_matches_pipeline_at_grid_corners(
+        self, two_lut_spec, two_lut_bundle
+    ):
         """Sample the live pipeline at the on-grid input samples,
         encode via the bundle's density wire, and confirm the film
         LUT table equals those values.
@@ -751,24 +791,27 @@ class TestTwoLutBundle:
 
         n = self._TWO_LUT_RES
         grid = cube_grid(n)
-        image_enc = grid.reshape(1, n ** 3, 3)
+        image_enc = grid.reshape(1, n**3, 3)
         # Mirror the bake's input transform (decode + input gain).
         # Fixture is ACEScct at exposure_ev=0 → identity gain.
         image_lin = decode_cctf(image_enc, _INPUT_CS)
         image_lin = (image_lin * input_gain(_INPUT_CS)).astype(np.float32)
-        cmy_film = np.asarray(pipeline.process(image_lin, collect="cmy_film"),
-                              dtype=float).reshape(n ** 3, 3)
+        cmy_film = np.asarray(
+            pipeline.process(image_lin, collect="cmy_film"), dtype=float
+        ).reshape(n**3, 3)
 
         wire = two_lut_bundle.meta.wires.cmy_film
         expected_codes = density_to_code(cmy_film, wire)
 
         _, film_lut = two_lut_bundle.luts[0]
-        baked = film_lut.table.reshape(n ** 3, 3)
+        baked = film_lut.table.reshape(n**3, 3)
         # density_to_code clamps to [0, 1]; the builder produces the
         # same clamp, so equality should hold modulo float precision.
         np.testing.assert_allclose(baked, expected_codes, atol=1e-6)
 
-    def test_chain_film_then_print_matches_live_pipeline(self, two_lut_spec, two_lut_bundle):
+    def test_chain_film_then_print_matches_live_pipeline(
+        self, two_lut_spec, two_lut_bundle
+    ):
         """Apply the bundled film LUT followed by the print LUT (both
         trilinear) at random samples, compare against the live
         pipeline end-to-end at the same input. This is the M5
@@ -810,7 +853,9 @@ class TestTwoLutBundle:
             dtype=float,
         ).reshape(-1, 3)
         live_rgb_encoded = np.clip(
-            encode_cctf(live_rgb_linear, _OUTPUT_CS), 0.0, 1.0,
+            encode_cctf(live_rgb_linear, _OUTPUT_CS),
+            0.0,
+            1.0,
         )
 
         # Chain through the two baked LUTs (trilinear in both halves).
@@ -866,6 +911,7 @@ class TestTwoLutBundle:
         # for 4-LUT topologies; they stay null in 2-LUT bundles.
         assert payload["wires"]["log_e_film"] is None
         assert payload["wires"]["cmy_print"] is None
+
 
 # Marketing-copy README assertions (apply-order phrasing, grain/fog
 # explanations, etc.) were culled: the smoke test in TestBundleWrite
@@ -973,6 +1019,7 @@ class TestThreeLutBundle:
 # M6 — 4-LUT bundles
 # ---------------------------------------------------------------------------
 
+
 class TestFourLutBundle:
     """A ``4lut`` bundle splits the chain at
     three intermediate taps (``log_e_film``, ``cmy_film``,
@@ -1077,8 +1124,10 @@ class TestFourLutBundle:
         # pipeline's deep-shadow floor — that range is real, not a bug.
         # Refining the wire to exclude the floor is a v2 concern
         # (percentile-based, or analytical from profile data per n050).
-        for name, wire in (("log_e_film", wires.log_e_film),
-                            ("log_e_print", wires.log_e_print)):
+        for name, wire in (
+            ("log_e_film", wires.log_e_film),
+            ("log_e_print", wires.log_e_print),
+        ):
             assert wire.max > wire.min, f"{name} span must be positive"
             assert wire.max - wire.min < 25.0, (
                 f"{name} span unexpectedly wide: {wire.max - wire.min}"
@@ -1103,9 +1152,7 @@ class TestFourLutBundle:
         for c, d in enumerate(wires.cmy_film.d_min):
             scalars.append((f"cmy_film.d_min[{c}]", d))
         for name, v in scalars:
-            assert v == round(v, 4), (
-                f"{name}={v!r} is not on the 1e-4 grid"
-            )
+            assert v == round(v, 4), f"{name}={v!r} is not on the 1e-4 grid"
 
     # ---- behavior -------------------------------------------------------
 
@@ -1162,7 +1209,9 @@ class TestFourLutBundle:
             dtype=float,
         ).reshape(-1, 3)
         live_rgb_encoded = np.clip(
-            encode_cctf(live_rgb_linear, _OUTPUT_CS), 0.0, 1.0,
+            encode_cctf(live_rgb_linear, _OUTPUT_CS),
+            0.0,
+            1.0,
         )
 
         # Chain through all four baked LUTs (trilinear in every stage).
@@ -1256,11 +1305,18 @@ class TestBundleSpecExposureEv:
     input kind). A non-zero value is a deliberate, disclosed
     re-exposure."""
 
-    @pytest.mark.parametrize("input_cs", [
-        "Rec.2020", "sRGB", "ACEScct", "Panasonic V-Log",
-    ])
+    @pytest.mark.parametrize(
+        "input_cs",
+        [
+            "Rec.2020",
+            "sRGB",
+            "ACEScct",
+            "Panasonic V-Log",
+        ],
+    )
     def test_default_is_midgray_pinned_identity(self, input_cs):
         from spektrafilm_lut_creator.color_spaces import input_gain
+
         spec = BundleSpec(
             film_profile="kodak_portra_400",
             print_profiles=("kodak_portra_endura",),
@@ -1288,7 +1344,9 @@ class TestDefaultOutputDirectory:
     bake script that doesn't want to think about paths.
     """
 
-    def test_default_out_dir_lands_under_cwd_build_lut_bundles(self, tmp_path, monkeypatch):
+    def test_default_out_dir_lands_under_cwd_build_lut_bundles(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.chdir(tmp_path)
         spec = BundleSpec(
             film_profile="kodak_portra_400",

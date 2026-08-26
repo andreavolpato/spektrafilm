@@ -1,42 +1,48 @@
 import copy
-import warnings
-from datetime import date
-from importlib.metadata import PackageNotFoundError, version as distribution_version
 import importlib.resources as pkg_resources
 import json
+import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass, field, is_dataclass, replace
-from typing import Any, Mapping
+from datetime import date
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
+from typing import Any
 
 import numpy as np
 
+_PROJECT_URL = "https://github.com/andreavolpato/spektrafilm"
+_PROFILE_LICENSE_URL = f"{_PROJECT_URL}/blob/main/SPEKTRAFILM_LICENSE.txt"
 
-_PROJECT_URL = 'https://github.com/andreavolpato/spektrafilm'
-_PROFILE_LICENSE_URL = f'{_PROJECT_URL}/blob/main/SPEKTRAFILM_LICENSE.txt'
 
-
-PROFILE_TYPES = frozenset({'negative', 'positive'})
-PROFILE_SUPPORTS = frozenset({'film', 'paper'})
-PROFILE_STAGES = frozenset({'filming', 'printing'})
-PROFILE_USES = frozenset({'still', 'cine'})
-PROFILE_ANTIHALATION = frozenset({'strong', 'weak', 'no'})
-PROFILE_CHANNEL_MODELS = frozenset({'color', 'bw'})
-LEGACY_PROFILE_INFO_KEYS = frozenset({
-    'fitted_cmy_midscale_neutral_density',
-    'log_exposure_midscale_neutral',
-})
+PROFILE_TYPES = frozenset({"negative", "positive"})
+PROFILE_SUPPORTS = frozenset({"film", "paper"})
+PROFILE_STAGES = frozenset({"filming", "printing"})
+PROFILE_USES = frozenset({"still", "cine"})
+PROFILE_ANTIHALATION = frozenset({"strong", "weak", "no"})
+PROFILE_CHANNEL_MODELS = frozenset({"color", "bw"})
+LEGACY_PROFILE_INFO_KEYS = frozenset(
+    {
+        "fitted_cmy_midscale_neutral_density",
+        "log_exposure_midscale_neutral",
+    }
+)
 
 
 def _package_version() -> str:
     try:
-        return distribution_version('spektrafilm')
+        return distribution_version("spektrafilm")
     except PackageNotFoundError:
-        return '0+unknown'
+        return "0+unknown"
+
 
 def _created_date() -> str:
     return date.today().isoformat()
 
+
 def _copyright_statement() -> str:
     return f"Copyright (c) {date.today().year} Andrea Volpato. Licensed under CC BY-SA 4.0."
+
 
 @dataclass
 class DensityCurvesModel:
@@ -55,14 +61,15 @@ class DensityCurvesModel:
                          A fast, transcendental-free stand-in for the
                          Gaussian; α=0 reproduces the symmetric Gaussian fit.
     """
-    model_type: str = 'norm_cdfs'
+
+    model_type: str = "norm_cdfs"
     centers: np.ndarray | None = None
     amplitudes: np.ndarray | None = None
     sigmas: np.ndarray | None = None
     alphas: np.ndarray | None = None
 
     def __post_init__(self):
-        for name in ('centers', 'amplitudes', 'sigmas', 'alphas'):
+        for name in ("centers", "amplitudes", "sigmas", "alphas"):
             value = getattr(self, name)
             if value is None:
                 continue
@@ -71,11 +78,19 @@ class DensityCurvesModel:
 
     @property
     def n_channels(self) -> int:
-        return self.centers.shape[0] if self.centers is not None and self.centers.ndim == 2 else 0
+        return (
+            self.centers.shape[0]
+            if self.centers is not None and self.centers.ndim == 2
+            else 0
+        )
 
     @property
     def n_layers(self) -> int:
-        return self.centers.shape[1] if self.centers is not None and self.centers.ndim == 2 else 0
+        return (
+            self.centers.shape[1]
+            if self.centers is not None and self.centers.ndim == 2
+            else 0
+        )
 
 
 @dataclass
@@ -102,21 +117,22 @@ class ProfileMetadata:
     All data publicly available.
     """.strip()
 
+
 @dataclass
 class ProfileInfo:
     stock: str = None
     name: str = None
-    type: str = 'negative'
-    support: str = 'film'
-    stage: str = 'filming'
-    use: str = 'still'
-    antihalation: str = 'weak'
+    type: str = "negative"
+    support: str = "film"
+    stage: str = "filming"
+    use: str = "still"
+    antihalation: str = "weak"
     target_print: str | None = None
-    channel_model: str = 'color'
-    densitometer: str = 'status_M'
+    channel_model: str = "color"
+    densitometer: str = "status_M"
     log_sensitivity_density_over_min: float = 0.2
-    reference_illuminant: str = 'D55'
-    viewing_illuminant: str = 'D50'
+    reference_illuminant: str = "D55"
+    viewing_illuminant: str = "D50"
 
     @property
     def n_channels(self) -> int:
@@ -127,17 +143,19 @@ class ProfileInfo:
         count cannot be read off `density_curves`; `_validate_profile` checks
         the spectral arrays (`log_sensitivity` / `channel_density`) match it.
         """
-        return 1 if self.channel_model == 'bw' else 3
+        return 1 if self.channel_model == "bw" else 3
+
 
 @dataclass
 class Hanatos2025SensitivityAdaptation:
     window_params: np.ndarray | None = None
     surface_params: np.ndarray | None = None
-    spectral_gaussian_blur: float = 0.0 # sigma in nm for gaussian blur of the spectra
-    reference_illuminant: str = None # "D55" or "T"
+    spectral_gaussian_blur: float = 0.0  # sigma in nm for gaussian blur of the spectra
+    reference_illuminant: str = None  # "D55" or "T"
     apply_window: bool = True
     apply_surface: bool = True
     active: bool = None
+
 
 @dataclass
 class ProfileData:
@@ -150,6 +168,7 @@ class ProfileData:
     loads it, it round-trips). ``_validate_profile`` only checks the internal
     shape-consistency of the fields that are present.
     """
+
     # --- wavelengths
     wavelengths: np.ndarray | None = None
     log_sensitivity: np.ndarray | None = None
@@ -174,7 +193,7 @@ class ProfileData:
         # whether the JSON omitted the key or gave []). density_curves_model is
         # the one structured field.
         for name in self.__dataclass_fields__:
-            if name == 'density_curves_model':
+            if name == "density_curves_model":
                 continue
             value = getattr(self, name)
             if value is None:
@@ -186,7 +205,9 @@ class ProfileData:
             if isinstance(model, Mapping):
                 self.density_curves_model = DensityCurvesModel(**dict(model))
             else:
-                raise TypeError('density_curves_model must be a DensityCurvesModel or Mapping')
+                raise TypeError(
+                    "density_curves_model must be a DensityCurvesModel or Mapping"
+                )
 
 
 @dataclass
@@ -197,24 +218,24 @@ class Profile:
 
     def __post_init__(self):
         if not isinstance(self.metadata, ProfileMetadata):
-            raise TypeError('metadata must be a ProfileMetadata instance')
+            raise TypeError("metadata must be a ProfileMetadata instance")
         if not isinstance(self.info, ProfileInfo):
-            raise TypeError('info must be a ProfileInfo instance')
+            raise TypeError("info must be a ProfileInfo instance")
         if not isinstance(self.data, ProfileData):
-            raise TypeError('data must be a ProfileData instance')
+            raise TypeError("data must be a ProfileData instance")
 
-    def clone(self) -> 'Profile':
+    def clone(self) -> "Profile":
         return copy.deepcopy(self)
 
-    def update_info(self, **changes) -> 'Profile':
+    def update_info(self, **changes) -> "Profile":
         self.info = replace(self.info, **changes)
         return self
 
-    def update_data(self, **changes) -> 'Profile':
+    def update_data(self, **changes) -> "Profile":
         self.data = replace(self.data, **changes)
         return self
 
-    def update(self, *, info=None, data=None) -> 'Profile':
+    def update(self, *, info=None, data=None) -> "Profile":
         if info:
             self.update_info(**info)
         if data:
@@ -227,46 +248,46 @@ class Profile:
             surface_params=self.data.hanatos2025_adaptation_surface_params,
             reference_illuminant=self.info.reference_illuminant,
         )
-    
+
     @property
     def is_positive(self) -> bool:
-        return self.info.type == 'positive'
+        return self.info.type == "positive"
 
     @property
     def is_negative(self) -> bool:
-        return self.info.type == 'negative'
+        return self.info.type == "negative"
 
     @property
     def is_paper(self) -> bool:
-        return self.info.support == 'paper'
+        return self.info.support == "paper"
 
     @property
     def is_film(self) -> bool:
-        return self.info.support == 'film'
-    
+        return self.info.support == "film"
+
     @property
     def is_color(self) -> bool:
-        return self.info.channel_model == 'color'
-    
+        return self.info.channel_model == "color"
+
     @property
     def is_bw(self) -> bool:
-        return self.info.channel_model == 'bw'
+        return self.info.channel_model == "bw"
 
     @property
     def is_filming(self) -> bool:
-        return self.info.stage == 'filming'
+        return self.info.stage == "filming"
 
     @property
     def is_printing(self) -> bool:
-        return self.info.stage == 'printing'
+        return self.info.stage == "printing"
 
     @property
     def is_still(self) -> bool:
-        return self.info.use == 'still'
+        return self.info.use == "still"
 
     @property
     def is_cine(self) -> bool:
-        return self.info.use == 'cine'
+        return self.info.use == "cine"
 
 
 def _known_fields_only(cls, payload, what):
@@ -290,11 +311,11 @@ def profile_from_dict(data: Any) -> Profile:
         return data
 
     if not isinstance(data, Mapping):
-        raise TypeError('Unsupported profile payload')
+        raise TypeError("Unsupported profile payload")
 
-    metadata_payload = data.get('metadata', {})
-    info_payload = data.get('info', {})
-    data_payload = data.get('data', {})
+    metadata_payload = data.get("metadata", {})
+    info_payload = data.get("info", {})
+    data_payload = data.get("data", {})
     if not isinstance(metadata_payload, Mapping):
         raise TypeError("Profile 'metadata' must be a mapping")
     if not isinstance(info_payload, Mapping):
@@ -307,9 +328,11 @@ def profile_from_dict(data: Any) -> Profile:
         info_payload.pop(key, None)
 
     return Profile(
-        metadata=ProfileMetadata(**_known_fields_only(ProfileMetadata, dict(metadata_payload), 'metadata')),
-        info=ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, 'info')),
-        data=ProfileData(**_known_fields_only(ProfileData, dict(data_payload), 'data')),
+        metadata=ProfileMetadata(
+            **_known_fields_only(ProfileMetadata, dict(metadata_payload), "metadata")
+        ),
+        info=ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, "info")),
+        data=ProfileData(**_known_fields_only(ProfileData, dict(data_payload), "data")),
     )
 
 
@@ -352,22 +375,32 @@ def _validate_profile_info(info, stock):
     if info.type not in PROFILE_TYPES:
         raise ValueError(f"Invalid profile '{stock}': unsupported type={info.type!r}")
     if info.support not in PROFILE_SUPPORTS:
-        raise ValueError(f"Invalid profile '{stock}': unsupported support={info.support!r}")
+        raise ValueError(
+            f"Invalid profile '{stock}': unsupported support={info.support!r}"
+        )
     if info.stage not in PROFILE_STAGES:
         raise ValueError(f"Invalid profile '{stock}': unsupported stage={info.stage!r}")
     if info.use not in PROFILE_USES:
         raise ValueError(f"Invalid profile '{stock}': unsupported use={info.use!r}")
     if info.antihalation not in PROFILE_ANTIHALATION:
-        raise ValueError(f"Invalid profile '{stock}': unsupported antihalation={info.antihalation!r}")
+        raise ValueError(
+            f"Invalid profile '{stock}': unsupported antihalation={info.antihalation!r}"
+        )
     if info.channel_model not in PROFILE_CHANNEL_MODELS:
-        raise ValueError(f"Invalid profile '{stock}': unsupported channel_model={info.channel_model!r}")
+        raise ValueError(
+            f"Invalid profile '{stock}': unsupported channel_model={info.channel_model!r}"
+        )
 
 
 # The arrays a film/paper needs to actually run. Optional features
 # (density_curves_layers/model, hanatos adaptation, midscale) may be absent.
 _REQUIRED_DATA_FIELDS = (
-    'wavelengths', 'log_sensitivity', 'channel_density',
-    'base_density', 'log_exposure', 'density_curves',
+    "wavelengths",
+    "log_sensitivity",
+    "channel_density",
+    "base_density",
+    "log_exposure",
+    "density_curves",
 )
 
 
@@ -384,7 +417,9 @@ def _validate_profile(profile, stock):
 
         missing = [f for f in _REQUIRED_DATA_FIELDS if getattr(data, f) is None]
         if missing:
-            raise ValueError(f"Invalid profile '{stock}': missing required data {missing}")
+            raise ValueError(
+                f"Invalid profile '{stock}': missing required data {missing}"
+            )
 
         n_wl = data.wavelengths.shape[0]
         n_le = data.log_exposure.shape[0]
@@ -397,8 +432,10 @@ def _validate_profile(profile, stock):
             and data.log_exposure.ndim == 1
             and data.density_curves.ndim == 2
             and data.density_curves.shape[0] == n_le
-            and (profile.info.channel_model != 'color'
-                 or data.density_curves.shape[1] == n_ch)
+            and (
+                profile.info.channel_model != "color"
+                or data.density_curves.shape[1] == n_ch
+            )
             and data.log_sensitivity.ndim == 2
             and data.log_sensitivity.shape[1] == n_ch
             and data.channel_density.ndim == 2
@@ -407,16 +444,24 @@ def _validate_profile(profile, stock):
             and data.base_density.shape[0] == n_wl
             # base_density is 1-D spectral, except a BW development-time family
             # carries one flat spectral base per density-curve column.
-            and (data.base_density.ndim == 1
-                 or (profile.info.channel_model == 'bw'
-                     and data.base_density.ndim == 2
-                     and data.base_density.shape[1] == data.density_curves.shape[1]))
+            and (
+                data.base_density.ndim == 1
+                or (
+                    profile.info.channel_model == "bw"
+                    and data.base_density.ndim == 2
+                    and data.base_density.shape[1] == data.density_curves.shape[1]
+                )
+            )
             # Optional: validated only when present.
-            and present_ok(data.midscale_neutral_density,
-                           lambda v: v.ndim == 1 and v.shape[0] == n_wl)
+            and present_ok(
+                data.midscale_neutral_density,
+                lambda v: v.ndim == 1 and v.shape[0] == n_wl,
+            )
             # BW development-time family: one time per density-curve column.
-            and present_ok(data.development_time,
-                           lambda v: v.ndim == 1 and v.shape[0] == data.density_curves.shape[1])
+            and present_ok(
+                data.development_time,
+                lambda v: v.ndim == 1 and v.shape[0] == data.density_curves.shape[1],
+            )
         )
     except (AttributeError, IndexError, KeyError, TypeError):
         raise ValueError(f"Invalid profile '{stock}'") from None
@@ -424,19 +469,20 @@ def _validate_profile(profile, stock):
     if not valid:
         raise ValueError(f"Invalid profile '{stock}'")
 
+
 # The runtime's own profile collection. The loaders below default to it but
 # accept any package of profile JSONs (e.g. the staging package's stocks).
-DEFAULT_PROFILES_PACKAGE = 'spektrafilm.data.profiles'
+DEFAULT_PROFILES_PACKAGE = "spektrafilm.data.profiles"
 
 
 def _scan_profile_resources(directory, resources):
     for entry in directory.iterdir():
         if entry.is_dir():
             _scan_profile_resources(entry, resources)
-        elif entry.name.endswith('.json'):
-            stock = entry.name[:-len('.json')]
+        elif entry.name.endswith(".json"):
+            stock = entry.name[: -len(".json")]
             if stock in resources:
-                raise ValueError(f'Duplicate profile found in {directory}: {stock!r}')
+                raise ValueError(f"Duplicate profile found in {directory}: {stock!r}")
             resources[stock] = entry
 
 
@@ -462,16 +508,18 @@ def load_profile_infos(package=DEFAULT_PROFILES_PACKAGE):
     so adding a profile never touches code."""
     infos = {}
     for stock, resource in _profile_resources(package).items():
-        with resource.open('r') as file:
-            info_payload = json.load(file).get('info', {})
-        infos[stock] = ProfileInfo(**_known_fields_only(ProfileInfo, info_payload, 'info'))
+        with resource.open("r") as file:
+            info_payload = json.load(file).get("info", {})
+        infos[stock] = ProfileInfo(
+            **_known_fields_only(ProfileInfo, info_payload, "info")
+        )
     return infos
 
 
 def load_profile(stock, package=DEFAULT_PROFILES_PACKAGE):
     resource = _profile_resources(package).get(stock)
     if resource is None:
-        raise FileNotFoundError(f'No profile found for stock {stock!r} in {package!r}')
+        raise FileNotFoundError(f"No profile found for stock {stock!r} in {package!r}")
     with resource.open("r") as file:
         profile = profile_from_dict(json.load(file))
     _validate_profile(profile, stock)

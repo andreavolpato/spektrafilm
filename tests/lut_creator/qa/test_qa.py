@@ -5,6 +5,7 @@ generates a large figure set, and duplicates builder-level integration
 coverage for ``spec.qa=True``. This file keeps only cheap checks for the
 public runner shell and the topology-aware LUT selection logic.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -20,13 +21,14 @@ from spektrafilm_lut_creator.qa.result import Result
 
 from ..factories import make_bundle_spec
 
-
 _RESOLUTION = 3
 _FIRST_PRINT = "kodak_portra_endura"
 _SECOND_PRINT = "fujifilm_crystal_archive_typeii"
 
 
-def _qa_spec(*, name: str, topology: str = "1lut", print_profiles=(_FIRST_PRINT,), **overrides) -> BundleSpec:
+def _qa_spec(
+    *, name: str, topology: str = "1lut", print_profiles=(_FIRST_PRINT,), **overrides
+) -> BundleSpec:
     return make_bundle_spec(
         name=name,
         topology=topology,

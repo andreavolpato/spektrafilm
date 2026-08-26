@@ -1,4 +1,5 @@
 """Tests for the sampling-grid helpers."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -10,7 +11,7 @@ from spektrafilm_lut_creator.grid import cube_grid, grid_as_image, image_as_grid
 class TestCubeGrid:
     def test_shape(self):
         grid = cube_grid(33)
-        assert grid.shape == (33 ** 3, 3)
+        assert grid.shape == (33**3, 3)
 
     def test_endpoints(self):
         """First sample is (0,0,0); last is (1,1,1)."""
@@ -51,7 +52,7 @@ class TestGridAsImage:
         N = 5
         grid = cube_grid(N)
         img = grid_as_image(grid, N)
-        assert img.shape == (N, N ** 2, 3)
+        assert img.shape == (N, N**2, 3)
 
     def test_round_trip(self):
         N = 7

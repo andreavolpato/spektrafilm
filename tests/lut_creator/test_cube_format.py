@@ -1,4 +1,5 @@
 """Round-trip tests for the .cube format plugin."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -45,8 +46,12 @@ class TestCubeRoundTrip:
         rng = np.random.default_rng(0)
         N = 5
         table = rng.uniform(size=(N, N, N, 3))
-        lut = Lut(table=table, title="random", domain_min=(0.1, 0.0, -0.1),
-                  domain_max=(1.1, 1.0, 0.9))
+        lut = Lut(
+            table=table,
+            title="random",
+            domain_min=(0.1, 0.0, -0.1),
+            domain_max=(1.1, 1.0, 0.9),
+        )
         path = tmp_path / "random.cube"
 
         get_format("cube").write(lut, path)
@@ -64,8 +69,10 @@ class TestCubeRoundTrip:
         get_format("cube").write(lut, path)
 
         body_lines = [
-            ln for ln in path.read_text(encoding="utf-8").splitlines()
-            if ln and not ln.startswith(("TITLE", "DOMAIN_MIN", "DOMAIN_MAX", "LUT_3D_SIZE"))
+            ln
+            for ln in path.read_text(encoding="utf-8").splitlines()
+            if ln
+            and not ln.startswith(("TITLE", "DOMAIN_MIN", "DOMAIN_MAX", "LUT_3D_SIZE"))
         ]
         # First N rows: R = linspace(0..1), G = B = 0
         first_n = [list(map(float, line.split())) for line in body_lines[:N]]

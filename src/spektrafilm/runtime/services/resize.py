@@ -26,7 +26,9 @@ class ResizingService:
         self.full_frame_preview = _compute_small_preview(image)
 
         if self._io.crop:
-            image = crop_image(image, center=self._io.crop_center, size=self._io.crop_size)
+            image = crop_image(
+                image, center=self._io.crop_center, size=self._io.crop_size
+            )
 
         if self._io.upscale_factor != 1.0:
             self.pixel_size_um /= self._io.upscale_factor
@@ -38,9 +40,9 @@ class ResizingService:
             )
         return image
 
+
 # helper
-def _compute_small_preview(image: np.ndarray,
-                    max_size: int = 256) -> np.ndarray:
+def _compute_small_preview(image: np.ndarray, max_size: int = 256) -> np.ndarray:
     if max(image.shape[0:2]) > max_size:
         scale_factor = max_size / max(image.shape[0:2])
         return rescale(
@@ -50,4 +52,3 @@ def _compute_small_preview(image: np.ndarray,
             order=0,
         )
     return image
-    

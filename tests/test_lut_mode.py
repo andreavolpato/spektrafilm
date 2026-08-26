@@ -12,6 +12,7 @@ before digesting, then assert the digested params have them off *and* that the
 running pipeline is deterministic, neighbour-independent, and image-global
 independent. If anyone removes a gate in ``digest_params``, one of these fails.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -23,7 +24,9 @@ from spektrafilm.runtime.process import simulate
 pytestmark = pytest.mark.integration
 
 
-def _lut_mode_params(film_profile="kodak_portra_400", print_profile="kodak_portra_endura"):
+def _lut_mode_params(
+    film_profile="kodak_portra_400", print_profile="kodak_portra_endura"
+):
     """Digested params with ``lut_mode`` on and every spatial / stochastic /
     image-global effect deliberately switched on beforehand, so the gating in
     ``digest_params`` is what must turn them back off."""
@@ -48,8 +51,8 @@ def _lut_mode_params(film_profile="kodak_portra_400", print_profile="kodak_portr
     p.film_render.grain.active = True
     p.print_render.glare.active = True
     # Image-global effects.
-    p.film_render.halation.boost_ev = 8.0   # normalised by np.max(image)
-    p.camera.auto_exposure = True            # meters the whole frame
+    p.film_render.halation.boost_ev = 8.0  # normalised by np.max(image)
+    p.camera.auto_exposure = True  # meters the whole frame
     p.enlarger.print_exposure_compensation = True
     # Per-image trims (neutral-bake contract, b60/n010 §9): representable in
     # a LUT but semantically corrections for one specific negative.

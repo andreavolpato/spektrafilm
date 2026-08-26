@@ -17,7 +17,9 @@ class ConvertingStage:
     tuning (``film_render.base``).
     """
 
-    def __init__(self, film, film_render_params, io_params, settings_params, lut_service):
+    def __init__(
+        self, film, film_render_params, io_params, settings_params, lut_service
+    ):
         self._film = film
         self._film_render = film_render_params
         self._io = io_params

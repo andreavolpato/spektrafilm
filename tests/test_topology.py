@@ -3,6 +3,7 @@
 These tests are independent of the spektrafilm pipeline and cover the
 dispatcher's invariants in isolation.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -42,8 +43,15 @@ class TestNode:
 
 class TestTap:
     def test_attribute_names_match_lowercase_values(self):
-        for attr in ("RGB_IN", "RGB_PRE", "LOG_E_FILM", "CMY_FILM",
-                     "LOG_E_PRINT", "CMY_PRINT", "RGB_OUT"):
+        for attr in (
+            "RGB_IN",
+            "RGB_PRE",
+            "LOG_E_FILM",
+            "CMY_FILM",
+            "LOG_E_PRINT",
+            "CMY_PRINT",
+            "RGB_OUT",
+        ):
             assert getattr(Tap, attr) == attr.lower()
 
 

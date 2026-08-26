@@ -186,8 +186,9 @@ cython_debug/
 # temporary files
 .temp
 
-# uv
-uv.lock
-
 # claude
 .claude
+
+# vale styles
+/vale/styles/*
+!/vale/styles/config

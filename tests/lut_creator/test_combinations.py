@@ -17,20 +17,20 @@ the unified ``_bake_sublut`` helper. These tests verify:
 - The README and (when emitted) the OCIO config carry the combinations
   block / discoverability note.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from spektrafilm_lut_creator.builders import (
-    BundleBuilder,
     _COMBINATIONS_SUBDIR,
     _TOPOLOGY_COMBINATIONS,
+    BundleBuilder,
 )
 from spektrafilm_lut_creator.bundles import BundleSpec
 
 from .factories import make_bundle_spec
-
 
 _RESOLUTION = 5
 _INPUT_CS = "ACEScct"
@@ -81,7 +81,9 @@ class TestOneLutIsNoOp:
         bundle_on = BundleBuilder(_spec("1lut", include_combinations=True)).build()
         assert len(bundle_on.luts) == len(bundle_off.luts)
         # Tables identical too (same spec, deterministic bake).
-        for (path_off, lut_off), (path_on, lut_on) in zip(bundle_off.luts, bundle_on.luts):
+        for (path_off, lut_off), (path_on, lut_on) in zip(
+            bundle_off.luts, bundle_on.luts
+        ):
             assert path_off == path_on
             np.testing.assert_array_equal(lut_off.table, lut_on.table)
 
@@ -134,7 +136,9 @@ class TestThreeLutCombinations:
         assert len(bundle.luts) == n_canonical + n_combinations
 
     def test_subchain_roles(self, bundle):
-        roles = sorted(e.role for e in bundle.meta.luts if e.role.startswith("subchain_"))
+        roles = sorted(
+            e.role for e in bundle.meta.luts if e.role.startswith("subchain_")
+        )
         assert roles == ["subchain_12", "subchain_123", "subchain_23"]
 
     def test_l12_is_shared(self, bundle):
@@ -167,8 +171,12 @@ class TestFourLutCombinations:
 
     def test_subchain_roles(self, bundle):
         expected = {
-            "subchain_12", "subchain_23", "subchain_34",
-            "subchain_123", "subchain_234", "subchain_1234",
+            "subchain_12",
+            "subchain_23",
+            "subchain_34",
+            "subchain_123",
+            "subchain_234",
+            "subchain_1234",
         }
         actual = {e.role for e in bundle.meta.luts if e.role.startswith("subchain_")}
         assert actual == expected
@@ -181,7 +189,9 @@ class TestFourLutCombinations:
             if entry.role in shared_roles:
                 assert entry.print_profile is None, f"{entry.role} should be shared"
             else:
-                assert entry.print_profile == _PRINT, f"{entry.role} should be per-print"
+                assert entry.print_profile == _PRINT, (
+                    f"{entry.role} should be per-print"
+                )
 
     def test_all_subchain_cubes_clamped_to_unit(self, bundle):
         # Sub-chain LUTs must satisfy the same [0, 1] cube invariant as
@@ -204,14 +214,16 @@ class TestCanonicalUnchangedWhenCombinationsOn:
         bundle_on = BundleBuilder(_spec(topology, include_combinations=True)).build()
 
         canonical_off = {p: lut for p, lut in bundle_off.luts}
-        canonical_on = {p: lut for p, lut in bundle_on.luts
-                        if _COMBINATIONS_SUBDIR not in p}
+        canonical_on = {
+            p: lut for p, lut in bundle_on.luts if _COMBINATIONS_SUBDIR not in p
+        }
         # Same canonical filenames.
         assert set(canonical_off.keys()) == set(canonical_on.keys())
         # Same canonical tables.
         for path in canonical_off:
             np.testing.assert_array_equal(
-                canonical_off[path].table, canonical_on[path].table,
+                canonical_off[path].table,
+                canonical_on[path].table,
                 err_msg=f"canonical cube {path} changed when combinations flag flipped",
             )
 
@@ -233,7 +245,8 @@ class TestCanonicalUnchangedWhenCombinationsOn:
         _, lut_off = _effective_lut(bundle_off, print_index=0)
         _, lut_on = _effective_lut(bundle_on, print_index=0)
         np.testing.assert_array_equal(
-            lut_off.table, lut_on.table,
+            lut_off.table,
+            lut_on.table,
             err_msg=(
                 f"{topology}: QA effective LUT differs when combinations "
                 f"flag is flipped — _effective_lut is picking the wrong "
@@ -272,9 +285,7 @@ class TestL12MatchesTwoLutFilmInThreeAndFourLut:
         bundle_4lut = BundleBuilder(_spec("4lut", include_combinations=True)).build()
         bundle_2lut = BundleBuilder(_spec("2lut", include_combinations=False)).build()
 
-        l12 = next(
-            lut for path, lut in bundle_4lut.luts if path.endswith("_l12.cube")
-        )
+        l12 = next(lut for path, lut in bundle_4lut.luts if path.endswith("_l12.cube"))
         film = next(
             lut for path, lut in bundle_2lut.luts if path.endswith("_film.cube")
         )
@@ -291,9 +302,7 @@ class TestMultiPrintCombinations:
         bundle = BundleBuilder(spec).build()
         # 2 shared canonical + 2*2 per-print canonical = 6 canonical.
         # 1 shared combination + 5 per-print * 2 prints = 11 combinations.
-        sub_count = sum(
-            1 for e in bundle.meta.luts if e.role.startswith("subchain_")
-        )
+        sub_count = sum(1 for e in bundle.meta.luts if e.role.startswith("subchain_"))
         assert sub_count == 11
         # Total cubes = 6 + 11 = 17.
         assert len(bundle.luts) == 17
@@ -309,19 +318,25 @@ class TestMultiPrintCombinations:
 class TestReadmeContainsCombinationsSection:
     def test_readme_lists_subchain_cubes(self):
         from spektrafilm_lut_creator.builders import _bundle_readme_text
+
         bundle = BundleBuilder(_spec("4lut", include_combinations=True)).build()
         text = _bundle_readme_text(bundle.meta)
         assert "## Pre-collapsed sub-chains" in text
         # Each role's label should appear in the table.
         for role in (
-            "subchain_12", "subchain_23", "subchain_34",
-            "subchain_123", "subchain_234", "subchain_1234",
+            "subchain_12",
+            "subchain_23",
+            "subchain_34",
+            "subchain_123",
+            "subchain_234",
+            "subchain_1234",
         ):
-            label = "l" + role[len("subchain_"):]
+            label = "l" + role[len("subchain_") :]
             assert f"| {label} " in text, f"README missing row for {label}"
 
     def test_readme_omits_section_when_no_combinations(self):
         from spektrafilm_lut_creator.builders import _bundle_readme_text
+
         bundle = BundleBuilder(_spec("4lut", include_combinations=False)).build()
         text = _bundle_readme_text(bundle.meta)
         assert "## Pre-collapsed sub-chains" not in text
@@ -335,6 +350,7 @@ class TestOcioDescriptionMentionsCombinations:
 
     def test_description_includes_combinations_note(self):
         from spektrafilm_lut_creator import ocio_emit
+
         spec = BundleSpec(
             name="combo_ocio_test",
             film_profile=_FILM,
@@ -352,6 +368,7 @@ class TestOcioDescriptionMentionsCombinations:
 
     def test_description_omits_note_when_combinations_off(self):
         from spektrafilm_lut_creator import ocio_emit
+
         spec = BundleSpec(
             name="no_combo_ocio_test",
             film_profile=_FILM,

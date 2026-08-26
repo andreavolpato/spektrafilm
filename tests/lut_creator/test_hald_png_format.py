@@ -1,4 +1,5 @@
 """Round-trip tests for the Hald-CLUT PNG format plugin."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,16 +23,20 @@ class TestRegistry:
 
 
 class TestHaldPNGWrite:
-    @pytest.mark.parametrize("resolution,expected_side", [
-        (16, 64),    # level 4 → 4³ = 64
-        (25, 125),   # level 5
-        (36, 216),   # level 6
-    ])
+    @pytest.mark.parametrize(
+        "resolution,expected_side",
+        [
+            (16, 64),  # level 4 → 4³ = 64
+            (25, 125),  # level 5
+            (36, 216),  # level 6
+        ],
+    )
     def test_image_side_matches_hald_level(self, tmp_path, resolution, expected_side):
         lut = _identity_lut(resolution)
         path = tmp_path / "h.png"
         get_format("hald_png").write(lut, path)
         from PIL import Image
+
         with Image.open(path) as im:
             assert im.size == (expected_side, expected_side)
             assert im.mode == "RGB"
@@ -46,7 +51,7 @@ class TestHaldPNGWrite:
 
 class TestHaldPNGRoundTrip:
     def test_identity_round_trips_within_8bit_quantization(self, tmp_path):
-        """8-bit PNGs hold values to ~1/255 per channel."""
+        """8-bit ONGs hold values to ~1/255 per channel."""
         lut = _identity_lut(16)
         path = tmp_path / "rt.png"
         get_format("hald_png").write(lut, path)

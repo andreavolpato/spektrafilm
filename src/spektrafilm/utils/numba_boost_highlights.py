@@ -48,11 +48,11 @@ def boost_highlights(
     ----------
     x : np.ndarray
         Raw-domain image array, expected shape (..., ..., channels). Best with HxWx3.
-    boost_ev : float, default 0.0, max recomended 20.0
+    boost_ev : float, default 0.0, max recommended 20.0
         M, must be >= 0.
     boost_range : float, default 0.5
         A, must be in [0, 1].
-    protect_ev : float, default 0.0, max recomended 3.0
+    protect_ev : float, default 0.0, max recommended 3.0
         P, must be >= 0.
     midgray : float, default 0.184
         Raw-domain midgray reference, must be >= 0.
@@ -64,7 +64,7 @@ def boost_highlights(
     np.ndarray
         Transformed image in the same raw domain as x.
     """
-    
+
     if boost_ev < 0:
         raise ValueError("boost_ev must be >= 0")
     if not (0.0 <= boost_range <= 1.0):
@@ -79,7 +79,7 @@ def boost_highlights(
         raise ValueError("x must be a 3D array, e.g. HxWxC")
     if not x.flags["C_CONTIGUOUS"]:
         x = np.ascontiguousarray(x)
-        
+
     if out is None:
         y = np.empty_like(x)
     else:
@@ -100,7 +100,7 @@ def boost_highlights(
         y.fill(0.0)
         return y
 
-    raw_x0 = np.clip(midgray * (2.0 ** protect_ev), 0.0, max_raw)
+    raw_x0 = np.clip(midgray * (2.0**protect_ev), 0.0, max_raw)
     if raw_x0 == max_raw:
         np.copyto(y, x)
         return y
@@ -111,7 +111,7 @@ def boost_highlights(
     if denom <= 0.0:
         raise ValueError("Invalid parameters: denominator for k is non-positive")
 
-    k = (2.0 ** boost_ev - 1.0) / denom
+    k = (2.0**boost_ev - 1.0) / denom
     inv_max_raw = 1.0 / max_raw
     boost_scale = k * max_raw
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     plot_protect_ev = 3.0
     plot_midgray = 0.184
 
-    x_axis = np.geomspace(1.0e-6, 2.0 ** 10, 2048, dtype=np.float64)
+    x_axis = np.geomspace(1.0e-6, 2.0**10, 2048, dtype=np.float64)
     curve_input = np.repeat(x_axis[:, None, None], 3, axis=2)
     curve_output = boost_highlights(
         curve_input,
@@ -149,8 +149,8 @@ if __name__ == "__main__":
     plt.plot(x_axis, curve_output[:, 0, 0], linewidth=2.0, label="boosted highlights")
     plt.plot(x_axis, x_axis, label="identity", linestyle="--", color="gray")
     plt.scatter(
-        plot_midgray * (2.0 ** plot_protect_ev),
-        plot_midgray * (2.0 ** plot_protect_ev),
+        plot_midgray * (2.0**plot_protect_ev),
+        plot_midgray * (2.0**plot_protect_ev),
         color="red",
         label="protected",
     )

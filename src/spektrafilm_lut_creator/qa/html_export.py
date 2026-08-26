@@ -23,6 +23,7 @@ See studies/a40_lut_system/n120_ocio_config_emission.md for the
 discussion that led here (we picked Python-Markdown over pandoc /
 LaTeX for the dependency-light path).
 """
+
 from __future__ import annotations
 
 import re

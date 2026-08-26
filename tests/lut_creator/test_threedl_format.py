@@ -1,8 +1,8 @@
 """Round-trip tests for the .3dl format plugin."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from spektrafilm_lut_creator.formats import LUT_FORMATS, Lut, get_format
 from spektrafilm_lut_creator.grid import cube_grid
@@ -34,7 +34,7 @@ class TestThreeDLWrite:
         assert shape[-1] == 1023
         # Data: N^3 triplets.
         data_lines = lines[1:]
-        assert len(data_lines) == 5 ** 3
+        assert len(data_lines) == 5**3
         for line in data_lines:
             vals = line.split()
             assert len(vals) == 3

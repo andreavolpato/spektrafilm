@@ -7,7 +7,6 @@ from scipy import ndimage
 from skimage import io
 from skimage.util import img_as_float32
 
-
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 TEST_TILE_PATH = ASSETS_DIR / "virtual_paper_watermark.png"
 
@@ -19,26 +18,38 @@ ROMBIC_GRID_ANGLE = 72.0  # degrees
 GLOBAL_ROTATION = 16.0  # degrees
 PHASE_HORIZONTAL = 0.0  # long-edge fraction
 PHASE_VERTICAL = 0.0  # long-edge fraction
-DEFAULT_LOGO_RGB = np.array((215,215,215))/255  # RGB 0..1
-DEFAULT_BACKGROUND_RGB = np.array((242,242,242))/255  # RGB 0..1
+DEFAULT_LOGO_RGB = np.array((215, 215, 215)) / 255  # RGB 0..1
+DEFAULT_BACKGROUND_RGB = np.array((242, 242, 242)) / 255  # RGB 0..1
 DEFAULT_GLARE = 0.25  # paper glare strength
 
 
 @lru_cache(maxsize=1)
 def load_logo_alpha():
-    return np.ascontiguousarray(img_as_float32(io.imread(TEST_TILE_PATH)).astype(np.float32)[..., 3])
+    return np.ascontiguousarray(
+        img_as_float32(io.imread(TEST_TILE_PATH)).astype(np.float32)[..., 3]
+    )
 
 
 @lru_cache(maxsize=32)
 def prepare_tile_stamp(scale, angle):
     alpha = load_logo_alpha()
     if scale < 1.0:
-        alpha = ndimage.gaussian_filter(alpha, sigma=max(0.0, 0.5 / scale - 0.5), mode="nearest")
+        alpha = ndimage.gaussian_filter(
+            alpha, sigma=max(0.0, 0.5 / scale - 0.5), mode="nearest"
+        )
     if not np.isclose(scale, 1.0):
         alpha = ndimage.zoom(alpha, zoom=scale, order=1, mode="constant", cval=0.0)
     scaled_width = alpha.shape[1]
     if not np.isclose(angle, 0.0):
-        alpha = ndimage.rotate(alpha, angle=angle, axes=(1, 0), reshape=True, order=1, mode="constant", cval=0.0)
+        alpha = ndimage.rotate(
+            alpha,
+            angle=angle,
+            axes=(1, 0),
+            reshape=True,
+            order=1,
+            mode="constant",
+            cval=0.0,
+        )
     alpha = np.clip(alpha.astype(np.float32), 0.0, 1.0)
     ij = np.argwhere(alpha > 1e-4)
     y0, x0 = ij.min(0)
@@ -75,13 +86,23 @@ def build_rhombic_basis(
     center_distance,
 ):
     half = np.deg2rad(0.5 * grid_angle)
-    distance = tile_width * (1.0 - overlap) / np.cos(half) if center_distance is None else center_distance
+    distance = (
+        tile_width * (1.0 - overlap) / np.cos(half)
+        if center_distance is None
+        else center_distance
+    )
     basis = np.array(
-        [[distance * np.cos(half), distance * np.sin(half)], [distance * np.cos(half), -distance * np.sin(half)]],
+        [
+            [distance * np.cos(half), distance * np.sin(half)],
+            [distance * np.cos(half), -distance * np.sin(half)],
+        ],
         dtype=np.float32,
     )
     theta = np.deg2rad(rotation)
-    rot = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]], dtype=np.float32)
+    rot = np.array(
+        [[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]],
+        dtype=np.float32,
+    )
     return basis @ rot.T
 
 
@@ -96,8 +117,18 @@ def generate_lattice_centers(
     stamp_h, stamp_w = stamp_shape
     origin = np.array([0.5 * width + phase_x, 0.5 * height + phase_y], dtype=np.float32)
     radius = 0.5 * np.hypot(stamp_w, stamp_h)
-    limit = int(np.ceil((np.hypot(width, height) + 2.0 * radius) / np.min(np.linalg.norm(basis, axis=1)))) + 2
-    i, j = np.meshgrid(np.arange(-limit, limit + 1), np.arange(-limit, limit + 1), indexing="ij")
+    limit = (
+        int(
+            np.ceil(
+                (np.hypot(width, height) + 2.0 * radius)
+                / np.min(np.linalg.norm(basis, axis=1))
+            )
+        )
+        + 2
+    )
+    i, j = np.meshgrid(
+        np.arange(-limit, limit + 1), np.arange(-limit, limit + 1), indexing="ij"
+    )
     centers = origin + i.reshape(-1, 1) * basis[0] + j.reshape(-1, 1) * basis[1]
     visible = (
         (centers[:, 0] >= -radius)
@@ -146,21 +177,31 @@ def render_virtual_photo_paper_back(
     measure_timing=False,
 ):
     t0 = perf_counter() if measure_timing else 0.0
-    canvas_width, canvas_height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+    canvas_width, canvas_height = (
+        (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+    )
     canvas_width = int(canvas_width)
     canvas_height = int(canvas_height)
     canvas_shape = (canvas_height, canvas_width)
     canvas_long_edge = float(max(canvas_width, canvas_height))
     background = np.asarray(background_rgb, dtype=np.float32)
-    logo = np.asarray(DEFAULT_LOGO_RGB if logo_rgb is None else logo_rgb, dtype=np.float32)
+    logo = np.asarray(
+        DEFAULT_LOGO_RGB if logo_rgb is None else logo_rgb, dtype=np.float32
+    )
 
     source_alpha = load_logo_alpha()
     tile_scale = float(zoom) * canvas_long_edge / float(max(source_alpha.shape))
-    tile_alpha, inverse_alpha, scaled_width = prepare_tile_stamp(tile_scale, float(angle))
+    tile_alpha, inverse_alpha, scaled_width = prepare_tile_stamp(
+        tile_scale, float(angle)
+    )
     t1 = perf_counter() if measure_timing else 0.0
 
-    spacing = None if center_distance is None else float(center_distance) * canvas_long_edge
-    basis = build_rhombic_basis(scaled_width, overlap, rombic_grid_angle, angle, spacing)
+    spacing = (
+        None if center_distance is None else float(center_distance) * canvas_long_edge
+    )
+    basis = build_rhombic_basis(
+        scaled_width, overlap, rombic_grid_angle, angle, spacing
+    )
     centers = generate_lattice_centers(
         canvas_shape,
         tile_alpha.shape,
@@ -250,7 +291,9 @@ def virtual_photo_paper_back(
         measure_timing=print_timing,
     )
     if print_timing and timings is not None:
-        canvas_width, canvas_height = (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        canvas_width, canvas_height = (
+            (canvas_size, canvas_size) if isinstance(canvas_size, int) else canvas_size
+        )
         print(
             "virtual_photo_paper_back"
             f" | canvas={int(canvas_width)}x{int(canvas_height)}"
@@ -265,7 +308,12 @@ def virtual_photo_paper_back(
 
 
 _source_alpha = load_logo_alpha()
-prepare_tile_stamp(float(GRID_SCALE) * float(max(DEFAULT_CANVAS_SIZE)) / float(max(_source_alpha.shape)), float(GLOBAL_ROTATION))
+prepare_tile_stamp(
+    float(GRID_SCALE)
+    * float(max(DEFAULT_CANVAS_SIZE))
+    / float(max(_source_alpha.shape)),
+    float(GLOBAL_ROTATION),
+)
 get_cached_glare_map(DEFAULT_CANVAS_SIZE[0], DEFAULT_CANVAS_SIZE[1], 0)
 
 
@@ -274,7 +322,9 @@ if __name__ == "__main__":
 
     def plot_virtual_photo_paper_back(canvas_rgb):
         canvas_height, canvas_width = canvas_rgb.shape[:2]
-        figure = plt.figure(figsize=(canvas_width / 100.0, canvas_height / 100.0), dpi=100)
+        figure = plt.figure(
+            figsize=(canvas_width / 100.0, canvas_height / 100.0), dpi=100
+        )
         axis = figure.add_axes([0.0, 0.0, 1.0, 1.0])
         axis.imshow(canvas_rgb)
         axis.set_axis_off()

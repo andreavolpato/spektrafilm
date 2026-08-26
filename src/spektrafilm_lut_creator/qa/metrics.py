@@ -7,18 +7,20 @@ favor clarity over micro-optimization — these run once per QA pass.
 References are inline. The default tolerances cited come from the
 named standard; per-test thresholds live in ``tests.py``.
 """
+
 from __future__ import annotations
 
-import numpy as np
-
 import colour
-
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Perceptual color differences.
 # ---------------------------------------------------------------------------
 
-def delta_itp(rgb_a: np.ndarray, rgb_b: np.ndarray, *, output_color_space: str) -> np.ndarray:
+
+def delta_itp(
+    rgb_a: np.ndarray, rgb_b: np.ndarray, *, output_color_space: str
+) -> np.ndarray:
     """ITU-R BT.2124 ΔITP between two RGB arrays.
 
     ΔITP is the HDR-aware perceptual color difference used by
@@ -103,6 +105,7 @@ def oklab_delta(
 # Cube-structural metrics.
 # ---------------------------------------------------------------------------
 
+
 def summary_stats(values: np.ndarray) -> dict[str, float]:
     """``{"max": ..., "p99": ..., "p95": ..., "p50": ..., "mean": ...}``.
 
@@ -112,13 +115,18 @@ def summary_stats(values: np.ndarray) -> dict[str, float]:
     """
     values = np.asarray(values, dtype=float).ravel()
     if values.size == 0:
-        return {"max": float("nan"), "p99": float("nan"), "p95": float("nan"),
-                "p50": float("nan"), "mean": float("nan")}
+        return {
+            "max": float("nan"),
+            "p99": float("nan"),
+            "p95": float("nan"),
+            "p50": float("nan"),
+            "mean": float("nan"),
+        }
     return {
-        "max":  float(np.max(values)),
-        "p99":  float(np.percentile(values, 99)),
-        "p95":  float(np.percentile(values, 95)),
-        "p50":  float(np.percentile(values, 50)),
+        "max": float(np.max(values)),
+        "p99": float(np.percentile(values, 99)),
+        "p95": float(np.percentile(values, 95)),
+        "p50": float(np.percentile(values, 50)),
         "mean": float(np.mean(values)),
     }
 
@@ -142,16 +150,16 @@ def monotonicity_violations(table: np.ndarray) -> dict[str, int | float]:
         diagonal axes. ``worst_negative_diff``: most negative
         finite-difference (signed; 0.0 if no violations).
     """
-    n = table.shape[0]
+    # n = table.shape[0]
     table = np.asarray(table, dtype=float)
     # table indexing is [b, g, r, channel]. The diagonal pairs are:
     #   axis R (last spatial axis) vs channel 0
     #   axis G (middle spatial axis) vs channel 1
     #   axis B (first spatial axis) vs channel 2
     diffs = []
-    diffs.append(np.diff(table[..., 0], axis=2))   # along R for channel R
-    diffs.append(np.diff(table[..., 1], axis=1))   # along G for channel G
-    diffs.append(np.diff(table[..., 2], axis=0))   # along B for channel B
+    diffs.append(np.diff(table[..., 0], axis=2))  # along R for channel R
+    diffs.append(np.diff(table[..., 1], axis=1))  # along G for channel G
+    diffs.append(np.diff(table[..., 2], axis=0))  # along B for channel B
     flat = np.concatenate([d.ravel() for d in diffs])
     violations = int(np.sum(flat < 0.0))
     worst = float(min(0.0, flat.min())) if flat.size else 0.0
@@ -198,7 +206,9 @@ def total_variation(table: np.ndarray) -> dict[str, float]:
     return {"tv": tv_r + tv_g + tv_b, "tv_r": tv_r, "tv_g": tv_g, "tv_b": tv_b}
 
 
-def axial_fft_highband_ratio(table: np.ndarray, band_frac: float = 0.5) -> dict[str, float]:
+def axial_fft_highband_ratio(
+    table: np.ndarray, band_frac: float = 0.5
+) -> dict[str, float]:
     """Fraction of axial-FFT energy living above ``band_frac * Nyquist``.
 
     For each axis, take 1D FFTs along that axis through every line of
@@ -224,14 +234,17 @@ def axial_fft_highband_ratio(table: np.ndarray, band_frac: float = 0.5) -> dict[
         total = spec.sum()
         high = spec[..., band_start:nyq_index].sum()
         ratios.append(float(high / max(total, 1e-12)))
-    return {"axial_highband_ratio_r": ratios[0],
-            "axial_highband_ratio_g": ratios[1],
-            "axial_highband_ratio_b": ratios[2],
-            "axial_highband_ratio_mean": float(np.mean(ratios))}
+    return {
+        "axial_highband_ratio_r": ratios[0],
+        "axial_highband_ratio_g": ratios[1],
+        "axial_highband_ratio_b": ratios[2],
+        "axial_highband_ratio_mean": float(np.mean(ratios)),
+    }
 
 
-def gamut_hull_volume_ratio(grid_in: np.ndarray, grid_out: np.ndarray,
-                             output_color_space: str) -> dict[str, float]:
+def gamut_hull_volume_ratio(
+    grid_in: np.ndarray, grid_out: np.ndarray, output_color_space: str
+) -> dict[str, float]:
     """Output OkLab convex-hull volume / input OkLab convex-hull volume.
 
     A LUT that compresses gamut produces a ratio < 1. A ratio > 1
@@ -243,14 +256,17 @@ def gamut_hull_volume_ratio(grid_in: np.ndarray, grid_out: np.ndarray,
     the hull computation fast.
     """
     from scipy.spatial import ConvexHull
+
     from spektrafilm_lut_creator.color_spaces import to_xyz_qa
 
     rng = np.random.default_rng(0)
     n_sample = min(grid_in.shape[0], 8000)
     idx = rng.choice(grid_in.shape[0], size=n_sample, replace=False)
 
-    in_xyz = to_xyz_qa(grid_in[idx], output_color_space)   # we use the output space
-    out_xyz = to_xyz_qa(grid_out[idx], output_color_space)  # for both for an apples-to-apples OkLab projection
+    in_xyz = to_xyz_qa(grid_in[idx], output_color_space)  # we use the output space
+    out_xyz = to_xyz_qa(
+        grid_out[idx], output_color_space
+    )  # for both for an apples-to-apples OkLab projection
     lab_in = np.asarray(colour.XYZ_to_Oklab(in_xyz), dtype=float)
     lab_out = np.asarray(colour.XYZ_to_Oklab(out_xyz), dtype=float)
 
@@ -282,7 +298,7 @@ def gamut_self_intersection_score(table: np.ndarray) -> dict[str, float]:
     if n < 3:
         return {"flips": 0, "fraction": 0.0, "triangles": 0}
 
-    axis = np.linspace(0.0, 1.0, n)
+    # axis = np.linspace(0.0, 1.0, n)
     flips = 0
     total = 0
     # Six faces; for each, sweep two non-face axes to form quad cells,
@@ -317,10 +333,16 @@ def gamut_self_intersection_score(table: np.ndarray) -> dict[str, float]:
             # minority sign as flips.
             flips += min(n_neg, n_pos)
             total += n_cells
-    return {"flips": int(flips), "fraction": float(flips / max(total, 1)), "triangles": int(total)}
+    return {
+        "flips": int(flips),
+        "fraction": float(flips / max(total, 1)),
+        "triangles": int(total),
+    }
 
 
-def hue_rotation_per_band(grid_in_lab: np.ndarray, grid_out_lab: np.ndarray) -> dict[str, float]:
+def hue_rotation_per_band(
+    grid_in_lab: np.ndarray, grid_out_lab: np.ndarray
+) -> dict[str, float]:
     """Per-saturation-band maximum hue rotation, in degrees.
 
     Splits input by chroma into four bands and computes the worst hue
@@ -476,6 +498,7 @@ def dynamic_range_stats(
 # Noise propagation through the LUT.
 # ---------------------------------------------------------------------------
 
+
 def noise_sensitivity_field(
     table: np.ndarray,
     input_samples_encoded: np.ndarray,
@@ -544,19 +567,21 @@ def noise_sensitivity_field(
       on 3D LUT-based color transformations*, CGIV.
     - DXOMark color-depth (CCM noise propagation), color-sensitivity score.
     """
-    from spektrafilm_lut_creator.qa import evaluators
     from spektrafilm_lut_creator.color_spaces import to_xyz_qa as _to_xyz_qa
+    from spektrafilm_lut_creator.qa import evaluators
 
     samples = np.asarray(input_samples_encoded, dtype=float)
     M = samples.shape[0]
 
     def _to_oklab(encoded_rgb: np.ndarray) -> np.ndarray:
         return np.asarray(
-            colour.XYZ_to_Oklab(_to_xyz_qa(encoded_rgb, out_cs)), dtype=float,
+            colour.XYZ_to_Oklab(_to_xyz_qa(encoded_rgb, out_cs)),
+            dtype=float,
         )
 
     out_center_encoded = np.asarray(
-        evaluators.apply_trilinear(table, samples), dtype=float,
+        evaluators.apply_trilinear(table, samples),
+        dtype=float,
     )
     output_oklab = _to_oklab(out_center_encoded)
 
@@ -593,7 +618,8 @@ def noise_sensitivity_field(
     # are mutual inverses, so the encoded-sample → reflectance-XYZ round
     # trip falls out cleanly here.
     input_oklab = np.asarray(
-        colour.XYZ_to_Oklab(_to_xyz_qa(samples, in_cs)), dtype=float,
+        colour.XYZ_to_Oklab(_to_xyz_qa(samples, in_cs)),
+        dtype=float,
     )
 
     return {
@@ -608,5 +634,3 @@ def noise_sensitivity_field(
         "sigma_ab": sigma_ab,
         "sigma_in_encoded": float(sigma_in_encoded),
     }
-
-

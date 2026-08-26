@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 import numpy as np
 
@@ -19,10 +19,8 @@ def test_load_logo_alpha_reads_gui_asset() -> None:
 
 
 def test_pyproject_includes_gui_assets_in_package_data() -> None:
-    pyproject_path = Path(__file__).resolve().parents[2] / 'pyproject.toml'
-    pyproject = tomllib.loads(pyproject_path.read_text(encoding='utf-8'))
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
 
-    package_data = pyproject['tool']['setuptools']['package-data']
-
-    assert 'spektrafilm_gui' in package_data
-    assert 'assets/*' in package_data['spektrafilm_gui']
+    packages = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
+    assert "src/spektrafilm_gui" in packages

@@ -5,11 +5,12 @@ from types import SimpleNamespace
 
 import numpy as np
 
+import spektrafilm_gui.state as state_module
 from spektrafilm.model.illuminants import Illuminants
+from spektrafilm.runtime.api import init_params
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
 from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm_gui.params_mapper import build_params_from_state
-import spektrafilm_gui.state as state_module
 from spektrafilm_gui.state import (
     DEFAULT_FILM_STOCK,
     DEFAULT_PRINT_PAPER,
@@ -18,7 +19,6 @@ from spektrafilm_gui.state import (
     clone_gui_state,
     gui_state_from_params,
 )
-from spektrafilm.runtime.api import init_params
 
 
 def make_state():
@@ -78,8 +78,12 @@ def test_build_params_copies_halation_group() -> None:
     assert params.film_render.halation.boost_ev == 1.25
     assert params.film_render.halation.protect_ev == 2.5
     assert params.film_render.halation.boost_range == 0.35
-    np.testing.assert_allclose(params.film_render.halation.halation_strength, np.array([0.12, 0.06, 0.03]))
-    np.testing.assert_allclose(params.film_render.halation.scatter_tail_weight, np.array([0.30, 0.25, 0.20]))
+    np.testing.assert_allclose(
+        params.film_render.halation.halation_strength, np.array([0.12, 0.06, 0.03])
+    )
+    np.testing.assert_allclose(
+        params.film_render.halation.scatter_tail_weight, np.array([0.30, 0.25, 0.20])
+    )
     # mapper copies, does not alias the widget's group
     assert params.film_render.halation is not state.halation
 
@@ -107,27 +111,27 @@ def test_build_params_propagates_halation_high_level_knobs() -> None:
 
 def test_build_params_maps_runtime_strings() -> None:
     state = make_state()
-    state.camera.auto_exposure_method = 'median'
-    state.input_image.io.input_color_space = 'Display P3'
-    state.input_image.settings.rgb_to_raw_method = 'mallett2019'
-    state.simulation.io.output_color_space = 'ACES2065-1'
+    state.camera.auto_exposure_method = "median"
+    state.input_image.io.input_color_space = "Display P3"
+    state.input_image.settings.rgb_to_raw_method = "mallett2019"
+    state.simulation.io.output_color_space = "ACES2065-1"
     state.simulation.workflow.saving_cctf_encoding = False
     state.gui_only.display.settings.preview_max_size = 1024
 
     params = build_params_from_state(state)
 
-    assert params.camera.auto_exposure_method == 'median'
-    assert params.io.input_color_space == 'Display P3'
-    assert params.settings.rgb_to_raw_method == 'mallett2019'
+    assert params.camera.auto_exposure_method == "median"
+    assert params.io.input_color_space == "Display P3"
+    assert params.settings.rgb_to_raw_method == "mallett2019"
     assert params.settings.preview_max_size == 1024
-    assert params.io.output_color_space == 'ACES2065-1'
+    assert params.io.output_color_space == "ACES2065-1"
     assert params.io.output_cctf_encoding is True
 
 
 def test_build_params_maps_enlarger_diffusion_filter() -> None:
     state = make_state()
     state.enlarger_diffusion.active = True
-    state.enlarger_diffusion.filter_family = 'pro_mist'
+    state.enlarger_diffusion.filter_family = "pro_mist"
     state.enlarger_diffusion.strength = 0.5
     state.enlarger_diffusion.spatial_scale = 1.6
     state.enlarger_diffusion.halo_warmth = 0.3
@@ -135,7 +139,7 @@ def test_build_params_maps_enlarger_diffusion_filter() -> None:
     params = build_params_from_state(state)
 
     assert params.enlarger.diffusion_filter.active is True
-    assert params.enlarger.diffusion_filter.filter_family == 'pro_mist'
+    assert params.enlarger.diffusion_filter.filter_family == "pro_mist"
     assert params.enlarger.diffusion_filter.strength == 0.5
     assert params.enlarger.diffusion_filter.spatial_scale == 1.6
     assert params.enlarger.diffusion_filter.halo_warmth == 0.3
@@ -150,7 +154,7 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
     state.camera_diffusion = replace(
         state.camera_diffusion,
         active=True,
-        filter_family='glimmerglass',
+        filter_family="glimmerglass",
         strength=0.25,
         spatial_scale=1.2,
         halo_warmth=-0.15,
@@ -161,18 +165,22 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
     assert params.camera.lens_blur_um == 4.0
     assert params.camera.exposure_compensation_ev == 0.75
     assert params.camera.diffusion_filter.active is True
-    assert params.camera.diffusion_filter.filter_family == 'glimmerglass'
+    assert params.camera.diffusion_filter.filter_family == "glimmerglass"
     assert params.camera.diffusion_filter.strength == 0.25
     assert params.camera.diffusion_filter.spatial_scale == 1.2
     assert params.camera.diffusion_filter.halo_warmth == -0.15
     assert params.camera is not state.camera
 
 
-def test_build_params_camera_diffusion_owner_wins_over_stale_camera_passthrough() -> None:
+def test_build_params_camera_diffusion_owner_wins_over_stale_camera_passthrough() -> (
+    None
+):
     # Regression guard: the camera section passes its diffusion_filter through
     # untouched, so a stale value there must NOT win over the standalone owner.
     state = make_state()
-    state.camera.diffusion_filter = replace(state.camera.diffusion_filter, strength=99.0)
+    state.camera.diffusion_filter = replace(
+        state.camera.diffusion_filter, strength=99.0
+    )
     state.camera_diffusion = replace(state.camera_diffusion, strength=0.5)
 
     params = build_params_from_state(state)
@@ -194,7 +202,7 @@ def test_build_params_copies_input_gamut_compress_group() -> None:
     state.input_gamut_compress = replace(
         state.input_gamut_compress,
         active=False,
-        boundary='locus',
+        boundary="locus",
         hull_detail=6.0,
         knee=(0.1, 1.0, 4.0),
     )
@@ -202,7 +210,7 @@ def test_build_params_copies_input_gamut_compress_group() -> None:
     params = build_params_from_state(state)
 
     assert params.io.input_gamut_compress.active is False
-    assert params.io.input_gamut_compress.boundary == 'locus'
+    assert params.io.input_gamut_compress.boundary == "locus"
     assert params.io.input_gamut_compress.hull_detail == 6.0
     assert params.io.input_gamut_compress.knee == (0.1, 1.0, 4.0)
     # mapper copies, does not alias the widget's group
@@ -213,13 +221,13 @@ def test_build_params_copies_output_gamut_compress_group() -> None:
     state = make_state()
     state.output_gamut_compress = replace(
         state.output_gamut_compress,
-        algorithm='aces_rgc',
+        algorithm="aces_rgc",
         knee=(0.2, 1.0, 3.0),
     )
 
     params = build_params_from_state(state)
 
-    assert params.io.output_gamut_compress.algorithm == 'aces_rgc'
+    assert params.io.output_gamut_compress.algorithm == "aces_rgc"
     assert params.io.output_gamut_compress.knee == (0.2, 1.0, 3.0)
     assert params.io.output_gamut_compress is not state.output_gamut_compress
 
@@ -249,10 +257,12 @@ def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
     # sync crashed mid-way, leaving the development-time dropdown un-repopulated).
     from spektrafilm.runtime.api import digest_params
 
-    params = digest_params(init_params(
-        film_profile=FilmStocks.kodak_doublex.value,
-        print_profile=PrintStocks.kodak_2302.value,
-    ))
+    params = digest_params(
+        init_params(
+            film_profile=FilmStocks.kodak_doublex.value,
+            print_profile=PrintStocks.kodak_2302.value,
+        )
+    )
     # precondition: the runtime grain genuinely carries None padding for B&W
     assert any(c is None for c in params.film_render.grain.uniformity)
 
@@ -262,7 +272,7 @@ def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
         print_paper=PrintStocks.kodak_2302.value,
     )
 
-    for field_name in ('rms_granularity', 'uniformity', 'density_min'):
+    for field_name in ("rms_granularity", "uniformity", "density_min"):
         values = getattr(state.grain, field_name)
         assert all(c is not None for c in values), field_name
         # padding mirrors channel 0, not a misleading zero
@@ -293,16 +303,16 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.halation.halation_bounce_decay == 0.5
     assert state.halation.halation_renormalize is True
     assert state.input_image.io.crop_size == (0.1, 0.1)
-    assert state.simulation.io.output_color_space == 'sRGB'
-    assert state.simulation.workflow.saving_color_space == 'sRGB'
+    assert state.simulation.io.output_color_space == "sRGB"
+    assert state.simulation.workflow.saving_color_space == "sRGB"
     assert state.simulation.workflow.saving_cctf_encoding is True
     assert state.camera_diffusion.active is False
-    assert state.camera_diffusion.filter_family == 'black_pro_mist'
+    assert state.camera_diffusion.filter_family == "black_pro_mist"
     assert state.camera_diffusion.strength == 0.5
     assert state.camera_diffusion.spatial_scale == 1.0
     assert state.camera_diffusion.halo_warmth == 0.0
     assert state.enlarger_diffusion.active is False
-    assert state.enlarger_diffusion.filter_family == 'black_pro_mist'
+    assert state.enlarger_diffusion.filter_family == "black_pro_mist"
     assert state.enlarger_diffusion.strength == 0.5
     assert state.enlarger_diffusion.spatial_scale == 1.0
     assert state.enlarger_diffusion.halo_warmth == 0.0
@@ -312,10 +322,10 @@ def test_build_default_gui_state_uses_runtime_defaults() -> None:
     assert state.scanner.black_level == 0.01
     assert state.gui_only.display.use_display_transform is True
     assert state.gui_only.display.gray_18_canvas is True
-    assert state.camera.auto_exposure_method == 'center_weighted'
+    assert state.camera.auto_exposure_method == "center_weighted"
     assert state.gui_only.display.white_padding == 0.03
     assert state.gui_only.display.settings.preview_max_size == 640
-    assert state.gui_only.display.output_interpolation == 'spline36'
+    assert state.gui_only.display.output_interpolation == "spline36"
 
 
 def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None:
@@ -324,49 +334,59 @@ def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None
     captured: dict[str, object] = {}
 
     def fake_init_params(*, film_profile, print_profile):
-        captured['init_args'] = (film_profile, print_profile)
+        captured["init_args"] = (film_profile, print_profile)
         return raw_params
 
     def fake_digest_after_selection(params):
-        captured['digest_input'] = params
+        captured["digest_input"] = params
         return digested_params
 
     def fake_gui_state_from_params(params, *, film_stock, print_paper):
-        captured['gui_args'] = (params, film_stock, print_paper)
-        return 'gui-state'
+        captured["gui_args"] = (params, film_stock, print_paper)
+        return "gui-state"
 
-    monkeypatch.setattr(state_module, 'init_params', fake_init_params)
-    monkeypatch.setattr(state_module, 'digest_after_selection', fake_digest_after_selection)
-    monkeypatch.setattr(state_module, 'gui_state_from_params', fake_gui_state_from_params)
-
-    state = state_module.build_default_gui_state(
-        film_stock='film-stock',
-        print_paper='print-paper',
+    monkeypatch.setattr(state_module, "init_params", fake_init_params)
+    monkeypatch.setattr(
+        state_module, "digest_after_selection", fake_digest_after_selection
+    )
+    monkeypatch.setattr(
+        state_module, "gui_state_from_params", fake_gui_state_from_params
     )
 
-    assert state == 'gui-state'
-    assert captured['init_args'] == ('film-stock', 'print-paper')
-    assert captured['digest_input'] is raw_params
-    assert captured['gui_args'] == (digested_params, 'film-stock', 'print-paper')
+    state = state_module.build_default_gui_state(
+        film_stock="film-stock",
+        print_paper="print-paper",
+    )
+
+    assert state == "gui-state"
+    assert captured["init_args"] == ("film-stock", "print-paper")
+    assert captured["digest_input"] is raw_params
+    assert captured["gui_args"] == (digested_params, "film-stock", "print-paper")
 
 
 def test_digest_after_selection_preserves_route(monkeypatch) -> None:
     # The route is user-controlled: selecting a profile must not change it,
     # regardless of whether the film is positive or negative.
-    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), workflow=SimpleNamespace(route='input > convert-film > scan-minus-base'))
-    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), workflow=SimpleNamespace(route='input > film > scan'))
+    positive_params = SimpleNamespace(
+        film=SimpleNamespace(is_positive=True),
+        workflow=SimpleNamespace(route="input > convert-film > scan-minus-base"),
+    )
+    negative_params = SimpleNamespace(
+        film=SimpleNamespace(is_positive=False),
+        workflow=SimpleNamespace(route="input > film > scan"),
+    )
     digested_params = [positive_params, negative_params]
 
     def fake_digest_params(_params):
         return digested_params.pop(0)
 
-    monkeypatch.setattr(state_module, 'digest_params', fake_digest_params)
+    monkeypatch.setattr(state_module, "digest_params", fake_digest_params)
 
     positive_result = state_module.digest_after_selection(object())
     negative_result = state_module.digest_after_selection(object())
 
-    assert positive_result.workflow.route == 'input > convert-film > scan-minus-base'
-    assert negative_result.workflow.route == 'input > film > scan'
+    assert positive_result.workflow.route == "input > convert-film > scan-minus-base"
+    assert negative_result.workflow.route == "input > film > scan"
 
 
 def test_project_default_gui_state_matches_builder() -> None:

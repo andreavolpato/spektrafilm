@@ -1,23 +1,25 @@
 """Viz panels for the picture-style QA tests + a few shared helpers."""
+
 from __future__ import annotations
 
 import colour
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
+from spektrafilm.utils.gamut_compression import OutputGamutCompressSpec
 from spektrafilm_lut_creator.qa.viz._base import (
-    BG, FG, HI, DIM, RED, GREEN, BLUE, WARN,
-    PANE_EDGE_RGBA, GRID_RGBA,
-    SUPTITLE_FS, PANEL_TITLE_FS, SUPTITLE_PAD, PANEL_TITLE_PAD,
-    IDENTITY_COLOR, IDENTITY_ALPHA,
-    FOOTER_FS, FOOTER_COLOR, FOOTER_BAND_FRAC, HEADER_BAND_FRAC,
+    BG,
+    DIM,
+    FG,
+    HI,
+    PANEL_TITLE_FS,
+    PANEL_TITLE_PAD,
+    SUPTITLE_FS,
     _format_output_gamut_compress,
-    _identity_line, add_footer,
-    _setup_3d, _setup_2d, _fill_3d,
-    _to_oklab, _gamut_triangle_xy,
+    _setup_2d,
 )
 
 
@@ -45,11 +47,14 @@ def oklab_gamut_slice_outline(
     hi = np.full_like(hue, 0.45)
 
     def in_gamut(chroma: np.ndarray) -> np.ndarray:
-        pts = np.stack([
-            np.full_like(chroma, L),
-            chroma * np.cos(hue),
-            chroma * np.sin(hue),
-        ], axis=-1)
+        pts = np.stack(
+            [
+                np.full_like(chroma, L),
+                chroma * np.cos(hue),
+                chroma * np.sin(hue),
+            ],
+            axis=-1,
+        )
         xyz = np.asarray(colour.Oklab_to_XYZ(pts), dtype=float)
         rgb_linear = np.asarray(
             colour.XYZ_to_RGB(
@@ -74,13 +79,17 @@ def oklab_gamut_slice_outline(
         lo = np.where(ok, mid, lo)
         hi = np.where(ok, hi, mid)
 
-    outline = np.stack([
-        np.full_like(lo, L),
-        lo * np.cos(hue),
-        lo * np.sin(hue),
-    ], axis=-1)
+    outline = np.stack(
+        [
+            np.full_like(lo, L),
+            lo * np.cos(hue),
+            lo * np.sin(hue),
+        ],
+        axis=-1,
+    )
     white = np.array([L, 0.0, 0.0], dtype=float)
     return np.vstack([outline, outline[:1]]), white
+
 
 def _oklab_to_encoded_rgb(oklab: np.ndarray, cs_name: str) -> np.ndarray:
     """OkLab points to encoded RGB in ``cs_name`` for display."""
@@ -89,6 +98,7 @@ def _oklab_to_encoded_rgb(oklab: np.ndarray, cs_name: str) -> np.ndarray:
     xyz = np.asarray(colour.Oklab_to_XYZ(np.asarray(oklab, dtype=float)), dtype=float)
     return np.clip(np.asarray(from_xyz(xyz, cs_name), dtype=float), 0.0, 1.0)
 
+
 def _encoded_rgb_to_display_rgb(rgb: np.ndarray, cs_name: str) -> np.ndarray:
     """Encoded RGB in ``cs_name`` converted to sRGB for on-screen display."""
     from spektrafilm_lut_creator.color_spaces import from_xyz, to_xyz_qa
@@ -96,8 +106,13 @@ def _encoded_rgb_to_display_rgb(rgb: np.ndarray, cs_name: str) -> np.ndarray:
     xyz = np.asarray(to_xyz_qa(np.asarray(rgb, dtype=float), cs_name), dtype=float)
     return np.clip(np.asarray(from_xyz(xyz, "sRGB"), dtype=float), 0.0, 1.0)
 
+
 def rg_plane_slices(
-    table: np.ndarray, n: int, out_cs: str, *, n_slices: int = 9,
+    table: np.ndarray,
+    n: int,
+    out_cs: str,
+    *,
+    n_slices: int = 9,
 ) -> Figure:
     """R-G plane slices through the cube at varying B-input values,
     rendered as **sRGB display images** (hard-clipped).
@@ -110,9 +125,9 @@ def rg_plane_slices(
     sRGB-encoded, and hard-clipped — so what's on screen is the LUT's
     R-G response at that B as it would appear on an sRGB display.
     """
-    from spektrafilm_lut_creator.color_spaces import (
-        decode_cctf, get as get_cs, output_midgray_gain,
-    )
+    from spektrafilm_lut_creator.color_spaces import decode_cctf, output_midgray_gain
+    from spektrafilm_lut_creator.color_spaces import get as get_cs
+
     # Fixed 3x3 grid; default 9 slices fills it exactly. If the cube
     # resolution is too small for 9 slices we use as many as fit and
     # leave the trailing axes blank.
@@ -127,9 +142,11 @@ def rg_plane_slices(
     out_gain = output_midgray_gain(out_cs)
 
     fig, axes_2d = plt.subplots(
-        grid_rows, grid_cols,
+        grid_rows,
+        grid_cols,
         figsize=(2.4 * grid_cols, 2.6 * grid_rows + 0.4),
-        facecolor=BG, layout="constrained",
+        facecolor=BG,
+        layout="constrained",
     )
     axes = np.atleast_1d(axes_2d).reshape(grid_rows, grid_cols).flatten()
     for i, ax in enumerate(axes):
@@ -145,17 +162,23 @@ def rg_plane_slices(
                 out_entry.primaries,
                 "sRGB",
                 chromatic_adaptation_transform="CAT16",
-            ), dtype=float,
+            ),
+            dtype=float,
         )
         srgb_encoded = np.asarray(
             colour.cctf_encoding(np.clip(srgb_linear, 0.0, 1.0), function="sRGB"),
             dtype=float,
         )
-        ax.imshow(np.clip(srgb_encoded, 0.0, 1.0),
-                  origin="lower", extent=(0, 1, 0, 1), interpolation="bilinear")
+        ax.imshow(
+            np.clip(srgb_encoded, 0.0, 1.0),
+            origin="lower",
+            extent=(0, 1, 0, 1),
+            interpolation="bilinear",
+        )
         b_val = idx / (n - 1)
         ax.set_title(f"B = {b_val:.2f}", color=FG, fontsize=10)
-        ax.set_xticks([0, 1]); ax.set_yticks([0, 1])
+        ax.set_xticks([0, 1])
+        ax.set_yticks([0, 1])
         ax.tick_params(colors=FG, length=2)
         for spine in ax.spines.values():
             spine.set_color("#555555")
@@ -168,16 +191,18 @@ def rg_plane_slices(
             ax.set_xlabel("R in", color=FG, fontsize=8)
     fig.suptitle(
         f"R-G cube slices at varying B   (output {out_cs} → sRGB display, hard-clipped)",
-        color=HI, fontsize=SUPTITLE_FS,
+        color=HI,
+        fontsize=SUPTITLE_FS,
     )
     return fig
+
 
 def gamut_edge_stress(
     panels: list[tuple[str, np.ndarray, dict]],
     *,
     in_cs: str,
     out_cs: str,
-    gamut_compress: "OutputGamutCompressSpec | None" = None,
+    gamut_compress: OutputGamutCompressSpec | None = None,
 ) -> Figure:
     """Granger-style RGB stress chart panels.
 
@@ -197,9 +222,11 @@ def gamut_edge_stress(
     n_panels = len(panels)
     panel_width = 9.0
     fig, axes = plt.subplots(
-        n_panels, 1,
+        n_panels,
+        1,
         figsize=(panel_width, (panel_width / 3.0) * n_panels + 0.8),
-        facecolor=BG, layout="constrained",
+        facecolor=BG,
+        layout="constrained",
     )
     axes = np.atleast_1d(axes)
     for ax, (cs_name, img, stats) in zip(axes, panels):
@@ -207,9 +234,12 @@ def gamut_edge_stress(
         oog_sat = stats.get("oog_fraction_saturated_row", 0.0)
         ax.set_title(
             f"target: {cs_name}   ·   saturated-row OOG vs {in_cs}: {oog_sat:.1%}",
-            color=FG, fontsize=11, pad=4,
+            color=FG,
+            fontsize=11,
+            pad=4,
         )
-        ax.set_xticks([]); ax.set_yticks([])
+        ax.set_xticks([])
+        ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_color("#555555")
     # The per-column gradient construction (white → saturated edge →
@@ -220,6 +250,7 @@ def gamut_edge_stress(
         title += "\n" + _format_output_gamut_compress(gamut_compress)
     fig.suptitle(title, color=HI, fontsize=SUPTITLE_FS)
     return fig
+
 
 def _noise_ellipse_panel_extent(
     field: dict,
@@ -233,13 +264,17 @@ def _noise_ellipse_panel_extent(
     in_tri_oklab, _ = oklab_gamut_slice_outline(in_cs, L=L_slice)
     input_lab = np.asarray(field["input_oklab"], dtype=float)
     output_lab = np.asarray(field["output_oklab"], dtype=float)
-    return max(
-        float(np.abs(out_tri_oklab[:, 1:]).max(initial=0.0)),
-        float(np.abs(in_tri_oklab[:, 1:]).max(initial=0.0)),
-        float(np.abs(input_lab[:, 1:]).max(initial=0.0)),
-        float(np.abs(output_lab[:, 1:]).max(initial=0.0)),
-        0.30,
-    ) * 1.10
+    return (
+        max(
+            float(np.abs(out_tri_oklab[:, 1:]).max(initial=0.0)),
+            float(np.abs(in_tri_oklab[:, 1:]).max(initial=0.0)),
+            float(np.abs(input_lab[:, 1:]).max(initial=0.0)),
+            float(np.abs(output_lab[:, 1:]).max(initial=0.0)),
+            0.30,
+        )
+        * 1.10
+    )
+
 
 def _draw_noise_ellipse_panel(
     ax,
@@ -275,16 +310,29 @@ def _draw_noise_ellipse_panel(
     ax.axhline(0.0, color="#444444", lw=0.7, zorder=0)
     ax.axvline(0.0, color="#444444", lw=0.7, zorder=0)
 
-    ax.plot(in_tri_oklab[:, 1], in_tri_oklab[:, 2],
-            color="#5599ff", lw=1.0, alpha=0.55, ls="--",
-            label=f"{in_cs} gamut (input)" if show_legend else None)
+    ax.plot(
+        in_tri_oklab[:, 1],
+        in_tri_oklab[:, 2],
+        color="#5599ff",
+        lw=1.0,
+        alpha=0.55,
+        ls="--",
+        label=f"{in_cs} gamut (input)" if show_legend else None,
+    )
     rim_segments = np.stack(
-        [out_tri_oklab[:-1, 1:3], out_tri_oklab[1:, 1:3]], axis=1,
+        [out_tri_oklab[:-1, 1:3], out_tri_oklab[1:, 1:3]],
+        axis=1,
     )
     rim_midpoints = 0.5 * (out_tri_oklab[:-1] + out_tri_oklab[1:])
     rim_colors = _oklab_to_encoded_rgb(rim_midpoints, out_cs)
-    ax.plot(out_tri_oklab[:, 1], out_tri_oklab[:, 2],
-            color="#111111", lw=3.0, alpha=0.45, zorder=2.75)
+    ax.plot(
+        out_tri_oklab[:, 1],
+        out_tri_oklab[:, 2],
+        color="#111111",
+        lw=3.0,
+        alpha=0.45,
+        zorder=2.75,
+    )
     ax.add_collection(
         LineCollection(
             rim_segments,
@@ -297,13 +345,20 @@ def _draw_noise_ellipse_panel(
         )
     )
     if show_legend:
-        ax.plot([], [], color="#ffee66", lw=2.0, alpha=0.9,
-                label=f"{out_cs} gamut (output)")
-    ax.plot(out_white_oklab[1], out_white_oklab[2], "D",
-            color=DIM, markersize=7, markeredgecolor=FG,
-            markeredgewidth=0.8,
-            label=f"{out_cs} white" if show_legend else None,
-            zorder=4)
+        ax.plot(
+            [], [], color="#ffee66", lw=2.0, alpha=0.9, label=f"{out_cs} gamut (output)"
+        )
+    ax.plot(
+        out_white_oklab[1],
+        out_white_oklab[2],
+        "D",
+        color=DIM,
+        markersize=7,
+        markeredgecolor=FG,
+        markeredgewidth=0.8,
+        label=f"{out_cs} white" if show_legend else None,
+        zorder=4,
+    )
 
     if sigma1.size > 0 and np.isfinite(sigma1).any():
         s1_max = float(np.nanpercentile(sigma1, 98))
@@ -313,12 +368,20 @@ def _draw_noise_ellipse_panel(
     cmap = plt.get_cmap("magma")
 
     for (a_in, b_in), (a_out, b_out) in zip(input_lab[:, 1:], output_lab[:, 1:]):
-        ax.plot([a_in, a_out], [b_in, b_out],
-                color="#888888", lw=0.5, alpha=0.55, zorder=2)
+        ax.plot(
+            [a_in, a_out], [b_in, b_out], color="#888888", lw=0.5, alpha=0.55, zorder=2
+        )
 
-    ax.scatter(input_lab[:, 1], input_lab[:, 2],
-               c="#666666", s=6, alpha=0.6, edgecolors="none",
-               zorder=2.5, label="pre-LUT" if show_legend else None)
+    ax.scatter(
+        input_lab[:, 1],
+        input_lab[:, 2],
+        c="#666666",
+        s=6,
+        alpha=0.6,
+        edgecolors="none",
+        zorder=2.5,
+        label="pre-LUT" if show_legend else None,
+    )
 
     cov_ab = cov_oklab[:, 1:, 1:]
     scale = float(ellipse_display_scale)
@@ -334,18 +397,31 @@ def _draw_noise_ellipse_panel(
         angle = np.degrees(np.arctan2(evecs[1, 1], evecs[0, 1]))
         face = tuple(output_enc[k])
         edge_c = cmap(min(sigma1[k] / s1_max, 1.0))
-        ax.add_patch(Ellipse(
-            xy=(output_lab[k, 1], output_lab[k, 2]),
-            width=w, height=h, angle=angle,
-            facecolor=face, alpha=0.90,
-            edgecolor=edge_c, linewidth=1.0, zorder=3,
-        ))
+        ax.add_patch(
+            Ellipse(
+                xy=(output_lab[k, 1], output_lab[k, 2]),
+                width=w,
+                height=h,
+                angle=angle,
+                facecolor=face,
+                alpha=0.90,
+                edgecolor=edge_c,
+                linewidth=1.0,
+                zorder=3,
+            )
+        )
 
     ax.set_title(title, color=HI, fontsize=PANEL_TITLE_FS, pad=PANEL_TITLE_PAD)
     if show_legend:
-        ax.legend(facecolor="#1a1a1a", edgecolor="#555555",
-                  labelcolor=FG, framealpha=0.92,
-                  loc="upper right", fontsize=8)
+        ax.legend(
+            facecolor="#1a1a1a",
+            edgecolor="#555555",
+            labelcolor=FG,
+            framealpha=0.92,
+            loc="upper right",
+            fontsize=8,
+        )
+
 
 def noise_sensitivity(
     *,
@@ -384,9 +460,12 @@ def noise_sensitivity(
     ax_rose = fig.add_subplot(gs[0, 3], projection="polar", facecolor=BG)
 
     extent = _noise_ellipse_panel_extent(
-        field, in_cs=in_cs, out_cs=out_cs, L_slice=L_slice,
+        field,
+        in_cs=in_cs,
+        out_cs=out_cs,
+        L_slice=L_slice,
     )
-    output_lab = np.asarray(field["output_oklab"], dtype=float)
+    # output_lab = np.asarray(field["output_oklab"], dtype=float)
     sigma1 = np.asarray(field["sigma1"], dtype=float)
 
     if sigma1.size > 0 and np.isfinite(sigma1).any():
@@ -427,9 +506,14 @@ def noise_sensitivity(
     bb = np.asarray(heatmap["bb"], dtype=float)
     s1g = np.asarray(heatmap["sigma1_grid"], dtype=float)
     pcm = ax_heat.pcolormesh(
-        aa, bb, s1g, cmap="magma",
-        vmin=0.0, vmax=s1_max,
-        shading="auto", zorder=1,
+        aa,
+        bb,
+        s1g,
+        cmap="magma",
+        vmin=0.0,
+        vmax=s1_max,
+        shading="auto",
+        zorder=1,
     )
     cbar = fig.colorbar(pcm, cax=cax_heat)
     cbar.set_label("σ₁(J)  —  worst-case noise gain", color=FG)
@@ -439,18 +523,38 @@ def noise_sensitivity(
     # Heatmap axes are *input* chromaticity, so the load-bearing
     # reference is the input gamut. Output gamut is added as a thin
     # dashed line so users see where the LUT compresses to.
-    ax_heat.plot(in_tri_oklab[:, 1], in_tri_oklab[:, 2],
-                 color="#5599ff", lw=1.2, alpha=0.85, zorder=2.5,
-                 label=f"{in_cs} gamut (input)")
-    ax_heat.plot(out_tri_oklab[:, 1], out_tri_oklab[:, 2],
-                 color="#ffee66", lw=1.0, alpha=0.75, ls="--",
-                 zorder=2.4, label=f"{out_cs} gamut (output)")
-    ax_heat.legend(facecolor="#1a1a1a", edgecolor="#555555",
-                   labelcolor=FG, framealpha=0.92,
-                   loc="upper right", fontsize=8)
+    ax_heat.plot(
+        in_tri_oklab[:, 1],
+        in_tri_oklab[:, 2],
+        color="#5599ff",
+        lw=1.2,
+        alpha=0.85,
+        zorder=2.5,
+        label=f"{in_cs} gamut (input)",
+    )
+    ax_heat.plot(
+        out_tri_oklab[:, 1],
+        out_tri_oklab[:, 2],
+        color="#ffee66",
+        lw=1.0,
+        alpha=0.75,
+        ls="--",
+        zorder=2.4,
+        label=f"{out_cs} gamut (output)",
+    )
+    ax_heat.legend(
+        facecolor="#1a1a1a",
+        edgecolor="#555555",
+        labelcolor=FG,
+        framealpha=0.92,
+        loc="upper right",
+        fontsize=8,
+    )
     ax_heat.set_title(
         f"σ₁(J)  —  worst-case noise gain\nacross {in_cs} chromaticity",
-        color=HI, fontsize=PANEL_TITLE_FS, pad=PANEL_TITLE_PAD,
+        color=HI,
+        fontsize=PANEL_TITLE_FS,
+        pad=PANEL_TITLE_PAD,
     )
 
     # ---- Panel 3: hue rosette --------------------------------------------
@@ -492,7 +596,9 @@ def noise_sensitivity(
     rose_tick_step = _nice_tick_step(rose_peak)
     rose_inner = np.ceil(rose_peak / rose_tick_step) * rose_tick_step
     rose_outer = rose_inner + 0.70 * rose_tick_step
-    rose_ticks = np.arange(rose_tick_step, rose_inner + 0.5 * rose_tick_step, rose_tick_step)
+    rose_ticks = np.arange(
+        rose_tick_step, rose_inner + 0.5 * rose_tick_step, rose_tick_step
+    )
     if hue_rad.size > 1:
         prev_hue = np.roll(hue_rad, 1)
         next_hue = np.roll(hue_rad, -1)
@@ -517,24 +623,47 @@ def noise_sensitivity(
     ax_rose.set_yticks(rose_ticks)
     ax_rose.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
     ax_rose.set_ylim(0.0, rose_outer)
-    ax_rose.plot(hue_closed, sL_closed,
-                 color="#88ccff", lw=1.6, alpha=0.95, label="σ_L  (luminance)")
-    ax_rose.plot(hue_closed, sab_closed,
-                 color="#ff88aa", lw=1.6, alpha=0.95, label="σ_ab (chroma)")
+    ax_rose.plot(
+        hue_closed,
+        sL_closed,
+        color="#88ccff",
+        lw=1.6,
+        alpha=0.95,
+        label="σ_L  (luminance)",
+    )
+    ax_rose.plot(
+        hue_closed,
+        sab_closed,
+        color="#ff88aa",
+        lw=1.6,
+        alpha=0.95,
+        label="σ_ab (chroma)",
+    )
     ax_rose.fill(hue_closed, sab_closed, color="#ff88aa", alpha=0.12)
     ax_rose.fill(hue_closed, sL_closed, color="#88ccff", alpha=0.12)
-    ax_rose.set_title("Per-hue noise gain  (at mid-chroma ring)",
-                      color=HI, fontsize=PANEL_TITLE_FS, pad=PANEL_TITLE_PAD)
-    ax_rose.legend(facecolor="#1a1a1a", edgecolor="#555555",
-                   labelcolor=FG, framealpha=0.92,
-                   loc="lower left", bbox_to_anchor=(-0.18, -0.10),
-                   fontsize=8)
+    ax_rose.set_title(
+        "Per-hue noise gain  (at mid-chroma ring)",
+        color=HI,
+        fontsize=PANEL_TITLE_FS,
+        pad=PANEL_TITLE_PAD,
+    )
+    ax_rose.legend(
+        facecolor="#1a1a1a",
+        edgecolor="#555555",
+        labelcolor=FG,
+        framealpha=0.92,
+        loc="lower left",
+        bbox_to_anchor=(-0.18, -0.10),
+        fontsize=8,
+    )
 
     fig.suptitle(
         f"LUT noise sensitivity  —  {in_cs} → {out_cs}",
-        color=HI, fontsize=SUPTITLE_FS,
+        color=HI,
+        fontsize=SUPTITLE_FS,
     )
     return fig
+
 
 def noise_gradient(
     *,
@@ -564,12 +693,18 @@ def noise_gradient(
 
     fig.suptitle(
         f"Noise gradient  —  {in_cs} → {out_cs}",
-        color=HI, fontsize=SUPTITLE_FS,
+        color=HI,
+        fontsize=SUPTITLE_FS,
     )
     fig.text(
-        0.5, 0.085,
+        0.5,
+        0.085,
         f"horizontal: hue cycle in OkLab   ·   vertical: black → saturated → white   ·   "
         f"peak saturation at L*={mid_L:.2f} (18% gray)   ·   RNG seed={rng_seed}",
-        color=FG, fontsize=9, ha="center", va="center", alpha=0.88,
+        color=FG,
+        fontsize=9,
+        ha="center",
+        va="center",
+        alpha=0.88,
     )
     return fig
