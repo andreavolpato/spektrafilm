@@ -748,7 +748,7 @@ DISPLAY_PANEL_FIELDS = (
     ParamSpec(
         "use_display_transform",
         label="Use display transform",
-        tooltip="Use Pillow.ImageCms to retrive the display transform (only in Windows) and apply it to the napari viewer output, if disabled the output color space is used",
+        tooltip="Apply the display profile to the napari viewer output (from the OS in Windows, from CoreGraphics in macOS, or from the SPEKTRAFILM_DISPLAY_ICC env var pointing to an ICC file), if disabled the output color space is used",
     ),
     ParamSpec(
         "gray_18_canvas",

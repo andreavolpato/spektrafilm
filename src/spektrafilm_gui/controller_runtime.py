@@ -108,21 +108,88 @@ def display_profile_name(display_profile: object, *, imagecms_module: Any) -> st
     return type(display_profile).__name__
 
 
+def _macos_main_display_icc_bytes() -> bytes | None:
+    """ICC profile of the main display via CoreGraphics (macOS only)."""
+    import ctypes
+    import ctypes.util
+    library_path = ctypes.util.find_library('ApplicationServices')
+    if library_path is None:
+        return None
+    try:
+        app_services = ctypes.CDLL(library_path)
+        core_foundation = ctypes.CDLL(ctypes.util.find_library('CoreFoundation'))
+    except OSError:
+        return None
+
+    app_services.CGMainDisplayID.restype = ctypes.c_uint32
+    app_services.CGDisplayCopyColorSpace.restype = ctypes.c_void_p
+    app_services.CGDisplayCopyColorSpace.argtypes = [ctypes.c_uint32]
+    app_services.CGColorSpaceCopyICCData.restype = ctypes.c_void_p
+    app_services.CGColorSpaceCopyICCData.argtypes = [ctypes.c_void_p]
+    core_foundation.CFDataGetLength.restype = ctypes.c_long
+    core_foundation.CFDataGetLength.argtypes = [ctypes.c_void_p]
+    core_foundation.CFDataGetBytePtr.restype = ctypes.POINTER(ctypes.c_uint8)
+    core_foundation.CFDataGetBytePtr.argtypes = [ctypes.c_void_p]
+    core_foundation.CFRelease.argtypes = [ctypes.c_void_p]
+
+    color_space = app_services.CGDisplayCopyColorSpace(app_services.CGMainDisplayID())
+    if not color_space:
+        return None
+    try:
+        icc_data = app_services.CGColorSpaceCopyICCData(color_space)
+        if not icc_data:
+            return None
+        try:
+            length = core_foundation.CFDataGetLength(icc_data)
+            pointer = core_foundation.CFDataGetBytePtr(icc_data)
+            return bytes(pointer[:length]) if length > 0 and pointer else None
+        finally:
+            core_foundation.CFRelease(icc_data)
+    finally:
+        core_foundation.CFRelease(color_space)
+
+
+def _fallback_display_profile(*, imagecms_module: Any) -> object | None:
+    # Pillow's get_display_profile() only works on Windows. Fall back to
+    # $SPEKTRAFILM_DISPLAY_ICC if set (any platform), else ask CoreGraphics
+    # for the main display's profile on macOS.
+    import io
+    import os
+    import sys
+    override_path = os.environ.get('SPEKTRAFILM_DISPLAY_ICC')
+    if override_path and Path(override_path).is_file():
+        try:
+            return imagecms_module.getOpenProfile(override_path)
+        except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
+            pass
+    if sys.platform == 'darwin':
+        try:
+            icc_bytes = _macos_main_display_icc_bytes()
+        except (OSError, ValueError):
+            icc_bytes = None
+        if icc_bytes:
+            try:
+                return imagecms_module.getOpenProfile(io.BytesIO(icc_bytes))
+            except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
+                pass
+    return None
+
+
 def display_profile_details(*, imagecms_module: Any) -> tuple[object | None, str | None]:
     try:
         display_profile = imagecms_module.get_display_profile()
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return None, None
+        display_profile = None
+    if display_profile is None:
+        display_profile = _fallback_display_profile(imagecms_module=imagecms_module)
     if display_profile is None:
         return None, None
     return display_profile, display_profile_name(display_profile, imagecms_module=imagecms_module)
 
 
 def display_profile_available(*, imagecms_module: Any) -> bool:
-    try:
-        return imagecms_module.get_display_profile() is not None
-    except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return False
+    display_profile, _ = display_profile_details(imagecms_module=imagecms_module)
+    return display_profile is not None
 
 
 def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> str:
