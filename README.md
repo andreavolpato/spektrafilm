@@ -20,6 +20,7 @@ Here are some useful links and spin-off projects:
 - An [OFX plugin](https://spektrafilm.114c.de/) was developed by [Aedan](https://github.com/chaert-s).
 - A fast [rust implementaion](https://github.com/turbasvin/spektrafilm-rs) is being developed by [turbasvin](https://github.com/turbasvin).
 - A LUT-based bridge is available in [ART](https://artraweditor.github.io/SpectralFilmSimHowto) by [agriggio](https://github.com/agriggio).
+- A native macOS app (Swift + Metal), is being developed in [SpektraMac](https://github.com/nainajnahO/SpektraMac).
 
 
 In practice, this Python repository is **the reference implementation** for other developments, and the place where I am growing the underlying model. It lets you start from a camera image, pass it through a virtual negative, print, and scan pipeline, and inspect how film-stock data, couplers, enlarger settings, grain, halation, and other photographic effects shape the final result. The aim is not just to imitate a generic "film look," but to build a model that is grounded in measurements and predicts real-world behaviors of photographic materials.
