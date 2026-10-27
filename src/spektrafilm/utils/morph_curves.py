@@ -48,12 +48,17 @@ import math
 
 import numpy as np
 from scipy.optimize import brentq as _brentq
-from scipy.stats import norm as _norm_dist
 
-from spektrafilm.profiles.io import DensityCurvesModel
+from spektrafilm.model.density_curves import _layer_cdf_values
+from spektrafilm.data.profiles_loader import DensityCurvesModel
 
 
-__all__ = ["PrintCurvesMorphParams", "apply_print_curves_morph"]
+__all__ = [
+    "PrintChemistryParams",
+    "FilmChemistryParams",
+    "apply_print_curves_morph",
+    "apply_print_curves_morph_with_layers",
+]
 
 
 SIGMA_FLOOR = 0.05  # matches NormCdfsFitConfig.sigma_floor in profile-creator
@@ -62,9 +67,38 @@ _GUMBEL_WIDTH = 0.5 * math.log(2.0) * math.sqrt(2.0 * math.pi)
 
 
 @dataclass(frozen=True)
-class PrintCurvesMorphParams:
-    """User-facing controls for the s023 print density-curve morph."""
+class PrintChemistryParams:
+    """User-facing controls for the s023 print density-curve morph.
 
+    ``development_time`` selects which density-curve / base+fog column of a BW
+    development-time family to render (None — the default — means the stock has
+    no family to choose from, or "use the representative middle development").
+    """
+
+    development_time: float | None = None
+    active: bool = True
+    gamma_factor: float = 1.0
+    gamma_factor_fast: float = 1.0
+    gamma_factor_slow: float = 1.0
+    gamma_factor_red: float = 1.0
+    gamma_factor_green: float = 1.0
+    gamma_factor_blue: float = 1.0
+    developer_exhaustion: float = 0.0
+
+
+@dataclass(frozen=True)
+class FilmChemistryParams:
+    """User-facing controls for the film density-curve chemistry.
+
+    Mirrors :class:`PrintChemistryParams` (same s023 coupled-gamma morph,
+    applied through ``apply_print_curves_morph``), with ``development_time`` as
+    the leading control: it selects which density-curve / base+fog column of a
+    BW development-time family the runtime renders. None (the default) means the
+    stock has no family to choose from, or "use the representative middle
+    development" — single-curve and color stocks always leave it None.
+    """
+
+    development_time: float | None = None
     active: bool = True
     gamma_factor: float = 1.0
     gamma_factor_fast: float = 1.0
@@ -83,10 +117,11 @@ def _gumbel_matched_cdf(z):
     return np.exp(-np.exp(-(z / _GUMBEL_WIDTH + _GUMBEL_LOCATION)))
 
 
-def _layer_cdf(z, profile_type, gumbel_mix=0.0):
-    cdf = _norm_dist.cdf(_signed_z(z, profile_type))
+def _layer_cdf(z, profile_type, model_type='norm_cdfs', alpha=0.0, gumbel_mix=0.0):
+    zs = _signed_z(z, profile_type)
+    cdf = _layer_cdf_values(zs, model_type, alpha)
     if gumbel_mix > 0.0:
-        cdf = (1.0 - gumbel_mix) * cdf + gumbel_mix * _gumbel_matched_cdf(_signed_z(z, profile_type))
+        cdf = (1.0 - gumbel_mix) * cdf + gumbel_mix * _gumbel_matched_cdf(zs)
     return cdf
 
 
@@ -96,6 +131,8 @@ def _evaluate_channel_density(
     amplitudes_c,
     sigmas_c,
     profile_type,
+    model_type='norm_cdfs',
+    alphas_c=None,
     gumbel_mix_per_layer=None,
 ):
     x = np.asarray(log_exposure, dtype=float)
@@ -104,11 +141,14 @@ def _evaluate_channel_density(
     sigmas_c = np.asarray(sigmas_c, dtype=float)
     if gumbel_mix_per_layer is None:
         gumbel_mix_per_layer = np.zeros(centers_c.size, dtype=float)
+    if alphas_c is None:
+        alphas_c = np.zeros(centers_c.size, dtype=float)
 
     total = np.zeros(x.size, dtype=float)
     for i in range(centers_c.size):
         z = (x - centers_c[i]) / sigmas_c[i]
-        total += amplitudes_c[i] * _layer_cdf(z, profile_type, float(gumbel_mix_per_layer[i]))
+        total += amplitudes_c[i] * _layer_cdf(
+            z, profile_type, model_type, float(alphas_c[i]), float(gumbel_mix_per_layer[i]))
     return total
 
 
@@ -119,12 +159,15 @@ def _evaluate_fitted_density(log_exposure, density_curves_model, profile_type):
     fitted = np.empty((log_exposure.size, n_channels), dtype=float)
 
     for channel_idx in range(n_channels):
+        alphas_c = None if model.alphas is None else model.alphas[channel_idx]
         fitted[:, channel_idx] = _evaluate_channel_density(
             log_exposure,
             model.centers[channel_idx],
             model.amplitudes[channel_idx],
             model.sigmas[channel_idx],
             profile_type,
+            model_type=model.model_type,
+            alphas_c=alphas_c,
         )
 
     return fitted
@@ -155,6 +198,8 @@ def _developer_exhaustion_center_offset(
     sigmas_c,
     profile_type,
     gumbel_mix_per_layer,
+    model_type='norm_cdfs',
+    alphas_c=None,
 ):
     if np.allclose(gumbel_mix_per_layer, 0.0):
         return 0.0
@@ -166,6 +211,8 @@ def _developer_exhaustion_center_offset(
         amplitudes_c,
         sigmas_c,
         profile_type,
+        model_type=model_type,
+        alphas_c=alphas_c,
         gumbel_mix_per_layer=np.zeros_like(gumbel_mix_per_layer),
     )[0]
 
@@ -176,6 +223,8 @@ def _developer_exhaustion_center_offset(
             amplitudes_c,
             sigmas_c,
             profile_type,
+            model_type=model_type,
+            alphas_c=alphas_c,
             gumbel_mix_per_layer=gumbel_mix_per_layer,
         )[0]
         return float(d0_with_exhaustion - target_d0)
@@ -208,6 +257,10 @@ def _morph_channel_params(density_curves_model, params, channel_idx, profile_typ
     centers_c = np.asarray(model.centers[channel_idx], dtype=float).copy()
     amplitudes_c = np.asarray(model.amplitudes[channel_idx], dtype=float).copy()
     sigmas_c = np.asarray(model.sigmas[channel_idx], dtype=float).copy()
+    # The skew alpha is a pure shape parameter, invariant under the gamma
+    # (scale) morph, so it passes through unchanged.
+    alphas_c = (None if model.alphas is None
+                else np.asarray(model.alphas[channel_idx], dtype=float).copy())
 
     i_fast, i_mid, i_slow = _speed_layer_indices(centers_c)
 
@@ -237,9 +290,59 @@ def _morph_channel_params(density_curves_model, params, channel_idx, profile_typ
         sigmas_c,
         profile_type,
         gumbel_mix_per_layer,
+        model_type=model.model_type,
+        alphas_c=alphas_c,
     )
 
-    return centers_c, amplitudes_c, sigmas_c, gumbel_mix_per_layer
+    return centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer
+
+
+def _evaluate_channel_layers(
+    log_exposure,
+    centers_c,
+    amplitudes_c,
+    sigmas_c,
+    profile_type,
+    model_type='norm_cdfs',
+    alphas_c=None,
+    gumbel_mix_per_layer=None,
+):
+    """Per-layer density (n_le, n_layers) for one channel — the layer-resolved
+    sibling of :func:`_evaluate_channel_density`, which is just its layer sum."""
+    x = np.asarray(log_exposure, dtype=float)
+    centers_c = np.asarray(centers_c, dtype=float)
+    amplitudes_c = np.asarray(amplitudes_c, dtype=float)
+    sigmas_c = np.asarray(sigmas_c, dtype=float)
+    n_layers = centers_c.size
+    if gumbel_mix_per_layer is None:
+        gumbel_mix_per_layer = np.zeros(n_layers, dtype=float)
+    if alphas_c is None:
+        alphas_c = np.zeros(n_layers, dtype=float)
+
+    out = np.zeros((x.size, n_layers), dtype=float)
+    for i in range(n_layers):
+        z = (x - centers_c[i]) / sigmas_c[i]
+        out[:, i] = amplitudes_c[i] * _layer_cdf(
+            z, profile_type, model_type, float(alphas_c[i]), float(gumbel_mix_per_layer[i]))
+    return out
+
+
+def _validate_morph_params(morph_params):
+    for gamma_name, value in [
+        ("gamma_factor", morph_params.gamma_factor),
+        ("gamma_factor_fast", morph_params.gamma_factor_fast),
+        ("gamma_factor_slow", morph_params.gamma_factor_slow),
+        ("gamma_factor_red", morph_params.gamma_factor_red),
+        ("gamma_factor_green", morph_params.gamma_factor_green),
+        ("gamma_factor_blue", morph_params.gamma_factor_blue),
+    ]:
+        if value <= 0.0:
+            raise ValueError(f"{gamma_name} must be strictly positive (got {value}).")
+    if not 0.0 <= morph_params.developer_exhaustion <= 1.0:
+        raise ValueError(
+            "developer_exhaustion must be in [0, 1] "
+            f"(got {morph_params.developer_exhaustion})."
+        )
 
 
 def apply_print_curves_morph(
@@ -257,28 +360,14 @@ def apply_print_curves_morph(
     if model.n_layers == 0:
         raise NotImplementedError("s023 morph requires a fitted density_curves_model.")
 
-    for gamma_name, value in [
-        ("gamma_factor", morph_params.gamma_factor),
-        ("gamma_factor_fast", morph_params.gamma_factor_fast),
-        ("gamma_factor_slow", morph_params.gamma_factor_slow),
-        ("gamma_factor_red", morph_params.gamma_factor_red),
-        ("gamma_factor_green", morph_params.gamma_factor_green),
-        ("gamma_factor_blue", morph_params.gamma_factor_blue),
-    ]:
-        if value <= 0.0:
-            raise ValueError(f"{gamma_name} must be strictly positive (got {value}).")
-    if not 0.0 <= morph_params.developer_exhaustion <= 1.0:
-        raise ValueError(
-            "developer_exhaustion must be in [0, 1] "
-            f"(got {morph_params.developer_exhaustion})."
-        )
+    _validate_morph_params(morph_params)
 
     log_exposure = np.asarray(log_exposure, dtype=float)
     n_channels = model.centers.shape[0]
     morphed = np.empty((log_exposure.size, n_channels), dtype=float)
 
     for channel_idx in range(n_channels):
-        centers_c, amplitudes_c, sigmas_c, gumbel_mix_per_layer = _morph_channel_params(
+        centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = _morph_channel_params(
             model,
             morph_params,
             channel_idx,
@@ -290,7 +379,65 @@ def apply_print_curves_morph(
             amplitudes_c,
             sigmas_c,
             profile_type,
+            model_type=model.model_type,
+            alphas_c=alphas_c,
             gumbel_mix_per_layer=gumbel_mix_per_layer,
         )
 
     return morphed
+
+
+def apply_print_curves_morph_with_layers(
+    log_exposure,
+    density_curves_model: DensityCurvesModel,
+    morph_params,
+    *,
+    profile_type="negative",
+):
+    """Morph and return both the total curves and the per-layer curves.
+
+    Like :func:`apply_print_curves_morph`, but also returns the emulsion
+    sublayer breakdown — ``(total (n_le, n_ch), layers (n_le, n_layers, n_ch))``
+    — so the grain path (which needs sublayers) stays consistent with the morph.
+    Used to bake the film chemistry morph into a profile before develop. When
+    the morph is inactive it returns the unmorphed fitted curves and layers.
+    """
+    model = density_curves_model
+    if model.n_layers == 0:
+        raise NotImplementedError("s023 morph requires a fitted density_curves_model.")
+    active = bool(morph_params.active)
+    if active:
+        _validate_morph_params(morph_params)
+
+    log_exposure = np.asarray(log_exposure, dtype=float)
+    n_channels = model.centers.shape[0]
+    n_layers = model.centers.shape[1]
+    total = np.empty((log_exposure.size, n_channels), dtype=float)
+    layers = np.zeros((log_exposure.size, n_layers, n_channels), dtype=float)
+
+    for channel_idx in range(n_channels):
+        if active:
+            centers_c, amplitudes_c, sigmas_c, alphas_c, gumbel_mix_per_layer = _morph_channel_params(
+                model, morph_params, channel_idx, profile_type,
+            )
+        else:
+            centers_c = np.asarray(model.centers[channel_idx], dtype=float)
+            amplitudes_c = np.asarray(model.amplitudes[channel_idx], dtype=float)
+            sigmas_c = np.asarray(model.sigmas[channel_idx], dtype=float)
+            alphas_c = (None if model.alphas is None
+                        else np.asarray(model.alphas[channel_idx], dtype=float))
+            gumbel_mix_per_layer = np.zeros(n_layers, dtype=float)
+        per_layer = _evaluate_channel_layers(
+            log_exposure,
+            centers_c,
+            amplitudes_c,
+            sigmas_c,
+            profile_type,
+            model_type=model.model_type,
+            alphas_c=alphas_c,
+            gumbel_mix_per_layer=gumbel_mix_per_layer,
+        )
+        layers[:, :, channel_idx] = per_layer
+        total[:, channel_idx] = per_layer.sum(axis=1)
+
+    return total, layers

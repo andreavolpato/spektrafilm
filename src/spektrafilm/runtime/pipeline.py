@@ -3,15 +3,21 @@ from __future__ import annotations
 import copy
 from time import perf_counter
 
+import colour
 import numpy as np
 
+from spektrafilm.model.density_curves import (
+    refresh_density_curves_from_model,
+    select_development_time,
+)
+from spektrafilm.utils.morph_curves import apply_print_curves_morph_with_layers
 from spektrafilm.runtime.services import (
     EnlargerService,
     ResizingService,
     SpectralLUTService,
     ColorReferenceService,
 )
-from spektrafilm.runtime.stages import FilmingStage, PrintingStage, ScanningStage
+from spektrafilm.runtime.stages import ConvertingStage, FilmingStage, PrintingStage, ScanningStage
 from spektrafilm.runtime.topology import Node, Tap, run_topology
 from spektrafilm.utils.timings import format_timings
 
@@ -38,9 +44,43 @@ class SimulationPipeline:
         self.print_render = self._params.print_render
         self.scanner = self._params.scanner
         self.io = self._params.io
+        self.workflow = self._params.workflow
         self.debug = self._params.debug
         self.settings = self._params.settings
         self.taps = self._params.taps
+
+        # The parametric density_curves_model is the source of truth. Sample it
+        # onto each profile's log_exposure grid so every downstream consumer
+        # (develop, grain, couplers, Dmax probes) reads model-derived curves.
+        # Done before services/stages capture the profiles below.
+        for profile in (self.film, self.print):
+            if profile is not None:
+                refresh_density_curves_from_model(profile.data, profile.info.type)
+        # A BW development-time family carries one curve / base+fog per
+        # development time; collapse the film to the one chemistry.development_time
+        # selects, so every downstream consumer sees a single curve and a 1-D base.
+        if self.film is not None:
+            select_development_time(self.film.data, self.film_render.chemistry.development_time)
+            # Bake the film chemistry morph (gamma / developer exhaustion) into the
+            # curves, regenerating the grain sublayers from the same morphed params
+            # so grain stays consistent. Replaces the old density_curve_gamma; an
+            # inactive/identity chemistry reproduces the fitted curves exactly.
+            film_data = self.film.data
+            film_model = film_data.density_curves_model
+            if film_model is not None and film_model.n_layers > 0:
+                total, layers = apply_print_curves_morph_with_layers(
+                    film_data.log_exposure,
+                    film_model,
+                    self.film_render.chemistry,
+                    profile_type=self.film.info.type,
+                )
+                film_data.density_curves = total
+                film_data.density_curves_layers = layers if film_model.n_layers > 1 else None
+        # The print can likewise be a BW development-time family (e.g. a BW print
+        # film); collapse it to the chosen development. Its morph is applied in
+        # the printing stage, so only the family selection happens here.
+        if self.print is not None:
+            select_development_time(self.print.data, self.print_render.chemistry.development_time)
 
         self.timings = {}
         self._last_elapsed_time = None
@@ -53,7 +93,7 @@ class SimulationPipeline:
                                                               self.print, self.print_render,
                                                               self.scanner.black_correction, self.scanner.white_correction,
                                                               self.scanner.black_level, self.scanner.white_level,
-                                                              self.io)
+                                                              self.io, self.workflow)
 
         self._filming_stage = FilmingStage(
             self.film,
@@ -78,6 +118,12 @@ class SimulationPipeline:
             self._resize_service,
             self._color_reference_service,
         )
+        # The convert-film front-end (scanned negative -> cmy_film). Only built
+        # when the workflow route needs it; it owns no LUT service and is cheap.
+        self._converting_stage = (
+            ConvertingStage(self.film, self.film_render, self.io, self.settings, self._lut_service)
+            if self.workflow.do_convert_film else None
+        )
         self._scanning_stage = ScanningStage(
             self.film,
             self.film_render,
@@ -85,6 +131,7 @@ class SimulationPipeline:
             self.print_render,
             self.scanner,
             self.io,
+            self.workflow,
             self.settings,
             self._lut_service,
             self._color_reference_service,
@@ -107,7 +154,9 @@ class SimulationPipeline:
         defaults.
         """
         inject = inject or self.taps.inject or Tap.RGB_IN
-        collect = collect or self.taps.collect or Tap.RGB_OUT
+        # Most routes end at rgb_out; routes that terminate at an intermediate tap
+        # (e.g. convert-film > scan) declare it via workflow.collect_tap.
+        collect = collect or self.taps.collect or self.workflow.collect_tap
 
         self.timings.clear()
         start = perf_counter()
@@ -173,26 +222,60 @@ class SimulationPipeline:
 
     def _build_topology(self) -> list[Node]:
         f, p, s = self._filming_stage, self._printing_stage, self._scanning_stage
-        common = [
-            Node((Tap.RGB_IN,),     (Tap.RGB_PRE,),    self._preprocess, "preprocess"),
-            Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,         "filming.expose"),
-            Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop,        "filming.develop"),
+        nodes = [
+            Node((Tap.RGB_IN,), (Tap.RGB_PRE,), self._preprocess, "preprocess"),
         ]
-        if self.io.scan_film:
-            return common + [
-                Node((Tap.CMY_FILM,), (Tap.RGB_OUT,), s.scan, "scanning.scan_film"),
+        if self.workflow.do_filming:
+            nodes += [
+                Node((Tap.RGB_PRE,),    (Tap.LOG_E_FILM,), f.expose,  "filming.expose"),
+                Node((Tap.LOG_E_FILM,), (Tap.CMY_FILM,),   f.develop, "filming.develop"),
             ]
-        return common + [
-            Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
-            Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
-            Node((Tap.CMY_PRINT,),   (Tap.RGB_OUT,),     s.scan,    "scanning.scan_print"),
-        ]
+        elif self.workflow.do_convert_film:
+            # Convert workflow: convert a scanned negative directly to film cmy.
+            nodes += [
+                Node((Tap.RGB_PRE,), (Tap.CMY_FILM,),
+                     self._converting_stage.convert, "converting.convert"),
+            ]
+        if self.workflow.do_printing:
+            nodes += [
+                Node((Tap.CMY_FILM,),    (Tap.LOG_E_PRINT,), p.expose,  "printing.expose"),
+                Node((Tap.LOG_E_PRINT,), (Tap.CMY_PRINT,),   p.develop, "printing.develop"),
+            ]
+        if self.workflow.do_scan:
+            if self.workflow.scan_film:
+                nodes += [
+                    Node((Tap.CMY_FILM,), (Tap.RGB_OUT,), s.scan, "scanning.scan_film"),
+                ]
+            else:
+                nodes += [
+                    Node((Tap.CMY_PRINT,), (Tap.RGB_OUT,), s.scan, "scanning.scan_print"),
+                ]
+        if self.workflow.passthrough:
+            # No film/print/scan: just colour-manage the input to the output space.
+            nodes += [
+                Node((Tap.RGB_PRE,), (Tap.RGB_OUT,), self._passthrough, "passthrough"),
+            ]
+        return nodes
 
     def _preprocess(self, image):
         image = np.double(np.array(image)[:, :, 0:3])
-        image = self._filming_stage.auto_exposure(image)
         image = self._resize_service.crop_and_rescale(image)
         return image
+
+    def _passthrough(self, image):
+        """The bare "input" route: colour-manage the (decoded) input straight into
+        the output colour space so it is directly viewable, with no film / print /
+        scan. Decodes the input CCTF if requested, converts input -> output
+        primaries (with chromatic adaptation between their white points), and
+        applies the output CCTF encoding if requested. No gamut compression — it is
+        a faithful view of the input, so out-of-output-gamut colours may clip."""
+        return colour.RGB_to_RGB(
+            np.asarray(image, dtype=float),
+            self.io.input_color_space,
+            self.io.output_color_space,
+            apply_cctf_decoding=self.io.input_cctf_decoding,
+            apply_cctf_encoding=self.io.output_cctf_encoding,
+        )
 
     def _record_node_timing(self, node: Node, elapsed: float) -> None:
         self.timings[node.label] = self.timings.get(node.label, 0.0) + elapsed

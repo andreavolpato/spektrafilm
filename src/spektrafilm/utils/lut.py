@@ -19,7 +19,11 @@ def _create_lut_3d(function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0), steps=3
     X = np.meshgrid(x_r, x_g, x_b, indexing='ij')
     X = np.stack(X, axis=3)
     X = np.reshape(X, (steps**2, steps, 3)) # shape as an image to be compatible with image processing
-    lut = np.reshape(function(X), (steps, steps, steps, 3))
+    # Output channel count is taken from the function's result, so a 3-channel
+    # input can map to any number of output channels (e.g. a colour film printed
+    # onto a B&W paper: 3 film densities -> 1 print exposure).
+    out = np.asarray(function(X))
+    lut = np.reshape(out, (steps, steps, steps, out.shape[-1]))
     return lut
 
 # def _create_lut_2d(function, xmin=0, xmax=1, steps=128):
@@ -43,6 +47,35 @@ def compute_with_lut(data, function, xmin=(0.0, 0.0, 0.0), xmax=(1.0, 1.0, 1.0),
         lut = _create_lut_3d(function, xmin, xmax, steps)
     data_normalized = (data - xmin) / (xmax - xmin)
     return apply_lut_3d(lut, data_normalized), lut
+
+
+def compute_with_lut_1d(data, function, xmin, xmax, steps=1024):
+    """Accelerate a single-channel transform with a 1D LUT.
+
+    For a one-channel input (e.g. a black-and-white emulsion's single density
+    layer), ``function`` maps ``(..., 1)`` to ``(..., n_out)``. Sampling it on a
+    1D grid of densities and linearly interpolating avoids ever materializing
+    the full-resolution intermediate spectral cube the direct call would build
+    — the whole reason a B&W scan otherwise dwarfs the colour pipeline.
+
+    ``xmin`` / ``xmax`` are the input density bounds (scalar or length-1). The
+    output channel count is taken from ``function``'s result, so this works for
+    both the enlarger (1 -> 1) and scanner (1 -> 3) stages. Values outside
+    ``[xmin, xmax]`` clamp to the endpoints, matching the 3D LUT path.
+    """
+    xmin = float(np.ravel(xmin)[0])
+    xmax = float(np.ravel(xmax)[0])
+    if xmax <= xmin:
+        raise ValueError('xmax must be greater than xmin')
+    nodes = np.linspace(xmin, xmax, steps)
+    # Sample the transform on the 1D density grid: (steps, 1, 1) -> (steps, 1, n_out).
+    node_values = np.asarray(function(nodes.reshape(steps, 1, 1))).reshape(steps, -1)
+    n_out = node_values.shape[1]
+    density = data[..., 0]
+    out = np.empty(data.shape[:-1] + (n_out,), dtype=node_values.dtype)
+    for c in range(n_out):
+        out[..., c] = np.interp(density, nodes, node_values[:, c])
+    return out
 
 def warmup_luts():
     """

@@ -354,13 +354,6 @@ def save_image_oiio(
 NEUTRAL_PRINT_FILTERS_FILENAME = 'neutral_print_filters.json'
 
 
-def save_neutral_print_filters(neutral_print_filters):
-    package = pkg_resources.files('spektrafilm.data.filters')
-    resource = package / NEUTRAL_PRINT_FILTERS_FILENAME
-    with resource.open("w") as file:
-        json.dump(neutral_print_filters, file, indent=4)
-
-
 def read_neutral_print_filters():
     package = pkg_resources.files('spektrafilm.data.filters')
     resource = package / NEUTRAL_PRINT_FILTERS_FILENAME

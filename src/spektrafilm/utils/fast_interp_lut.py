@@ -57,10 +57,10 @@ def cubic_coordinate_base_fraction(coord, L):
 
 @njit(cache=True)
 def _constant_lut_value_3d(lut):
-    out = np.empty(3, dtype=lut.dtype)
-    out[0] = lut[0, 0, 0, 0]
-    out[1] = lut[0, 0, 0, 1]
-    out[2] = lut[0, 0, 0, 2]
+    n_out = lut.shape[3]
+    out = np.empty(n_out, dtype=lut.dtype)
+    for c in range(n_out):
+        out[c] = lut[0, 0, 0, c]
     return out
 
 
@@ -124,7 +124,8 @@ def _cubic_interp_lut_at_3d(lut, r, g, b):
     wb[2] = mitchell_weight(b_frac - 1)
     wb[3] = mitchell_weight(b_frac - 2)
 
-    out = np.zeros(3, dtype=lut.dtype)
+    n_out = lut.shape[3]
+    out = np.zeros(n_out, dtype=lut.dtype)
     weight_sum = 0.0
     for i in range(4):
         ri = safe_index(r_base - 1 + i, size)
@@ -134,13 +135,11 @@ def _cubic_interp_lut_at_3d(lut, r, g, b):
                 bk = safe_index(b_base - 1 + k, size)
                 weight = wr[i] * wg[j] * wb[k]
                 weight_sum += weight
-                out[0] += weight * lut[ri, gj, bk, 0]
-                out[1] += weight * lut[ri, gj, bk, 1]
-                out[2] += weight * lut[ri, gj, bk, 2]
+                for c in range(n_out):
+                    out[c] += weight * lut[ri, gj, bk, c]
     if weight_sum != 0.0:
-        out[0] /= weight_sum
-        out[1] /= weight_sum
-        out[2] /= weight_sum
+        for c in range(n_out):
+            out[c] /= weight_sum
     return out
 
 
@@ -159,13 +158,13 @@ def cubic_interp_lut_at_3d(lut, r, g, b):
 @njit(parallel=True, cache=True)
 def _apply_lut_constant_3d(lut, image):
     height, width, _ = image.shape
-    output = np.empty((height, width, 3), dtype=lut.dtype)
+    n_out = lut.shape[3]
+    output = np.empty((height, width, n_out), dtype=lut.dtype)
     value = _constant_lut_value_3d(lut)
     for i in prange(height):
         for j in range(width):
-            output[i, j, 0] = value[0]
-            output[i, j, 1] = value[1]
-            output[i, j, 2] = value[2]
+            for c in range(n_out):
+                output[i, j, c] = value[c]
     return output
 
 
@@ -175,7 +174,8 @@ def _apply_lut_cubic_3d(lut, image):
     Apply cubic interpolation to a 3D LUT with reflected boundary handling.
     """
     height, width, _ = image.shape
-    output = np.empty((height, width, 3), dtype=lut.dtype)
+    n_out = lut.shape[3]
+    output = np.empty((height, width, n_out), dtype=lut.dtype)
     scale = lut.shape[0] - 1
     for i in prange(height):
         for j in range(width):
@@ -183,9 +183,8 @@ def _apply_lut_cubic_3d(lut, image):
             g_in = image[i, j, 1] * scale
             b_in = image[i, j, 2] * scale
             out_val = _cubic_interp_lut_at_3d(lut, r_in, g_in, b_in)
-            output[i, j, 0] = out_val[0]
-            output[i, j, 1] = out_val[1]
-            output[i, j, 2] = out_val[2]
+            for c in range(n_out):
+                output[i, j, c] = out_val[c]
     return output
 
 
@@ -249,18 +248,19 @@ def _fill_monotone_slopes_1d(values, slopes):
 @njit(cache=True)
 def _prepare_lut_pchip_3d_impl(lut):
     size = lut.shape[0]
+    n_out = lut.shape[3]
     slope_x = np.empty_like(lut)
     slope_y = np.empty_like(lut)
     slope_z = np.empty_like(lut)
-    cell_min = np.empty((size - 1, size - 1, size - 1, 3), dtype=lut.dtype)
-    cell_max = np.empty((size - 1, size - 1, size - 1, 3), dtype=lut.dtype)
+    cell_min = np.empty((size - 1, size - 1, size - 1, n_out), dtype=lut.dtype)
+    cell_max = np.empty((size - 1, size - 1, size - 1, n_out), dtype=lut.dtype)
 
     line = np.empty(size, dtype=lut.dtype)
     slopes = np.empty(size, dtype=lut.dtype)
 
     for j in range(size):
         for k in range(size):
-            for c in range(3):
+            for c in range(n_out):
                 for i in range(size):
                     line[i] = lut[i, j, k, c]
                 _fill_monotone_slopes_1d(line, slopes)
@@ -269,7 +269,7 @@ def _prepare_lut_pchip_3d_impl(lut):
 
     for i in range(size):
         for k in range(size):
-            for c in range(3):
+            for c in range(n_out):
                 for j in range(size):
                     line[j] = lut[i, j, k, c]
                 _fill_monotone_slopes_1d(line, slopes)
@@ -278,7 +278,7 @@ def _prepare_lut_pchip_3d_impl(lut):
 
     for i in range(size):
         for j in range(size):
-            for c in range(3):
+            for c in range(n_out):
                 for k in range(size):
                     line[k] = lut[i, j, k, c]
                 _fill_monotone_slopes_1d(line, slopes)
@@ -288,7 +288,7 @@ def _prepare_lut_pchip_3d_impl(lut):
     for i in range(size - 1):
         for j in range(size - 1):
             for k in range(size - 1):
-                for c in range(3):
+                for c in range(n_out):
                     min_value = lut[i, j, k, c]
                     max_value = min_value
                     for di in range(2):
@@ -316,7 +316,7 @@ def _warn_if_lut_not_monotonic_3d(
     positive and negative steps.
     """
     axis_labels = ('r', 'g', 'b')
-    channel_labels = ('out_r', 'out_g', 'out_b')
+    channel_labels = tuple(f'out_{c}' for c in range(lut.shape[3]))
 
     def iter_channel_lines(axis_index, channel_index):
         if axis_index == 0:
@@ -378,8 +378,8 @@ def prepare_lut_pchip_3d(lut):
     Precompute per-axis PCHIP-style monotone slopes for a 3D LUT.
     This is intended to be done once per LUT and then reused for many images.
     """
-    if lut.ndim != 4 or lut.shape[3] != 3:
-        raise ValueError('3D LUT must have shape LxLxLx3')
+    if lut.ndim != 4 or lut.shape[3] < 1:
+        raise ValueError('3D LUT must have shape LxLxLxC (C output channels)')
 
     size = lut.shape[0]
     if lut.shape[1] != size or lut.shape[2] != size:
@@ -438,8 +438,8 @@ def _pchip_interp_lut_at_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, c
     j, tg = cubic_coordinate_base_fraction(g, size)
     k, tb = cubic_coordinate_base_fraction(b, size)
 
-    out = np.empty(3, dtype=lut.dtype)
-    for c in range(3):
+    out = np.empty(lut.shape[3], dtype=lut.dtype)
+    for c in range(lut.shape[3]):
         v000 = _hermite_value(lut[i, j, k, c], lut[i + 1, j, k, c], slope_x[i, j, k, c], slope_x[i + 1, j, k, c], tr)
         v010 = _hermite_value(lut[i, j + 1, k, c], lut[i + 1, j + 1, k, c], slope_x[i, j + 1, k, c], slope_x[i + 1, j + 1, k, c], tr)
         v001 = _hermite_value(lut[i, j, k + 1, c], lut[i + 1, j, k + 1, c], slope_x[i, j, k + 1, c], slope_x[i + 1, j, k + 1, c], tr)
@@ -464,7 +464,8 @@ def _pchip_interp_lut_at_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, c
 @njit(parallel=True, cache=True)
 def _apply_lut_pchip_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, cell_max, image):
     height, width, _ = image.shape
-    output = np.empty((height, width, 3), dtype=lut.dtype)
+    n_out = lut.shape[3]
+    output = np.empty((height, width, n_out), dtype=lut.dtype)
     scale = lut.shape[0] - 1
     for i in prange(height):
         for j in range(width):
@@ -472,9 +473,8 @@ def _apply_lut_pchip_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, cell_
             g_in = image[i, j, 1] * scale
             b_in = image[i, j, 2] * scale
             out_val = _pchip_interp_lut_at_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, cell_max, r_in, g_in, b_in)
-            output[i, j, 0] = out_val[0]
-            output[i, j, 1] = out_val[1]
-            output[i, j, 2] = out_val[2]
+            for c in range(n_out):
+                output[i, j, c] = out_val[c]
     return output
 
 def apply_lut_pchip_3d(lut, image):
@@ -488,21 +488,111 @@ def apply_lut_pchip_3d(lut, image):
     return _apply_lut_pchip_3d_prepared(lut, slope_x, slope_y, slope_z, cell_min, cell_max, image)
 
 
+# ---------------------------
+# Tetrahedral 3D LUT interpolation
+# ---------------------------
+# The interpolation used by colour-grading software (Resolve, Nuke) and the
+# ICC/OCIO 3D-LUT path. Within each unit cell it picks one of the six
+# tetrahedra by the ordering of the fractional coordinates and blends only the
+# four relevant corners, so it costs 4 taps per pixel against PCHIP's 64 and
+# needs no per-LUT preparation. It is C0 (not C1) — exact on the cell diagonal
+# and on the grid nodes, with piecewise-linear faces — so gradients are very
+# slightly less smooth than PCHIP, but it is faster and free of the cubic
+# overshoot that PCHIP's monotonicity clamp exists to guard against. Good
+# default for an interactive preview; PCHIP stays available for final renders.
+@njit(cache=True)
+def _tetra_interp_lut_at_3d(lut, r, g, b):
+    size = lut.shape[0]
+    i, fr = cubic_coordinate_base_fraction(r, size)
+    j, fg = cubic_coordinate_base_fraction(g, size)
+    k, fb = cubic_coordinate_base_fraction(b, size)
+
+    out = np.empty(lut.shape[3], dtype=lut.dtype)
+    for c in range(lut.shape[3]):
+        c000 = lut[i, j, k, c]
+        c111 = lut[i + 1, j + 1, k + 1, c]
+        if fr > fg:
+            if fg > fb:        # fr >= fg >= fb
+                c100 = lut[i + 1, j, k, c]
+                c110 = lut[i + 1, j + 1, k, c]
+                out[c] = c000 + fr * (c100 - c000) + fg * (c110 - c100) + fb * (c111 - c110)
+            elif fr > fb:      # fr >= fb >= fg
+                c100 = lut[i + 1, j, k, c]
+                c101 = lut[i + 1, j, k + 1, c]
+                out[c] = c000 + fr * (c100 - c000) + fb * (c101 - c100) + fg * (c111 - c101)
+            else:              # fb >= fr >= fg
+                c001 = lut[i, j, k + 1, c]
+                c101 = lut[i + 1, j, k + 1, c]
+                out[c] = c000 + fb * (c001 - c000) + fr * (c101 - c001) + fg * (c111 - c101)
+        else:
+            if fb > fg:        # fb >= fg >= fr
+                c001 = lut[i, j, k + 1, c]
+                c011 = lut[i, j + 1, k + 1, c]
+                out[c] = c000 + fb * (c001 - c000) + fg * (c011 - c001) + fr * (c111 - c011)
+            elif fb > fr:      # fg >= fb >= fr
+                c010 = lut[i, j + 1, k, c]
+                c011 = lut[i, j + 1, k + 1, c]
+                out[c] = c000 + fg * (c010 - c000) + fb * (c011 - c010) + fr * (c111 - c011)
+            else:              # fg >= fr >= fb
+                c010 = lut[i, j + 1, k, c]
+                c110 = lut[i + 1, j + 1, k, c]
+                out[c] = c000 + fg * (c010 - c000) + fr * (c110 - c010) + fb * (c111 - c110)
+    return out
+
+
+@njit(parallel=True, cache=True)
+def _apply_lut_tetrahedral_3d(lut, image):
+    height, width, _ = image.shape
+    n_out = lut.shape[3]
+    output = np.empty((height, width, n_out), dtype=lut.dtype)
+    scale = lut.shape[0] - 1
+    for i in prange(height):
+        for j in range(width):
+            out_val = _tetra_interp_lut_at_3d(
+                lut,
+                image[i, j, 0] * scale,
+                image[i, j, 1] * scale,
+                image[i, j, 2] * scale,
+            )
+            for c in range(n_out):
+                output[i, j, c] = out_val[c]
+    return output
+
+
+def apply_lut_tetrahedral_3d(lut, image):
+    """
+    Apply a 3D LUT with tetrahedral interpolation.
+
+    No preparation step: the raw LUT array is used directly (4 corner taps per
+    pixel). Cheaper than PCHIP and monotonic by construction.
+    """
+    lut = np.ascontiguousarray(lut, dtype=np.float64)
+    if lut.ndim != 4 or lut.shape[3] < 1:
+        raise ValueError('3D LUT must have shape LxLxLxC (C output channels)')
+    if lut.shape[0] == 1:
+        return _apply_lut_constant_3d(lut, image)
+    return _apply_lut_tetrahedral_3d(lut, image)
+
+
 #########################
 # Public 3D LUT API
 #########################
 
-def apply_lut_3d(lut, image, method='pchip'):
+def apply_lut_3d(lut, image, method='tetrahedral'):
     """
     Apply a 3D LUT using the selected interpolation method.
 
-    The default is 'pchip'. The requested method directly selects the interpolation path.
+    'tetrahedral' (default): fast 4-tap interpolation (video / OCIO style),
+    no per-LUT preparation. 'pchip': smooth monotone cubic, slightly smoother
+    gradients at a higher cost. 'mitchell': cubic Mitchell-Netravali.
     """
     if method == 'mitchell':
         return apply_lut_cubic_3d(lut, image)
     if method == 'pchip':
         return apply_lut_pchip_3d(lut, image)
-    raise ValueError("method must be 'mitchell' or 'pchip'")
+    if method == 'tetrahedral':
+        return apply_lut_tetrahedral_3d(lut, image)
+    raise ValueError("method must be 'mitchell', 'pchip', or 'tetrahedral'")
 
 # ---------------------------
 # 2D LUT Cubic Interpolation (using x, y channels)

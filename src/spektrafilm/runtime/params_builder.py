@@ -3,8 +3,8 @@ from __future__ import annotations
 import copy
 from dataclasses import fields
 from functools import lru_cache
-
-from spektrafilm.profiles.io import load_profile
+from spektrafilm.data.presets_loader import read_coupler_presets, read_grain_presets
+from spektrafilm.data.profiles_loader import load_profile
 from spektrafilm.runtime.params_schema import RuntimePhotoParams
 from spektrafilm.utils.io import read_neutral_print_filters
 
@@ -34,6 +34,11 @@ def clone_runtime_params(params: RuntimePhotoParams) -> RuntimePhotoParams:
     return RuntimePhotoParams(**kwargs)
 
 
+# Fallback filter pack (C, M, Y) for film/print/illuminant combinations that
+# aren't in the neutral-print-filters database — keeps any combination printable.
+_DEFAULT_NEUTRAL_PRINT_FILTERS = (0.0, 50.0, 50.0)
+
+
 @lru_cache(maxsize=1)
 def _get_neutral_print_filters():
     try:
@@ -46,7 +51,6 @@ def apply_database_neutral_print_filters(
     params: RuntimePhotoParams,
     *,
     database=None,
-    warn_missing: bool = True,
 ) -> RuntimePhotoParams:
     if not params.settings.neutral_print_filters_from_database:
         return params
@@ -58,17 +62,16 @@ def apply_database_neutral_print_filters(
         .get(params.enlarger.illuminant, {})
         .get(params.film.info.stock)
     )
-    if stock_filters is not None:
+    if stock_filters is None:
+        # Missing entry: fall back to a neutral default (C0 M50 Y50) instead of
+        # leaving the params untouched, so any film/print/illuminant combination
+        # stays printable even when it isn't in the database.
+        c_filter, m_filter, y_filter = _DEFAULT_NEUTRAL_PRINT_FILTERS
+    else:
         c_filter, m_filter, y_filter = (float(value) for value in stock_filters)
-        params.enlarger.c_filter_neutral = c_filter
-        params.enlarger.m_filter_neutral = m_filter
-        params.enlarger.y_filter_neutral = y_filter
-    elif warn_missing:
-        print(
-            f"Warning: No neutral print filters found in database for print stock {params.print.info.stock} "
-            f"with illuminant {params.enlarger.illuminant} and film stock {params.film.info.stock}. "
-            "Using defaults."
-        )
+    params.enlarger.c_filter_neutral = c_filter
+    params.enlarger.m_filter_neutral = m_filter
+    params.enlarger.y_filter_neutral = y_filter
     return params
 
 
@@ -83,8 +86,9 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.enlarger.lens_blur = 0.0
         params.film_render.dir_couplers.diffusion_size_um = 0.0
         params.film_render.grain.active = False
-        params.film_render.grain.particle_area_um2 = 0.0
+        params.film_render.grain.rms_granularity = (0.0, 0.0, 0.0)
         params.film_render.grain.blur = 0.0
+        params.film_render.grain.mult_usm_amount = 0.0  # USM is a spatial sharpen
         # scatter/halation kernel sigmas are preserved in preview mode
         params.print_render.glare.blur = 0.0
         params.camera.lens_blur_um = 0.0
@@ -97,9 +101,6 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
     
     # debug switches
     if params.debug.lut_mode:
-        # LUT-sampling regime: force the pipeline into a deterministic
-        # per-pixel transform. Enabling lut_mode promotes spatial and
-        # stochastic deactivation and disables image-aware adjustments.
         params.debug.deactivate_spatial_effects = True
         params.debug.deactivate_stochastic_effects = True
         # exposure control
@@ -115,7 +116,29 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.halation.boost_ev = 0.0
         params.scanner.white_correction = False
         params.scanner.black_correction = False
-        params.scanner.unsharp_mask = (0.0, 0.0)
+        # A narrowband scan writes band transmittances, not output colour
+        # primaries: a colour LUT cannot carry it, so the bake scans in white.
+        params.scanner.narrowband = False
+        # Per-image trims: representable in a LUT, but semantically corrections
+        # for one specific negative — a LUT is image-agnostic, so they bake
+        # neutral. Exposure intent enters only via the LUT creator's own
+        # exposure_ev input gain (b60/n010 §9).
+        params.enlarger.y_filter_shift = 0.0
+        params.enlarger.m_filter_shift = 0.0
+        params.enlarger.preflash_exposure = 0.0
+        params.enlarger.preflash_y_filter_shift = 0.0
+        params.enlarger.preflash_m_filter_shift = 0.0
+        # Framing / resampling operate on the incoming image — under LUT
+        # sampling that image is the cube grid itself, so either would
+        # silently deform the LUT domain.
+        params.io.crop = False
+        params.io.upscale_factor = 1.0
+        # Exact spectral compute: the internal acceleration LUTs exist for
+        # interactive speed and would bake their interpolation error into
+        # the sampled transform (double interpolation). Bake grids are small,
+        # exact compute is affordable (same call as print_balance).
+        params.settings.use_enlarger_lut = False
+        params.settings.use_scanner_lut = False
 
     if params.debug.deactivate_spatial_effects:
         # Halation is fully spatial (scatter + back-reflection blurs); kill it
@@ -129,6 +152,7 @@ def digest_params(params: RuntimePhotoParams, apply_stocks_specifics=True) -> Ru
         params.film_render.dir_couplers.diffusion_size_um = 0
         params.film_render.grain.blur = 0.0
         params.film_render.grain.blur_dye_clouds_um = 0.0
+        params.film_render.grain.mult_usm_amount = 0.0  # USM is a spatial sharpen
         params.print_render.glare.blur = 0
         params.camera.lens_blur_um = 0.0
         params.enlarger.lens_blur = 0.0
@@ -160,58 +184,15 @@ def init_params(
 
 def _apply_film_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply film specific settings to the params."""
-    # film overrides
-    # define here all the specifics to stocks that should be applied in params.film_render
-    if params.film.is_positive:
-        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.12, 0.08, 0.06)
-        params.film_render.dir_couplers.gamma_interlayer_r_to_gb = (0.12, 0.06)
-        params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.08, 0.06)
-        params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.06, 0.06) # just eyeballed, optimize!
-        
-    if params.film.is_negative:
-        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.336, 0.319, 0.273)
-        params.film_render.dir_couplers.gamma_interlayer_r_to_gb = (0.353, 0.302)
-        params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.154, 0.353)
-        params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.168, 0.226) # just eyeballed, optimize!
+    # Stock-specific overrides live in the preset TOMLs (data/presets/*.toml),
+    # applied by the helpers below. Add per-stock film_render tweaks that don't
+    # belong in a preset here.
 
-# skin - forest colors - cc blue optimization
-# 0.42 alpha 
-# [[0.336423, 0.353654, 0.302163],
-#  [0.154796, 0.319218, 0.353513],
-#  [0.168943, 0.226796, 0.273107]]
-# 0.5 alpha high saturation
-# [[0.341559, 0.355603, 0.305212],
-#  [0.154542, 0.324590, 0.358254],
-#  [0.171108, 0.225493, 0.273080]]
-# reference matrix cc loss
-# [[0.344306, 0.324515, 0.305428],
-#  [0.142589, 0.345450, 0.360369],
-#  [0.161963, 0.241596, 0.263818]]
-# gamma 1.2 sigma 1.55 loss 1.37
-#  [[0.53402457 0.43368797 0.23228746]
-#  [0.37136105 0.4572779  0.37136105]
-#  [0.23228746 0.43368797 0.53402457]]
-# gamma 1.0 sigma 1.3
-# [[0.48777655 0.36285359 0.14936985]
-#  [0.29901809 0.40196381 0.29901809]
-#  [0.14936985 0.36285359 0.48777655]]
-
+    # presets
     _apply_halation_preset(params)
+    _apply_grain_preset(params)
+    _apply_couplers_preset(params)
 
-    # stock specifics overrides
-    if params.film.info.stock == "fujifilm_velvia_100":
-        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.108, 0.072, 0.054)
-        params.film_render.dir_couplers.gamma_interlayer_r_to_gb = (0.108, 0.054)
-        params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.072, 0.054)
-        params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.054, 0.054)
-    if params.film.info.stock == "fujifilm_provia_100f":
-        params.film_render.dir_couplers.gamma_samelayer_rgb = (0.156, 0.104, 0.078)
-        params.film_render.dir_couplers.gamma_interlayer_r_to_gb = (0.156, 0.078)
-        params.film_render.dir_couplers.gamma_interlayer_g_to_rb = (0.104, 0.078)
-        params.film_render.dir_couplers.gamma_interlayer_b_to_rg = (0.078, 0.078)
-        
-    # if params.film.info.stock == "kodak_portra_400":
-    #     params.film_render.halation.scatter_core_um = (3.5, 2.2, 1.9)
     return params
 
 
@@ -250,6 +231,77 @@ def _apply_halation_preset(params: RuntimePhotoParams) -> None:
         return
     params.film_render.halation.halation_first_sigma_um = preset['sigma_h']
     params.film_render.halation.halation_strength = preset['strength']
+
+
+GRAIN_PRESETS = read_grain_presets()
+_GRAIN_DEFAULTS = GRAIN_PRESETS.get("defaults", {})
+
+
+def _apply_grain_preset(params: RuntimePhotoParams) -> None:
+    if params.film.info.stock not in GRAIN_PRESETS:
+        return
+    preset = GRAIN_PRESETS[params.film.info.stock]
+
+    # Defaults are nested ``defaults.<channel_model>.<polarity>`` (e.g.
+    # ``defaults.bw.positive``), so resolve both axes to reach the leaf table of
+    # grain parameters. A missing combination yields an empty table, leaving the
+    # stock preset (and the schema defaults) to stand on their own.
+    channel_model = "bw" if params.film.is_bw else "color"
+    polarity = "positive" if params.film.is_positive else "negative"
+    defaults = _GRAIN_DEFAULTS.get(channel_model, {}).get(polarity, {})
+
+    # apply each default, overridden by the stock preset where it provides a
+    # value, then any extra preset keys that map to a grain field
+    for key, value in defaults.items():
+        setattr(params.film_render.grain, key, preset.get(key, value))
+    for key, value in preset.items():
+        if not hasattr(params.film_render.grain, key):
+            continue
+        setattr(params.film_render.grain, key, value)
+
+COUPLER_PRESETS = read_coupler_presets()
+_COUPLER_DEFAULTS = COUPLER_PRESETS.get("defaults", {})
+
+
+def _apply_couplers_preset(params: RuntimePhotoParams) -> None:
+    """Seed DIR-coupler gammas from the couplers.toml presets.
+
+    Mirrors ``_apply_grain_preset``: a ``defaults.<channel_model>.<polarity>``
+    table sets the baseline for the film's class (e.g. ``defaults.color.negative``)
+    and a per-stock table, if present, overrides individual gammas. A class with
+    no defaults table or a stock with no preset keeps the ``DirCouplersParams``
+    schema defaults.
+    """
+    channel_model = "bw" if params.film.is_bw else "color"
+    polarity = "positive" if params.film.is_positive else "negative"
+    all_defaults = _COUPLER_DEFAULTS.get(channel_model, {}).get(polarity, {})
+    defaults = {
+        key: value
+        for key, value in all_defaults.items()
+        if hasattr(params.film_render.dir_couplers, key)
+    }
+    if channel_model == "color" and polarity == "negative" and params.film.is_cine:
+        cine_defaults = all_defaults.get("cine", {})
+        reference_illuminant = str(params.film.info.reference_illuminant).upper()
+        cine_branch = "tungsten" if reference_illuminant.startswith("T") else "daylight"
+        defaults.update(
+            {
+                key: value
+                for key, value in cine_defaults.get(cine_branch, {}).items()
+                if hasattr(params.film_render.dir_couplers, key)
+            }
+        )
+    preset = COUPLER_PRESETS.get(params.film.info.stock, {})
+
+    # apply each default, overridden by the stock preset where it provides a
+    # value, then any extra preset keys that map to a coupler field
+    for key, value in defaults.items():
+        setattr(params.film_render.dir_couplers, key, preset.get(key, value))
+    for key, value in preset.items():
+        if not hasattr(params.film_render.dir_couplers, key):
+            continue
+        setattr(params.film_render.dir_couplers, key, value)
+
 
 def _apply_print_specifics(params: RuntimePhotoParams) -> RuntimePhotoParams:
     """Apply print specific settings to the params."""

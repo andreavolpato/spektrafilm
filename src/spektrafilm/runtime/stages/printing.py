@@ -3,8 +3,9 @@ from __future__ import annotations
 import numpy as np
 from opt_einsum import contract
 
+from spektrafilm.model.diffusion import match_channels
 from spektrafilm.model.diffusion import apply_diffusion_filter_um
-from spektrafilm.model.develop import compute_density_spectral, develop_print_morph
+from spektrafilm.model.develop import compute_density_spectral, develop_print_morph, develop_simple, exposure_factor
 from spektrafilm.model.illuminants import standard_illuminant
 from spektrafilm.utils.conversions import density_to_light
 
@@ -37,8 +38,8 @@ class PrintingStage:
     # public methods
 
     def expose(self, cmy_film_density: np.ndarray) -> np.ndarray:
-        
-        cmy_film_black = np.zeros((1,1,3)) - np.array(self._film_render.grain.density_min)
+        density_min = match_channels(self._film_render.grain.density_min, self._film.info.n_channels)
+        cmy_film_black = np.zeros((1, 1, self._film.info.n_channels)) - density_min[None, None, :]
         cmy_film_white = np.nanmax(self._film.data.density_curves, axis=0)[None, None, :]
         self._color_reference_service.log_raw_print_black = self._film_cmy_to_print_log_raw(cmy_film_black)
         self._color_reference_service.log_raw_print_white = self._film_cmy_to_print_log_raw(cmy_film_white)
@@ -46,7 +47,7 @@ class PrintingStage:
         log_raw_print = self._lut_service.spectral_compute_enlarger(
             cmy_film_density,
             spectral_calculation=self._film_cmy_to_print_log_raw,
-            data_min=-np.array(self._film_render.grain.density_min),
+            data_min=-density_min,
             data_max=np.nanmax(self._film.data.density_curves, axis=0),
             use_lut=self._settings.use_enlarger_lut,
         )    
@@ -61,12 +62,21 @@ class PrintingStage:
         return np.log10(np.fmax(raw, 0.0) + 1e-10)
 
     def develop(self, log_raw: np.ndarray) -> np.ndarray:
-                
+        model = self._print.data.density_curves_model
+        if model is None or model.centers is None:
+            # No parametric morph model: develop directly against the stored
+            # curves (the morph is a feature that's simply off when absent).
+            return develop_simple(
+                log_raw,
+                self._print.data.log_exposure,
+                self._print.data.density_curves,
+                gamma_factor=1.0,
+            )
         return develop_print_morph(
             log_raw,
             self._print.data.log_exposure,
-            self._print.data.density_curves_model,
-            density_curves_morph=self._print_render.density_curves_morph,
+            model,
+            chemistry=self._print_render.chemistry,
             profile_type=self._print.info.type,
         )
 
@@ -82,6 +92,8 @@ class PrintingStage:
             self._film.data.channel_density,
             cmy_film_density,
             base_density=self._film.data.base_density,
+            base_density_params=self._film_render.base,
+            is_film=True,
         )
         print_illuminant = self._enlarger_service.enlarger_filtered_illuminant(enlarger_light_source)
         light = density_to_light(density_spectral, print_illuminant)
@@ -97,13 +109,13 @@ class PrintingStage:
             light_preflash = density_to_light(density_base, preflash_illuminant)
             raw_preflash = contract("ijk, kl->ijl", light_preflash, sensitivity)
             return raw_preflash * self._enlarger.preflash_exposure
-        return np.zeros((3,))
+        return np.zeros((sensitivity.shape[1],))
 
     def _compute_exposure_factor_midgray(self, sensitivity, print_illuminant):
-        factor_midgray = _exposure_factor(sensitivity, print_illuminant, self._enlarger_service.density_spectral_midgray)
+        factor_midgray = exposure_factor(sensitivity, print_illuminant, self._enlarger_service.density_spectral_midgray)
         if self._enlarger_service.density_spectral_midgray_comp is not None:
-            factor_midgray_comp = _exposure_factor(sensitivity, print_illuminant,
-                                                    self._enlarger_service.density_spectral_midgray_comp)
+            factor_midgray_comp = exposure_factor(sensitivity, print_illuminant,
+                                                  self._enlarger_service.density_spectral_midgray_comp)
         else:
             factor_midgray_comp = 1.0
         if self._enlarger.print_exposure_compensation and not self._enlarger.normalize_print_exposure:
@@ -114,11 +126,3 @@ class PrintingStage:
             return factor_midgray
         else:
             return 1.0
-
-def _exposure_factor(sensitivity, print_illuminant, density_spectral_midgray):
-    light_midgray = density_to_light(density_spectral_midgray, print_illuminant)
-    raw_midgray = contract("ijk, kl->ijl", light_midgray, sensitivity)
-    raw_midgray = np.fmax(raw_midgray, 1e-10)
-    # use the geometric mean to normalize the exposure
-    raw_midgray_geomean = np.exp(np.mean(np.log(raw_midgray), axis=2, keepdims=True))
-    return 1 / raw_midgray_geomean

@@ -29,7 +29,8 @@ def measure_density_min(log_exposure, density_curves, info_type, control_plot=Fa
     
     dc = density_curves
     le = log_exposure
-    density_min = np.zeros(3)
+    n_ch = dc.shape[1]  # 3 for color, 1 (or N development-time curves) for BW
+    density_min = np.zeros(n_ch)
     
     # # fitting model for the toe
     # def curve_toe(e, k):
@@ -62,9 +63,9 @@ def measure_density_min(log_exposure, density_curves, info_type, control_plot=Fa
         ub = (  4,  2,    1,  4)
         fraction_to_fit = 0.1
     
-    fits = []  
+    fits = []
     # fit all the toes and save density min
-    for i in np.arange(3):
+    for i in np.arange(n_ch):
         data = np.copy(dc[:,i])
         # mask data above the toe (1/10 of density range)
         data[data>((np.nanmax(data)-np.nanmin(data))*fraction_to_fit + np.nanmin(data))] = np.nan
@@ -79,8 +80,9 @@ def measure_density_min(log_exposure, density_curves, info_type, control_plot=Fa
         
     if control_plot:
         import matplotlib.pyplot as plt
-        _, axs = plt.subplots(1,3,figsize=(15,5))
-        for i in range(3):
+        _, axs = plt.subplots(1, n_ch, figsize=(5 * n_ch, 5), squeeze=False)
+        axs = np.asarray(axs).ravel()
+        for i in range(n_ch):
             axs[i].plot(le, dc[:,i], 'o', label='data')
             le_fit = np.linspace(np.nanmin(le), np.nanmax(le), 100)
             dc_fit = curve_toe(le_fit, fits[i].x)
