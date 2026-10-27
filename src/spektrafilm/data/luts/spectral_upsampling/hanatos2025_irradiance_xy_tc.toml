@@ -1,0 +1,28 @@
+# Spectral-upsampling LUT descriptor (sidecar for the co-located .npy).
+# Read by the runtime spectral-LUT registry. One descriptor per LUT in this folder.
+#
+# IRRADIANCE LUT: stores the spectrum of light reaching the sensor DIRECTLY, so it is
+# consumed differently from the reflectance family — there is NO relight (E_ref) and NO
+# midgray self-normalization (sensitivities are pre-balanced so raw_midgray = 1). The
+# runtime integrates spectra * sensitivity and projects chromaticity under the FILM
+# reference illuminant, which is a call-time argument, NOT a property of this LUT — hence
+# there is no scene_illuminant / [reflectance] section. Optional sensitivity adaptation
+# (window / surface) is applied at tc_lut build time.
+
+identifier = "hanatos2025"
+file = "hanatos2025_irradiance_xy_tc.npy"
+kind = "irradiance"                           # "reflectance" (relight + midgray-norm) | "irradiance" (direct)
+title = "Hanatos 2025 — irradiance spectra"
+
+[array]
+lut_size = 192                                # array is (lut_size, lut_size, bands) over the tc chromaticity grid
+bands = 81
+spectral_shape = [380, 780, 5]                # start, end, interval (nm)
+dtype = "float16"
+observer = "CIE 1931 2 Degree Standard Observer"
+
+[meta]
+method = "Irradiance spectra synthesised per tc chromaticity from a fitted coefficient field (algebraic sigmoid)."
+source = "hanatos (LUT + sample code); spektrafilm study b50"
+coeffs_lut = "hanatos_irradiance_xy_coeffs_250304.lut"   # source coefficients the spectra were generated from
+notes = "Irradiance, not reflectance: unbounded (values may exceed 1). Shares only the runtime hot path (apply_lut_cubic_2d * b) with the reflectance family, not the build convention."
