@@ -21,6 +21,9 @@ def build_params_from_state(state: GuiState) -> RuntimePhotoParams:
     _apply_grain(params, state)
     _apply_couplers(params, state)
     _apply_chemistry(params, state)
+    _apply_base(params, state)
+    _apply_convert(params, state)
+    _apply_film_chemistry(params, state)
     _apply_enlarger(params, state)
     _apply_scanner(params, state)
     _apply_settings(params, state)
@@ -35,8 +38,6 @@ def _apply_special(params: RuntimePhotoParams, state: GuiState) -> None:
         params.film = swap_channels(params.film, state.special.film_channel_swap)
     if state.special.print_channel_swap != (0, 1, 2):
         params.print = swap_channels(params.print, state.special.print_channel_swap)
-
-    params.film_render.density_curve_gamma = state.special.film_render.density_curve_gamma
 
 
 def _apply_glare(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -57,9 +58,9 @@ def _apply_io(params: RuntimePhotoParams, state: GuiState) -> None:
     params.io = replace(state.input_image.io)
     params.io.output_color_space = state.simulation.io.output_color_space
     params.io.output_cctf_encoding = True
-    params.io.scan_film = state.simulation.io.scan_film
     params.io.input_gamut_compress = replace(state.input_gamut_compress)
     params.io.output_gamut_compress = replace(state.output_gamut_compress)
+    params.workflow.route = state.simulation.route
 
 
 def _apply_halation(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -80,7 +81,20 @@ def _apply_couplers(params: RuntimePhotoParams, state: GuiState) -> None:
 
 
 def _apply_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
-    params.print_render.density_curves_morph = replace(state.chemistry)
+    params.print_render.chemistry = replace(state.chemistry)
+
+
+def _apply_base(params: RuntimePhotoParams, state: GuiState) -> None:
+    params.film_render.base = replace(state.film_base)
+    params.print_render.base = replace(state.print_base)
+
+
+def _apply_convert(params: RuntimePhotoParams, state: GuiState) -> None:
+    params.film_render.convert = replace(state.convert)
+
+
+def _apply_film_chemistry(params: RuntimePhotoParams, state: GuiState) -> None:
+    params.film_render.chemistry = replace(state.film_chemistry)
 
 
 def _apply_enlarger(params: RuntimePhotoParams, state: GuiState) -> None:
@@ -104,5 +118,6 @@ def _apply_settings(params: RuntimePhotoParams, state: GuiState) -> None:
     params.settings.preview_max_size = state.gui_only.display.settings.preview_max_size
     params.settings.use_enlarger_lut = True
     params.settings.use_scanner_lut = True
+    params.settings.use_convert_lut = True
     params.settings.lut_resolution = 17
     params.settings.use_fast_stats = True

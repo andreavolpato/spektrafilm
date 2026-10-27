@@ -5,13 +5,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
-from qtpy import QtCore
 
 
 DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
-QObject = getattr(QtCore, 'QObject')
-QRunnable = getattr(QtCore, 'QRunnable')
-Signal = getattr(QtCore, 'Signal')
 
 
 @dataclass(slots=True)
@@ -31,27 +27,6 @@ class SimulationResult:
     output_color_space: str
     use_display_transform: bool
     status_message: str
-
-
-class SimulationWorkerSignals(QObject):
-    finished = Signal(object)
-    failed = Signal(str)
-
-
-class SimulationWorker(QRunnable):
-    def __init__(self, request: SimulationRequest, *, execute_request: Callable[[SimulationRequest], SimulationResult]):
-        super().__init__()
-        self._request = request
-        self._execute_request = execute_request
-        self.signals = SimulationWorkerSignals()
-
-    def run(self) -> None:
-        try:
-            result = self._execute_request(self._request)
-        except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
-            self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
-            return
-        self.signals.finished.emit(result)
 
 
 def normalized_image_data(image: np.ndarray) -> np.ndarray:

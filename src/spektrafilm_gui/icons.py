@@ -30,6 +30,8 @@ _SECTION_HEADER_ICONS = {
     'halation': 'tabler:time-duration-0',
     'couplers': 'tabler:chart-sankey',
     'chemistry': 'tabler:flask',
+    'base': 'tabler:box-padding',
+    'convert': 'tabler:transform',
     'glare': 'tabler:background',
     'preflash': 'tabler:sparkles',
     'diffusion': 'tabler:artboard',
