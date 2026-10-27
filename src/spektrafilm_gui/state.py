@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, is_dataclass, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, TypeVar
 
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
+from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm.runtime.api import digest_params, init_params
 from spektrafilm.runtime.params_schema import (
+    ConvertFilmParams,
+    FilmBaseParams,
+    PrintBaseParams,
     CameraParams,
     DiffusionFilterParams,
     DirCouplersParams,
     EnlargerParams,
-    FilmRenderingParams,
     GlareParams,
     GrainParams,
     HalationParams,
@@ -20,8 +22,8 @@ from spektrafilm.runtime.params_schema import (
     SettingsParams,
 )
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
-from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
-from spektrafilm_gui.param_manifest import DISPLAY_PANEL_FIELDS, INPUT_IMAGE_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
+from spektrafilm.utils.morph_curves import FilmChemistryParams, PrintChemistryParams
+from spektrafilm_gui.params_manifest import DISPLAY_PANEL_FIELDS, INPUT_IMAGE_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
 
 
 StateSection = TypeVar('StateSection')
@@ -53,7 +55,6 @@ class LoadRawState:
 class SpecialState:
     film_channel_swap: tuple[int, int, int]
     print_channel_swap: tuple[int, int, int]
-    film_render: FilmRenderingParams = field(default_factory=FilmRenderingParams)
 
 
 @dataclass(slots=True)
@@ -74,6 +75,10 @@ class SimulationState:
     selection: SelectionState = field(default_factory=lambda: SelectionState(film_stock='', print_paper=''))
     enlarger: EnlargerParams = field(default_factory=EnlargerParams)
     io: IOParams = field(default_factory=IOParams)
+    # Pipeline route selector (mirrors WorkflowParams.route). The footer
+    # "Workflow" dropdown binds to this; params_mapper copies it straight
+    # through to params.workflow.route.
+    route: str = "input > film > print > scan"
     workflow: SimulationWorkflowState = field(default_factory=lambda: SimulationWorkflowState(
         saving_color_space='sRGB',
         saving_cctf_encoding=True,
@@ -135,9 +140,6 @@ def normalize_special_dict(data: dict[str, Any]) -> dict[str, Any]:
     return {
         'film_channel_swap': data.get('film_channel_swap', (0, 1, 2)),
         'print_channel_swap': data.get('print_channel_swap', (0, 1, 2)),
-        'film_render': {
-            'density_curve_gamma': data.get('film_gamma_factor', PROJECT_DEFAULT_GUI_STATE.special.film_render.density_curve_gamma),
-        },
     }
 
 
@@ -158,8 +160,11 @@ def normalize_simulation_dict(data: dict[str, Any]) -> dict[str, Any]:
         },
         'io': {
             'output_color_space': data.get('output_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space),
-            'scan_film': data.get('scan_film', PROJECT_DEFAULT_GUI_STATE.simulation.io.scan_film),
         },
+        # Back-compat: legacy states stored a boolean scan_film instead of a route.
+        'route': data.get('route') or (
+            'input > film > scan' if data.get('scan_film') else PROJECT_DEFAULT_GUI_STATE.simulation.route
+        ),
         'workflow': {
             'saving_color_space': data.get('saving_color_space', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_color_space),
             'saving_cctf_encoding': data.get('saving_cctf_encoding', PROJECT_DEFAULT_GUI_STATE.simulation.workflow.saving_cctf_encoding),
@@ -204,7 +209,11 @@ class GuiState:
     preflashing: EnlargerParams
     halation: HalationParams
     couplers: DirCouplersParams
-    chemistry: PrintCurvesMorphParams
+    chemistry: PrintChemistryParams
+    print_base: PrintBaseParams
+    film_chemistry: FilmChemistryParams
+    film_base: FilmBaseParams
+    convert: ConvertFilmParams
     camera: CameraParams
     enlarger_diffusion: DiffusionFilterParams
     camera_diffusion: DiffusionFilterParams
@@ -226,8 +235,6 @@ def clone_state_section(section: StateSection) -> StateSection:
         raise TypeError('Expected a dataclass instance to clone.')
     if isinstance(section, InputImageState):
         return replace(section, io=replace(section.io), settings=replace(section.settings))
-    if isinstance(section, SpecialState):
-        return replace(section, film_render=replace(section.film_render))
     if isinstance(section, SimulationState):
         return replace(
             section,
@@ -255,6 +262,10 @@ def clone_gui_state(state: GuiState) -> GuiState:
         halation=clone_state_section(state.halation),
         couplers=clone_state_section(state.couplers),
         chemistry=clone_state_section(state.chemistry),
+        print_base=clone_state_section(state.print_base),
+        film_chemistry=clone_state_section(state.film_chemistry),
+        film_base=clone_state_section(state.film_base),
+        convert=clone_state_section(state.convert),
         camera=clone_state_section(state.camera),
         enlarger_diffusion=clone_state_section(state.enlarger_diffusion),
         camera_diffusion=clone_state_section(state.camera_diffusion),
@@ -268,6 +279,26 @@ def clone_gui_state(state: GuiState) -> GuiState:
     )
 
 
+def _fill_channel_padding(grain):
+    """Mirror the first real channel across any ``None`` padding in the grain
+    tuples before they reach the GUI.
+
+    A single-channel (B&W) stock's grain preset pads its per-channel tuples to
+    three with ``None`` (e.g. ``uniformity = (0.6, None, None)``); the runtime
+    reads only the first channel, but the GUI editors are typed
+    ``tuple[float, float, float]`` and cannot display ``None``. Repeating the
+    first non-``None`` value presents the single B&W value across the RGB
+    editors and keeps the state type-valid. Always returns a copy.
+    """
+    changes = {}
+    for f in fields(grain):
+        value = getattr(grain, f.name)
+        if isinstance(value, tuple) and any(component is None for component in value):
+            fill = next((component for component in value if component is not None), 0.0)
+            changes[f.name] = tuple(fill if component is None else component for component in value)
+    return replace(grain, **changes)
+
+
 def gui_state_from_params(
     params: RuntimePhotoParams,
     *,
@@ -279,11 +310,15 @@ def gui_state_from_params(
             io=replace(params.io),
             settings=replace(params.settings),
         ),
-        grain=replace(params.film_render.grain),
+        grain=_fill_channel_padding(params.film_render.grain),
         preflashing=replace(params.enlarger),
         halation=replace(params.film_render.halation),
         couplers=replace(params.film_render.dir_couplers),
-        chemistry=replace(params.print_render.density_curves_morph),
+        chemistry=replace(params.print_render.chemistry),
+        print_base=replace(params.print_render.base),
+        film_chemistry=replace(params.film_render.chemistry),
+        film_base=replace(params.film_render.base),
+        convert=replace(params.film_render.convert),
         camera=replace(params.camera),
         enlarger_diffusion=replace(params.enlarger.diffusion_filter),
         camera_diffusion=replace(params.camera.diffusion_filter),
@@ -294,7 +329,6 @@ def gui_state_from_params(
         special=SpecialState(
             film_channel_swap=(0, 1, 2),
             print_channel_swap=(0, 1, 2),
-            film_render=FilmRenderingParams(density_curve_gamma=params.film_render.density_curve_gamma),
         ),
         simulation=SimulationState(
             selection=SelectionState(
@@ -311,8 +345,8 @@ def gui_state_from_params(
             io=IOParams(
                 output_color_space=params.io.output_color_space,
                 output_cctf_encoding=params.io.output_cctf_encoding,
-                scan_film=params.io.scan_film,
             ),
+            route=params.workflow.route,
             workflow=SimulationWorkflowState(
                 saving_color_space="sRGB",
                 saving_cctf_encoding=params.io.output_cctf_encoding,
@@ -321,7 +355,11 @@ def gui_state_from_params(
         ),
         gui_only=GuiOnlyState(
             load_raw=LoadRawState(
-                white_balance='as_shot',
+                # Fixed at the selected film stock's own balance (D55 for daylight
+                # stocks, tungsten for T stocks), like a real emulsion: scene casts
+                # survive into the negative and are corrected downstream with the
+                # enlarger / scanner, not here. See the white_balance tooltip.
+                white_balance='film',
                 temperature=5500.0,
                 tint=1.0,
                 lens_correction=False,
@@ -338,9 +376,9 @@ def gui_state_from_params(
 
 
 def digest_after_selection(params: RuntimePhotoParams) -> RuntimePhotoParams:
-    params = digest_params(params)
-    params.io.scan_film = bool(params.film.is_positive)
-    return params
+    # The workflow route is user-controlled and intentionally left untouched here:
+    # changing the film or print profile must not switch the pipeline route.
+    return digest_params(params)
 
 
 def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
@@ -349,7 +387,7 @@ def build_default_gui_state(*, film_stock: str, print_paper: str) -> GuiState:
 
 
 DEFAULT_FILM_STOCK = FilmStocks.kodak_gold_200.value
-DEFAULT_PRINT_PAPER = PrintPapers.kodak_supra_endura.value
+DEFAULT_PRINT_PAPER = PrintStocks.kodak_supra_endura.value
 PROJECT_DEFAULT_GUI_STATE = build_default_gui_state(
     film_stock=DEFAULT_FILM_STOCK,
     print_paper=DEFAULT_PRINT_PAPER,

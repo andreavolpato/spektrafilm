@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,6 +11,7 @@ from qtpy import QtCore, QtWidgets
 from spektrafilm_gui import controller_persistence as persistence_actions
 from spektrafilm_gui import controller_profile_sync as profile_sync
 from spektrafilm_gui import controller_runtime as runtime
+from spektrafilm_gui.background import BackgroundRunner
 from spektrafilm_gui.controller_layers import (
     INPUT_LAYER_NAME,
     INPUT_PREVIEW_LAYER_NAME,
@@ -28,6 +30,19 @@ from spektrafilm_gui.napari_layout import dialog_parent, reset_viewer_camera, se
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
 from spektrafilm_gui.widgets import WidgetBundle
+
+def _family_development_times(profile) -> np.ndarray:
+    """A stock's development-time choices as a 1-D array, always non-empty.
+
+    A real B&W family returns all of its times. A stock with no family (color,
+    or single-time B&W) falls back to its own single value, or to ``[1.0]`` when
+    it carries no development time at all — so the dropdown always offers a
+    concrete development time instead of 'none'. (A future push/pull strategy
+    can widen a single entry into a synthesised range.)"""
+    if profile is None or profile.data.development_time is None:
+        return np.array([1.0])
+    return np.asarray(profile.data.development_time, dtype=float)
+
 
 OUTPUT_FLOAT_DATA_KEY = 'pipeline_float_output'
 OUTPUT_COLOR_SPACE_KEY = 'pipeline_output_color_space'
@@ -125,6 +140,16 @@ def load_and_process_raw_file(*args, **kwargs):
     return import_module('spektrafilm.utils.raw_file_processor').load_and_process_raw_file(*args, **kwargs)
 
 
+def film_reference_illuminant(film_stock: str) -> str | None:
+    """The film stock's own white balance (``info.reference_illuminant``), used by
+    the 'film' raw white balance; None when no stock is selected."""
+    if not film_stock:
+        return None
+    infos = import_module('spektrafilm.data.profiles_loader').load_profile_infos()
+    info = infos.get(film_stock)
+    return None if info is None else info.reference_illuminant
+
+
 def resize_for_preview(*args, **kwargs):
     return import_module('spektrafilm.utils.preview').resize_for_preview(*args, **kwargs)
 
@@ -146,16 +171,24 @@ class GuiController:
             output_display_transform_key=OUTPUT_DISPLAY_TRANSFORM_KEY,
         )
         self._thread_pool = QThreadPool.globalInstance()
-        self._active_simulation_worker: runtime.SimulationWorker | None = None
-        self._active_simulation_label: str | None = None
+        # One runner drives every off-thread operation. Each kind of work runs
+        # on its own channel; within a channel the runner coalesces so a burst
+        # of requests never piles up and only the latest result lands.
+        self._jobs = BackgroundRunner(self._thread_pool, on_busy_changed=self._set_busy)
+        # Preview and Scan run on separate channels (a manual Scan is never
+        # superseded by a preview), but they share one cached simulator, so the
+        # runtime work itself is serialized with this lock.
+        self._runtime_lock = threading.Lock()
         self._runtime_simulator = None
         self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
         self._current_input_path: str | None = None
+        # Path and film reference illuminant of the raw currently loaded with the
+        # 'film' white balance, so a film stock change can re-decode it at the new
+        # stock's balance. None when the input is not such a raw.
+        self._film_balanced_raw: tuple[str, str] | None = None
         self._current_preview_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
-        self._pending_auto_preview = False
-        self._active_simulation_reports_status = True
 
     def show_startup_placeholder(self) -> None:
         if self._white_border_layer() is not None:
@@ -180,42 +213,191 @@ class GuiController:
     def load_input_image(self, path: str) -> None:
         image = load_image_oiio(path)[..., :3]
         self._current_input_path = path
+        self._film_balanced_raw = None
         self._set_or_add_input_stack(image)
         self._request_auto_preview_if_enabled()
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
         set_status(self._viewer, "Loading raw...", timeout_ms=0)
+        load_raw = gui_state.gui_only.load_raw
+        io = gui_state.input_image.io
+        reference_illuminant = None
+        if load_raw.white_balance == 'film':
+            reference_illuminant = film_reference_illuminant(gui_state.selection.film_stock)
+            if reference_illuminant is None:
+                self._on_raw_failed("The 'film' white balance needs a film stock to be selected.")
+                return
+        # The decode is the slow part (rawpy / lensfunpy / scipy); run it off the
+        # GUI thread. The lens-correction result is reported back via this dict.
         lens_info: dict[str, str] = {}
-        try:
-            image = load_and_process_raw_file(
-                path,
-                white_balance=gui_state.gui_only.load_raw.white_balance,
-                temperature=gui_state.gui_only.load_raw.temperature,
-                tint=gui_state.gui_only.load_raw.tint,
-                lens_correction=gui_state.gui_only.load_raw.lens_correction,
-                output_colorspace=gui_state.input_image.io.input_color_space,
-                output_cctf_encoding=gui_state.input_image.io.input_cctf_decoding,
-                lens_info_out=lens_info,
-            )
-        except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{exc}')
-            set_status(self._viewer, 'Load raw failed')
-            return
 
+        def decode_raw() -> np.ndarray:
+            return load_and_process_raw_file(
+                path,
+                white_balance=load_raw.white_balance,
+                temperature=load_raw.temperature,
+                tint=load_raw.tint,
+                lens_correction=load_raw.lens_correction,
+                output_colorspace=io.input_color_space,
+                output_cctf_encoding=io.input_cctf_decoding,
+                lens_info_out=lens_info,
+                reference_illuminant=reference_illuminant,
+            )
+
+        self._jobs.submit(
+            'raw',
+            decode_raw,
+            on_done=lambda image: self._on_raw_loaded(
+                image, path=path, lens_info=lens_info, lens_correction=load_raw.lens_correction,
+                reference_illuminant=reference_illuminant,
+            ),
+            on_error=self._on_raw_failed,
+        )
+
+    def _on_raw_loaded(self, image, *, path: str, lens_info: dict[str, str], lens_correction: bool,
+                       reference_illuminant: str | None = None) -> None:
         self._current_input_path = path
+        self._film_balanced_raw = None if reference_illuminant is None else (path, reference_illuminant)
         self._set_or_add_input_stack(image)
 
         lens_summary = lens_info.get('summary')
         if lens_summary:
-            set_status(
-                self._viewer,
-                f"Loaded raw and applied lens correction: {lens_summary}",
-            )
-        elif gui_state.gui_only.load_raw.lens_correction:
+            set_status(self._viewer, f"Loaded raw and applied lens correction: {lens_summary}")
+        elif lens_correction:
             set_status(self._viewer, "Loaded raw, lens correction not applied")
         else:
             set_status(self._viewer, "Loaded raw")
+        self._request_auto_preview_if_enabled()
+
+    def _on_raw_failed(self, message: str) -> None:
+        QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{message}')
+        set_status(self._viewer, 'Load raw failed')
+
+    def on_convert_action(self, action_id: str) -> None:
+        """Dispatch a Convert-panel action button (see CONVERT_MANIFEST.actions)."""
+        if action_id == 'detect_base':
+            self.run_detect_base()
+        elif action_id == 'blind_calibration':
+            self.run_blind_calibration()
+        elif action_id == 'neutralize_filters':
+            self.run_neutralize_filters()
+
+    def run_neutralize_filters(self) -> None:
+        """Solve the enlarger M/Y filter shifts so the current film + base midgray
+        prints neutral, and write them into the Enlarger panel. Image-independent."""
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        set_status(self._viewer, 'Neutralizing print filters...', timeout_ms=0)
+
+        def work():
+            from spektrafilm.runtime.print_balance import solve_neutral_filter_shifts
+            return solve_neutral_filter_shifts(params)
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_neutralize_filters_done,
+            on_error=lambda message: set_status(self._viewer, f'Neutralize print filters failed: {message}'),
+        )
+
+    def _on_neutralize_filters_done(self, shifts) -> None:
+        m_shift, y_shift = shifts
+        simulation = getattr(self._widgets, 'simulation', None)
+        if simulation is not None:
+            simulation.print_m_filter_shift.value = float(m_shift)
+            simulation.print_y_filter_shift.value = float(y_shift)
+        set_status(self._viewer, f'Print filters neutralized: M shift={m_shift:+.2f}, Y shift={y_shift:+.2f}')
+        self._request_auto_preview_if_enabled()
+
+    def run_detect_base(self) -> None:
+        """Sample the clear/unexposed film from the brightest pixels of the current
+        image and fit the film Base (orange mask) + convert exposure so the unexposed
+        film maps to density 0. Writes the fitted Base widget and the exposure field."""
+        image = self._current_input_image
+        if image is None:
+            QMessageBox.warning(dialog_parent(self._viewer), 'Detect base', 'Load an input image first.')
+            return
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        params.workflow.route = 'input > convert-film > scan'
+        percentile = float(params.film_render.convert.base_percentile)
+        set_status(self._viewer, 'Detecting film base...', timeout_ms=0)
+
+        def work():
+            from spektrafilm.model.convert import fit_base_params, sample_base_rgb
+            from spektrafilm.model.illuminants import standard_illuminant
+            from spektrafilm.runtime.pipeline import SimulationPipeline
+            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+            stage = pipeline._converting_stage
+            img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
+            base_rgb = sample_base_rgb(img, percentile)
+            data = stage._film.data
+            fitted, ev = fit_base_params(
+                base_rgb, data.channel_density, data.base_density, params.film_render.base,
+                standard_illuminant(params.film_render.convert.scan_illuminant),
+                params.io.input_color_space,
+            )
+            return fitted, float(ev), base_rgb
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_detect_base_done,
+            on_error=lambda message: set_status(self._viewer, f'Detect base failed: {message}'),
+        )
+
+    def _on_detect_base_done(self, result) -> None:
+        fitted, ev, base_rgb = result
+        base_section = getattr(self._widgets, 'film_base', None)
+        if base_section is not None:
+            base_section.set_state(fitted)
+        convert_section = getattr(self._widgets, 'convert', None)
+        if convert_section is not None:
+            convert_section.set_field('exposure_compensation_ev', ev)
+        set_status(
+            self._viewer,
+            f'Base detected (clear RGB {np.round(base_rgb, 3).tolist()}): '
+            f'cyan/magenta/yellow=({fitted.cyan:.3f}, {fitted.magenta:.3f}, {fitted.yellow:.3f}), ev={ev:+.2f}',
+        )
+        self._request_auto_preview_if_enabled()
+
+    def run_blind_calibration(self) -> None:
+        """Fit the convert calibration matrix from the current input image and
+        write it into the Convert panel's 'calibration' field. TEMPORARY test UX:
+        the fit is the c40 blind dye-gamut fit (best on a vibrant frame)."""
+        image = self._current_input_image
+        if image is None:
+            QMessageBox.warning(dialog_parent(self._viewer), 'Blind calibration', 'Load an input image first.')
+            return
+        state = collect_gui_state(widgets=self._widgets)
+        params = build_params_from_state(state)
+        params.workflow.route = 'input > convert-film > scan'
+        set_status(self._viewer, 'Fitting blind calibration...', timeout_ms=0)
+
+        def work() -> str:
+            from spektrafilm.model.convert import format_calibration_matrix
+            from spektrafilm.runtime.pipeline import SimulationPipeline
+            pipeline = SimulationPipeline(digest_params(params, apply_stocks_specifics=True))
+            stage = pipeline._converting_stage
+            img = stage._decode_to_linear(np.double(np.asarray(image)[..., :3]))
+            flat = img.reshape(-1, 3)
+            if len(flat) > 40000:
+                flat = flat[np.linspace(0, len(flat) - 1, 40000).astype(int)]
+            return format_calibration_matrix(stage._converter.fit_blind_calibration(flat))
+
+        self._jobs.submit(
+            'calibration',
+            work,
+            on_done=self._on_blind_calibration_done,
+            on_error=lambda message: set_status(self._viewer, f'Blind calibration failed: {message}'),
+        )
+
+    def _on_blind_calibration_done(self, calibration: str) -> None:
+        convert_section = getattr(self._widgets, 'convert', None)
+        if convert_section is not None:
+            convert_section.set_field('calibration', calibration)
+        set_status(self._viewer, f'Blind calibration fitted: {calibration}')
         self._request_auto_preview_if_enabled()
 
     def refresh_preview_cache(self, *_args) -> None:
@@ -253,16 +435,36 @@ class GuiController:
             return
 
         params = build_params_from_state(state)
+        # Read the development-time choices before digest collapses them to one
+        # column. Stocks without a family fall back to a single 1.0 entry.
+        film_times = _family_development_times(params.film)
+        print_times = _family_development_times(params.print)
         synced_state = gui_state_from_params(
             digest_after_selection(params),
             film_stock=state.selection.film_stock,
             print_paper=state.selection.print_paper,
         )
         self._apply_profile_sync_state(synced_state)
+        # Populate the dropdowns last: with no prior selection the editor
+        # defaults to the family's floor-middle development (None when no family).
+        self._widgets.film_chemistry.set_development_time_choices(film_times)
+        self._widgets.chemistry.set_development_time_choices(print_times)
         self._next_runtime_digest_applies_stock_specifics = True
 
     def apply_film_profile_defaults(self, film_stock: str) -> None:
         self.apply_profile_defaults(film_stock)
+        self._rebalance_raw_for_film_stock(film_stock)
+
+    def _rebalance_raw_for_film_stock(self, film_stock: str) -> None:
+        """Re-decode a raw loaded with the 'film' white balance when the new stock
+        has a different balance (e.g. daylight -> tungsten), so the input keeps
+        sitting at the selected film's own white."""
+        if self._film_balanced_raw is None:
+            return
+        path, loaded_illuminant = self._film_balanced_raw
+        new_illuminant = film_reference_illuminant(film_stock)
+        if new_illuminant is not None and new_illuminant != loaded_illuminant:
+            self.load_raw_image(path)
 
     def _apply_profile_sync_state(self, synced_state) -> None:
         profile_sync.apply_profile_sync_state(
@@ -282,7 +484,7 @@ class GuiController:
         )
 
     def run_scan(self) -> None:
-        self._start_simulation(source_layer_name=INPUT_LAYER_NAME, mode_label='Scan')
+        self._start_simulation(source_layer_name=INPUT_LAYER_NAME, mode_label='Scan', channel='scan')
 
     def request_auto_preview(self, *_args) -> None:
         if self._auto_preview_scheduled:
@@ -536,18 +738,11 @@ class GuiController:
     def _run_scheduled_auto_preview(self) -> None:
         self._auto_preview_scheduled = False
         if not self._auto_preview_enabled() or self._current_preview_image is None:
-            self._pending_auto_preview = False
             return
-        if self._active_simulation_worker is not None:
-            self._pending_auto_preview = True
-            return
+        # The runner coalesces: if a simulation is in flight this preview becomes
+        # the channel's pending request and runs once the current one finishes,
+        # replacing any earlier pending preview so only the latest lands.
         self._run_preview(report_status=False)
-
-    def _replay_pending_auto_preview(self) -> None:
-        if not self._pending_auto_preview:
-            return
-        self._pending_auto_preview = False
-        self.request_auto_preview()
 
     def _output_layer(self) -> NapariImageLayer | None:
         return self._layers.output_layer()
@@ -673,11 +868,15 @@ class GuiController:
         self.set_gray_18_canvas_enabled(bool(is_checked()) if callable(is_checked) else False)
 
     def _execute_simulation_request(self, request: SimulationRequest) -> SimulationResult:
-        return runtime.execute_simulation_request(
-            request,
-            run_simulation_fn=self._process_image_with_runtime,
-            prepare_output_display_image_fn=self._prepare_output_display_image,
-        )
+        # Preview and Scan run on independent channels and can therefore be in
+        # flight on two worker threads at once; the lock serializes their use of
+        # the single shared runtime simulator (and the display path).
+        with self._runtime_lock:
+            return runtime.execute_simulation_request(
+                request,
+                run_simulation_fn=self._process_image_with_runtime,
+                prepare_output_display_image_fn=self._prepare_output_display_image,
+            )
 
     @staticmethod
     def _configure_simulation_params(params, *, source_layer_name: str):
@@ -686,11 +885,14 @@ class GuiController:
             settings.preview_mode = source_layer_name == INPUT_PREVIEW_LAYER_NAME
         return params
 
-    def _start_simulation(self, *, source_layer_name: str, mode_label: str, report_status: bool = True) -> None:
-        if self._active_simulation_worker is not None:
-            set_status(self._viewer, 'Simulation already running')
-            return
-
+    def _start_simulation(
+        self,
+        *,
+        source_layer_name: str,
+        mode_label: str,
+        report_status: bool = True,
+        channel: str = 'simulation',
+    ) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
             QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
@@ -712,23 +914,18 @@ class GuiController:
             use_display_transform=state.gui_only.display.use_display_transform,
         )
 
-        worker = runtime.SimulationWorker(request, execute_request=self._execute_simulation_request)
-        worker.signals.finished.connect(self._on_simulation_finished)
-        worker.signals.failed.connect(self._on_simulation_failed)
-        self._active_simulation_worker = worker
-        self._active_simulation_label = mode_label
-        self._active_simulation_reports_status = report_status
-        self._set_simulation_controls_enabled(False)
+        # Button state is driven centrally by the runner's busy listener
+        # (_set_busy); submitting here disables the controls as a side effect.
         if report_status:
             set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
-        self._thread_pool.start(worker)
+        self._jobs.submit(
+            channel,
+            lambda: self._execute_simulation_request(request),
+            on_done=lambda result: self._on_simulation_finished(result, report_status=report_status),
+            on_error=lambda message: self._on_simulation_failed(message, mode_label=mode_label),
+        )
 
-    def _on_simulation_finished(self, result: SimulationResult) -> None:
-        report_status = self._active_simulation_reports_status
-        self._active_simulation_worker = None
-        self._active_simulation_label = None
-        self._active_simulation_reports_status = True
-        self._set_simulation_controls_enabled(True)
+    def _on_simulation_finished(self, result: SimulationResult, *, report_status: bool = True) -> None:
         self._set_or_add_output_layer(
             result.display_image,
             float_image=result.float_image,
@@ -738,17 +935,16 @@ class GuiController:
         )
         if report_status:
             set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
-        self._replay_pending_auto_preview()
 
-    def _on_simulation_failed(self, message: str) -> None:
-        self._active_simulation_worker = None
-        mode_label = self._active_simulation_label or 'Simulation'
-        self._active_simulation_label = None
-        self._active_simulation_reports_status = True
-        self._set_simulation_controls_enabled(True)
+    def _on_simulation_failed(self, message: str, *, mode_label: str = 'Simulation') -> None:
         QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
         set_status(self._viewer, f'{mode_label} failed')
-        self._replay_pending_auto_preview()
+
+    def _set_busy(self, busy: bool) -> None:
+        """Called by the runner whenever the working thread becomes engaged or
+        idle. Grays out the action buttons so they cannot be triggered while a
+        preview / scan / raw decode / warmup is in flight."""
+        self._set_simulation_controls_enabled(not busy)
 
     def _set_simulation_controls_enabled(self, enabled: bool) -> None:
         simulation_section = getattr(self._widgets, 'simulation', None)
@@ -759,6 +955,19 @@ class GuiController:
             set_enabled = getattr(button, 'setEnabled', None)
             if callable(set_enabled):
                 set_enabled(enabled)
+
+    def start_warmup(self, warmup_fn) -> None:
+        """Run a one-off warmup callable on the working thread so the GUI is
+        usable immediately while libraries / JIT / the first pipeline build
+        prime in the background. The action buttons gray out (busy listener)
+        and the status bar shows progress until it finishes."""
+        set_status(self._viewer, 'Switching on the safe-light...', timeout_ms=0)
+        self._jobs.submit(
+            'warmup',
+            warmup_fn,
+            on_done=lambda _result: set_status(self._viewer, 'Ready'),
+            on_error=lambda _message: set_status(self._viewer, 'Ready'),
+        )
 
     def _run_simulation(self, *, source_layer_name: str) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)

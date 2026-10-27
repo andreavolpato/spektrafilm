@@ -19,8 +19,7 @@ QWidget = QtWidgets.QWidget
 Qt = QtCore.Qt
 Signal = QtCore.Signal
 
-from spektrafilm_gui.param_manifest import (
-    CAMERA_EXPOSURE_BORROWED_FIELDS,
+from spektrafilm_gui.params_manifest import (
     CROP_PANEL_FIELDS,
     DISPLAY_PANEL_FIELDS,
     GroupManifest,
@@ -35,7 +34,6 @@ from spektrafilm_gui.param_manifest import (
     SIMULATION_SPECIAL_BORROWED_FIELDS,
     SPECTRAL_PANEL_FIELDS,
     SPECIAL_FIELDS,
-    TUNE_PANEL_FIELDS,
 )
 from spektrafilm_gui.state import (
     DisplayState,
@@ -50,7 +48,7 @@ from spektrafilm_gui.state import (
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
 from spektrafilm_gui.options import RawWhiteBalance
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm_gui.widget_editors import BoolEditor, DevelopmentTimeEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, StrEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 
 
@@ -58,7 +56,15 @@ LOAD_RAW_FIELDS = (
     ParamSpec(
         'white_balance',
         label='White balance',
-        tooltip='Select white balance settings, if custom you can tune temperature and tint',
+        tooltip=(
+            'film (default): fixed at the selected film stock\'s own balance (D55 for '
+            'daylight stocks, tungsten for T stocks), as a real emulsion cannot adapt — '
+            'light of any other colour keeps its cast in the negative. The raw is '
+            're-decoded when the film stock changes balance. daylight: fixed at D65. '
+            'Do not use it to neutralize a colour cast — fix white balance downstream '
+            'with the enlarger filters / scanner instead. (custom exposes temperature/tint '
+            'for special cases.)'
+        ),
         enum=RawWhiteBalance,
     ),
     ParamSpec(
@@ -86,8 +92,8 @@ _SECTION_FIELD_SPECS = {
 _AUXILIARY_FIELD_SPECS = {
     'scan_for_print': ParamSpec(
         'scan_for_print',
-        label='Scan for print',
-        tooltip='Scan the image for print, ie white and black correction of the scanner are active, and glare is deactivated.',
+        label='Black and white correction',
+        tooltip='White and black correction of the scanner are active, and glare is deactivated.',
     ),
 }
 _SIMULATION_ACTION_BUTTON_SPECS = {
@@ -251,6 +257,10 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     sections so the type -> editor mapping lives in one place.
     """
     decimals = 2 if spec.decimals is None else spec.decimals
+    if spec.leaf == 'development_time':
+        # Stock-dependent choices, so the dropdown starts empty (None only) and
+        # the controller repopulates it on profile change.
+        return DevelopmentTimeEditor()
     if spec.enum is not None:
         if spec.leaf in {'film_stock', 'print_paper'}:
             editor = ProfileEnumEditor([member.value for member in spec.enum])
@@ -258,6 +268,8 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
             editor = EnumEditor([member.value for member in spec.enum])
     elif annotation is bool:
         editor = BoolEditor()
+    elif annotation is str:
+        editor = StrEditor()
     elif annotation is int:
         editor = IntEditor()
     elif annotation is float:
@@ -451,6 +463,10 @@ class ParamsGroupSection(QWidget):
     # raw runtime values field-by-field.
     _is_params_group = True
 
+    # Emitted with an ActionSpec.action_id when one of this panel's buttons is
+    # clicked; the app wires it to a controller handler.
+    action_triggered = Signal(str)
+
     def __init__(self, manifest: GroupManifest):
         super().__init__()
         self._manifest = manifest
@@ -461,24 +477,29 @@ class ParamsGroupSection(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        form = _new_form_layout()
+        # Build editors for every field (so the whole group stays editable,
+        # persisted, and auto-preview wired) regardless of how it is laid out.
         for spec in self._manifest.fields:
             editor = self._build_editor(spec)
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
-        # Build editors for every field (so the whole group stays editable,
-        # persisted, and auto-preview wired) but only lay out panel_fields;
-        # any remaining fields are displayed by a section that borrows them.
-        for spec in self._manifest.panel_fields or self._manifest.fields:
-            editor = self._editors[spec.leaf]
-            label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
-            if spec.tooltip:
-                label.setToolTip(spec.tooltip)
-                editor.setToolTip(spec.tooltip)
-            form.addRow(label, editor)
 
-        content = QWidget()
-        content.setLayout(form)
+        # Only lay out panel_fields; any remaining fields are displayed by a
+        # section that borrows them.
+        panel_specs = self._manifest.panel_fields or self._manifest.fields
+        if self._manifest.subsections:
+            content = self._build_subsectioned_content(panel_specs)
+        else:
+            content = QWidget()
+            content.setLayout(self._build_form(panel_specs))
+
+        if self._manifest.actions:
+            wrapper = QWidget()
+            vbox = QVBoxLayout(wrapper)
+            vbox.setContentsMargins(0, 0, 0, 0)
+            vbox.addWidget(content)
+            vbox.addWidget(self._build_actions())
+            content = wrapper
 
         root = QVBoxLayout()
         root.setContentsMargins(0, 0, 0, 0)
@@ -487,9 +508,66 @@ class ParamsGroupSection(QWidget):
         )
         self.setLayout(root)
 
+    def _build_form(self, specs) -> QFormLayout:
+        """A form laying out the editors (already built) for ``specs``, in order."""
+        form = _new_form_layout()
+        for spec in specs:
+            editor = self._editors[spec.leaf]
+            label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
+            if spec.tooltip:
+                label.setToolTip(spec.tooltip)
+                editor.setToolTip(spec.tooltip)
+            form.addRow(label, editor)
+        return form
+
+    def _build_subsectioned_content(self, panel_specs) -> QWidget:
+        """Lay the panel out as loose fields (top) followed by one nested
+        collapsible per :class:`SubSection`. Subsections reference fields by leaf
+        name; anything not grouped renders loose at the top (e.g. ``active``)."""
+        by_leaf = {spec.leaf: spec for spec in panel_specs}
+        grouped = {name for sub in self._manifest.subsections for name in sub.field_names}
+
+        container = QWidget()
+        vbox = QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setAlignment(Qt.AlignTop)
+
+        loose = [spec for spec in panel_specs if spec.leaf not in grouped]
+        if loose:
+            loose_widget = QWidget()
+            loose_widget.setLayout(self._build_form(loose))
+            vbox.addWidget(loose_widget)
+
+        for sub in self._manifest.subsections:
+            specs = [by_leaf[name] for name in sub.field_names if name in by_leaf]
+            sub_content = QWidget()
+            sub_content.setLayout(self._build_form(specs))
+            vbox.addWidget(CollapsibleSection(
+                sub.title, sub_content, expanded=sub.expanded, variant='subsection'))
+        return container
+
     def _build_editor(self, spec: ParamSpec) -> QWidget:
         annotation = self._type_hints[spec.leaf]
         return _editor_from_param_spec(annotation, spec, label=f"{self._group_cls.__name__}.{spec.leaf}")
+
+    def _build_actions(self) -> QWidget:
+        bar = QWidget()
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(0, 4, 0, 0)
+        for action in self._manifest.actions:
+            button = QPushButton(_normalize_ui_text(action.label))
+            if action.tooltip:
+                button.setToolTip(action.tooltip)
+            button.clicked.connect(
+                lambda _checked=False, aid=action.action_id: self.action_triggered.emit(aid))
+            layout.addWidget(button)
+        layout.addStretch(1)
+        return bar
+
+    def set_field(self, leaf: str, value: Any) -> None:
+        """Set a single field's editor value (e.g. write a fitted calibration
+        string back from a controller action)."""
+        self._editors[leaf].value = value
 
     def set_state(self, group: Any) -> None:
         self._source = group
@@ -500,6 +578,13 @@ class ParamsGroupSection(QWidget):
         base = self._source if self._source is not None else self._group_cls()
         overrides = {leaf: editor.value for leaf, editor in self._editors.items()}
         return replace(base, **overrides)
+
+    def set_development_time_choices(self, times: Any) -> None:
+        """Repopulate the development-time dropdown (if this group has one) with
+        the loaded stock's available development times. No-op otherwise."""
+        editor = self._editors.get('development_time')
+        if isinstance(editor, DevelopmentTimeEditor):
+            editor.set_choices(None if times is None else [float(t) for t in times])
 
 
 class SpecialSection(QWidget):
@@ -521,8 +606,6 @@ class SpecialSection(QWidget):
             editor = _editor_from_param_spec(_path_annotation(SpecialState, spec.path), spec, label=spec.path)
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
-            if spec.leaf == 'film_gamma_factor':
-                continue
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
             if spec.tooltip:
                 label.setToolTip(spec.tooltip)
@@ -550,14 +633,6 @@ class SpectralUpsamplingSection(QWidget):
         super().__init__()
         self.setLayout(
             _build_path_panel('Spectral upsampling', SPECTRAL_PANEL_FIELDS, input_image_section._editors, expanded=False),
-        )
-
-
-class TuneSection(QWidget):
-    def __init__(self, special_section: SpecialSection):
-        super().__init__()
-        self.setLayout(
-            _build_path_panel('Tune', TUNE_PANEL_FIELDS, special_section._editors, expanded=True),
         )
 
 
@@ -672,7 +747,7 @@ class DisplaySection(QWidget):
 
 class SimulationSection(QWidget):
     _is_params_group = True
-    _skip_auto_preview_leaves = {'auto_preview', 'scan_film'}
+    _skip_auto_preview_leaves = {'auto_preview'}
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
@@ -693,7 +768,7 @@ class SimulationSection(QWidget):
             self._editors[spec.leaf] = editor
             setattr(self, spec.leaf, editor)
         self.bottom_auto_preview = self.auto_preview
-        self.bottom_scan_film = self.scan_film
+        self.bottom_workflow = self.route
         self.bottom_scan_for_print = BoolEditor()
         scan_for_print_spec = _AUXILIARY_FIELD_SPECS['scan_for_print']
         if scan_for_print_spec.tooltip:
@@ -724,18 +799,21 @@ class SimulationSection(QWidget):
             role='accentAction',
         )
 
-        scan_film_row = QHBoxLayout()
-        scan_film_row.setContentsMargins(0, 0, 0, 0)
-        scan_film_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
-        scan_film_row.addWidget(self.bottom_auto_preview)
-        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_widget_label('simulation', 'scan_film'))
-        scan_film_row.addWidget(self.bottom_scan_film)
-        scan_film_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
-        scan_film_row.addWidget(_build_auxiliary_label('scan_for_print'))
-        scan_film_row.addWidget(self.bottom_scan_for_print)
-        scan_film_row.addStretch(1)
+        toggles_row = QHBoxLayout()
+        toggles_row.setContentsMargins(0, 0, 0, 0)
+        toggles_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        toggles_row.addWidget(_build_widget_label('simulation', 'auto_preview'))
+        toggles_row.addWidget(self.bottom_auto_preview)
+        toggles_row.addSpacing(SIZE_FOOTER_ITEM_SPACING)
+        toggles_row.addWidget(_build_auxiliary_label('scan_for_print'))
+        toggles_row.addWidget(self.bottom_scan_for_print)
+        toggles_row.addStretch(1)
+
+        workflow_row = QHBoxLayout()
+        workflow_row.setContentsMargins(0, 0, 0, 0)
+        workflow_row.setSpacing(SIZE_FOOTER_ITEM_SPACING)
+        workflow_row.addWidget(_build_widget_label('simulation', 'route'))
+        workflow_row.addWidget(self.bottom_workflow, 1)
 
         action_buttons = QWidget()
         action_buttons.setLayout(
@@ -752,7 +830,8 @@ class SimulationSection(QWidget):
         bottom_bar_layout = QVBoxLayout(self.bottom_bar)
         bottom_bar_layout.setContentsMargins(0, 0, 0, 0)
         bottom_bar_layout.setSpacing(SIZE_FOOTER_ITEM_SPACING)
-        bottom_bar_layout.addLayout(scan_film_row)
+        bottom_bar_layout.addLayout(toggles_row)
+        bottom_bar_layout.addLayout(workflow_row)
         bottom_bar_layout.addWidget(action_buttons)
         self.setLayout(_build_path_panel('Profiles', SIMULATION_PROFILE_PANEL_FIELDS, self._editors, expanded=True))
 
@@ -777,12 +856,6 @@ class SimulationSection(QWidget):
 
     def auto_preview_value(self) -> bool:
         return self.bottom_auto_preview.isChecked()
-
-    def set_scan_film_value(self, value: bool) -> None:
-        self.bottom_scan_film.setChecked(value)
-
-    def scan_film_value(self) -> bool:
-        return self.bottom_scan_film.isChecked()
 
     def bind_scan_for_print_sections(
         self,
@@ -835,21 +908,13 @@ class OutputSection(QWidget):
         )
 
 
-class ExposureControlSection(QWidget):
-    def __init__(self, simulation_section: SimulationSection, camera_section: 'ParamsGroupSection'):
-        super().__init__()
-        # auto_exposure / exposure_compensation_ev are CameraParams fields
-        # owned by camera_section; the print-exposure fields are owned by
-        # simulation_section. Render the camera pair on top, then the print
-        # controls, from a merged editor lookup (leaves do not collide).
-        editors = {**camera_section._editors, **simulation_section._editors}
-        fields = CAMERA_EXPOSURE_BORROWED_FIELDS + SIMULATION_EXPOSURE_PANEL_FIELDS
-        self.setLayout(_build_path_panel('Exposure control', fields, editors, expanded=True))
-
-
 class EnlargerSection(QWidget):
     def __init__(self, simulation_section: SimulationSection):
         super().__init__()
+        # Print exposure controls and filter shifts are both owned by
+        # simulation_section; render the exposure pair on top of the filter
+        # shifts.
+        fields = SIMULATION_EXPOSURE_PANEL_FIELDS + SIMULATION_ENLARGER_PANEL_FIELDS
         self.setLayout(
-            _build_path_panel('Enlarger', SIMULATION_ENLARGER_PANEL_FIELDS, simulation_section._editors, expanded=True),
+            _build_path_panel('Enlarger', fields, simulation_section._editors, expanded=True),
         )

@@ -251,6 +251,7 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
         captured['kwargs'] = kwargs
         return raw_image
 
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
     monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: (_ for _ in ()).throw(AssertionError('should not build params for raw image preview cache')))
@@ -275,6 +276,7 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
         'output_colorspace': 'Display P3',
         'output_cctf_encoding': True,
         'lens_info_out': {},
+        'reference_illuminant': None,
     }
     assert len(viewer.layers) == 4
     assert [layer.name for layer in viewer.layers[-3:]] == [
@@ -287,6 +289,49 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
     assert captured['reset_view'] is True
 
 
+def test_load_raw_image_film_white_balance_uses_selected_stock_reference(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    gui_state = make_test_controller_gui_state()
+    gui_state.selection.film_stock = 'kodak_portra_400'
+    gui_state.gui_only.load_raw.white_balance = 'film'
+    captured: dict[str, object] = {}
+
+    def fake_load_and_process_raw_file(path, **kwargs):
+        captured['kwargs'] = kwargs
+        return np.full((2, 2, 3), 0.4, dtype=np.float32)
+
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
+    monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
+    monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
+    monkeypatch.setattr(controller_module, 'set_status', lambda *args, **kwargs: None)
+    monkeypatch.setattr(controller, '_set_or_add_input_stack', lambda image: None)
+    monkeypatch.setattr(controller, '_request_auto_preview_if_enabled', lambda: None)
+
+    controller.load_raw_image('/tmp/example.nef')
+
+    assert captured['kwargs']['white_balance'] == 'film'
+    assert captured['kwargs']['reference_illuminant'] == 'D55'
+    assert controller._film_balanced_raw == ('/tmp/example.nef', 'D55')
+
+
+def test_film_stock_change_reloads_film_balanced_raw_only_when_balance_changes(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    reloads: list[str] = []
+    monkeypatch.setattr(controller, 'apply_profile_defaults', lambda stock: None)
+    monkeypatch.setattr(controller, 'load_raw_image', reloads.append)
+    monkeypatch.setattr(
+        controller_module, 'film_reference_illuminant',
+        lambda stock: {'kodak_portra_160': 'D55', 'kodak_vision3_500t': 'T'}.get(stock),
+    )
+    controller._film_balanced_raw = ('/tmp/example.nef', 'D55')
+
+    controller.apply_film_profile_defaults('kodak_portra_160')
+    assert reloads == []
+
+    controller.apply_film_profile_defaults('kodak_vision3_500t')
+    assert reloads == ['/tmp/example.nef']
+
+
 def test_load_raw_image_requests_auto_preview_once_when_enabled(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(auto_preview_value=lambda: True)))
     raw_image = np.full((4, 2, 3), 0.4, dtype=np.float32)
@@ -297,6 +342,7 @@ def test_load_raw_image_requests_auto_preview_once_when_enabled(monkeypatch) -> 
         captured['stack_image'] = image
         controller._current_preview_image = preview_image
 
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
     monkeypatch.setattr(controller_module, 'load_and_process_raw_file', lambda path, **kwargs: raw_image)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: make_test_controller_gui_state())
     monkeypatch.setattr(controller, '_set_or_add_input_stack', fake_set_or_add_input_stack)
@@ -329,6 +375,7 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
         captured_dialog['title'] = title
         captured_dialog['message'] = message
 
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
     monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'dialog_parent', lambda viewer: 'dialog-parent')
@@ -347,7 +394,7 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
         'title': 'Load raw',
         'message': (
             'Failed to load RAW image.\n\n'
-            'RAW file does not expose a usable camera XYZ matrix for custom white balance.'
+            'ValueError: RAW file does not expose a usable camera XYZ matrix for custom white balance.'
         ),
     }
     assert len(viewer.layers) == 1
@@ -367,6 +414,7 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
         captured['kwargs'] = kwargs
         return raw_image
 
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
     monkeypatch.setattr(controller_module, 'load_and_process_raw_file', fake_load_and_process_raw_file)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: (_ for _ in ()).throw(AssertionError('should not build params for raw image preview cache')))
@@ -391,11 +439,17 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
 
 
 def test_apply_profile_defaults_routes_through_selection_digest(monkeypatch) -> None:
-    controller = GuiController(viewer=object(), widgets=object())
+    controller = GuiController(
+        viewer=object(),
+        widgets=SimpleNamespace(
+            film_chemistry=SimpleNamespace(set_development_time_choices=lambda times: None),
+            chemistry=SimpleNamespace(set_development_time_choices=lambda times: None),
+        ),
+    )
     controller._next_runtime_digest_applies_stock_specifics = False
     gui_state = make_test_controller_gui_state()
     captured: dict[str, object] = {}
-    built_params = object()
+    built_params = SimpleNamespace(film=None, print=None)
     digested_params = object()
     synced_state = object()
 
@@ -439,7 +493,7 @@ def test_apply_profile_sync_state_updates_runtime_owned_widget_fields() -> None:
         )
         synced_state = SimpleNamespace(
             couplers=SimpleNamespace(gamma_samelayer_rgb=(0.35, 0.2275, 0.1225)),
-            simulation=SimpleNamespace(scan_film=True),
+            simulation=SimpleNamespace(route="input > film > scan"),
         )
 
         controller._apply_profile_sync_state(synced_state)
@@ -487,8 +541,8 @@ def test_run_simulation_passes_display_transform_settings(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ('method_name', 'expected_call'),
     [
-        ('run_preview', {'source_layer_name': INPUT_PREVIEW_LAYER_NAME, 'mode_label': 'Preview'}),
-        ('run_scan', {'source_layer_name': INPUT_LAYER_NAME, 'mode_label': 'Scan'}),
+        ('run_preview', {'source_layer_name': INPUT_PREVIEW_LAYER_NAME, 'mode_label': 'Preview', 'channel': 'simulation'}),
+        ('run_scan', {'source_layer_name': INPUT_LAYER_NAME, 'mode_label': 'Scan', 'channel': 'scan'}),
     ],
     ids=['preview', 'scan'],
 )
@@ -499,12 +553,13 @@ def test_run_preview_and_scan_start_async_simulation(monkeypatch, method_name: s
     monkeypatch.setattr(
         controller,
         '_start_simulation',
-        lambda *, source_layer_name, mode_label, report_status=True: captured.setdefault(
+        lambda *, source_layer_name, mode_label, report_status=True, channel='simulation': captured.setdefault(
             'call',
             {
                 'source_layer_name': source_layer_name,
                 'mode_label': mode_label,
                 'report_status': report_status,
+                'channel': channel,
             },
         ),
     )
@@ -512,6 +567,26 @@ def test_run_preview_and_scan_start_async_simulation(monkeypatch, method_name: s
     getattr(controller, method_name)()
 
     assert captured['call'] == {**expected_call, 'report_status': True}
+
+
+def _stub_simulation_execution(controller, monkeypatch, captured: dict[str, object]) -> None:
+    """Run the simulation channel synchronously and capture the request the
+    controller submits, standing in for the off-thread runtime call."""
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
+    monkeypatch.setattr(controller, '_set_or_add_output_layer', lambda *args, **kwargs: None)
+
+    def fake_execute(request):
+        captured['request'] = request
+        return controller_module.SimulationResult(
+            mode_label=request.mode_label,
+            display_image=np.zeros((1, 1, 3), dtype=np.uint8),
+            float_image=np.zeros((1, 1, 3), dtype=np.float32),
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+            status_message='ok',
+        )
+
+    monkeypatch.setattr(controller, '_execute_simulation_request', fake_execute)
 
 
 def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> None:
@@ -527,14 +602,13 @@ def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> No
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: object())
     monkeypatch.setattr(controller_module, 'set_status', lambda viewer, message, timeout_ms=5000: captured.setdefault('status', (message, timeout_ms)))
-    monkeypatch.setattr(controller._thread_pool, 'start', lambda worker: captured.setdefault('worker', worker))
+    _stub_simulation_execution(controller, monkeypatch, captured)
 
     controller._start_simulation(source_layer_name=INPUT_PREVIEW_LAYER_NAME, mode_label='Preview')
 
     assert captured['status'] == ('Computing preview...', 0)
     assert captured['white_padding'] == gui_state.gui_only.display.white_padding
-    assert controller._active_simulation_label == 'Preview'
-    np.testing.assert_allclose(captured['worker']._request.image, np.double(preview_image))
+    np.testing.assert_allclose(captured['request'].image, np.double(preview_image))
 
 
 def test_start_simulation_skips_computing_status_for_silent_preview(monkeypatch) -> None:
@@ -550,7 +624,7 @@ def test_start_simulation_skips_computing_status_for_silent_preview(monkeypatch)
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: object())
     monkeypatch.setattr(controller_module, 'set_status', lambda viewer, message, timeout_ms=5000: captured.setdefault('status_calls', []).append((message, timeout_ms)))
-    monkeypatch.setattr(controller._thread_pool, 'start', lambda worker: captured.setdefault('worker', worker))
+    _stub_simulation_execution(controller, monkeypatch, captured)
 
     controller._start_simulation(
         source_layer_name=INPUT_PREVIEW_LAYER_NAME,
@@ -560,9 +634,7 @@ def test_start_simulation_skips_computing_status_for_silent_preview(monkeypatch)
 
     assert 'status_calls' not in captured
     assert captured['white_padding'] == gui_state.gui_only.display.white_padding
-    assert controller._active_simulation_label == 'Preview'
-    assert controller._active_simulation_reports_status is False
-    np.testing.assert_allclose(captured['worker']._request.image, np.double(preview_image))
+    np.testing.assert_allclose(captured['request'].image, np.double(preview_image))
 
 
 def test_request_auto_preview_schedules_once_and_runs_preview(monkeypatch) -> None:
@@ -593,33 +665,55 @@ def test_request_auto_preview_schedules_once_and_runs_preview(monkeypatch) -> No
     assert captured['preview_runs'] == [False]
 
 
-def test_request_auto_preview_replays_after_active_simulation(monkeypatch) -> None:
+def test_start_warmup_runs_on_working_thread_and_grays_out_buttons(monkeypatch) -> None:
+    class FakeButton:
+        def __init__(self) -> None:
+            self.enabled = True
+
+        def setEnabled(self, value: bool) -> None:
+            self.enabled = value
+
+    buttons = SimpleNamespace(preview_button=FakeButton(), scan_button=FakeButton(), save_button=FakeButton())
+    controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=buttons))
+    statuses: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        controller_module,
+        'set_status',
+        lambda viewer, message, timeout_ms=5000: statuses.append((message, timeout_ms)),
+    )
+
+    warmup_calls: list[bool] = []
+
+    def fake_warmup() -> None:
+        # While the warmup runs, the action buttons must be grayed out.
+        warmup_calls.append(True)
+        assert all(not getattr(buttons, name).enabled for name in ('preview_button', 'scan_button', 'save_button'))
+
+    monkeypatch.setattr(controller._thread_pool, 'start', lambda task: task.run())
+
+    controller.start_warmup(fake_warmup)
+
+    assert warmup_calls == [True]
+    # Buttons are re-enabled once the working thread goes idle again.
+    assert all(getattr(buttons, name).enabled for name in ('preview_button', 'scan_button', 'save_button'))
+
+
+def test_run_scheduled_auto_preview_submits_silent_preview(monkeypatch) -> None:
+    # Busy-state coalescing now lives in the BackgroundRunner, so the scheduled
+    # auto-preview always submits and lets the runner coalesce against any
+    # in-flight simulation (see test_background for the coalescing contract).
     simulation_section = SimpleNamespace(auto_preview_value=lambda: True)
     controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=simulation_section))
     controller._current_preview_image = np.full((2, 2, 3), 0.25, dtype=np.float32)
-    controller._active_simulation_worker = object()
-    captured: dict[str, object] = {}
+    controller._auto_preview_scheduled = True
+    runs: list[bool] = []
 
-    monkeypatch.setattr(controller_module.QTimer, 'singleShot', staticmethod(lambda delay_ms, callback: captured.setdefault('scheduled', []).append((delay_ms, callback))))
-    monkeypatch.setattr(
-        controller,
-        '_run_preview',
-        lambda *, report_status: captured.setdefault('preview_runs', []).append(report_status),
-    )
+    monkeypatch.setattr(controller, '_run_preview', lambda *, report_status: runs.append(report_status))
 
-    controller.request_auto_preview()
-    scheduled_callback = captured['scheduled'][0][1]
-    scheduled_callback()
+    controller._run_scheduled_auto_preview()
 
-    assert controller._pending_auto_preview is True
-    assert 'preview_runs' not in captured
-
-    controller._active_simulation_worker = None
-    controller._replay_pending_auto_preview()
-    replay_callback = captured['scheduled'][1][1]
-    replay_callback()
-
-    assert captured['preview_runs'] == [False]
+    assert runs == [False]
+    assert controller._auto_preview_scheduled is False
 
 
 def test_refresh_preview_cache_recomputes_cached_preview_without_hiding_visible_output(monkeypatch) -> None:
@@ -727,7 +821,7 @@ def test_start_simulation_sets_preview_mode_before_runtime_digest(
     monkeypatch.setattr(controller_module, 'collect_gui_state', lambda *, widgets: gui_state)
     monkeypatch.setattr(controller_module, 'build_params_from_state', lambda state: params)
     monkeypatch.setattr(controller_module, 'set_status', lambda *args, **kwargs: None)
-    monkeypatch.setattr(controller._thread_pool, 'start', lambda worker: captured.setdefault('request', worker._request))
+    _stub_simulation_execution(controller, monkeypatch, captured)
 
     controller._start_simulation(source_layer_name=source_layer_name, mode_label=mode_label)
 
@@ -856,7 +950,6 @@ def test_process_image_with_runtime_reapplies_stock_specific_digest_after_profil
 
 def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(preview_button=None, scan_button=None, save_button=None)))
-    controller._active_simulation_label = 'Preview'
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller, '_set_or_add_output_layer', lambda image, **kwargs: captured.setdefault('output', (image, kwargs)))
@@ -870,7 +963,8 @@ def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:
             output_color_space='sRGB',
             use_display_transform=False,
             status_message='Display transform: disabled',
-        )
+        ),
+        report_status=True,
     )
 
     assert captured['status'] == ('Preview completed. Display transform: disabled', 5000)
@@ -878,8 +972,6 @@ def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:
 
 def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=SimpleNamespace(simulation=SimpleNamespace(preview_button=None, scan_button=None, save_button=None)))
-    controller._active_simulation_label = 'Preview'
-    controller._active_simulation_reports_status = False
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(controller, '_set_or_add_output_layer', lambda image, **kwargs: captured.setdefault('output', (image, kwargs)))
@@ -893,8 +985,8 @@ def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkey
             output_color_space='sRGB',
             use_display_transform=False,
             status_message='Display transform: disabled',
-        )
+        ),
+        report_status=False,
     )
 
     assert 'status_calls' not in captured
-    assert controller._active_simulation_reports_status is True
