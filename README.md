@@ -369,8 +369,8 @@ Please bear in mind that this is a highly experimental project, and many
 controls are exposed in the GUI with little or no documentation. Use the
 tooltips by hovering over the controls, or explore the code. Adjust
 `exposure_compensation_ev` to change the exposure of the negative. You can
-visualize a virtual scan of the negative by pressing `scan_film` and
-`PREVIEW/SCAN`.
+visualize a virtual scan of the negative by setting the `Workflow` selector
+to `input-film-scan` and pressing `PREVIEW/SCAN`.
 
 For fine-tuning halation, adjust `scattering size`, `scattering strength`,
 `halation size`, and `halation strength`. There are three controls for each,

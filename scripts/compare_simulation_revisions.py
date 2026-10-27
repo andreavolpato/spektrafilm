@@ -87,11 +87,11 @@ def evaluate_current_worktree(
     }.items():
         results[name] = np.mean(simulate(_patch(rgb), params), axis=(0, 1)).tolist()
 
-    params.io.scan_film = True
+    params.workflow.route = "input > film > scan"
     results['neg_scan_midgray'] = np.mean(simulate(_patch((0.184, 0.184, 0.184)), params), axis=(0, 1)).tolist()
 
     params = _configure_params(init_params(film_profile=positive_film_profile, print_profile=print_profile))
-    params.io.scan_film = True
+    params.workflow.route = "input > film > scan"
     for name, rgb in {
         'pos_scan_midgray': (0.184, 0.184, 0.184),
         'pos_scan_red': (0.5, 0.05, 0.05),
