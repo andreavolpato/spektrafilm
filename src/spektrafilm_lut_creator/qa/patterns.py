@@ -80,7 +80,7 @@ def planckian_sweep(
     input_color_space: str,
     cct_range_k: tuple[float, float] = (2700.0, 10000.0),
     n: int = 16,
-    stops_above_midgray: float | None = None,
+    exposure_ev: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Daylight-locus white points across a CCT range.
 
@@ -131,7 +131,7 @@ def planckian_sweep(
     peak = np.clip(np.max(linear_rgb, axis=-1, keepdims=True), 1e-6, None)
     linear_rgb = linear_rgb / peak
     samples_encoded = encode_qa_input(
-        np.clip(linear_rgb, 0.0, 1.0), input_color_space, stops_above_midgray,
+        np.clip(linear_rgb, 0.0, 1.0), input_color_space, exposure_ev,
     )
     return np.asarray(samples_encoded, dtype=np.float32), cct
 

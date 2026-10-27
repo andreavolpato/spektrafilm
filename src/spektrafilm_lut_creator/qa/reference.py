@@ -30,7 +30,6 @@ from spektrafilm_lut_creator.bundles import Bundle, BundleSpec
 from spektrafilm_lut_creator.color_spaces import (
     decode_cctf,
     encode_cctf,
-    get as get_color_space,
 )
 
 
@@ -80,10 +79,13 @@ def _cache_key(spec: BundleSpec, bundle: Bundle, print_index: int) -> str:
     h = hashlib.sha256()
     # Bump when the reference-compute semantics change (gain plumbing,
     # encoding scale, etc.) so stale .npz caches don't poison QA figures
-    # after a code update. "2" = input_exposure_gain + output_midgray_gain
-    # are now applied in the reference path, matching the builder.
-    h.update(b"qa_reference_v2|")
+    # after a code update. "4" = reference pipeline built from
+    # bundle.baked_params (b60/n010 §8: one source of truth); the params
+    # snapshot enters the key so a bake from non-default caller params
+    # can't reuse a default bake's cached reference.
+    h.update(b"qa_reference_v4|")
     h.update(repr(asdict(spec)).encode("utf-8"))
+    h.update(repr(bundle.meta.params_snapshot).encode("utf-8"))
     if bundle.meta.stocks is not None:
         print_name = bundle.meta.stocks.prints[print_index]
     else:
@@ -148,6 +150,34 @@ def compute_or_load(
     return ref
 
 
+def _print_stock(spec: BundleSpec, bundle: Bundle, print_index: int) -> str:
+    if bundle.meta.stocks is not None:
+        return bundle.meta.stocks.prints[print_index]
+    return spec.print_profiles[print_index]
+
+
+def _reference_pipeline(spec: BundleSpec, bundle: Bundle, print_index: int):
+    """The pipeline QA compares the LUT against — one source of truth.
+
+    Built from ``bundle.baked_params`` (the exact digested params the
+    cubes were baked with) so the reference can never disagree with the
+    bake. Bundles that predate ``baked_params`` (or were reconstructed
+    without it) fall back to the same :func:`bake.bake_params` recipe the
+    builder uses.
+    """
+    # Deferred runtime import — matches the builder's pattern, keeps the
+    # `import spektrafilm_lut_creator.qa` cost low for callers that only
+    # need the result/viz layer.
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+    from spektrafilm_lut_creator import bake
+
+    print_stock = _print_stock(spec, bundle, print_index)
+    params = bundle.baked_params.get(print_stock)
+    if params is None:
+        params, _ = bake.bake_params(spec, print_stock)
+    return SimulationPipeline(params)
+
+
 def _compute(
     spec: BundleSpec,
     bundle: Bundle,
@@ -157,40 +187,21 @@ def _compute(
     rng_seed: int,
 ) -> ReferenceSamples:
     """Run the spektrafilm pipeline at ``n_samples`` random off-grid points."""
-    # Deferred runtime import — matches the builder's pattern, keeps the
-    # `import spektrafilm_lut_creator.qa` cost low for callers that only
-    # need the result/viz layer.
-    from spektrafilm.runtime.params_builder import digest_params, init_params
-    from spektrafilm.runtime.pipeline import SimulationPipeline
-
     rng = np.random.default_rng(rng_seed)
     rng_samples_encoded = rng.uniform(0.0, 1.0, size=(n_samples, 3)).astype(np.float32)
-    # Match the builder: decode, then apply the input exposure gain so
-    # the pipeline sees the same linear values the baked LUT was built
-    # from. Without this, a stops_above_midgray bundle's reference diverges
-    # from the LUT and every comparison figure (drift maps, exposure
-    # sweeps, ΔE plots) looks broken. BakeFrame holds the precomputed
-    # gains so we don't re-derive them at every QA call site.
+    # Match the builder: decode, then apply the input gain (midgray
+    # bridge × exposure_ev) so the pipeline sees the same linear values
+    # the baked LUT was built from. Without this, an HDR or re-exposed
+    # bundle's reference diverges from the LUT and every comparison
+    # figure (drift maps, exposure sweeps, ΔE plots) looks broken.
+    # BakeFrame holds the precomputed gains so we don't re-derive them
+    # at every QA call site.
     frame = spec.bake_frame()
     rng_samples_linear = (
         decode_cctf(rng_samples_encoded, spec.input_color_space) * frame.input_gain
     ).astype(np.float32)
 
-    in_entry = get_color_space(spec.input_color_space)
-    out_entry = get_color_space(spec.output_color_space)
-
-    print_stock = bundle.meta.stocks.prints[print_index] if bundle.meta.stocks else spec.print_profiles[print_index]
-
-    params = init_params(film_profile=spec.film_profile, print_profile=print_stock)
-    params.debug.lut_mode = True
-    params.io.input_color_space = in_entry.primaries
-    params.io.output_color_space = out_entry.primaries
-    params.io.input_cctf_decoding = False
-    params.io.output_cctf_encoding = False
-    params.io.input_gamut_compress = spec.input_gamut_compress
-    params.io.output_gamut_compress = spec.output_gamut_compress
-    params = digest_params(params)
-    pipeline = SimulationPipeline(params)
+    pipeline = _reference_pipeline(spec, bundle, print_index)
 
     # Pipeline expects (H, W, 3); reshape into a long strip. lut_mode
     # turns off every spatial effect so layout is purely a performance
@@ -230,29 +241,13 @@ def run_pipeline_at(
     Both input and output are in encoded ``[0, 1]`` form to match the
     LUT-application convention.
     """
-    from spektrafilm.runtime.params_builder import digest_params, init_params
-    from spektrafilm.runtime.pipeline import SimulationPipeline
-
     samples_encoded = np.asarray(samples_encoded, dtype=np.float32).reshape(-1, 3)
     frame = spec.bake_frame()
     samples_linear = (
         decode_cctf(samples_encoded, spec.input_color_space) * frame.input_gain
     ).astype(np.float32)
 
-    in_entry = get_color_space(spec.input_color_space)
-    out_entry = get_color_space(spec.output_color_space)
-    print_stock = bundle.meta.stocks.prints[print_index] if bundle.meta.stocks else spec.print_profiles[print_index]
-
-    params = init_params(film_profile=spec.film_profile, print_profile=print_stock)
-    params.debug.lut_mode = True
-    params.io.input_color_space = in_entry.primaries
-    params.io.output_color_space = out_entry.primaries
-    params.io.input_cctf_decoding = False
-    params.io.output_cctf_encoding = False
-    params.io.input_gamut_compress = spec.input_gamut_compress
-    params.io.output_gamut_compress = spec.output_gamut_compress
-    params = digest_params(params)
-    pipeline = SimulationPipeline(params)
+    pipeline = _reference_pipeline(spec, bundle, print_index)
 
     image_in = samples_linear.reshape(1, samples_linear.shape[0], 3)
     image_out_linear = np.asarray(pipeline.process(image_in), dtype=float).reshape(-1, 3)

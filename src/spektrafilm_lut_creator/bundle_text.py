@@ -118,8 +118,8 @@ def bundle_readme_text(
     if meta.input_exposure is not None:
         exp = meta.input_exposure
         lines.append(
-            f"- Input exposure: source white at +{exp.stops_above_midgray:g} "
-            f"stops above 0.18 (linear gain {exp.gain:.4g})"
+            f"- Input exposure: {exp.exposure_ev:+g} EV baked in "
+            f"(linear gain {exp.gain:.4g})"
         )
     if output_cs is not None:
         lines.append(
@@ -269,7 +269,7 @@ def _apply_order_block(topology: str) -> list[str]:
 
 
 def _input_exposure_block(meta, input_cs, output_cs) -> list[str]:
-    """Render the "Input exposure" disclosure section (n150)."""
+    """Render the "Input exposure" disclosure section (n200)."""
     exp = meta.input_exposure
     film_mid_gray = 0.18 * exp.gain
     return [
@@ -277,31 +277,26 @@ def _input_exposure_block(meta, input_cs, output_cs) -> list[str]:
         "## Input exposure",
         "",
         (
-            f"This bundle was baked with `stops_above_midgray = "
-            f"{exp.stops_above_midgray:g}` — the source's encoded 1.0 "
-            f"is placed at +{exp.stops_above_midgray:g} stops above "
-            f"0.18 linear in the film's frame via a simple linear "
-            f"gain of {exp.gain:.4g}. No log shaping: every input "
-            f"linear value gets the same multiplier, so middle "
-            f"gray drifts with the gain. For a source whose "
-            f"native mid-gray is 0.18 linear, the film sees "
-            f"mid-gray at {film_mid_gray:.4g} linear — "
-            f"{'above' if film_mid_gray > 0.18 else 'below'} the "
-            f"photographic 0.18 reference. This is the simple-"
-            f"multiplication trade-off (recovering both fixed "
-            f"mid-gray and configurable headroom would require "
-            f"log shaping, which this design deliberately "
-            f"avoids)."
+            f"This bundle was baked with `exposure_ev = "
+            f"{exp.exposure_ev:+g}` — a deliberate linear gain of "
+            f"{exp.gain:.4g} on top of the default midgray-pinned "
+            f"mapping. Every input linear value gets the same "
+            f"multiplier, middle gray included: a source whose "
+            f"native mid-gray is 0.18 linear renders as if exposed "
+            f"{abs(exp.exposure_ev):g} stop(s) "
+            f"{'over' if exp.exposure_ev > 0 else 'under'} — the film "
+            f"sees mid-gray at {film_mid_gray:.4g} linear instead of "
+            f"the photographic 0.18 reference."
         ),
         "",
         (
-            "**Disclosure.** With `stops_above_midgray` set, the LUT "
-            "is no longer a strict colorimetric "
+            "**Disclosure.** With `exposure_ev` set, the LUT is no "
+            "longer a strict colorimetric "
             f"`{input_cs.name if input_cs else 'input'} → "
             f"{output_cs.name if output_cs else 'output'}` "
             "transform — it bakes in the exposure gain so the "
             "source walks more (or less) of the film's latitude. "
-            "See spektrafilm-research n150 for the rationale."
+            "See spektrafilm-research n200 for the rationale."
         ),
     ]
 

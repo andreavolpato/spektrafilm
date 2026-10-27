@@ -64,7 +64,7 @@ def _film_reference_illuminant(ctx: "QAContext") -> str:
     wrong (most film profiles).
     """
     try:
-        from spektrafilm.profiles.io import load_profile
+        from spektrafilm.data.profiles_loader import load_profile
         profile = load_profile(ctx.spec.film_profile)
         ref = profile.info.reference_illuminant
         return str(ref) if ref else "D55"

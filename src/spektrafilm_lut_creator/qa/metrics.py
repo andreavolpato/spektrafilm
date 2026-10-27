@@ -589,7 +589,7 @@ def noise_sensitivity_field(
 
     # _to_xyz_qa normalizes HDR inputs back to reflectance scale so the
     # OkLab projection matches the convention every viz panel assumes.
-    # For stops_above_midgray="auto" bundles, input_gain and 1/output_midgray_gain
+    # At exposure_ev=0 the input midgray gain and 1/output_midgray_gain
     # are mutual inverses, so the encoded-sample → reflectance-XYZ round
     # trip falls out cleanly here.
     input_oklab = np.asarray(

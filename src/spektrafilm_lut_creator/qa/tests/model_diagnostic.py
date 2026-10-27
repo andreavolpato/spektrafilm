@@ -165,7 +165,7 @@ def planckian_sweep(ctx: "QAContext") -> Result:
     """
     spec = ctx.spec
     samples_encoded, cct = patterns.planckian_sweep(
-        spec.input_color_space, n=16, stops_above_midgray=ctx.frame.stops_above_midgray,
+        spec.input_color_space, n=16, exposure_ev=ctx.frame.exposure_ev,
     )
 
     # Apply the LUT (cheap) — that's what users will see.
@@ -339,11 +339,10 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
 
     stats = metrics.dynamic_range_stats(stops, y_out, encoded_clip_mask)
     # Midgray exposure readout: where does the camera's 18% gray (stop 0)
-    # actually render? Ideal is output Y ≈ 0.18 (offset 0). A non-zero
-    # offset is an exposure shift baked into the LUT — a bug for log inputs
-    # (which should pass through at identity gain), or the documented
-    # simple-gain midgray drift for SDR inputs with stops_above_midgray
-    # boosting the shoulder. Either way: report it loudly.
+    # actually render? Ideal is output Y ≈ 0.18 (offset 0). Midgray is
+    # pinned by construction (n200), so any offset beyond the film's own
+    # rendering of 18% gray is either the spec's deliberate exposure_ev
+    # or a bug. Either way: report it loudly.
     midgray_y = float(np.interp(0.0, stops, y_out))
     midgray_offset_stops = float(np.log2(midgray_y / 0.18))
     stats["midgray_output_y"] = midgray_y
@@ -367,10 +366,10 @@ def dynamic_range_usage(ctx: "QAContext") -> Result:
         interpretation=(
             f"Midgray exposure: the camera's 18% gray renders at "
             f"{midgray_offset_stops:+.2f} stops vs the ideal 0.18 output "
-            f"({drift}). For a log input this should be ≈0 (identity gain); "
-            f"a large offset means the LUT is re-exposing midgray. For SDR "
-            f"inputs a small positive drift is the documented simple-gain "
-            f"trade-off when stops_above_midgray boosts the shoulder.\n"
+            f"({drift}). Midgray is pinned by construction, so this should "
+            f"be ≈0 (plus the film's own rendering of 18% gray) unless the "
+            f"spec bakes a deliberate exposure_ev — anything else means "
+            f"the LUT is re-exposing midgray.\n"
             "The 'active rendering range' is how many input stops the "
             "LUT distinguishes — slope above 0.10 D/stop. Below that "
             "threshold, an input stop change barely moves the output, "
