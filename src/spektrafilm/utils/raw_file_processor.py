@@ -38,6 +38,20 @@ def _whitepoint_xyz_from_temperature(temperature: float) -> np.ndarray:
     return np.asarray(colour.xy_to_XYZ(xy), dtype=np.float64)
 
 
+def _whitepoint_xyz_from_illuminant(illuminant: str) -> np.ndarray:
+    """XYZ whitepoint of a named spectral illuminant (any name accepted by
+    ``spektrafilm.model.illuminants.standard_illuminant``), integrated against
+    the same observer the filming stage uses, so the raw white lands exactly
+    where the film reference illuminant sits in the pipeline."""
+
+    from spektrafilm.config import STANDARD_OBSERVER_CMFS
+    from spektrafilm.model.illuminants import standard_illuminant
+
+    spectrum = np.asarray(standard_illuminant(illuminant), dtype=np.float64)
+    xyz = np.einsum('l,lk->k', spectrum, np.asarray(STANDARD_OBSERVER_CMFS[:], dtype=np.float64))
+    return xyz / xyz[1]
+
+
 def _apply_white_balance_adaptation(
     rgb: np.ndarray,
     source_white_xyz: np.ndarray,
@@ -84,6 +98,7 @@ def _postprocess_params(
     white_balance: str | tuple[float, float],
     temperature: float | None,
     tint: float | None,
+    reference_illuminant: str | None = None,
 ) -> tuple[dict[str, object], tuple[np.ndarray, np.ndarray] | None, float | None]:
     """Build the ``rawpy.postprocess`` parameters for the requested settings.
 
@@ -93,6 +108,11 @@ def _postprocess_params(
     - ``'as_shot'`` uses LibRaw camera white balance directly during demosaic.
     - Other modes use LibRaw's daylight-balanced default output as the base and
       apply colour-science chromatic adaptation in linear ACES RGB.
+
+    ``'film'`` fixes the white balance at the film stock's own balance
+    (``reference_illuminant``, e.g. D55 for daylight stocks, T for tungsten
+    ones), like a real emulsion that cannot adapt: a white lit by that source
+    becomes neutral and every other light keeps its colour cast.
     """
 
     params: dict[str, object] = {
@@ -105,18 +125,24 @@ def _postprocess_params(
     tint_multiplier: float | None = None
     reference_white_xyz = _whitepoint_xyz_from_temperature(_DAYLIGHT_REFERENCE_TEMPERATURE)
 
-    def set_colour_science_adjustment(target_temperature: float, target_tint: float | None) -> None:
+    def set_scene_white(scene_white_xyz: np.ndarray, target_tint: float | None) -> None:
         nonlocal postprocess_adaptation, tint_multiplier
 
-        scene_white_xyz = _whitepoint_xyz_from_temperature(target_temperature)
         if not np.allclose(reference_white_xyz, scene_white_xyz):
             postprocess_adaptation = (scene_white_xyz, reference_white_xyz)
         tint_multiplier = target_tint
+
+    def set_colour_science_adjustment(target_temperature: float, target_tint: float | None) -> None:
+        set_scene_white(_whitepoint_xyz_from_temperature(target_temperature), target_tint)
 
     if white_balance == 'as_shot':
         params['use_camera_wb'] = True
     elif white_balance == 'daylight':
         pass
+    elif white_balance == 'film':
+        if reference_illuminant is None:
+            raise ValueError("A 'film' raw white balance requires the film reference illuminant.")
+        set_scene_white(_whitepoint_xyz_from_illuminant(reference_illuminant), 1.0)
     elif white_balance == 'tungsten':
         set_colour_science_adjustment(_TUNGSTEN_TEMPERATURE, 1.0)
     elif white_balance == 'custom':
@@ -378,6 +404,7 @@ def load_and_process_raw_file(
     output_colorspace: str = "ACES2065-1",
     output_cctf_encoding: bool = False,
     lens_info_out: dict[str, str] | None = None,
+    reference_illuminant: str | None = None,
 ) -> np.ndarray:
     """Load a RAW file into linear RGB and optionally convert its colourspace.
 
@@ -392,7 +419,7 @@ def load_and_process_raw_file(
         Path to the RAW image.
     white_balance
         White-balance mode. Supported string values are ``'as_shot'``,
-        ``'daylight'``, ``'tungsten'``, and ``'custom'``. A
+        ``'daylight'``, ``'film'``, ``'tungsten'``, and ``'custom'``. A
         ``(temperature, tint)`` tuple is also accepted.
     temperature
         Correlated colour temperature in kelvin for ``'custom'`` mode.
@@ -408,6 +435,9 @@ def load_and_process_raw_file(
     output_cctf_encoding
         Whether to apply the output colourspace transfer function when a
         colourspace conversion is requested.
+    reference_illuminant
+        Film stock reference illuminant name (``film.info.reference_illuminant``)
+        for ``'film'`` mode, not used by the other white balance modes.
 
     Returns
     -------
@@ -416,7 +446,8 @@ def load_and_process_raw_file(
     """
 
     with rawpy.imread(str(raw_path)) as raw:
-        params, postprocess_adaptation, tint_multiplier = _postprocess_params(white_balance, temperature, tint)
+        params, postprocess_adaptation, tint_multiplier = _postprocess_params(
+            white_balance, temperature, tint, reference_illuminant)
         rgb = raw.postprocess(**params).astype(np.float32) / np.float32(65535.0)
 
     if lens_correction:

@@ -229,6 +229,43 @@ def test_process_raw_file_temperature_white_balance_variants(monkeypatch, white_
         assert adaptation_calls[0]['kwargs']['method'] == 'Von Kries'
 
 
+@pytest.mark.parametrize('reference_illuminant', ['D55', 'T'])
+def test_process_raw_file_film_white_balance_adapts_from_film_reference(monkeypatch, reference_illuminant):
+    raw_image = np.full((1, 1, 3), 16384, dtype=np.uint16)
+    _stub_raw_reader(monkeypatch, raw_image)
+    adaptation_calls = []
+
+    def fake_adaptation(rgb, source_white_xyz, target_white_xyz):
+        adaptation_calls.append((source_white_xyz, target_white_xyz))
+        return rgb
+
+    monkeypatch.setattr(raw_file_processor, '_apply_white_balance_adaptation', fake_adaptation)
+
+    raw_file_processor.load_and_process_raw_file(
+        'example.nef', white_balance='film', reference_illuminant=reference_illuminant)
+
+    assert len(adaptation_calls) == 1
+    source, target = adaptation_calls[0]
+    np.testing.assert_allclose(source, raw_file_processor._whitepoint_xyz_from_illuminant(reference_illuminant))
+    np.testing.assert_allclose(target, raw_file_processor._whitepoint_xyz_from_temperature(6504.0))
+
+
+def test_whitepoint_from_film_reference_illuminant_matches_its_cct():
+    import colour
+
+    for name, expected_cct in (('D55', 5500.0), ('T', 2741.0)):
+        xyz = raw_file_processor._whitepoint_xyz_from_illuminant(name)
+        xy = xyz[:2] / xyz.sum()
+        assert abs(colour.xy_to_CCT(xy, method='Hernandez 1999') - expected_cct) < 15.0
+
+
+def test_process_raw_file_film_white_balance_requires_reference_illuminant(monkeypatch):
+    _stub_raw_reader(monkeypatch, np.full((1, 1, 3), 16384, dtype=np.uint16))
+
+    with pytest.raises(ValueError, match='film reference illuminant'):
+        raw_file_processor.load_and_process_raw_file('example.nef', white_balance='film')
+
+
 @pytest.mark.parametrize(
     ('lens_model', 'correction_summary', 'expect_database_call', 'expected_lens_info'),
     [
