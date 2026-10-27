@@ -190,3 +190,5 @@ uv.lock
 
 # claude
 .claude
+# macOS
+.DS_Store
