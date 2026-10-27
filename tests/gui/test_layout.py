@@ -321,7 +321,8 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         def setSpacing(self, _spacing: int) -> None:
             pass
 
-        def addWidget(self, _widget) -> None:
+        def addWidget(self, _widget, *_args, **_kwargs) -> None:
+            # Mirrors QVBoxLayout.addWidget(widget, stretch=0, alignment=...).
             pass
 
     monkeypatch.setattr(napari_layout_module.QtWidgets, 'QVBoxLayout', FakeVBoxLayout)
@@ -337,8 +338,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         input_image='input_image',
         input_gamut_compress='input_gamut_compress',
         camera='camera',
-        simulation='simulation',
-        exposure_control='exposure_control',
+        simulation=SimpleNamespace(action_bar=lambda: 'action_bar'),
         enlarger='enlarger',
         scanner='scanner',
         output='output',
@@ -348,19 +348,24 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         grain='grain',
         camera_diffusion='camera_diffusion',
         chemistry='chemistry',
+        print_base='print_base',
+        film_chemistry='film_chemistry',
+        film_base='film_base',
+        convert='convert',
         glare='glare',
         preflashing='preflashing',
         enlarger_diffusion='enlarger_diffusion',
         spectral_upsampling='spectral_upsampling',
-        tune='tune',
         special='special',
         gui_config='gui_config',
         display='display',
     )
 
-    panel = napari_layout_module.build_controls_panel(SimpleNamespace(), widgets)
+    napari_layout_module.build_controls_panel(SimpleNamespace(), widgets)
 
-    assert isinstance(panel, FakeTabWidget)
+    # build_controls_panel wraps the tab widget and the simulation action bar in
+    # a container; the tabs are observed via FakeTabWidget.addTab regardless.
+    assert captured_tabs
     tabs = {label: sections for label, sections in captured_tabs}
     assert 'input_gamut_compress' not in tabs['MAIN']
     assert 'output_gamut_compress' not in tabs['MAIN']
@@ -368,6 +373,14 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         'spectral_upsampling',
         'input_gamut_compress',
         'output_gamut_compress',
-        'tune',
         'special',
+    )
+    assert tabs['FILM'] == (
+        'film_chemistry',
+        'film_base',
+        'halation',
+        'couplers',
+        'grain',
+        'camera_diffusion',
+        'convert',
     )

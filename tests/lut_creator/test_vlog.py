@@ -5,9 +5,9 @@ Three families:
 1. **Transfer matches the Panasonic spec** — colour-science's V-Log curve and
    V-Gamut primaries reproduce the official V-Log/V-Gamut Reference Manual
    (18% gray → 10-bit 433, 90% → 602, code 1.0 → ~46x reflection, D65 V-Gamut).
-2. **Midgray configuration** — V-Log resolves ``stops_above_midgray="auto"`` to
-   its *native* headroom (~8 stops), giving identity input gain. This is the
-   regression guard against the old ``auto_stops_above_midgray=6.0`` override,
+2. **Midgray configuration** — V-Log's default input gain is identity: midgray
+   is pinned by construction (``input_gain = 0.18 / midgray_linear = 1``).
+   This is the regression guard against the old white-anchored override,
    which attenuated the signal and pushed midgray ~2 stops down (see n200).
 3. **End-to-end midgray** — a properly-exposed V-Log 18% gray, baked through a
    real vlog→sRGB cube, renders as a neutral mid-tone (output Y ≈ 0.18), not
@@ -78,26 +78,28 @@ class TestVLogTransferMatchesPanasonicSpec:
 
 
 class TestVLogMidgrayConfiguration:
-    """The fix: V-Log auto-resolves to native headroom → identity gain."""
+    """The fix: V-Log's default input gain is identity — midgray pinned."""
 
     def test_midgray_linear_is_018(self):
         assert cs.get(VLOG).midgray_linear == MIDGRAY
 
-    def test_auto_stops_is_native_not_six(self):
-        # Regression guard: the removed auto_stops_above_midgray=6.0 override
-        # would attenuate V-Log ~2 stops. Native headroom is ~8.
-        assert cs.native_stops_above_midgray(VLOG) == pytest.approx(8.0, abs=0.01)
+    def test_default_gain_is_identity(self):
+        # Regression guard: the old white-anchored override attenuated
+        # V-Log ~2 stops. Midgray-pinned gain is exactly 1.0.
+        assert cs.input_midgray_gain(VLOG) == pytest.approx(1.0, abs=1e-6)
+        assert cs.input_gain(VLOG) == pytest.approx(1.0, abs=1e-6)
 
-    def test_auto_gain_is_identity(self):
-        stops = cs.native_stops_above_midgray(VLOG)
-        assert cs.input_exposure_gain(VLOG, stops) == pytest.approx(1.0, abs=1e-3)
+    def test_exposure_ev_scales_gain(self):
+        assert cs.input_gain(VLOG, 1.0) == pytest.approx(2.0, abs=1e-6)
+        assert cs.input_gain(VLOG, -2.0) == pytest.approx(0.25, abs=1e-6)
 
-    def test_auto_spec_resolves_to_native(self):
+    def test_default_spec_is_midgray_pinned(self):
         spec = BundleSpec(
             film_profile="kodak_ektar_100", print_profiles=("kodak_ultra_endura",),
             input_color_space="vlog", output_color_space="srgb",
         )
-        assert spec.stops_above_midgray == pytest.approx(8.0, abs=0.01)
+        assert spec.exposure_ev == 0.0
+        assert cs.input_gain(spec.input_color_space, spec.exposure_ev) == pytest.approx(1.0)
 
 
 @pytest.mark.integration

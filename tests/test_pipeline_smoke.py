@@ -62,7 +62,7 @@ def test_pipeline_returns_valid_outputs_for_edge_cases(default_params) -> None:
 
     for case in cases:
         default_params.io.upscale_factor = 1.0
-        default_params.io.scan_film = False
+        default_params.workflow.route = "input > film > print > scan"
         default_params.debug.return_film_log_raw = False
         case['configure'](default_params)
 
@@ -82,6 +82,40 @@ def test_uniform_gray_output_is_stable_and_artifact_free(default_params) -> None
     for row in range(1, 6):
         for col in range(1, 6):
             np.testing.assert_allclose(result_1[row, col, :], center_pixel, atol=1e-6)
+
+
+def test_input_passthrough_route_colour_manages_only(default_params) -> None:
+    """The bare "input" route runs no film/print/scan: it just colour-manages the
+    input into the output colour space (so it is directly viewable)."""
+    import colour
+
+    default_params.workflow.route = "input"
+    default_params.io.input_color_space = "ProPhoto RGB"
+    default_params.io.output_color_space = "sRGB"
+    default_params.io.input_cctf_decoding = False
+    default_params.io.output_cctf_encoding = True
+
+    img = _tile_rgb((0.18, 0.18, 0.18), 4)
+    out = simulate(img, default_params)
+    _assert_valid_output(out, shape=(4, 4, 3))
+
+    expected = colour.RGB_to_RGB(
+        np.full((1, 3), 0.18), "ProPhoto RGB", "sRGB",
+        apply_cctf_decoding=False, apply_cctf_encoding=True,
+    )[0]
+    np.testing.assert_allclose(out[0, 0, :], expected, atol=1e-5)
+
+
+def test_input_passthrough_same_space_is_identity(default_params) -> None:
+    """input == output colour space, linear in/out -> the passthrough is identity."""
+    default_params.workflow.route = "input"
+    default_params.io.input_color_space = default_params.io.output_color_space = "sRGB"
+    default_params.io.input_cctf_decoding = False
+    default_params.io.output_cctf_encoding = False
+
+    img = _tile_rgb((0.3, 0.1, 0.05), 4)
+    out = simulate(img, default_params)
+    np.testing.assert_allclose(out, img, atol=1e-4)
 
 
 def test_exposure_controls_behave_consistently(default_params) -> None:
@@ -137,9 +171,9 @@ def test_exposure_controls_behave_consistently(default_params) -> None:
 def test_pipeline_distinguishes_major_configuration_changes(default_params) -> None:
     patch = _tile_rgb((0.30, 0.10, 0.05), 4)
 
-    default_params.io.scan_film = False
+    default_params.workflow.route = "input > film > print > scan"
     print_result = simulate(patch, default_params)
-    default_params.io.scan_film = True
+    default_params.workflow.route = "input > film > scan"
     negative_result = simulate(patch, default_params)
 
     _assert_valid_output(print_result, shape=(4, 4, 3))
@@ -147,7 +181,7 @@ def test_pipeline_distinguishes_major_configuration_changes(default_params) -> N
     assert not np.allclose(print_result, negative_result, atol=1e-3)
 
     green_patch = _tile_rgb((0.05, 0.4, 0.05), 10)
-    default_params.io.scan_film = False
+    default_params.workflow.route = "input > film > print > scan"
     result_portra = simulate(green_patch, default_params)
 
     params_fuji = make_fast_test_params(film_profile='fujifilm_c200')
@@ -178,6 +212,27 @@ def test_lut_path_stays_close_to_direct_path(default_params) -> None:
     result_lut = simulate(gray, default_params)
 
     _assert_valid_output(result_lut, shape=(4, 4, 3))
+    np.testing.assert_allclose(result_lut, result_direct, atol=0.02)
+
+
+def test_colour_film_onto_bw_print_uses_generalized_3d_lut() -> None:
+    # Printing a colour film onto a B&W paper makes the enlarger map 3 film
+    # densities -> 1 print exposure. The 3D LUT (3-in) must handle the 1-channel
+    # output rather than assuming 3 (regression for the (17,17,17,3) reshape
+    # crash). The final scan is still RGB.
+    patch = _tile_rgb((0.30, 0.10, 0.05), 6)
+    params = make_fast_test_params(film_profile='kodak_portra_400', print_profile='kodak_2302')
+    params.workflow.route = "input > film > print > scan"
+
+    result_direct = simulate(patch, params)
+    _assert_valid_output(result_direct, shape=(6, 6, 3))
+
+    params.settings.use_enlarger_lut = True   # 3-in/1-out enlarger LUT
+    params.settings.use_scanner_lut = True
+    params.settings.lut_resolution = 17
+    result_lut = simulate(patch, params)
+
+    _assert_valid_output(result_lut, shape=(6, 6, 3))
     np.testing.assert_allclose(result_lut, result_direct, atol=0.02)
 
 

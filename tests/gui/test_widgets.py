@@ -8,7 +8,7 @@ from typing import get_origin, get_type_hints
 import numpy as np
 
 from spektrafilm_gui import icons as icons_module
-from spektrafilm_gui import param_manifest as param_manifest_module
+from spektrafilm_gui import params_manifest as param_manifest_module
 from spektrafilm_gui import widget_primitives as primitives_module
 from spektrafilm_gui import widget_sections as widgets_module
 from spektrafilm_gui import widget_editors as widget_editors_module
@@ -314,7 +314,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
     # input_image is now path-bound: its numeric ranges live on the
     # INPUT_IMAGE_FIELDS manifest.
     from spektrafilm.runtime.params_schema import IOParams, SettingsParams
-    from spektrafilm_gui.param_manifest import INPUT_IMAGE_FIELDS
+    from spektrafilm_gui.params_manifest import INPUT_IMAGE_FIELDS
 
     group_hints = {'io': get_type_hints(IOParams), 'settings': get_type_hints(SettingsParams)}
     for spec in INPUT_IMAGE_FIELDS:
@@ -328,7 +328,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
         if spec.step is None:
             missing.append(f'input_image.{spec.leaf}: missing step')
 
-    from spektrafilm_gui.param_manifest import DISPLAY_PANEL_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
+    from spektrafilm_gui.params_manifest import DISPLAY_PANEL_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
 
     display_specs = {spec.leaf: spec for spec in DISPLAY_PANEL_FIELDS}
     display_field_annotations = {
@@ -365,7 +365,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
         'saving_color_space': str,
         'saving_cctf_encoding': bool,
         'auto_preview': bool,
-        'scan_film': bool,
+        'route': str,
     }
     for field_name in tuple(spec.leaf for spec in SIMULATION_FIELDS):
         annotation = simulation_field_annotations[field_name]
@@ -383,7 +383,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
 
     special_specs = {spec.leaf: spec for spec in SPECIAL_FIELDS}
     for field_name in tuple(spec.leaf for spec in SPECIAL_FIELDS):
-        annotation = float if field_name == 'film_gamma_factor' else tuple[int, int, int]
+        annotation = tuple[int, int, int]
         is_numeric = annotation in (int, float) or get_origin(annotation) is tuple
         if not is_numeric:
             continue
@@ -396,7 +396,7 @@ def test_numeric_field_specs_define_minimum_and_step() -> None:
         if spec.step is None:
             missing.append(f'special.{field_name}: missing step')
 
-    from spektrafilm_gui.param_manifest import PREFLASHING_MANIFEST
+    from spektrafilm_gui.params_manifest import PREFLASHING_MANIFEST
 
     for spec in PREFLASHING_MANIFEST.fields:
         if spec.leaf == 'preflash_exposure' and spec.min is None:
@@ -412,7 +412,7 @@ def test_params_group_section_mirrors_runtime_values_verbatim() -> None:
     from qtpy import QtWidgets
 
     from spektrafilm.runtime.params_schema import HalationParams
-    from spektrafilm_gui.param_manifest import HALATION_MANIFEST
+    from spektrafilm_gui.params_manifest import HALATION_MANIFEST
 
     _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     section = widgets_module.ParamsGroupSection(HALATION_MANIFEST)
@@ -431,8 +431,33 @@ def test_params_group_section_mirrors_runtime_values_verbatim() -> None:
     np.testing.assert_allclose(out.scatter_tail_weight, (0.78, 0.65, 0.67))
 
 
+def test_couplers_section_surfaces_diffusion_tail_values() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    from spektrafilm.runtime.params_schema import DirCouplersParams
+    from spektrafilm_gui.params_manifest import DIR_COUPLERS_MANIFEST
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    section = widgets_module.ParamsGroupSection(DIR_COUPLERS_MANIFEST)
+
+    section.set_state(DirCouplersParams(
+        diffusion_size_um=18.0,
+        diffusion_tail_um=240.0,
+        diffusion_tail_weight=0.07,
+    ))
+    assert float(section.diffusion_tail_um.value) == 240.0
+    assert float(section.diffusion_tail_weight.value) == 0.07
+
+    out = section.get_state()
+    assert isinstance(out, DirCouplersParams)
+    assert out.diffusion_size_um == 18.0
+    assert out.diffusion_tail_um == 240.0
+    assert out.diffusion_tail_weight == 0.07
+
+
 def test_param_manifests_are_complete_and_well_formed() -> None:
-    from spektrafilm_gui.param_manifest import ALL_MANIFESTS
+    from spektrafilm_gui.params_manifest import ALL_MANIFESTS
 
     for manifest in ALL_MANIFESTS:
         group_field_names = {field_info.name for field_info in fields(manifest.group_cls)}
@@ -509,7 +534,8 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert isinstance(section.film_stock, widget_editors_module.ProfileEnumEditor)
     assert isinstance(section.print_paper, widget_editors_module.ProfileEnumEditor)
     assert section.film_stock.currentText() == list(state_module.FilmStocks)[0].value
-    assert section.print_paper.currentText() == list(state_module.PrintPapers)[0].value
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'still / kodak_portra_400'
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / kodak_vision3_50d'
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'
+    assert section.print_paper.currentText() == list(state_module.PrintStocks)[0].value
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'still / neg / color / kodak_portra_400'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / neg / color / kodak_vision3_50d'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / neg / color / kodak_2393'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_trix') == 'cine / pos / bw / kodak_trix'

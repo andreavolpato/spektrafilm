@@ -56,7 +56,9 @@ class TestInitParamsDefaults:
         assert params.scanner.black_level == 0.01
         assert params.scanner.unsharp_mask == (0.7, 0.7)
 
-        assert params.film_render.density_curve_gamma == 1.0
+        assert params.film_render.chemistry.development_time is None
+        assert params.film_render.chemistry.active is True
+        assert params.print_render.chemistry.development_time is None
         assert params.film_render.grain.active is True
         assert params.film_render.halation.active is True
         assert params.film_render.dir_couplers.active is True
@@ -65,14 +67,14 @@ class TestInitParamsDefaults:
         assert params.film_render.dir_couplers.inhibition_interlayer == 1.0
         assert params.film_render.dir_couplers.gamma_samelayer_rgb == (0.341, 0.324, 0.273)
 
-        assert params.print_render.density_curves_morph.active is False
-        assert params.print_render.density_curves_morph.gamma_factor == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_fast == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_slow == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_red == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_green == 1.0
-        assert params.print_render.density_curves_morph.gamma_factor_blue == 1.0
-        assert params.print_render.density_curves_morph.developer_exhaustion == 0.0
+        assert params.print_render.chemistry.active is True
+        assert params.print_render.chemistry.gamma_factor == 1.0
+        assert params.print_render.chemistry.gamma_factor_fast == 1.0
+        assert params.print_render.chemistry.gamma_factor_slow == 1.0
+        assert params.print_render.chemistry.gamma_factor_red == 1.0
+        assert params.print_render.chemistry.gamma_factor_green == 1.0
+        assert params.print_render.chemistry.gamma_factor_blue == 1.0
+        assert params.print_render.chemistry.developer_exhaustion == 0.0
         assert params.print_render.glare.active is True
 
         assert params.io.input_color_space == 'ProPhoto RGB'
@@ -81,7 +83,8 @@ class TestInitParamsDefaults:
         assert params.io.output_cctf_encoding is True
         assert params.io.crop is False
         assert params.io.upscale_factor == 1.0
-        assert params.io.scan_film is False
+        assert params.workflow.route == 'input > film > print > scan'
+        assert params.workflow.scan_film is False
 
         assert params.debug.deactivate_spatial_effects is False
         assert params.debug.deactivate_stochastic_effects is False
@@ -94,7 +97,7 @@ class TestInitParamsDefaults:
         assert params.settings.use_enlarger_lut is False
         assert params.settings.use_scanner_lut is False
         assert params.settings.lut_resolution == 17
-        assert params.settings.use_fast_stats is False
+        assert params.settings.use_fast_stats is True
         assert params.settings.preview_max_size == 640
 
 class TestSimulatorDebugSwitches:
@@ -129,11 +132,11 @@ class TestSimulatorDebugSwitches:
 class TestDigestParamsFilmDefaults:
     def test_negative_profile_keeps_explicit_scan_film_choice(self):
         params = init_params()
-        params.io.scan_film = True
+        params.workflow.route = 'input > film > scan'
 
         digest_params(params)
 
-        assert params.io.scan_film is True
+        assert params.workflow.route == 'input > film > scan'
 
     def test_halation_preset_picks_still_weak_for_kodak_gold_200(self):
         params = digest_params(init_params(film_profile='kodak_gold_200'))
@@ -200,7 +203,7 @@ class TestDigestParamsFilmDefaults:
         assert params.film_render.halation.halation_first_sigma_um == (50.0, 50.0, 50.0)
         assert params.film_render.halation.halation_strength == (0.08, 0.02, 0.0)
 
-    def test_missing_neutral_filter_database_entry_keeps_current_filters(self, monkeypatch):
+    def test_missing_neutral_filter_database_entry_falls_back_to_default(self, monkeypatch):
         params = init_params()
         params.enlarger.c_filter_neutral = 12.0
         params.enlarger.m_filter_neutral = 34.0
@@ -214,6 +217,8 @@ class TestDigestParamsFilmDefaults:
 
         digest_params(params)
 
-        assert params.enlarger.c_filter_neutral == 12.0
-        assert params.enlarger.m_filter_neutral == 34.0
-        assert params.enlarger.y_filter_neutral == 56.0
+        # Missing entry -> neutral default pack (C0 M50 Y50), so any combination
+        # stays printable instead of silently keeping whatever was set.
+        assert params.enlarger.c_filter_neutral == 0.0
+        assert params.enlarger.m_filter_neutral == 50.0
+        assert params.enlarger.y_filter_neutral == 50.0

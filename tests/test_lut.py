@@ -5,6 +5,7 @@ import warnings
 from spektrafilm.utils.fast_interp_lut import (
     apply_lut_cubic_3d,
     apply_lut_pchip_3d,
+    apply_lut_tetrahedral_3d,
 )
 from spektrafilm.utils.lut import compute_with_lut
 
@@ -181,6 +182,51 @@ def test_apply_monotone_3d_lut_mitchell_matches_ground_truth_with_small_error():
     assert max_error_mitchell < 1.2e-2
 
 
+def test_apply_lut_tetrahedral_3d_is_exact_on_affine():
+    # Tetrahedral interpolation reproduces any affine transform exactly (it is
+    # linear within each tetrahedron), so a LUT baked from an affine function
+    # round-trips to ~machine epsilon.
+    steps = 17
+    grid = np.linspace(0.0, 1.0, steps, dtype=np.float64)
+    x_r, x_g, x_b = np.meshgrid(grid, grid, grid, indexing='ij')
+    lut = affine_transform(np.stack((x_r, x_g, x_b), axis=-1))
+
+    rng = np.random.default_rng(0)
+    image = rng.random((32, 24, 3))
+
+    output = apply_lut_tetrahedral_3d(lut, image)
+
+    np.testing.assert_allclose(output, affine_transform(image), atol=1e-12, rtol=0)
+
+
+def test_apply_monotone_3d_lut_tetrahedral_matches_ground_truth_with_small_error():
+    lut, image, ground_truth = make_monotone_3d_lut_and_image()
+
+    output = apply_lut_tetrahedral_3d(lut, image)
+
+    diff = output - ground_truth
+    assert np.sqrt(np.mean(diff**2)) < 2e-3
+    assert np.max(np.abs(diff)) < 1.2e-2
+
+
+def test_compute_with_lut_uses_tetrahedral_and_matches_affine():
+    # compute_with_lut applies via apply_lut_3d, whose default is now
+    # tetrahedral — exact on an affine transform.
+    grid = np.linspace(0.0, 1.0, 9, dtype=np.float64)
+    data = np.array(
+        [
+            [[grid[1], grid[2], grid[3]], [grid[4], grid[5], grid[6]]],
+            [[grid[6], grid[3], grid[2]], [grid[7], grid[6], grid[1]]],
+        ],
+        dtype=np.float64,
+    )
+
+    output, lut = compute_with_lut(data, affine_transform, steps=9)
+
+    assert lut.shape == (9, 9, 9, 3)
+    np.testing.assert_allclose(output, affine_transform(data), atol=1e-8, rtol=1e-8)
+
+
 def test_apply_lut_pchip_3d_does_not_warn_for_mixed_direction_monotone_lines():
     lut, image = make_mixed_direction_monotone_lut()
 
@@ -207,3 +253,43 @@ def test_compute_with_lut_rejects_invalid_input_range():
 
     with pytest.raises(ValueError, match='xmax must be greater than xmin'):
         compute_with_lut(data, affine_transform, xmin=1.0, xmax=1.0)
+
+
+# --- 3-in / non-3-out generalization -----------------------------------------
+# The 3D LUT is 3-in but any number of output channels (e.g. a colour film
+# printed onto a B&W paper: 3 film densities -> 1 print exposure).
+
+def affine_transform_1ch(data):
+    """(..., 3) -> (..., 1): a single affine output (tetrahedral-exact)."""
+    return 0.4 * data[..., 0:1] + 0.35 * data[..., 1:2] + 0.25 * data[..., 2:3]
+
+
+def test_compute_with_lut_supports_single_output_channel():
+    rng = np.random.default_rng(0)
+    image = rng.random((20, 24, 3))
+
+    output, lut = compute_with_lut(image, affine_transform_1ch, steps=17)
+
+    assert lut.shape == (17, 17, 17, 1)
+    assert output.shape == (20, 24, 1)
+    np.testing.assert_allclose(output, affine_transform_1ch(image), atol=1e-8, rtol=1e-8)
+
+
+@pytest.mark.parametrize('apply_fn,atol', [
+    (apply_lut_tetrahedral_3d, 1e-12),  # exact on an affine transform
+    (apply_lut_pchip_3d, 1e-2),
+    (apply_lut_cubic_3d, 1e-2),
+])
+def test_apply_lut_3d_methods_support_single_output_channel(apply_fn, atol):
+    steps = 17
+    grid = np.linspace(0.0, 1.0, steps, dtype=np.float64)
+    x_r, x_g, x_b = np.meshgrid(grid, grid, grid, indexing='ij')
+    lut = affine_transform_1ch(np.stack((x_r, x_g, x_b), axis=-1))
+    assert lut.shape == (steps, steps, steps, 1)
+
+    rng = np.random.default_rng(1)
+    image = rng.random((16, 18, 3))
+    output = apply_fn(lut, image)
+
+    assert output.shape == (16, 18, 1)
+    np.testing.assert_allclose(output, affine_transform_1ch(image), atol=atol, rtol=0)

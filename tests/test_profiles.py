@@ -1,11 +1,35 @@
 import json
 import numpy as np
 import pytest
-import ast
-import inspect
 
-from spektrafilm.model import stocks
-from spektrafilm.profiles.io import Profile, _json_safe, load_profile, profile_to_dict, profile_from_dict
+from spektrafilm.data.profiles_loader import (
+    Profile,
+    ProfileData,
+    ProfileInfo,
+    _json_safe,
+    _validate_profile,
+    load_profile,
+    profile_to_dict,
+    profile_from_dict,
+)
+
+
+def _make_synthetic_profile(n_ch, *, channel_model='bw', n_wl=81, n_le=32):
+    """Build a shape-consistent profile with `n_ch` emulsion channels.
+
+    Values are zeros — only array shapes matter for `_validate_profile`.
+    """
+    data = ProfileData(
+        wavelengths=np.linspace(380.0, 780.0, n_wl),
+        log_sensitivity=np.zeros((n_wl, n_ch)),
+        channel_density=np.zeros((n_wl, n_ch)),
+        base_density=np.zeros(n_wl),
+        midscale_neutral_density=np.zeros(n_wl),
+        log_exposure=np.linspace(-3.0, 0.0, n_le),
+        density_curves=np.zeros((n_le, n_ch)),
+    )
+    info = ProfileInfo(stock='synthetic', channel_model=channel_model)
+    return Profile(info=info, data=data)
 
 
 class TestLoadProfile:
@@ -41,12 +65,11 @@ class TestLoadProfile:
 
         assert profile.data.log_sensitivity.ndim == 2
         assert profile.data.log_sensitivity.shape[1] == 3
-        assert profile.data.hanatos2025_adaptation_window_params.ndim == 1
-        assert profile.data.hanatos2025_adaptation_surface_params.ndim == 2
-        assert (
-            profile.data.hanatos2025_adaptation_surface_params.size == 0
-            or profile.data.hanatos2025_adaptation_surface_params.shape[0] == 3
-        )
+        # Adaptation params are optional: None when absent/empty, else shaped.
+        window = profile.data.hanatos2025_adaptation_window_params
+        surface = profile.data.hanatos2025_adaptation_surface_params
+        assert window is None or window.ndim == 1
+        assert surface is None or (surface.ndim == 2 and surface.shape[0] == 3)
 
         assert profile.data.wavelengths.ndim == 1
         assert profile.data.channel_density.ndim == 2
@@ -86,13 +109,17 @@ class TestLoadProfile:
 
         profile_rt = profile_from_dict(json.loads(payload))
 
+        # Saved floats are quantized to 6 decimals (see _json_safe), so the
+        # round trip is exact to half a unit in the last place.
         np.testing.assert_allclose(
             profile_rt.data.hanatos2025_adaptation_window_params,
             portra_400_profile.data.hanatos2025_adaptation_window_params,
+            rtol=0, atol=5e-7,
         )
         np.testing.assert_allclose(
             profile_rt.data.hanatos2025_adaptation_surface_params,
             portra_400_profile.data.hanatos2025_adaptation_surface_params,
+            rtol=0, atol=5e-7,
         )
 
     def test_profile_constructor_rejects_dict_payloads(self):
@@ -126,17 +153,97 @@ class TestLoadProfile:
         np.testing.assert_allclose(portra_400_profile.data.channel_density, updated_density)
 
 
-class TestDependencyBoundaries:
-    def test_stocks_module_has_no_top_level_process_import(self):
-        tree = ast.parse(inspect.getsource(stocks))
-        for node in tree.body:
-            if isinstance(node, ast.ImportFrom):
-                assert node.module != 'spektrafilm.runtime.process'
+class TestChannelCount:
+    """Channel count is declared by channel_model: 1 for bw, 3 for color."""
 
-    def test_stocks_module_has_no_main_script_block(self):
-        tree = ast.parse(inspect.getsource(stocks))
-        for node in tree.body:
-            assert not isinstance(node, ast.If)
+    def test_bw_reports_one_channel(self):
+        profile = _make_synthetic_profile(1, channel_model='bw')
+        assert profile.info.n_channels == 1
+
+    def test_color_reports_three_channels(self):
+        profile = _make_synthetic_profile(3, channel_model='color')
+        assert profile.info.n_channels == 3
+
+    def test_n_channels_ignores_density_curve_columns(self):
+        # A BW dev-time family adds density-curve columns; channel count stays 1.
+        profile = _make_synthetic_profile(1, channel_model='bw')
+        n_le = profile.data.log_exposure.shape[0]
+        profile.data.density_curves = np.zeros((n_le, 4))  # 4 development times
+        assert profile.info.n_channels == 1
+
+    def test_bw_single_channel_validates(self):
+        profile = _make_synthetic_profile(1, channel_model='bw')
+        _validate_profile(profile, 'synthetic')  # must not raise
+
+    def test_color_three_channel_validates(self):
+        profile = _make_synthetic_profile(3, channel_model='color')
+        _validate_profile(profile, 'synthetic')  # must not raise
+
+    def test_bw_density_curves_may_have_more_columns_than_channels(self):
+        # BW dev-time family: one density-curve column per development time,
+        # decoupled from the single-emulsion channel count (n_ch=1).
+        profile = _make_synthetic_profile(1, channel_model='bw')
+        n_le = profile.data.log_exposure.shape[0]
+        profile.data.density_curves = np.zeros((n_le, 4))
+        _validate_profile(profile, 'synthetic')  # must not raise
+
+    def test_color_density_curves_must_match_channel_count(self):
+        # Color has no dev-time family, so density_curves columns must equal n_ch.
+        profile = _make_synthetic_profile(3, channel_model='color')
+        n_le = profile.data.log_exposure.shape[0]
+        profile.data.density_curves = np.zeros((n_le, 4))
+        with pytest.raises(ValueError, match='synthetic'):
+            _validate_profile(profile, 'synthetic')
+
+    def test_bw_with_three_channel_sensitivity_is_rejected(self):
+        # bw declares n_ch=1, so 3-column spectral arrays must not validate.
+        profile = _make_synthetic_profile(3, channel_model='bw')
+        with pytest.raises(ValueError, match='synthetic'):
+            _validate_profile(profile, 'synthetic')
+
+    def test_color_with_one_channel_sensitivity_is_rejected(self):
+        # color declares n_ch=3, so 1-column spectral arrays must not validate.
+        profile = _make_synthetic_profile(1, channel_model='color')
+        with pytest.raises(ValueError, match='synthetic'):
+            _validate_profile(profile, 'synthetic')
+
+    def test_sensitivity_density_disagreement_is_rejected(self):
+        # log_sensitivity and channel_density must both match the declared count.
+        profile = _make_synthetic_profile(3, channel_model='color')
+        profile.data.channel_density = np.zeros((profile.data.wavelengths.shape[0], 1))
+        with pytest.raises(ValueError, match='synthetic'):
+            _validate_profile(profile, 'synthetic')
+
+
+class TestFlexibleProfileData:
+    """The data model adapts: absent/empty -> None, unknown keys tolerated."""
+
+    def test_omitted_optional_fields_default_to_none(self):
+        profile = profile_from_dict({'info': {'channel_model': 'bw'},
+                                     'data': {'wavelengths': [380.0, 385.0]}})
+        assert profile.data.density_curves_layers is None
+        assert profile.data.density_curves_model is None
+        assert profile.data.midscale_neutral_density is None
+        assert profile.data.hanatos2025_adaptation_window_params is None
+        assert profile.data.hanatos2025_adaptation_surface_params is None
+
+    def test_empty_array_becomes_none(self):
+        # "no data is no data": an explicit [] is treated the same as absent.
+        profile = profile_from_dict({'data': {'midscale_neutral_density': []}})
+        assert profile.data.midscale_neutral_density is None
+
+    def test_present_field_is_coerced_to_float_array(self):
+        profile = profile_from_dict({'data': {'wavelengths': [380, 385, 390]}})
+        assert isinstance(profile.data.wavelengths, np.ndarray)
+        assert profile.data.wavelengths.dtype == float
+
+    def test_unknown_data_field_is_tolerated_with_warning(self):
+        payload = {'info': {'channel_model': 'bw'},
+                   'data': {'wavelengths': [380.0], 'experimental_curve': [1.0, 2.0]}}
+        with pytest.warns(RuntimeWarning, match='experimental_curve'):
+            profile = profile_from_dict(payload)
+        assert not hasattr(profile.data, 'experimental_curve')
+        np.testing.assert_array_equal(profile.data.wavelengths, [380.0])
 
 
 

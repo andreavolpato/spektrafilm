@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from spektrafilm.model.illuminants import Illuminants
-from spektrafilm.model.stocks import FilmStocks, PrintPapers
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec
+from spektrafilm_gui.options import FilmStocks, PrintStocks
 from spektrafilm_gui.params_mapper import build_params_from_state
 import spektrafilm_gui.state as state_module
 from spektrafilm_gui.state import (
@@ -29,15 +29,13 @@ def make_state():
 
 def test_build_params_maps_grain_fields() -> None:
     state = make_state()
-    state.grain.particle_area_um2 = 0.42
-    state.grain.particle_scale = (1.1, 1.2, 1.3)
-    state.grain.particle_scale_layers = (2.2, 1.2, 0.6)
+    state.grain.rms_granularity = (6.0, 7.0, 12.0)
+    state.grain.particle_scale_sublayers = (1.0, 0.5, 0.25)
 
     params = build_params_from_state(state)
 
-    assert params.film_render.grain.particle_area_um2 == 0.42
-    assert params.film_render.grain.particle_scale == (1.1, 1.2, 1.3)
-    assert params.film_render.grain.particle_scale_layers == (2.2, 1.2, 0.6)
+    assert params.film_render.grain.rms_granularity == (6.0, 7.0, 12.0)
+    assert params.film_render.grain.particle_scale_sublayers == (1.0, 0.5, 0.25)
 
 
 def test_build_params_copies_scanner_group() -> None:
@@ -147,7 +145,6 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
     state = make_state()
     state.camera.lens_blur_um = 4.0
     state.camera.exposure_compensation_ev = 0.75
-    state.camera.filter_uv = (0.5, 400.0, 10.0)
     # The camera diffusion filter is now its own section (FILM tab), owned by
     # state.camera_diffusion -- NOT the passthrough state.camera.diffusion_filter.
     state.camera_diffusion = replace(
@@ -163,7 +160,6 @@ def test_build_params_copies_camera_group_and_standalone_camera_diffusion() -> N
 
     assert params.camera.lens_blur_um == 4.0
     assert params.camera.exposure_compensation_ev == 0.75
-    assert params.camera.filter_uv == (0.5, 400.0, 10.0)
     assert params.camera.diffusion_filter.active is True
     assert params.camera.diffusion_filter.filter_family == 'glimmerglass'
     assert params.camera.diffusion_filter.strength == 0.25
@@ -198,14 +194,16 @@ def test_build_params_copies_input_gamut_compress_group() -> None:
     state.input_gamut_compress = replace(
         state.input_gamut_compress,
         active=False,
-        algorithm='oklch',
+        boundary='locus',
+        hull_detail=6.0,
         knee=(0.1, 1.0, 4.0),
     )
 
     params = build_params_from_state(state)
 
     assert params.io.input_gamut_compress.active is False
-    assert params.io.input_gamut_compress.algorithm == 'oklch'
+    assert params.io.input_gamut_compress.boundary == 'locus'
+    assert params.io.input_gamut_compress.hull_detail == 6.0
     assert params.io.input_gamut_compress.knee == (0.1, 1.0, 4.0)
     # mapper copies, does not alias the widget's group
     assert params.io.input_gamut_compress is not state.input_gamut_compress
@@ -229,26 +227,55 @@ def test_build_params_copies_output_gamut_compress_group() -> None:
 def test_gui_state_from_params_mirrors_input_gamut_compress_group() -> None:
     params = init_params(
         film_profile=FilmStocks.kodak_gold_200.value,
-        print_profile=PrintPapers.kodak_supra_endura.value,
+        print_profile=PrintStocks.kodak_supra_endura.value,
     )
     params.io.input_gamut_compress = InputGamutCompressSpec(active=False)
 
     state = gui_state_from_params(
         params,
         film_stock=FilmStocks.kodak_gold_200.value,
-        print_paper=PrintPapers.kodak_supra_endura.value,
+        print_paper=PrintStocks.kodak_supra_endura.value,
     )
 
     assert state.input_gamut_compress.active is False
 
 
+def test_gui_state_from_params_fills_bw_grain_channel_padding() -> None:
+    # A single-channel (B&W) stock's grain preset pads its per-channel tuples to
+    # three with None (e.g. uniformity=(0.6, None, None)); the runtime reads only
+    # channel 0, but the GUI editors are typed tuple[float, float, float] and
+    # crash on None. gui_state_from_params must mirror the first real channel
+    # across the padding so no None reaches the widgets (regression: the profile
+    # sync crashed mid-way, leaving the development-time dropdown un-repopulated).
+    from spektrafilm.runtime.api import digest_params
+
+    params = digest_params(init_params(
+        film_profile=FilmStocks.kodak_doublex.value,
+        print_profile=PrintStocks.kodak_2302.value,
+    ))
+    # precondition: the runtime grain genuinely carries None padding for B&W
+    assert any(c is None for c in params.film_render.grain.uniformity)
+
+    state = gui_state_from_params(
+        params,
+        film_stock=FilmStocks.kodak_doublex.value,
+        print_paper=PrintStocks.kodak_2302.value,
+    )
+
+    for field_name in ('rms_granularity', 'uniformity', 'density_min'):
+        values = getattr(state.grain, field_name)
+        assert all(c is not None for c in values), field_name
+        # padding mirrors channel 0, not a misleading zero
+        assert values == (values[0],) * len(values), field_name
+
+
 def test_build_default_gui_state_uses_runtime_defaults() -> None:
     state = build_default_gui_state(
         film_stock=FilmStocks.kodak_gold_200.value,
-        print_paper=PrintPapers.kodak_supra_endura.value,
+        print_paper=PrintStocks.kodak_supra_endura.value,
     )
 
-    assert state.grain.blur == 0.65
+    assert state.grain.blur == 0.89
     assert state.grain.micro_structure == (0.2, 30)
     assert state.halation.boost_ev == 0.0
     assert state.halation.protect_ev == 4.0
@@ -323,9 +350,11 @@ def test_build_default_gui_state_applies_selection_defaults(monkeypatch) -> None
     assert captured['gui_args'] == (digested_params, 'film-stock', 'print-paper')
 
 
-def test_digest_after_selection_sets_scan_film_from_film_type(monkeypatch) -> None:
-    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), io=SimpleNamespace(scan_film=False))
-    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), io=SimpleNamespace(scan_film=True))
+def test_digest_after_selection_preserves_route(monkeypatch) -> None:
+    # The route is user-controlled: selecting a profile must not change it,
+    # regardless of whether the film is positive or negative.
+    positive_params = SimpleNamespace(film=SimpleNamespace(is_positive=True), workflow=SimpleNamespace(route='input > convert-film > scan-minus-base'))
+    negative_params = SimpleNamespace(film=SimpleNamespace(is_positive=False), workflow=SimpleNamespace(route='input > film > scan'))
     digested_params = [positive_params, negative_params]
 
     def fake_digest_params(_params):
@@ -336,8 +365,8 @@ def test_digest_after_selection_sets_scan_film_from_film_type(monkeypatch) -> No
     positive_result = state_module.digest_after_selection(object())
     negative_result = state_module.digest_after_selection(object())
 
-    assert positive_result.io.scan_film is True
-    assert negative_result.io.scan_film is False
+    assert positive_result.workflow.route == 'input > convert-film > scan-minus-base'
+    assert negative_result.workflow.route == 'input > film > scan'
 
 
 def test_project_default_gui_state_matches_builder() -> None:

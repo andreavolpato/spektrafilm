@@ -29,10 +29,9 @@ class StubSection:
 
 
 class StubSimulationSection(StubSection):
-    def __init__(self, state: object, *, auto_preview: bool = True, scan_film: bool = False):
+    def __init__(self, state: object, *, auto_preview: bool = True):
         super().__init__(state)
         self._auto_preview = auto_preview
-        self._scan_film = scan_film
         self.reset_scan_for_print_calls = 0
 
     def set_auto_preview_value(self, value: bool) -> None:
@@ -40,12 +39,6 @@ class StubSimulationSection(StubSection):
 
     def auto_preview_value(self) -> bool:
         return self._auto_preview
-
-    def set_scan_film_value(self, value: bool) -> None:
-        self._scan_film = value
-
-    def scan_film_value(self) -> bool:
-        return self._scan_film
 
     def reset_scan_for_print_value(self) -> None:
         self.reset_scan_for_print_calls += 1
@@ -60,11 +53,11 @@ def _make_state() -> GuiState:
     state.grain.active = False
     state.halation.halation_strength = (7.0, 5.0, 3.0)
     state.couplers.inhibition_interlayer = 1.75
-    # PrintCurvesMorphParams is a frozen runtime dataclass; reassign via replace
+    # PrintChemistryParams is a frozen runtime dataclass; reassign via replace
     state.chemistry = replace(state.chemistry, gamma_factor=1.15)
     state.glare.blur = 0.8
     state.scanner = replace(state.scanner, white_correction=True, white_level=0.9, lens_blur=0.3)
-    state.input_gamut_compress = replace(state.input_gamut_compress, active=False, algorithm='oklch')
+    state.input_gamut_compress = replace(state.input_gamut_compress, active=False, boundary='locus', hull_detail=6.0)
     state.output_gamut_compress = replace(state.output_gamut_compress, algorithm='aces_rgc')
     state.simulation.enlarger.print_exposure = 1.3
     state.camera.lens_blur_um = 3.5
@@ -83,7 +76,7 @@ def _make_state() -> GuiState:
     state.enlarger_diffusion.spatial_scale = 1.6
     state.enlarger_diffusion.halo_warmth = 0.2
     state.simulation.workflow.saving_cctf_encoding = False
-    state.simulation.io.scan_film = True
+    state.simulation.route = "input > film > scan"
     state.gui_only.display.use_display_transform = False
     state.gui_only.display.gray_18_canvas = True
     state.gui_only.display.white_padding = 0.24
@@ -106,6 +99,10 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
         halation=StubSection(clone_state_section(state.halation)),
         couplers=StubSection(clone_state_section(state.couplers)),
         chemistry=StubSection(clone_state_section(state.chemistry)),
+        print_base=StubSection(clone_state_section(state.print_base)),
+        film_chemistry=StubSection(clone_state_section(state.film_chemistry)),
+        film_base=StubSection(clone_state_section(state.film_base)),
+        convert=StubSection(clone_state_section(state.convert)),
         glare=StubSection(clone_state_section(state.glare)),
         scanner=StubSection(clone_state_section(state.scanner)),
         input_gamut_compress=StubSection(clone_state_section(state.input_gamut_compress)),
@@ -114,13 +111,10 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
         simulation=StubSimulationSection(
             clone_state_section(state.simulation),
             auto_preview=state.simulation.workflow.auto_preview,
-            scan_film=state.simulation.io.scan_film,
         ),
         preview_crop=object(),
-        exposure_control=object(),
         enlarger=object(),
         spectral_upsampling=object(),
-        tune=object(),
         output=object(),
     )
 
@@ -135,6 +129,10 @@ def test_gui_state_section_names_match_gui_state_fields() -> None:
         'halation',
         'couplers',
         'chemistry',
+        'print_base',
+        'film_chemistry',
+        'film_base',
+        'convert',
         'camera',
         'enlarger_diffusion',
         'camera_diffusion',
@@ -147,7 +145,7 @@ def test_gui_state_section_names_match_gui_state_fields() -> None:
     )
 
 
-def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
+def test_apply_gui_state_updates_all_sections() -> None:
     source_state = _make_state()
     widgets = _make_widgets(make_test_gui_state())
 
@@ -156,17 +154,15 @@ def test_apply_gui_state_updates_all_sections_and_scan_film() -> None:
     for section_name in GUI_STATE_SECTION_NAMES:
         assert widgets.__getattribute__(section_name).get_state() == _section_state(source_state, section_name)
     assert widgets.simulation.auto_preview_value() is source_state.simulation.workflow.auto_preview
-    assert widgets.simulation.scan_film_value() is True
+    assert widgets.simulation.get_state().route == "input > film > scan"
     assert widgets.simulation.reset_scan_for_print_calls == 1
 
 
-def test_collect_gui_state_reads_all_sections_and_bottom_bar_scan_flag() -> None:
+def test_collect_gui_state_reads_all_sections_and_auto_preview() -> None:
     source_state = _make_state()
     source_state.simulation.workflow.auto_preview = False
-    source_state.simulation.io.scan_film = False
     widgets = _make_widgets(source_state)
     widgets.simulation.set_auto_preview_value(True)
-    widgets.simulation.set_scan_film_value(True)
 
     collected_state = collect_gui_state(widgets=widgets)
 
