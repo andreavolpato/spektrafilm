@@ -398,6 +398,13 @@ This is one of the most appealing aspects for me, especially when I think of
 printing large, high-resolution simulated images while retaining all this
 low-level grain detail that is not present in the original picture.
 
+### Language
+
+The GUI follows the system language and is available in English and Simplified
+Chinese. Set the `SPEKTRAFILM_LANG` environment variable to `en` or `zh_CN` to
+override it. Translations live in `src/spektrafilm_gui/locales/`, one JSON file
+per language, keyed by the English text. Missing entries fall back to English.
+
 ## Preparing input images manually with darktable
 
 Direct RAW import in the GUI is the simplest workflow, but manual development is

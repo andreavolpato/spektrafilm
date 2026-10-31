@@ -5,6 +5,7 @@ from qtpy import QtCore, QtGui, QtWidgets
 QPointF = getattr(QtCore, 'QPointF')
 QSize = getattr(QtCore, 'QSize')
 
+from spektrafilm_gui.i18n import tr
 from spektrafilm_gui.theme_palette import (
     HEADER_DIVIDER_LINE,
     SIZE_FORM_SPACING,
@@ -17,7 +18,7 @@ from spektrafilm_gui.theme import resolve_theme_qcolor
 
 
 def normalize_ui_text(text: str) -> str:
-    return text.lower()
+    return tr(text.lower())
 
 
 def platform_default_font() -> QtGui.QFont:

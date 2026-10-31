@@ -14,6 +14,7 @@ QStyledItemDelegate = QtWidgets.QStyledItemDelegate
 QStylePainter = QtWidgets.QStylePainter
 
 from spektrafilm.profiles.io import load_profile
+from spektrafilm_gui.i18n import tr
 from spektrafilm_gui.theme_palette import (
     ACCENT_COLOR_TEXT,
     ACCENT_COLOR_TEXT_SECONDARY,
@@ -38,9 +39,9 @@ def _profile_use_text_and_color(profile_name: str) -> tuple[str, str]:
     except (FileNotFoundError, TypeError, ValueError):
         return '', ACCENT_COLOR_TEXT
     if profile.is_cine:
-        return 'cine', ACCENT_COLOR_TEXT_SECONDARY
+        return tr('cine'), ACCENT_COLOR_TEXT_SECONDARY
     if profile.is_still:
-        return 'still', ACCENT_COLOR_TEXT
+        return tr('still'), ACCENT_COLOR_TEXT
     return '', ACCENT_COLOR_TEXT
 
 
@@ -258,15 +259,16 @@ class BoolEditor(QtWidgets.QCheckBox):
 class EnumEditor(QtWidgets.QComboBox):
     def __init__(self, values: list[str]):
         super().__init__()
-        self.addItems(values)
+        for value in values:
+            self.addItem(tr(value), value)
 
     @property
     def value(self) -> str:
-        return self.currentText()
+        return self.currentData()
 
     @value.setter
     def value(self, value: str) -> None:
-        index = self.findText(value)
+        index = self.findData(value)
         if index >= 0:
             self.setCurrentIndex(index)
         else:
