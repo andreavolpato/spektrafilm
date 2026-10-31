@@ -1,8 +1,12 @@
+import os
 import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+# GUI tests assert on English text, whatever the locale of the machine.
+os.environ.setdefault("SPEKTRAFILM_LANG", "en")
 
 SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIR) not in sys.path:

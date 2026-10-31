@@ -7,6 +7,8 @@ from typing import Any, Callable
 import numpy as np
 from qtpy import QtCore
 
+from spektrafilm_gui.i18n import tr
+
 
 DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
 QObject = getattr(QtCore, 'QObject')
@@ -127,11 +129,11 @@ def display_profile_available(*, imagecms_module: Any) -> bool:
 
 def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> str:
     if not enabled:
-        return 'Display transform: disabled'
+        return tr('Display transform: disabled')
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return 'Display transform: no display profile, using raw preview'
-    return f'Display transform: display profile found ({profile_name})'
+        return tr('Display transform: no display profile, using raw preview')
+    return tr('Display transform: display profile found ({profile_name})', profile_name=profile_name)
 
 
 def prepare_input_color_preview_image(
@@ -165,7 +167,7 @@ def apply_display_transform(
 ) -> tuple[np.ndarray, str]:
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
+        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), tr('Display transform: no display profile, using raw preview')
 
     srgb_preview = colour_module.RGB_to_RGB(
         image_data,
@@ -178,7 +180,7 @@ def apply_display_transform(
     source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
     source_image = pil_image_module.fromarray(srgb_preview_uint8, mode='RGB')
     transformed_image = imagecms_module.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
-    return np.asarray(transformed_image, dtype=np.uint8), f'Display transform: active ({profile_name})'
+    return np.asarray(transformed_image, dtype=np.uint8), tr('Display transform: active ({profile_name})', profile_name=profile_name)
 
 
 def prepare_output_display_image(
@@ -206,7 +208,7 @@ def prepare_output_display_image(
         )
         return transformed_image, status
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return preview_image, 'Display transform: transform failed, using raw preview'
+        return preview_image, tr('Display transform: transform failed, using raw preview')
 
 
 def execute_simulation_request(
