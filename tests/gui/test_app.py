@@ -59,8 +59,13 @@ def test_create_viewer_uses_system_dark_theme(monkeypatch) -> None:
 
 def test_apply_app_palette_uses_fixed_dark_palette(monkeypatch) -> None:
     captured: dict[str, object] = {}
-    fake_app = SimpleNamespace(setPalette=lambda palette: captured.setdefault('palette', palette))
+    icon = object()
+    fake_app = SimpleNamespace(
+        setPalette=lambda palette: captured.setdefault('palette', palette),
+        setWindowIcon=lambda icon: captured.setdefault('icon', icon),
+    )
 
+    monkeypatch.setattr(app_module, 'application_icon', lambda: icon)
     monkeypatch.setattr(app_module.QtWidgets.QApplication, 'instance', staticmethod(lambda: fake_app))
 
     app_module._apply_app_palette()
@@ -72,6 +77,7 @@ def test_apply_app_palette_uses_fixed_dark_palette(monkeypatch) -> None:
     assert palette.color(QtGui.QPalette.AlternateBase).name() == app_module.GRAY_2
     assert palette.color(QtGui.QPalette.WindowText).name() == app_module.TEXT_MAIN
     assert palette.color(QtGui.QPalette.Highlight).name() == app_module.TEXT_SELECTION_BG
+    assert captured['icon'] is icon
 
 
 def test_schedule_background_warmup_queues_only_once(monkeypatch) -> None:
@@ -297,6 +303,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         run_preview=object(),
         run_scan=object(),
         save_output_layer=object(),
+        save_film_frame_output=object(),
         report_display_transform_status=object(),
         set_gray_18_canvas_enabled=object(),
         set_output_interpolation_mode=object(),
@@ -320,6 +327,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
             preview_requested=FakeSignal(),
             scan_requested=FakeSignal(),
             save_requested=FakeSignal(),
+            film_frame_requested=FakeSignal(),
         ),
         display=SimpleNamespace(
             use_display_transform=SimpleNamespace(toggled=FakeSignal()),
@@ -348,6 +356,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
     assert widgets.simulation.preview_requested.connected == [controller.run_preview]
     assert widgets.simulation.scan_requested.connected == [controller.run_scan]
     assert widgets.simulation.save_requested.connected == [controller.save_output_layer]
+    assert widgets.simulation.film_frame_requested.connected == [controller.save_film_frame_output]
     assert widgets.display.use_display_transform.toggled.connected == [controller.report_display_transform_status]
     assert widgets.display.gray_18_canvas.toggled.connected == [controller.set_gray_18_canvas_enabled]
     assert widgets.display.output_interpolation.currentTextChanged.connected == [controller.set_output_interpolation_mode]

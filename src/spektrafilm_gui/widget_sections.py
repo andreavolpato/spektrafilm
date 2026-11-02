@@ -105,6 +105,10 @@ _SIMULATION_ACTION_BUTTON_SPECS = {
         'text': 'SAVE',
         'tooltip': 'Save the current output layer to an image file',
     },
+    'film_frame': {
+        'text': 'FILM FRAME',
+        'tooltip': 'Export the simulated image with a photographic film border',
+    },
 }
 
 
@@ -724,6 +728,7 @@ class SimulationSection(QWidget):
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
+    film_frame_requested = Signal()
     _glare_section: 'ParamsGroupSection | None'
     _scanner_section: 'ParamsGroupSection | None'
     _scan_for_print_restore_state: dict[str, object] | None
@@ -768,6 +773,13 @@ class SimulationSection(QWidget):
             tooltip=save_button_spec['tooltip'],
             role='accentAction',
         )
+        film_frame_spec = _SIMULATION_ACTION_BUTTON_SPECS['film_frame']
+        self.film_frame_button = _build_button(
+            film_frame_spec['text'],
+            self.film_frame_requested.emit,
+            tooltip=film_frame_spec['tooltip'],
+            role='accentAction',
+        )
 
         scan_film_row = QHBoxLayout()
         scan_film_row.setContentsMargins(0, 0, 0, 0)
@@ -788,6 +800,7 @@ class SimulationSection(QWidget):
                 self.preview_button,
                 self.scan_button,
                 self.save_button,
+                self.film_frame_button,
                 stretch=1,
                 spacing=SIZE_FOOTER_ITEM_SPACING,
             ),

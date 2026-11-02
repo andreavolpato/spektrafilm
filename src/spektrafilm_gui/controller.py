@@ -21,6 +21,8 @@ from spektrafilm_gui.image_adjustments import (
     apply_basic_adjustments,
     has_basic_adjustments,
 )
+from spektrafilm_gui.film_frame import compose_film_frame
+from spektrafilm_gui.film_frame_dialog import FilmFrameDialog
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     load_dialog_dir,
@@ -29,7 +31,7 @@ from spektrafilm_gui.persistence import (
     save_dialog_dir,
     save_gui_state_to_path,
 )
-from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
+from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
 from spektrafilm_gui.napari_layout import dialog_parent, reset_viewer_camera, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
@@ -494,6 +496,36 @@ class GuiController:
             set_status(self._viewer, '无法使用显示变换：未检测到显示器配置文件，已停用')
         return False
 
+    def _output_image_for_saving(
+        self,
+        output_layer: NapariImageLayer,
+        gui_state: GuiState,
+    ) -> tuple[np.ndarray, str, bool]:
+        float_image_data = self._output_layer_float_data()
+        if float_image_data is None:
+            image_data = runtime.normalized_image_data(np.asarray(output_layer.data)[..., :3])
+        else:
+            image_data = np.asarray(float_image_data)[..., :3]
+
+        source_color_space, source_cctf_encoding = self._output_layer_render_settings(
+            default_color_space=gui_state.simulation.io.output_color_space,
+            default_cctf_encoding=True,
+        )
+        saving_color_space = gui_state.simulation.workflow.saving_color_space
+        saving_cctf_encoding = gui_state.simulation.workflow.saving_cctf_encoding
+        if (
+            source_color_space != saving_color_space
+            or source_cctf_encoding != saving_cctf_encoding
+        ):
+            image_data = colour.RGB_to_RGB(
+                image_data,
+                source_color_space,
+                saving_color_space,
+                apply_cctf_decoding=source_cctf_encoding,
+                apply_cctf_encoding=saving_cctf_encoding,
+            )
+        return image_data, saving_color_space, saving_cctf_encoding
+
     def save_output_layer(self) -> None:
         output_layer = self._output_layer()
         if output_layer is None:
@@ -515,34 +547,10 @@ class GuiController:
             return
 
         gui_state = collect_gui_state(widgets=self._widgets)
-        float_image_data = self._output_layer_float_data()
-        if float_image_data is None:
-            image_data = runtime.normalized_image_data(np.asarray(output_layer.data)[..., :3])
-        else:
-            image_data = np.asarray(float_image_data)[..., :3]
-
-        source_color_space, source_cctf_encoding = self._output_layer_render_settings(
-            default_color_space=gui_state.simulation.io.output_color_space,
-            default_cctf_encoding=True,
+        image_data, saving_color_space, saving_cctf_encoding = self._output_image_for_saving(
+            output_layer,
+            gui_state,
         )
-        saving_color_space = gui_state.simulation.workflow.saving_color_space
-        saving_cctf_encoding = gui_state.simulation.workflow.saving_cctf_encoding
-        if source_color_space != saving_color_space:
-            image_data = colour.RGB_to_RGB(
-                image_data,
-                source_color_space,
-                saving_color_space,
-                apply_cctf_decoding=source_cctf_encoding,
-                apply_cctf_encoding=saving_cctf_encoding,
-            )
-        elif source_cctf_encoding != saving_cctf_encoding:
-            image_data = colour.RGB_to_RGB(
-                image_data,
-                source_color_space,
-                saving_color_space,
-                apply_cctf_decoding=source_cctf_encoding,
-                apply_cctf_encoding=saving_cctf_encoding,
-            )
 
         source_metadata = None
 
@@ -578,6 +586,77 @@ class GuiController:
             )
         else:
             set_status(self._viewer, f"输出图像已保存到 {filepath}")
+
+    def save_film_frame_output(self) -> None:
+        output_layer = self._output_layer()
+        if output_layer is None:
+            QMessageBox.warning(dialog_parent(self._viewer), '胶片边框', '请先运行模拟，再导出胶片边框图像。')
+            return
+
+        gui_state = collect_gui_state(widgets=self._widgets)
+        selected_film = gui_state.simulation.selection.film_stock
+        film_stock_id = str(getattr(selected_film, 'value', selected_film))
+        image_data, saving_color_space, saving_cctf_encoding = self._output_image_for_saving(
+            output_layer,
+            gui_state,
+        )
+        dialog = FilmFrameDialog(
+            image_data,
+            film_stock_id=film_stock_id,
+            parent=dialog_parent(self._viewer),
+        )
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+
+        if self._current_input_path is not None:
+            default_name = f'{Path(self._current_input_path).stem}_film-frame.jpg'
+        else:
+            default_name = 'film-frame.jpg'
+        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
+            dialog_parent(self._viewer),
+            '导出胶片边框图像',
+            default_name,
+            '图像文件 (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
+        )
+        if not filepath:
+            return
+
+        try:
+            framed_image = compose_film_frame(
+                image_data,
+                template_id=dialog.template_id,
+                date_label=dialog.date_label_edit.text(),
+                frame_number=dialog.frame_number_edit.text(),
+                options=dialog.options,
+            )
+            save_image_oiio(
+                filepath,
+                framed_image,
+                color_space=saving_color_space,
+                cctf_encoding=saving_cctf_encoding,
+            )
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), '导出胶片边框失败', f'无法导出胶片边框图像。\n\n{exc}')
+            return
+
+        source_metadata = None
+        if self._current_input_path is not None:
+            source_metadata = read_image_metadata(self._current_input_path)
+        metadata_write_error = None
+        try:
+            write_image_metadata(
+                filepath,
+                source_metadata,
+                saving_color_space=saving_color_space,
+                saving_cctf_encoding=saving_cctf_encoding,
+            )
+        except Exception as exc:
+            metadata_write_error = exc
+
+        if metadata_write_error is not None:
+            set_status(self._viewer, f'胶片边框图像已导出到 {filepath}，但复制元数据失败：{metadata_write_error}')
+        else:
+            set_status(self._viewer, f'胶片边框图像已导出到 {filepath}')
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(

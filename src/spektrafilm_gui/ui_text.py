@@ -186,6 +186,8 @@ _TRANSLATIONS = {
     "run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)": "在较小的预览图上运行模拟；关闭颗粒、晕光、模糊和反锐化蒙版（扩散滤镜仍启用）",
     "run the full simulation on the full-resolution input": "对全分辨率输入运行完整模拟",
     "save the current output layer to an image file": "将当前输出图层保存为图像文件",
+    "film frame": "胶片边框",
+    "export the simulated image with a photographic film border": "将模拟结果添加胶片边框并导出",
     "enable dir coupler inhibition.": "启用 DIR 偶合剂抑制。",
     "global multiplier on the dir coupler inhibition matrix. 1.0 leaves the per-channel gammas as-is.": "DIR 偶合剂抑制矩阵的全局乘数。1.0 表示保持各通道伽马不变。",
     "multiplier on the same-layer (diagonal) inhibition. controls overall contrast / gamma reduction within each rgb layer.": "同层（对角线）抑制的乘数，控制各 RGB 层的整体反差和伽马降低程度。",

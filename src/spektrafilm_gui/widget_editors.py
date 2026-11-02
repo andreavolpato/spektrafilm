@@ -79,6 +79,11 @@ def _draw_profile_display_text(
     painter.drawText(value_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, profile_name)
 
 
+def _bounded_profile_popup_width(*, combo_width: int, content_width: int, available_width: int) -> int:
+    screen_limit = max(combo_width, available_width - 24)
+    return max(combo_width, min(content_width, screen_limit))
+
+
 class ProfileEnumItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index) -> None:  # noqa: N802 - Qt API name
         display_value = index.data(QtCore.Qt.DisplayRole) or ''
@@ -140,7 +145,15 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
         )
         frame_width = self.view().frameWidth() * 2
         scrollbar_width = self.style().pixelMetric(QStyle.PM_ScrollBarExtent, None, self.view())
-        self.view().setMinimumWidth(max(self.width(), widest_item + frame_width + scrollbar_width + 12))
+        screen = self.screen() or QtWidgets.QApplication.primaryScreen()
+        available_width = screen.availableGeometry().width() if screen is not None else self.width()
+        popup_width = _bounded_profile_popup_width(
+            combo_width=self.width(),
+            content_width=widest_item + frame_width + scrollbar_width + 12,
+            available_width=available_width,
+        )
+        self.view().setMinimumWidth(popup_width)
+        self.view().setMaximumWidth(popup_width)
         super().showPopup()
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name

@@ -15,6 +15,15 @@ from spektrafilm_gui import widget_editors as widget_editors_module
 from spektrafilm_gui import state as state_module
 
 
+def test_application_icon_loads_the_packaged_mac_logo() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    _app = widget_editors_module.QtWidgets.QApplication.instance() or widget_editors_module.QtWidgets.QApplication([])
+
+    icon = icons_module.application_icon()
+
+    assert not icon.isNull()
+
+
 class FakeLineEdit:
     def __init__(self) -> None:
         self._text = ''
@@ -510,6 +519,7 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert isinstance(section.print_paper, widget_editors_module.ProfileEnumEditor)
     assert section.film_stock.currentText() == list(state_module.FilmStocks)[0].value
     assert section.print_paper.currentText() == list(state_module.PrintPapers)[0].value
+    assert section.film_frame_button.text() == '胶片边框'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == '静态胶片 / kodak_portra_400'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == '电影胶片 / kodak_vision3_50d'
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == '电影胶片 / kodak_2393'

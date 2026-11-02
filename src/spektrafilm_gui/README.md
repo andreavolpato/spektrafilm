@@ -26,6 +26,7 @@ The science itself is **not the GUI's responsibility**. If a piece of behavior i
 - **Parameter widgets, layout, persistence**. The widget specs, controllers, state bridge, and persistence machinery all live here.
 - **Color-space pickers**. If the GUI grows a color-space picker for inputs/outputs, it owns the UX of that picker — what names are shown, how unfamiliar names are explained. It may consult `spektrafilm_lut_creator`'s registry, or it may maintain its own smaller curated list, depending on what makes sense for users.
 - **Image I/O and preview pipelines**. Loading raw / TIFF / EXR, preview rescaling, output formatting for napari layers.
+- **Film-frame export**. Open a live preview with a fixed 3:2 photo gate and matched 35 mm rails. The complete composition rotates for portrait photos; non-3:2 images can be contained with letterboxing or center-cropped, never stretched. Only edge markings visible in the supplied Portra 400 reference are rendered; other stock templates are marked as unverified and omit manufacturer text, frame numbers, and codes. An editable user frame number uses a contrasting neutral ink to distinguish it from manufacturer printing; date marks are off by default. Preview and export share the same renderer, and this presentation effect does not change simulation pixels.
 
 ## Layering rule
 
@@ -48,5 +49,7 @@ The science itself is **not the GUI's responsibility**. If a piece of behavior i
 - `widget_sections.py`, `widget_editors.py` — widget definitions
 - `params_mapper.py` — params ↔ widget value translation
 - `persistence.py` — project I/O
+- `film_frame.py` — film-frame export composition
+- `film_frame_dialog.py` — film-frame preview and controls
 - `polaroid_animation.py`, `virtual_photo_paper_back.py` — specialty UIs
 - `theme*.py`, `icons.py` — visual styling

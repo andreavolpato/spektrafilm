@@ -261,6 +261,20 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Instructions for macOS and Linux are
 [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
+#### Windows setup ZIP
+
+The Windows setup package can be built with Python 3.13 from a checkout:
+
+```bash
+python scripts/package_windows.py
+```
+
+Extract `dist/Spektrafilm-Windows-0.3.4.zip` on a Windows 10/11 64-bit PC and
+run `Install-Spektrafilm.bat`. It requires Python 3.13 (64-bit) and an internet
+connection to install the application and its dependencies. The installer adds
+Start menu and desktop shortcuts; it does not change the existing Spektrafilm
+installation. This is a setup package, not a fully offline single-file EXE.
+
 
 ### Using `pip`
 
@@ -398,6 +412,15 @@ This is one of the most appealing aspects for me, especially when I think of
 printing large, high-resolution simulated images while retaining all this
 low-level grain detail that is not present in the original picture.
 
+To export the simulated image with a film-negative presentation, choose
+`胶片边框` in the action bar. A live-preview dialog lets you adjust the border
+width and toggle sprocket holes, film label, date, and frame number. The output
+is a complete, near-square 35 mm frame: a central 3:2 photo gate with matched
+top and bottom film rails. Landscape and portrait inputs are fitted inside the
+gate without cropping or stretching. The preview and exported file use the same
+frame renderer, and the complete frame is scaled proportionally in the dialog.
+Exporting does not change the simulation or the current preview layer.
+
 ### 简体中文界面
 
 桌面界面采用简体中文。胶片和相纸配置文件仍显示原始 profile ID；色彩空间、
@@ -406,6 +429,10 @@ low-level grain detail that is not present in the original picture.
 在“主界面”页中，使用“导入 RGB 图像”加载已处理的线性图像，或在“导入 RAW”
 分组中选择 RAW 文件并设置白平衡；调整胶片配置、相纸配置及其他参数后，点击
 “预览”查看快速结果，点击“扫描”运行全分辨率模拟，再点击“保存”导出图像。
+也可以点击“胶片边框”，在弹出窗口实时预览并调节边框宽度、齿孔、胶片型号、
+日期和画格编号；导出为上下黑色片基轨道、中间 3:2 照片窗的完整近方形底片画幅。
+横向或竖向原图都会按原比例完整适配照片窗，不裁切、不拉伸；预览和导出使用相同的
+构图逻辑，且不会改变模拟结果或预览图层。
 将鼠标悬停在控件上可查看中文提示。界面设置可在“设置”页中保存、加载或恢复
 默认值；胶片、相纸、色彩空间和导出格式等技术标识不会被翻译。
 模拟完成后，可在“基础调整”中通过横向滑块调整曝光、反差、高光、阴影、白色色阶、

@@ -12,13 +12,13 @@ if TYPE_CHECKING:
     import napari
 
 QFrame = QtWidgets.QFrame
-QIcon = QtGui.QIcon
 QMainWindow = QtWidgets.QMainWindow
 QPushButton = QtWidgets.QPushButton
 QStatusBar = QtWidgets.QStatusBar
 QScrollArea = QtWidgets.QScrollArea
 QWidget = QtWidgets.QWidget
 
+from spektrafilm_gui.icons import application_icon
 from spektrafilm_gui.theme import APP_STYLE_SHEET
 from spektrafilm_gui.theme_palette import (
     GRAY_0,
@@ -40,6 +40,8 @@ DEFAULT_CONTROLS_PANEL_WIDTH = 420
 DEFAULT_VIEWER_SPLITTER_WIDTH = 1040
 _DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 _DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
+
+
 class AppMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -480,7 +482,7 @@ def build_main_window(
 
     main_window = AppMainWindow()
     main_window.setWindowTitle('spektrafilm')
-    main_window.setWindowIcon(QIcon())
+    main_window.setWindowIcon(application_icon())
     main_window.resize(DEFAULT_CONTROLS_PANEL_WIDTH + DEFAULT_VIEWER_SPLITTER_WIDTH, 980)
     main_window.setFont(platform_default_font())
     main_window.setStyleSheet(APP_STYLE_SHEET)
