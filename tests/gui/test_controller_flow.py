@@ -901,7 +901,7 @@ def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkey
     assert controller._active_simulation_reports_status is True
 
 
-def test_basic_adjustments_update_output_from_unadjusted_simulation_base(monkeypatch) -> None:
+def test_basic_adjustments_run_in_background_from_unadjusted_simulation_base(monkeypatch) -> None:
     image = np.full((2, 2, 3), 0.5, dtype=np.float32)
     adjustment_state = BasicAdjustmentsState(exposure=1.0)
     controller = GuiController(
@@ -930,7 +930,19 @@ def test_basic_adjustments_update_output_from_unadjusted_simulation_base(monkeyp
         lambda _service, display_image, **kwargs: captured.update(display=display_image, **kwargs),
     )
 
+    queued_workers = []
+    monkeypatch.setattr(controller._thread_pool, 'start', queued_workers.append)
+    timer_starts = []
+    monkeypatch.setattr(controller._adjustment_timer, 'start', lambda *args: timer_starts.append(args))
     controller.apply_basic_adjustments()
+    assert timer_starts == [()]
+    assert captured == {}
+
+    controller._start_basic_adjustment_worker()
+    assert len(queued_workers) == 1
+    result = queued_workers[0]._execute_request(queued_workers[0]._request)
+    assert captured == {}
+    controller._on_basic_adjustment_finished(result)
 
     adjusted = captured['float_image']
     assert float(adjusted.mean()) == pytest.approx(0.686, abs=0.002)

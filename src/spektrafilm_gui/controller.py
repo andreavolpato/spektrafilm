@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -48,6 +49,7 @@ QThreadPool = getattr(QtCore, 'QThreadPool')
 QTimer = getattr(QtCore, 'QTimer')
 QFileDialog = QtWidgets.QFileDialog
 QMessageBox = QtWidgets.QMessageBox
+QUEUED_CONNECTION = getattr(QtCore.Qt, 'QueuedConnection')
 SimulationRequest = runtime.SimulationRequest
 SimulationResult = runtime.SimulationResult
 STARTUP_PREVIEW_ASPECT_RATIO = (3, 2)
@@ -152,6 +154,12 @@ class GuiController:
         )
         self._thread_pool = QThreadPool.globalInstance()
         self._active_simulation_worker: runtime.SimulationWorker | None = None
+        self._active_adjustment_worker: runtime.AdjustmentWorker | None = None
+        self._adjustment_generation = 0
+        self._adjustment_timer = QTimer()
+        self._adjustment_timer.setSingleShot(True)
+        self._adjustment_timer.setInterval(100)
+        self._adjustment_timer.timeout.connect(self._start_basic_adjustment_worker)
         self._active_simulation_label: str | None = None
         self._runtime_simulator = None
         self._next_runtime_digest_applies_stock_specifics = True
@@ -383,17 +391,99 @@ class GuiController:
         output_layer = self._output_layer()
         if output_layer is None:
             return
+        self._adjustment_generation += 1
+        self._adjustment_timer.start()
+
+    def _start_basic_adjustment_worker(self) -> None:
+        if self._active_adjustment_worker is not None:
+            return
+        if self._active_simulation_worker is not None:
+            return
+        if self._base_output_float_image is None:
+            return
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+
+        adjustment_section = getattr(self._widgets, 'basic_adjustments', None)
+        get_state = getattr(adjustment_section, 'get_state', None)
+        adjustments = get_state() if callable(get_state) else BasicAdjustmentsState()
         output_color_space, _cctf_encoding = self._output_layer_render_settings(
             default_color_space=PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space,
             default_cctf_encoding=True,
         )
-        use_display_transform = bool(output_layer.metadata.get(OUTPUT_DISPLAY_TRANSFORM_KEY, False))
-        self._render_adjusted_simulation_output(
-            self._base_output_float_image,
+        request = runtime.AdjustmentRequest(
+            generation=self._adjustment_generation,
+            image=self._base_output_float_image,
+            adjustments=replace(adjustments),
             output_color_space=output_color_space,
-            use_display_transform=use_display_transform,
-            update_existing=True,
+            use_display_transform=bool(output_layer.metadata.get(OUTPUT_DISPLAY_TRANSFORM_KEY, False)),
         )
+        worker = runtime.AdjustmentWorker(request, execute_request=self._execute_adjustment_request)
+        worker.signals.finished.connect(self._on_basic_adjustment_finished, QUEUED_CONNECTION)
+        worker.signals.failed.connect(self._on_basic_adjustment_failed, QUEUED_CONNECTION)
+        self._active_adjustment_worker = worker
+        self._thread_pool.start(worker)
+
+    def _execute_adjustment_request(self, request: runtime.AdjustmentRequest) -> runtime.AdjustmentResult:
+        image_data = np.asarray(request.image)[..., :3]
+        if has_basic_adjustments(request.adjustments):
+            if request.output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                image_data = colour.RGB_to_RGB(
+                    image_data,
+                    request.output_color_space,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = apply_basic_adjustments(np.asarray(image_data), request.adjustments)
+            if request.output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                adjusted_image = colour.RGB_to_RGB(
+                    adjusted_image,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    request.output_color_space,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+        else:
+            adjusted_image = image_data
+        adjusted_image = np.asarray(adjusted_image)
+        display_image, status = self._prepare_output_display_image(
+            adjusted_image,
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+        )
+        return runtime.AdjustmentResult(
+            generation=request.generation,
+            display_image=display_image,
+            float_image=adjusted_image,
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+            status_message=status,
+        )
+
+    def _on_basic_adjustment_finished(self, result: runtime.AdjustmentResult) -> None:
+        self._active_adjustment_worker = None
+        if result.generation != self._adjustment_generation:
+            self._adjustment_timer.start(0)
+            return
+        if self._output_layer() is None:
+            return
+        self._layers.update_output_layer(
+            result.display_image,
+            float_image=result.float_image,
+            output_color_space=result.output_color_space,
+            output_cctf_encoding=True,
+            use_display_transform=result.use_display_transform,
+        )
+        set_status(self._viewer, result.status_message)
+
+    def _on_basic_adjustment_failed(self, generation: int, message: str) -> None:
+        self._active_adjustment_worker = None
+        if generation != self._adjustment_generation:
+            self._adjustment_timer.start(0)
+            return
+        set_status(self._viewer, f'基础调整失败：{message}')
 
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if runtime.display_profile_available(imagecms_module=ImageCms):
@@ -789,6 +879,8 @@ class GuiController:
             source_layer_name=source_layer_name,
         )
 
+        self._adjustment_generation += 1
+        self._adjustment_timer.stop()
         image = np.double(image_data)
         request = SimulationRequest(
             mode_label=mode_label,

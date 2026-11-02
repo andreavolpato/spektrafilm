@@ -33,9 +33,33 @@ class SimulationResult:
     status_message: str
 
 
+@dataclass(slots=True)
+class AdjustmentRequest:
+    generation: int
+    image: np.ndarray
+    adjustments: object
+    output_color_space: str
+    use_display_transform: bool
+
+
+@dataclass(slots=True)
+class AdjustmentResult:
+    generation: int
+    display_image: np.ndarray
+    float_image: np.ndarray
+    output_color_space: str
+    use_display_transform: bool
+    status_message: str
+
+
 class SimulationWorkerSignals(QObject):
     finished = Signal(object)
     failed = Signal(str)
+
+
+class AdjustmentWorkerSignals(QObject):
+    finished = Signal(object)
+    failed = Signal(int, str)
 
 
 class SimulationWorker(QRunnable):
@@ -50,6 +74,27 @@ class SimulationWorker(QRunnable):
             result = self._execute_request(self._request)
         except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
             self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
+            return
+        self.signals.finished.emit(result)
+
+
+class AdjustmentWorker(QRunnable):
+    def __init__(
+        self,
+        request: AdjustmentRequest,
+        *,
+        execute_request: Callable[[AdjustmentRequest], AdjustmentResult],
+    ):
+        super().__init__()
+        self._request = request
+        self._execute_request = execute_request
+        self.signals = AdjustmentWorkerSignals()
+
+    def run(self) -> None:
+        try:
+            result = self._execute_request(self._request)
+        except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            self.signals.failed.emit(self._request.generation, f'{type(exc).__name__}: {exc}')
             return
         self.signals.finished.emit(result)
 
