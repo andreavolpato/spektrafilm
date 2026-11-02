@@ -1,0 +1,111 @@
+{
+  "canvas_landscape_px": [
+    3800,
+    3500
+  ],
+  "photo_landscape_rect_px": [
+    100,
+    550,
+    3600,
+    2400
+  ],
+  "canvas_portrait_px": [
+    3500,
+    3800
+  ],
+  "photo_portrait_rect_px": [
+    550,
+    100,
+    2400,
+    3600
+  ],
+  "physical_mm": {
+    "strip": [
+      38,
+      35
+    ],
+    "frame": [
+      36,
+      24
+    ],
+    "perforation_pitch": 4.75,
+    "perforations_per_edge": 8
+  },
+  "alpha": "Image opening and perforations are transparent in PNG and SVG; black frame and lettering are opaque.",
+  "variants": [
+    {
+      "id": "01_Kodak_Portra_400",
+      "name": "KODAK PORTRA 400",
+      "ui": "Kodak Portra 400",
+      "label": "KODAK PORTRA 400",
+      "top_left": "12",
+      "top_right": "",
+      "bottom_left": "12",
+      "bottom_right": "12A",
+      "arrow": true,
+      "source": "Kodak Alaris official Portra 400 product specifications + reference film border scans; typography and coordinates are recreation, not a specific production batch."
+    },
+    {
+      "id": "02_Kodak_Gold_200",
+      "name": "KODAK GOLD 200",
+      "ui": "Kodak Gold 200",
+      "label": "GB 200-7  KODAK",
+      "top_left": "12",
+      "top_right": "",
+      "bottom_left": "12",
+      "bottom_right": "12A",
+      "arrow": true,
+      "source": "Photographed processed Gold 200 negatives show GB 200-7 KODAK; generation-specific, not a universal edgeprint."
+    },
+    {
+      "id": "03_Kodak_Ektar_100",
+      "name": "KODAK EKTAR 100",
+      "ui": "Kodak Ektar 100",
+      "label": "KODAK EKTAR 100",
+      "top_left": "12",
+      "top_right": "",
+      "bottom_left": "12",
+      "bottom_right": "12A",
+      "arrow": true,
+      "source": "Sample Ektar 100 strip and border scans show KODAK EKTAR 100 and numbered frames."
+    },
+    {
+      "id": "04_Kodak_ColorPlus_200",
+      "name": "KODAK COLORPLUS 200",
+      "ui": "Kodak ColorPlus 200",
+      "label": "200-8  KODAK",
+      "top_left": "12",
+      "top_right": "",
+      "bottom_left": "12",
+      "bottom_right": "12A",
+      "arrow": true,
+      "source": "Kodak ColorPlus 200 negatives (2015 sample) reported with edgeprint Kodak 200-8; generation-specific."
+    },
+    {
+      "id": "05_Fuji_Superia_XTRA_400",
+      "name": "FUJIFILM SUPERIA X-TRA 400",
+      "ui": "Fuji Superia X-TRA 400",
+      "label": "S-400",
+      "top_left": "",
+      "top_right": "12",
+      "bottom_left": "12",
+      "bottom_right": "12A",
+      "arrow": true,
+      "fuji": true,
+      "source": "Fujifilm Superia X-TRA 400 published datasheet documents S-400, generation edge markings and green/red edge stripes; concrete batch identifiers intentionally omitted."
+    },
+    {
+      "id": "06_通用无品牌_135",
+      "name": "135 STANDARD",
+      "ui": "通用无品牌135",
+      "label": "",
+      "top_left": "",
+      "top_right": "",
+      "bottom_left": "",
+      "bottom_right": "",
+      "arrow": false,
+      "source": "Geometric standard template; no brand, batch, frame or machine readable code."
+    }
+  ],
+  "important": "Frame number 12/12A is an illustrative editable frame number, not a claim that a given photograph was negative 12. Each edgeprint can vary by film generation and processing."
+}

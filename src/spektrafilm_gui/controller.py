@@ -625,8 +625,8 @@ class GuiController:
             framed_image = compose_film_frame(
                 image_data,
                 template_id=dialog.template_id,
-                date_label=dialog.date_label_edit.text(),
-                frame_number=dialog.frame_number_edit.text(),
+                date_label=dialog.date_label,
+                frame_number=dialog.frame_number,
                 options=dialog.options,
             )
             save_image_oiio(

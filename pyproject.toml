@@ -74,5 +74,6 @@ spektrafilm = [
 ]
 spektrafilm_gui = [
     "assets/*",
+    "assets/film_frames/*",
 ]
 

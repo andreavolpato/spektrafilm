@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 import numpy as np
-import pytest
 
 from spektrafilm_gui.film_frame_dialog import FilmFrameDialog
 
@@ -15,52 +14,46 @@ def _qt_app():
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
-def test_film_frame_dialog_previews_landscape_photo_and_exposes_adjustments() -> None:
+def test_dialog_selects_template_from_stock_and_exposes_only_allowed_options() -> None:
     app = _qt_app()
-    dialog = FilmFrameDialog(
-        np.full((48, 72, 3), 0.4, dtype=np.float32),
-        film_stock_id='kodak_portra_400',
-        date_label='25 7 24',
-    )
+    dialog = FilmFrameDialog(np.full((48, 72, 3), 0.4, dtype=np.float32), film_stock_id='kodak_gold_200')
 
     assert '72 × 48 px（1.500:1），横向' in dialog.orientation_label.text()
-    preview = dialog.preview_label.pixmap()
-    assert preview is not None
-    assert preview.width() / preview.height() == pytest.approx(1.05, abs=0.03)
-    assert dialog.template_id == 'kodak_portra_400'
-    assert '部分核实' in dialog.template_status_label.text()
-    assert dialog.options.border_width == 0.15
+    assert dialog.template_id == '02_Kodak_Gold_200'
+    assert 'GB 200-7' in dialog.template_status_label.text()
+    assert '不代表该型号所有批次' in dialog.template_status_label.text()
+    assert dialog.preview_label.pixmap().width() == 560
     assert dialog.options.show_date is False
-    assert dialog.frame_number_checkbox.isEnabled()
+    assert dialog.options.output_long_edge == 3800
+    assert dialog.frame_number == '12'
 
-    dialog.border_width_slider.setValue(18)
-    dialog.fit_mode_combo.setCurrentIndex(dialog.fit_mode_combo.findData('cover'))
+    dialog.frame_number_checkbox.setChecked(False)
     dialog.date_checkbox.setChecked(True)
-    dialog.frame_number_edit.setText('75')
-
-    assert dialog.border_width_value.text() == '18%'
-    assert dialog.options.border_width == 0.18
-    assert dialog.options.fit_mode == 'cover'
-    assert dialog.options.show_date is True
-    assert dialog.frame_number_edit.text() == '75'
+    dialog.fit_mode_combo.setCurrentIndex(dialog.fit_mode_combo.findData('cover'))
+    dialog.pan_x_slider.setValue(20)
+    dialog.resolution_combo.setCurrentIndex(0)
+    options = dialog.options
+    assert options.show_frame_number is False
+    assert options.show_date is True
+    assert options.fit_mode == 'cover'
+    assert options.pan_x == 0.2
+    assert options.output_long_edge == 1900
+    assert '1900 × 1750 px' in dialog.resolution_label.text()
 
     dialog.close()
     app.processEvents()
 
 
-def test_film_frame_dialog_disables_unverified_edge_numbering() -> None:
+def test_dialog_portrait_photo_uses_portrait_preview_and_generic_template_has_no_number() -> None:
     app = _qt_app()
-    dialog = FilmFrameDialog(
-        np.full((72, 48, 3), 0.4, dtype=np.float32),
-        film_stock_id='fujifilm_c200',
-    )
+    dialog = FilmFrameDialog(np.full((72, 48, 3), 0.4, dtype=np.float32), film_stock_id='unknown_stock')
 
     assert '竖向' in dialog.orientation_label.text()
-    assert '待核实' in dialog.template_status_label.text()
-    assert dialog.template_id == 'fujifilm_c200'
-    assert not dialog.frame_number_checkbox.isEnabled()
+    assert dialog.template_id == '06_通用无品牌_135'
+    assert dialog.frame_number is None
     assert not dialog.frame_number_edit.isEnabled()
-    assert dialog.options.show_date is False
+    preview = dialog.preview_label.pixmap()
+    assert preview.height() == 560 and preview.width() < preview.height()
 
     dialog.close()
     app.processEvents()
