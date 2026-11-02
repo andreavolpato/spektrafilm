@@ -22,6 +22,7 @@ from spektrafilm_gui.widget_sections import (
     ExposureControlSection,
     FilePickerSection,
     GuiConfigSection,
+    BasicAdjustmentsSection,
     InputImageSection,
     LoadRawSection,
     OutputSection,
@@ -68,6 +69,7 @@ class WidgetBundle:
     spectral_upsampling: SpectralUpsamplingSection
     tune: TuneSection
     output: OutputSection
+    basic_adjustments: BasicAdjustmentsSection
 
 
 def create_widget_bundle() -> WidgetBundle:
@@ -106,4 +108,5 @@ def create_widget_bundle() -> WidgetBundle:
         spectral_upsampling=SpectralUpsamplingSection(input_image),
         tune=TuneSection(special),
         output=OutputSection(simulation),
+        basic_adjustments=BasicAdjustmentsSection(),
     )

@@ -21,6 +21,8 @@ def test_gui_state_round_trip_preserves_tuple_fields() -> None:
     state = make_test_gui_state()
     state.input_image.io.crop_size = (0.25, 0.4)
     state.grain.particle_scale = (1.1, 1.2, 1.3)
+    state.basic_adjustments.exposure = 1.25
+    state.basic_adjustments.texture = -20.0
     state.gui_only.display.gray_18_canvas = True
     state.gui_only.display.white_padding = 0.18
 
@@ -29,6 +31,8 @@ def test_gui_state_round_trip_preserves_tuple_fields() -> None:
     assert restored == state
     assert isinstance(restored.input_image.io.crop_size, tuple)
     assert isinstance(restored.grain.particle_scale, tuple)
+    assert restored.basic_adjustments.exposure == 1.25
+    assert restored.basic_adjustments.texture == -20.0
 
 
 def test_save_and_load_gui_state_file(tmp_path: Path) -> None:

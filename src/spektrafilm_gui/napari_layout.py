@@ -414,6 +414,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
                 widgets.enlarger,
                 widgets.scanner,
                 widgets.output,
+                widgets.basic_adjustments,
             ),
         ),
         '主界面',

@@ -35,6 +35,18 @@ _TRANSLATIONS = {
     "exposure": "曝光",
     "exposure compensation ev": "曝光补偿（EV）",
     "exposure control": "曝光控制",
+    "highlights": "高光",
+    "shadows": "阴影",
+    "whites": "白色色阶",
+    "blacks": "黑色色阶",
+    "texture": "纹理",
+    "clarity": "清晰度",
+    "dehaze": "去除薄雾",
+    "vibrance": "自然饱和度",
+    "saturation": "饱和度",
+    "contrast": "反差",
+    "basic adjustments": "基础调整",
+    "detail adjustments": "细节调整",
     "film channel swap": "胶片通道交换",
     "film format mm": "胶片画幅（mm）",
     "film gamma factor": "胶片伽马系数",
@@ -285,6 +297,7 @@ _TRANSLATIONS = {
     "apply lens corrections": "应用镜头校正。",
     "scan the image for print, ie white and black correction of the scanner are active, and glare is deactivated.": "为打印用途扫描图像：启用扫描仪黑白场校正，并关闭眩光。",
     "load and process a raw file using rawpy, output colorspace and cctf as defined in current input widget state": "使用 rawpy 加载并处理 RAW 文件；输出色彩空间和 CCTF 设置取自当前输入参数。",
+    "adjust image after film simulation.": "在胶片/相纸模拟完成后调整输出图像，不改变模拟过程。",
 }
 
 

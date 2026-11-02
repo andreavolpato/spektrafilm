@@ -363,6 +363,7 @@ class SliderFloatEditor(QtWidgets.QWidget):
         layout.addWidget(self._label)
 
         self._slider.valueChanged.connect(self._on_slider_changed)
+        self.value = 0.0
         self._update_label()
 
     def _n_steps(self) -> int:

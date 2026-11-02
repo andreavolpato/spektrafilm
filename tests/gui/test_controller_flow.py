@@ -14,6 +14,7 @@ from spektrafilm_gui.controller_layers import (
     WATERMARK_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
 )
+from spektrafilm_gui.image_adjustments import BasicAdjustmentsState
 
 from .helpers import FakeLayer, FakeViewer, make_test_controller_gui_state
 
@@ -898,3 +899,40 @@ def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkey
 
     assert 'status_calls' not in captured
     assert controller._active_simulation_reports_status is True
+
+
+def test_basic_adjustments_update_output_from_unadjusted_simulation_base(monkeypatch) -> None:
+    image = np.full((2, 2, 3), 0.5, dtype=np.float32)
+    adjustment_state = BasicAdjustmentsState(exposure=1.0)
+    controller = GuiController(
+        viewer=object(),
+        widgets=SimpleNamespace(
+            basic_adjustments=SimpleNamespace(get_state=lambda: adjustment_state),
+        ),
+    )
+    controller._base_output_float_image = np.array(image, copy=True)
+    output_layer = FakeLayer(
+        np.full((2, 2, 3), 128, dtype=np.uint8),
+        metadata={controller_module.OUTPUT_DISPLAY_TRANSFORM_KEY: False},
+        name='output',
+    )
+    monkeypatch.setattr(controller, '_output_layer', lambda: output_layer)
+    monkeypatch.setattr(controller, '_output_layer_render_settings', lambda **_kwargs: ('sRGB', True))
+    monkeypatch.setattr(
+        controller,
+        '_prepare_output_display_image',
+        lambda adjusted, **_kwargs: (np.asarray(adjusted * 255, dtype=np.uint8), 'display status'),
+    )
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        type(controller._layers),
+        'update_output_layer',
+        lambda _service, display_image, **kwargs: captured.update(display=display_image, **kwargs),
+    )
+
+    controller.apply_basic_adjustments()
+
+    adjusted = captured['float_image']
+    assert float(adjusted.mean()) == pytest.approx(0.686, abs=0.002)
+    assert float(controller._base_output_float_image.mean()) == pytest.approx(0.5)
+    assert int(captured['display'].mean()) == pytest.approx(175, abs=1)

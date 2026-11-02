@@ -221,6 +221,34 @@ def test_set_or_add_output_layer_matches_existing_input_world_geometry() -> None
     assert output_layer.scale == (0.125, 0.125)
 
 
+def test_update_output_layer_replaces_display_and_export_data() -> None:
+    viewer = FakeViewer()
+    service = _make_service(viewer)
+    original_display = np.full((2, 2, 3), 64, dtype=np.uint8)
+    service.set_or_add_output_layer(
+        original_display,
+        float_image=np.full((2, 2, 3), 0.25, dtype=np.float32),
+        output_color_space='sRGB',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+    updated_display = np.full((2, 2, 3), 128, dtype=np.uint8)
+    updated_float = np.full((2, 2, 3), 0.5, dtype=np.float32)
+
+    service.update_output_layer(
+        updated_display,
+        float_image=updated_float,
+        output_color_space='sRGB',
+        output_cctf_encoding=True,
+        use_display_transform=False,
+    )
+
+    layer = service.output_layer()
+    assert layer is not None
+    np.testing.assert_array_equal(layer.data, updated_display)
+    np.testing.assert_array_equal(layer.metadata[OUTPUT_FLOAT_DATA_KEY], updated_float)
+
+
 def test_set_or_add_output_layer_applies_requested_interpolation_mode() -> None:
     viewer = FakeViewer()
     service = _make_service(viewer)

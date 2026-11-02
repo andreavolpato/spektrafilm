@@ -342,6 +342,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
         enlarger='enlarger',
         scanner='scanner',
         output='output',
+        basic_adjustments='basic_adjustments',
         output_gamut_compress='output_gamut_compress',
         halation='halation',
         couplers='couplers',
@@ -364,6 +365,7 @@ def test_build_controls_panel_places_gamut_compression_sections_on_advanced_tab(
     tabs = {label: sections for label, sections in captured_tabs}
     assert 'input_gamut_compress' not in tabs['主界面']
     assert 'output_gamut_compress' not in tabs['主界面']
+    assert 'basic_adjustments' in tabs['主界面']
     assert tabs['高级'] == (
         'spectral_upsampling',
         'input_gamut_compress',

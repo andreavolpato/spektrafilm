@@ -37,6 +37,7 @@ from spektrafilm_gui.param_manifest import (
     SPECIAL_FIELDS,
     TUNE_PANEL_FIELDS,
 )
+from spektrafilm_gui.image_adjustments import ADJUSTMENT_LABELS, BasicAdjustmentsState
 from spektrafilm_gui.state import (
     DisplayState,
     InputImageState,
@@ -50,7 +51,7 @@ from spektrafilm_gui.state import (
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
 from spektrafilm_gui.options import RawWhiteBalance
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, SliderFloatEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
 from spektrafilm_gui.ui_text import translate_ui_text
 
@@ -258,7 +259,16 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     elif annotation is int:
         editor = IntEditor()
     elif annotation is float:
-        editor = FloatEditor(decimals=decimals)
+        if spec.slider:
+            editor = SliderFloatEditor(
+                minimum=spec.min if spec.min is not None else -1_000_000.0,
+                maximum=spec.max if spec.max is not None else 1_000_000.0,
+                step=spec.step if spec.step is not None else 0.1,
+                decimals=decimals,
+                suffix=spec.suffix,
+            )
+        else:
+            editor = FloatEditor(decimals=decimals)
     elif get_origin(annotation) is tuple:
         element_types = get_args(annotation)
         if element_types and all(element_type is int for element_type in element_types):
@@ -497,6 +507,48 @@ class ParamsGroupSection(QWidget):
         base = self._source if self._source is not None else self._group_cls()
         overrides = {leaf: editor.value for leaf, editor in self._editors.items()}
         return replace(base, **overrides)
+
+
+class BasicAdjustmentsSection(QWidget):
+    def __init__(self):
+        super().__init__()
+        self._source = BasicAdjustmentsState()
+        self._editors: dict[str, SliderFloatEditor] = {}
+        form = _new_form_layout()
+        details_form = _new_form_layout()
+        details_fields = {'texture', 'clarity', 'dehaze'}
+        for field_name, (label_text, minimum, maximum, step, decimals, suffix) in ADJUSTMENT_LABELS.items():
+            editor = SliderFloatEditor(
+                minimum=minimum,
+                maximum=maximum,
+                step=step,
+                decimals=decimals,
+                suffix=suffix,
+            )
+            label = QLabel(_normalize_ui_text(label_text))
+            tooltip = translate_ui_text(f'Adjust {field_name} after film simulation.')
+            label.setToolTip(tooltip)
+            editor.setToolTip(tooltip)
+            (details_form if field_name in details_fields else form).addRow(label, editor)
+            self._editors[field_name] = editor
+            setattr(self, field_name, editor)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addLayout(_build_collapsible_form_section('Basic adjustments', form, expanded=True))
+        layout.addLayout(_build_collapsible_form_section('Detail adjustments', details_form, expanded=True))
+        self.setLayout(layout)
+
+    def set_state(self, state: BasicAdjustmentsState) -> None:
+        self._source = state
+        for field_name, editor in self._editors.items():
+            editor.value = getattr(state, field_name)
+
+    def get_state(self) -> BasicAdjustmentsState:
+        return replace(
+            self._source,
+            **{field_name: editor.value for field_name, editor in self._editors.items()},
+        )
 
 
 class SpecialSection(QWidget):

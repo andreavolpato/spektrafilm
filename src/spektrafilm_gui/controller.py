@@ -15,6 +15,11 @@ from spektrafilm_gui.controller_layers import (
     INPUT_PREVIEW_LAYER_NAME,
     ViewerLayerService,
 )
+from spektrafilm_gui.image_adjustments import (
+    BasicAdjustmentsState,
+    apply_basic_adjustments,
+    has_basic_adjustments,
+)
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     load_dialog_dir,
@@ -153,6 +158,7 @@ class GuiController:
         self._current_input_image: np.ndarray | None = None
         self._current_input_path: str | None = None
         self._current_preview_image: np.ndarray | None = None
+        self._base_output_float_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
         self._active_simulation_reports_status = True
@@ -308,6 +314,86 @@ class GuiController:
         if output_layer is None:
             return
         self._layers.set_output_layer_interpolation(output_layer, mode)
+
+    def _render_adjusted_simulation_output(
+        self,
+        image: np.ndarray,
+        *,
+        output_color_space: str,
+        use_display_transform: bool,
+        update_existing: bool,
+        unadjusted_display_image: np.ndarray | None = None,
+    ) -> str:
+        adjustment_section = getattr(self._widgets, 'basic_adjustments', None)
+        get_state = getattr(adjustment_section, 'get_state', None)
+        adjustments = get_state() if callable(get_state) else BasicAdjustmentsState()
+        if has_basic_adjustments(adjustments):
+            image_data = np.asarray(image)[..., :3]
+            if output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                image_data = colour.RGB_to_RGB(
+                    image_data,
+                    output_color_space,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = apply_basic_adjustments(np.asarray(image_data), adjustments)
+            if output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                adjusted_image = colour.RGB_to_RGB(
+                    adjusted_image,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    output_color_space,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = np.asarray(adjusted_image)
+        else:
+            adjusted_image = np.asarray(image)
+
+        if not has_basic_adjustments(adjustments) and unadjusted_display_image is not None:
+            display_image = unadjusted_display_image
+            status = runtime.display_transform_status_message(use_display_transform, imagecms_module=ImageCms)
+        else:
+            display_image, status = self._prepare_output_display_image(
+                adjusted_image,
+                output_color_space=output_color_space,
+                use_display_transform=use_display_transform,
+            )
+        if update_existing:
+            self._layers.update_output_layer(
+                display_image,
+                float_image=adjusted_image,
+                output_color_space=output_color_space,
+                output_cctf_encoding=True,
+                use_display_transform=use_display_transform,
+            )
+        else:
+            self._set_or_add_output_layer(
+                display_image,
+                float_image=adjusted_image,
+                output_color_space=output_color_space,
+                output_cctf_encoding=True,
+                use_display_transform=use_display_transform,
+            )
+        return status
+
+    def apply_basic_adjustments(self, *_args) -> None:
+        if self._base_output_float_image is None:
+            return
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+        output_color_space, _cctf_encoding = self._output_layer_render_settings(
+            default_color_space=PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space,
+            default_cctf_encoding=True,
+        )
+        use_display_transform = bool(output_layer.metadata.get(OUTPUT_DISPLAY_TRANSFORM_KEY, False))
+        self._render_adjusted_simulation_output(
+            self._base_output_float_image,
+            output_color_space=output_color_space,
+            use_display_transform=use_display_transform,
+            update_existing=True,
+        )
 
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if runtime.display_profile_available(imagecms_module=ImageCms):
@@ -730,12 +816,13 @@ class GuiController:
         self._active_simulation_label = None
         self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
-        self._set_or_add_output_layer(
-            result.display_image,
-            float_image=result.float_image,
+        self._base_output_float_image = np.array(result.float_image, copy=True)
+        self._render_adjusted_simulation_output(
+            self._base_output_float_image,
             output_color_space=result.output_color_space,
-            output_cctf_encoding=True,
             use_display_transform=result.use_display_transform,
+            update_existing=False,
+            unadjusted_display_image=result.display_image,
         )
         if report_status:
             operation = '预览' if result.mode_label == 'Preview' else '扫描'
@@ -778,16 +865,11 @@ class GuiController:
 
         image = np.double(image_data)
         scan = self._process_image_with_runtime(image, params)
-        scan_display, display_status = self._prepare_output_display_image(
-            scan,
+        self._base_output_float_image = np.array(scan, copy=True)
+        display_status = self._render_adjusted_simulation_output(
+            self._base_output_float_image,
             output_color_space=state.simulation.io.output_color_space,
             use_display_transform=state.gui_only.display.use_display_transform,
-        )
-        self._set_or_add_output_layer(
-            scan_display,
-            float_image=scan,
-            output_color_space=state.simulation.io.output_color_space,
-            output_cctf_encoding=True,
-            use_display_transform=state.gui_only.display.use_display_transform,
+            update_existing=False,
         )
         set_status(self._viewer, display_status)
