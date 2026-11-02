@@ -129,6 +129,20 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
         else:
             raise ValueError(f"{value!r} is not a valid option")
 
+    def showPopup(self) -> None:  # noqa: N802 - Qt API name
+        font_metrics = QtGui.QFontMetrics(self.font())
+        widest_item = max(
+            (
+                font_metrics.horizontalAdvance(self.display_text_for_value(self.itemText(index)))
+                for index in range(self.count())
+            ),
+            default=0,
+        )
+        frame_width = self.view().frameWidth() * 2
+        scrollbar_width = self.style().pixelMetric(QStyle.PM_ScrollBarExtent, None, self.view())
+        self.view().setMinimumWidth(max(self.width(), widest_item + frame_width + scrollbar_width + 12))
+        super().showPopup()
+
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name
         del event
         painter = QStylePainter(self)

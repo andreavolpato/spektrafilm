@@ -515,6 +515,27 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == '电影胶片 / kodak_2393'
 
 
+def test_profile_dropdown_expands_to_fit_long_profile_ids() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtGui, QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    editor = widget_editors_module.ProfileEnumEditor(
+        ['kodak_ektar_100', 'kodak_vision3_500t', 'a_very_long_film_profile_identifier'],
+    )
+    editor.resize(180, editor.sizeHint().height())
+
+    editor.showPopup()
+
+    expected_text_width = max(
+        QtGui.QFontMetrics(editor.font()).horizontalAdvance(editor.display_text_for_value(editor.itemText(index)))
+        for index in range(editor.count())
+    )
+    assert editor.view().minimumWidth() > editor.width()
+    assert editor.view().minimumWidth() >= expected_text_width
+    editor.hidePopup()
+
+
 def test_enum_editor_localizes_labels_without_changing_values() -> None:
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     from qtpy import QtWidgets
