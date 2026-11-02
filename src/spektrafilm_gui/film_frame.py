@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 FitMode = Literal['contain', 'cover']
 FrameOrientation = Literal['landscape', 'portrait']
@@ -99,6 +99,7 @@ class FilmFrameOptions:
     show_frame_number: bool = True
     output_long_edge: int = DEFAULT_OUTPUT_LONG_EDGE
     letterbox_color: tuple[int, int, int] | None = None
+    realistic: bool = False
 
 
 @dataclass(frozen=True)
@@ -506,5 +507,30 @@ def compose_film_frame(
         _draw_date(window, date_label.strip(), options.date_position)
     canvas[y0:y1, x0:x1] = window
 
+    if options.realistic:
+        return _realistic_composite(canvas, overlay)
     alpha = overlay[..., 3:4]
     return np.clip(canvas * (1.0 - alpha) + overlay[..., :3] * alpha, 0.0, None).astype(np.float32)
+
+
+def _blur(plane: np.ndarray, sigma: float) -> np.ndarray:
+    image = Image.fromarray(np.clip(plane * 255.0, 0, 255).astype(np.uint8), mode='L')
+    return np.asarray(image.filter(ImageFilter.GaussianBlur(sigma)), dtype=np.float32) / 255.0
+
+
+def _realistic_composite(canvas: np.ndarray, overlay: np.ndarray) -> np.ndarray:
+    """Scan-like finish: soft hole/window edges, hole glow into the rebate and rebate grain.
+
+    Purely a post-effect on the fixed layout; it never moves or changes any template element.
+    """
+    height, width = overlay.shape[:2]
+    unit = width / 3800.0
+    alpha = _blur(overlay[..., 3], max(0.6, 2.2 * unit))[..., None]
+    rgb = overlay[..., :3]
+    holes = ((overlay[..., 3] > 0.5) & (rgb.min(axis=2) > 0.8)).astype(np.float32)
+    glow = _blur(holes, 14.0 * unit)[..., None]
+    rebate = np.clip(overlay[..., 3:4], 0.0, 1.0)
+    rng = np.random.default_rng(135)
+    grain = rng.normal(0.0, 0.012, (height, width, 1)).astype(np.float32)
+    film = np.clip(rgb + glow * 0.22 * (1.0 - holes[..., None]) + grain * rebate, 0.0, 1.0)
+    return np.clip(canvas * (1.0 - alpha) + film * alpha, 0.0, None).astype(np.float32)

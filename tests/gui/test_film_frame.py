@@ -243,3 +243,12 @@ def test_letterbox_colour_fills_contain_bars() -> None:
         options=FilmFrameOptions(output_long_edge=3800, letterbox_color=(255, 255, 255)),
     )
     assert result[1750, 150].min() > 0.99
+
+
+def test_realistic_finish_keeps_photo_and_layout() -> None:
+    photo = _photo(240, 360)
+    plain = compose_film_frame(photo, template_id='kodak_gold_200', options=FilmFrameOptions(output_long_edge=1900))
+    real = compose_film_frame(photo, template_id='kodak_gold_200', options=FilmFrameOptions(output_long_edge=1900, realistic=True))
+    assert plain.shape == real.shape
+    assert np.any(plain != real)
+    np.testing.assert_allclose(plain[875, 950], real[875, 950], atol=0.02)

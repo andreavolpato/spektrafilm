@@ -80,6 +80,8 @@ class FilmFrameDialog(QtWidgets.QDialog):
         self.fit_mode_combo.addItem('等比裁切（填满照片窗）', 'cover')
         self.fit_mode_combo.setToolTip('非 3:2 / 2:3 照片可选择完整适配或等比裁切，照片不会被拉伸。')
 
+        self.realistic_checkbox = QtWidgets.QCheckBox('真实质感（孔边柔光、片基颗粒）')
+        self.realistic_checkbox.setToolTip('仅为扫描质感后处理：不改变模板的布局、文字、齿孔位置和数量。预览与导出一致。')
         self.letterbox_combo = QtWidgets.QComboBox()
         self.letterbox_combo.addItem('胶片黑（默认）', None)
         self.letterbox_combo.addItem('白色', (255, 255, 255))
@@ -151,6 +153,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
         right.addLayout(form)
         right.addWidget(self.frame_number_checkbox)
         right.addWidget(self.date_checkbox)
+        right.addWidget(self.realistic_checkbox)
         right.addWidget(self.resolution_label)
         right.addStretch(1)
         right.addWidget(self.buttons)
@@ -162,6 +165,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
         self.template_combo.currentIndexChanged.connect(self._on_template_changed)
         self.fit_mode_combo.currentIndexChanged.connect(self._update_preview)
         self.letterbox_combo.currentIndexChanged.connect(self._update_preview)
+        self.realistic_checkbox.toggled.connect(self._update_preview)
         self.date_position_combo.currentIndexChanged.connect(self._update_preview)
         self.resolution_combo.currentIndexChanged.connect(self._update_preview)
         for slider in (self.pan_x_slider, self.pan_y_slider):
@@ -199,6 +203,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
             show_frame_number=self.frame_number_checkbox.isChecked() and bool(self.frame_number_edit.text().strip()),
             output_long_edge=int(self.resolution_combo.currentData()),
             letterbox_color=self.letterbox_combo.currentData(),
+            realistic=self.realistic_checkbox.isChecked(),
         )
 
     def _on_template_changed(self, *_args) -> None:
@@ -250,4 +255,5 @@ class FilmFrameDialog(QtWidgets.QDialog):
             show_frame_number=options.show_frame_number,
             output_long_edge=_PREVIEW_LONG_EDGE,
             letterbox_color=options.letterbox_color,
+            realistic=options.realistic,
         )
