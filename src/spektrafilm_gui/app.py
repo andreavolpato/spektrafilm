@@ -1,5 +1,7 @@
+import argparse
 from dataclasses import dataclass
 from importlib import import_module
+from pathlib import Path
 from typing import Any, Callable, cast
 
 import numpy as np
@@ -303,9 +305,38 @@ def create_app() -> GuiApp:
     )
 
 def main():
+    parser = argparse.ArgumentParser(prog='spektrafilm', description='Open the spektrafilm desktop GUI.')
+    parser.add_argument('image', nargs='?', type=Path, metavar='IMAGE', help='Image to open in the file loader.')
+    parser.add_argument('--raw', type=Path, action='append', metavar='PATH', help='Camera RAW file to open with the RAW importer.')
+
     napari = import_module('napari')
+    # Qt consumes its own options before the application arguments are parsed.
+    qapp = import_module('napari.qt').get_qapp()
+    args = parser.parse_args(qapp.arguments()[1:])
+    if args.image is not None and args.raw is not None:
+        parser.error('choose either IMAGE or --raw PATH, not both')
+    if args.raw is not None and len(args.raw) != 1:
+        parser.error('--raw may only be specified once')
+
+    input_path = args.raw[0] if args.raw is not None else args.image
+    if input_path is not None:
+        try:
+            is_file = input_path.is_file()
+        except OSError as exc:
+            parser.error(f'cannot access input file "{input_path}": {exc}')
+        if not is_file:
+            parser.error(f'input file does not exist or is not a file: {input_path}')
+
     app = create_app()
     show_viewer_window(app.viewer)
+    if input_path is not None:
+        try:
+            if args.raw is not None:
+                app.controller.load_raw_image(str(input_path))
+            else:
+                app.controller.load_input_image(str(input_path))
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(app.main_window, 'Open image', f'Failed to load image "{input_path}".\n\n{exc}')
     napari.run()
 
 
