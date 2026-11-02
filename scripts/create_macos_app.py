@@ -23,6 +23,9 @@ def create_app(project_root: Path, destination: Path) -> Path:
             "Could not find an executable .venv/bin/spektrafilm. "
             "Install the project dependencies in this checkout first."
         )
+    icon = project_root / "src" / "spektrafilm_gui" / "assets" / "spektrafilm.icns"
+    if not icon.is_file():
+        raise FileNotFoundError("Could not find the Spektrafilm macOS icon at {}.".format(icon))
     if destination.exists():
         raise FileExistsError(
             "{} already exists; choose another destination or move it first.".format(destination)
@@ -30,8 +33,11 @@ def create_app(project_root: Path, destination: Path) -> Path:
 
     contents = destination / "Contents"
     macos_dir = contents / "MacOS"
+    resources_dir = contents / "Resources"
     macos_dir.mkdir(parents=True)
+    resources_dir.mkdir()
     try:
+        shutil.copy2(str(icon), str(resources_dir / "Spektrafilm.icns"))
         launcher_script = """#!/bin/bash
 PROJECT_ROOT={project_root}
 
@@ -61,6 +67,7 @@ exit "$status"
         info = {
             "CFBundleDevelopmentRegion": "zh_CN",
             "CFBundleExecutable": EXECUTABLE_NAME,
+            "CFBundleIconFile": "Spektrafilm",
             "CFBundleIdentifier": "org.spektrafilm.desktop",
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "Spektrafilm",

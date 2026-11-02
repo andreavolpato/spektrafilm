@@ -17,6 +17,9 @@ class CreateMacOSAppTests(unittest.TestCase):
             launcher.parent.mkdir(parents=True)
             launcher.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
             launcher.chmod(0o755)
+            icon = root / "src" / "spektrafilm_gui" / "assets" / "spektrafilm.icns"
+            icon.parent.mkdir(parents=True)
+            icon.write_bytes(b"test icns")
             destination = root / "Applications" / "Spektrafilm.app"
 
             app = create_app(root, destination)
@@ -28,6 +31,11 @@ class CreateMacOSAppTests(unittest.TestCase):
                 info = plistlib.load(plist_file)
             self.assertEqual(info["CFBundlePackageType"], "APPL")
             self.assertEqual(info["CFBundleExecutable"], "Spektrafilm")
+            self.assertEqual(info["CFBundleIconFile"], "Spektrafilm")
+            self.assertEqual(
+                (app / "Contents" / "Resources" / "Spektrafilm.icns").read_bytes(),
+                b"test icns",
+            )
 
     def test_app_launcher_runs_the_project_entry_point(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -42,6 +50,9 @@ class CreateMacOSAppTests(unittest.TestCase):
                 encoding="utf-8",
             )
             launcher.chmod(0o755)
+            icon = root / "src" / "spektrafilm_gui" / "assets" / "spektrafilm.icns"
+            icon.parent.mkdir(parents=True)
+            icon.write_bytes(b"test icns")
             app = create_app(root, root / "Applications" / "Spektrafilm.app")
             environment = os.environ.copy()
             environment["HOME"] = str(home)
@@ -58,6 +69,10 @@ class CreateMacOSAppTests(unittest.TestCase):
     def test_requires_an_installed_project_launcher(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
+            launcher = root / ".venv" / "bin" / "spektrafilm"
+            launcher.parent.mkdir(parents=True)
+            launcher.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            launcher.chmod(0o755)
             with self.assertRaises(FileNotFoundError):
                 create_app(root, root / "Spektrafilm.app")
 

@@ -311,8 +311,10 @@ python3 scripts/create_macos_app.py
 Open **Spektrafilm** from Applications or Launchpad. This app launches the
 current checkout's `.venv`; keep the project directory in place and run
 `uv sync` there after updating dependencies. To build the launcher elsewhere,
-pass `--destination /path/to/Spektrafilm.app`. Application output is written
-to `~/Library/Logs/Spektrafilm/launcher.log`.
+pass `--destination /path/to/Spektrafilm.app`. The launcher uses the
+Spektrafilm film-strip icon. To regenerate an existing launcher, remove the
+old `Spektrafilm.app` bundle first. Application output is written to
+`~/Library/Logs/Spektrafilm/launcher.log`.
 
 To remove the environment:
 ```bash
