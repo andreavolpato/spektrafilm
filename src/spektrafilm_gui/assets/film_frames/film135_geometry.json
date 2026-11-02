@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "based_on": "SpektraLab v1.3.4 source researched 2026-11-02",
+  "units": "millimetres",
+  "format": "135_full_frame",
+  "film_width_mm": 35,
+  "frame_advance_mm": 38,
+  "nominal_exposure_mm": {
+    "along": 36,
+    "across": 24
+  },
+  "upstream_measured_average_gate_mm": {
+    "along": 36.25,
+    "across": 24.3,
+    "note": "SpektraLab source models camera gate 36.25x24.3; this pack uses nominal 36x24 for stable 3:2 image aspect"
+  },
+  "perforations": {
+    "pitch_mm": 4.75,
+    "width_along_mm": 1.98,
+    "height_across_mm": 2.8,
+    "corner_radius_mm": 0.5,
+    "edge_to_hole_mm": 2.0,
+    "per_frame_each_side": 8,
+    "light": "white or black"
+  },
+  "layout": {
+    "canvas_along_mm": 38,
+    "canvas_across_mm": 35,
+    "nominal_photo_gate_mm": {
+      "x": 1,
+      "y": 5.5,
+      "width": 36,
+      "height": 24
+    },
+    "svg_dpi_equivalent": "100 pixels per millimetre for convenient editable vectors",
+    "landscape_px": {
+      "width": 3800,
+      "height": 3500,
+      "window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    "portrait_px": {
+      "width": 3500,
+      "height": 3800,
+      "window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    "portrait_transform": "rotate the complete physical film 90 degrees, including perforations and lettering"
+  },
+  "flags": {
+    "exact_photographic_replica": false,
+    "upstream_render_engine_port": false,
+    "default_preserve_image_aspect": true,
+    "allow_flexible_crop_policy": true
+  },
+  "sources": [
+    "https://github.com/JamesQiu2005/SpektraLab/blob/main/engine/src/pipeline/overscan.cpp",
+    "https://github.com/JamesQiu2005/SpektraLab/blob/main/engine/src/shaders/overscan.metal"
+  ]
+}

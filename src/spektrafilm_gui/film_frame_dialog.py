@@ -80,6 +80,12 @@ class FilmFrameDialog(QtWidgets.QDialog):
         self.fit_mode_combo.addItem('等比裁切（填满照片窗）', 'cover')
         self.fit_mode_combo.setToolTip('非 3:2 / 2:3 照片可选择完整适配或等比裁切，照片不会被拉伸。')
 
+        self.letterbox_combo = QtWidgets.QComboBox()
+        self.letterbox_combo.addItem('胶片黑（默认）', None)
+        self.letterbox_combo.addItem('白色', (255, 255, 255))
+        self.letterbox_combo.addItem('中性灰', (128, 128, 128))
+        self.letterbox_combo.setToolTip('完整适配时照片窗内的留白底色。')
+
         self.pan_x_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.pan_y_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         for slider in (self.pan_x_slider, self.pan_y_slider):
@@ -97,7 +103,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
         self.frame_number_checkbox.setChecked(True)
         self.frame_number_edit = QtWidgets.QLineEdit()
         self.frame_number_edit.setMaxLength(4)
-        self.frame_number_edit.setToolTip('模板内的 12 / 12A 只是示例编号；这里可改为自己的画幅编号。')
+        self.frame_number_edit.setToolTip('模板内的 12 / 12A 只是示例编号；这里可改为自己的画幅编号。带 DX 条码的模板会同步重绘条码帧位（仅 0–63 的数字），隐藏或非数字编号时条码一并隐藏。')
 
         self.date_checkbox = QtWidgets.QCheckBox('添加日期戳（默认关闭，叠加在照片上，不属于胶片印字）')
         self.date_checkbox.setChecked(False)
@@ -118,6 +124,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
         form.addRow('胶片模板', self.template_combo)
         form.addRow('模板来源', self.template_status_label)
         form.addRow('照片适配', self.fit_mode_combo)
+        form.addRow('留白底色', self.letterbox_combo)
         form.addRow('裁切位置 左右', self.pan_x_slider)
         form.addRow('裁切位置 上下', self.pan_y_slider)
         form.addRow('画幅编号', self.frame_number_edit)
@@ -145,6 +152,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
         self._initial_frame_number = frame_number
         self.template_combo.currentIndexChanged.connect(self._on_template_changed)
         self.fit_mode_combo.currentIndexChanged.connect(self._update_preview)
+        self.letterbox_combo.currentIndexChanged.connect(self._update_preview)
         self.date_position_combo.currentIndexChanged.connect(self._update_preview)
         self.resolution_combo.currentIndexChanged.connect(self._update_preview)
         for slider in (self.pan_x_slider, self.pan_y_slider):
@@ -181,6 +189,7 @@ class FilmFrameDialog(QtWidgets.QDialog):
             date_position=self.date_position_combo.currentData(),
             show_frame_number=self.frame_number_checkbox.isChecked() and bool(self.frame_number_edit.text().strip()),
             output_long_edge=int(self.resolution_combo.currentData()),
+            letterbox_color=self.letterbox_combo.currentData(),
         )
 
     def _on_template_changed(self, *_args) -> None:
@@ -231,4 +240,5 @@ class FilmFrameDialog(QtWidgets.QDialog):
             date_position=options.date_position,
             show_frame_number=options.show_frame_number,
             output_long_edge=_PREVIEW_LONG_EDGE,
+            letterbox_color=options.letterbox_color,
         )

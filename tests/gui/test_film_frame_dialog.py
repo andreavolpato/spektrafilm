@@ -19,7 +19,7 @@ def test_dialog_selects_template_from_stock_and_exposes_only_allowed_options() -
     dialog = FilmFrameDialog(np.full((48, 72, 3), 0.4, dtype=np.float32), film_stock_id='kodak_gold_200')
 
     assert '72 × 48 px（1.500:1），横向' in dialog.orientation_label.text()
-    assert dialog.template_id == '02_Kodak_Gold_200'
+    assert dialog.template_id == 'kodak_gold_200'
     assert 'GB 200-7' in dialog.template_status_label.text()
     assert '不代表该型号所有批次' in dialog.template_status_label.text()
     assert dialog.preview_label.pixmap().width() == 560
@@ -49,7 +49,7 @@ def test_dialog_portrait_photo_uses_portrait_preview_and_generic_template_has_no
     dialog = FilmFrameDialog(np.full((72, 48, 3), 0.4, dtype=np.float32), film_stock_id='unknown_stock')
 
     assert '竖向' in dialog.orientation_label.text()
-    assert dialog.template_id == '06_通用无品牌_135'
+    assert dialog.template_id == 'generic_135'
     assert dialog.frame_number is None
     assert not dialog.frame_number_edit.isEnabled()
     preview = dialog.preview_label.pixmap()

@@ -8,6 +8,7 @@ hidden or replaced on the user's request.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -21,32 +22,44 @@ FrameOrientation = Literal['landscape', 'portrait']
 
 ASSET_DIR = Path(__file__).resolve().parent / 'assets' / 'film_frames'
 MANIFEST_NAME = 'template_manifest.json'
+GEOMETRY_NAME = 'film135_geometry.json'
 DEFAULT_OUTPUT_LONG_EDGE = 3800
 
-# Colour seen through the transparent perforations (matches the package previews).
+STOCKS_NAME = 'film_stocks.json'
 _PERFORATION_BACKGROUND = np.array([233, 234, 228], dtype=np.float32) / 255.0
 _DATE_INK = np.array([1.0, 0.33, 0.18], dtype=np.float32)
 
-# Sample frame-number positions in landscape template pixels, taken from the
-# template SVG text elements: (anchor, baseline x, baseline y, font size,
-# erase rectangle x0, y0, x1, y1). The arrow next to "12A" is never touched.
-_NUMBER_SLOTS = {
-    'top_left': ('l', 180, 139, 100, (165, 55, 345, 146)),
-    'top_right': ('r', 3570, 143, 99, (3390, 55, 3600, 146)),
-    'bottom_left': ('l', 170, 3455, 100, (155, 3365, 335, 3475)),
-    'bottom_right': ('r', 3565, 3455, 88, (3365, 3365, 3600, 3475)),
-}
-_LETTER_SPACING = 2.5
-
 _STOCK_KEYWORDS = (
-    ('portra_400', '01_Kodak_Portra_400'),
-    ('gold_200', '02_Kodak_Gold_200'),
-    ('ektar_100', '03_Kodak_Ektar_100'),
-    ('colorplus', '04_Kodak_ColorPlus_200'),
-    ('superia', '05_Fuji_Superia_XTRA_400'),
-    ('xtra', '05_Fuji_Superia_XTRA_400'),
+    ('superia', 'fujifilm_xtra_400'),
+    ('xtra', 'fujifilm_xtra_400'),
 )
-_GENERIC_TEMPLATE_ID = '06_通用无品牌_135'
+_GENERIC_TEMPLATE_ID = 'generic_135'
+_ERASE_PAD = 8
+_ARROW_CLEARANCE = 0
+_BARCODE_ROWS = ((3310, 70), (3398, 70))
+_BARCODE_X = 270
+_BARCODE_MODULES = 31
+_BARCODE_WIDTH = {'FujiNeg': 1410}
+_BARCODE_DEFAULT_WIDTH = 1270
+_BARCODE_MAX_FRAME = 63
+
+_TEXT_RE = re.compile(
+    r'<text x="([\d.]+)" y="([\d.]+)" text-anchor="(start|end)"[^>]*?font-size="([\d.]+)"'
+    r'[^>]*?letter-spacing="([\d.]+)"[^>]*>([^<]*)</text>'
+)
+_ARROW_RE = re.compile(r'<path d="M ([\d.]+) ([\d.]+) H')
+
+
+@dataclass(frozen=True)
+class NumberSlot:
+    """A frame-number text node found in the landscape SVG (landscape pixels)."""
+    suffix: str
+    anchor: str
+    x: float
+    y: float
+    size: float
+    spacing: float
+    erase_rect: tuple[int, int, int, int]
 
 
 @dataclass(frozen=True)
@@ -56,8 +69,12 @@ class FilmFrameTemplate:
     ui_name: str
     edge_label: str
     default_frame_number: str
-    number_slots: tuple[str, ...]
+    number_slots: tuple[NumberSlot, ...]
     source: str
+    ink: tuple[int, int, int]
+    layout_family: str
+    dx_extract: int | None
+    dx_drawn: bool
 
     @property
     def has_frame_number(self) -> bool:
@@ -81,6 +98,7 @@ class FilmFrameOptions:
     date_position: str = 'bottom_right'
     show_frame_number: bool = True
     output_long_edge: int = DEFAULT_OUTPUT_LONG_EDGE
+    letterbox_color: tuple[int, int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -89,34 +107,96 @@ class _Geometry:
     window: tuple[int, int, int, int]
 
 
-@lru_cache(maxsize=1)
-def _manifest() -> dict:
-    with (ASSET_DIR / MANIFEST_NAME).open(encoding='utf-8') as handle:
+def _read_json(name: str) -> dict:
+    with (ASSET_DIR / name).open(encoding='utf-8') as handle:
         return json.load(handle)
 
 
+@lru_cache(maxsize=1)
+def _manifest() -> dict:
+    return _read_json(MANIFEST_NAME)
+
+
+@lru_cache(maxsize=1)
+def _geometry_data() -> dict:
+    return _read_json(GEOMETRY_NAME)['layout']
+
+
 def _geometry(orientation: FrameOrientation) -> _Geometry:
-    manifest = _manifest()
+    layout = _geometry_data()[f'{orientation}_px']
+    window = layout['window']
     return _Geometry(
-        canvas=tuple(manifest[f'canvas_{orientation}_px']),
-        window=tuple(manifest[f'photo_{orientation}_rect_px']),
+        canvas=(layout['width'], layout['height']),
+        window=(window['x'], window['y'], window['width'], window['height']),
     )
 
 
+def _template_path(template_id: str, orientation: FrameOrientation, suffix: str = 'png') -> Path:
+    return ASSET_DIR / f'{template_id}_{orientation}.{suffix}'
+
+
+def _parse_number_slots(template_id: str, example: str) -> tuple[NumberSlot, ...]:
+    """Find the sample frame-number text in the landscape SVG (the data source)."""
+    svg = _template_path(template_id, 'landscape', 'svg').read_text(encoding='utf-8')
+    arrows = [float(match.group(1)) for match in _ARROW_RE.finditer(svg)]
+    slots = []
+    for match in _TEXT_RE.finditer(svg):
+        x, y, anchor, size, spacing, text = match.groups()
+        if text not in (example, f'{example}A'):
+            continue
+        x, y, size = float(x), float(y), float(size)
+        width = (len(text) * 0.7 * size) + _ERASE_PAD
+        x0, x1 = (x - _ERASE_PAD, x + width) if anchor == 'start' else (x - width, x + _ERASE_PAD)
+        right_arrows = [a for a in arrows if a > x0]
+        if anchor == 'start' and right_arrows:
+            x1 = min(x1, min(right_arrows) - _ARROW_CLEARANCE)
+        slots.append(NumberSlot(
+            suffix=text[len(example):],
+            anchor=anchor,
+            x=x,
+            y=y,
+            size=size,
+            spacing=float(spacing),
+            erase_rect=(round(x0), round(y - size - _ERASE_PAD), round(x1), round(y + 0.25 * size + _ERASE_PAD)),
+        ))
+    return tuple(slots)
+
+
+def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.lstrip('#')
+    return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+
 def _build_templates() -> tuple[FilmFrameTemplate, ...]:
+    available = {entry['stock_id'] for entry in _manifest()['template_index']}
     templates = []
-    for variant in _manifest()['variants']:
-        slots = tuple(slot for slot in _NUMBER_SLOTS if variant.get(slot))
-        number = next((variant[slot] for slot in slots if slot != 'bottom_right'), '')
+    for stock in _read_json(STOCKS_NAME)['stocks']:
+        if stock['id'] not in available:
+            continue
+        marking = stock['marking']
+        dx = stock.get('dx_135')
+        example = str(marking['frame_number_example'])
+        slots = _parse_number_slots(stock['id'], example)
+        label = marking['edge_text_135']
+        dx_drawn = bool(dx and dx['confidence'] == 'read_from_strip' and dx['render_by_default'])
+        confidence = marking['edge_text_confidence']
+        source = (
+            f"数据来源：SpektraLab 公开资料整理的参考模板（印字可信度：{confidence or '无印字'}；"
+            f"证据：{stock['evidence']}）。"
+        )
         templates.append(
             FilmFrameTemplate(
-                template_id=variant['id'],
-                display_name=variant['name'],
-                ui_name=variant['ui'],
-                edge_label=variant['label'],
-                default_frame_number=number,
+                template_id=stock['id'],
+                display_name=stock['name'],
+                ui_name=stock['name'],
+                edge_label=label,
+                default_frame_number=example if slots else '',
                 number_slots=slots,
-                source=variant['source'],
+                source=source,
+                ink=_hex_to_rgb(stock['ink_hex']),
+                layout_family=stock['edge_layout_family'],
+                dx_extract=dx['extract'] if dx else None,
+                dx_drawn=dx_drawn,
             )
         )
     return tuple(templates)
@@ -181,18 +261,20 @@ def resize_rgb_image(image: np.ndarray, size: tuple[int, int]) -> np.ndarray:
 
 
 def _font(size: int) -> ImageFont.ImageFont:
-    candidates = ['DejaVuSans-Bold.ttf']
+    # Arial first: the template SVG text is Arial/Helvetica bold.
+    candidates = [
+        '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+        'arialbd.ttf',
+        'Arial Bold.ttf',
+        'LiberationSans-Bold.ttf',
+        'DejaVuSans-Bold.ttf',
+    ]
     try:
         import matplotlib
 
         candidates.append(str(Path(matplotlib.get_data_path()) / 'fonts' / 'ttf' / 'DejaVuSans-Bold.ttf'))
     except ImportError:
         pass
-    candidates += [
-        '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-        'arialbd.ttf',
-        'Arial Bold.ttf',
-    ]
     for name in candidates:
         try:
             return ImageFont.truetype(name, size=max(1, size))
@@ -201,29 +283,76 @@ def _font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default(size=max(1, size))
 
 
-def _draw_spaced_text(draw: ImageDraw.ImageDraw, text: str, anchor: str, x: float, y: float, size: int, fill) -> None:
-    font = _font(size)
-    advances = [font.getlength(char) + _LETTER_SPACING for char in text]
-    total = sum(advances) - _LETTER_SPACING
-    cursor = x if anchor == 'l' else x - total
+def _draw_spaced_text(draw: ImageDraw.ImageDraw, text: str, slot: NumberSlot, size: float, fill) -> None:
+    def layout(em: float):
+        font = _font(round(em))
+        advances = [font.getlength(char) + slot.spacing for char in text]
+        return font, advances, sum(advances) - slot.spacing
+
+    font, advances, total = layout(size)
+    if slot.anchor == 'start':
+        room = slot.erase_rect[2] - slot.x - _ERASE_PAD
+        if total > room:
+            font, advances, total = layout(size * room / total)
+    cursor = slot.x if slot.anchor == 'start' else slot.x - total
     for char, advance in zip(text, advances):
-        draw.text((cursor, y), char, font=font, fill=fill, anchor='ls')
+        draw.text((cursor, slot.y), char, font=font, fill=fill, anchor='ls')
         cursor += advance
 
 
-def _slot_text(slot: str, frame_number: str) -> str:
-    return f'{frame_number}A' if slot == 'bottom_right' else frame_number
+def dx_bits(extract: int, frame: int, half: bool = False) -> tuple[list[int], list[int]]:
+    """Clock and data tracks (31 modules) per the pack's edge_encoding_schema."""
+    part1 = (extract >> 4) & 127
+    part2 = extract & 15
+    bits = [0] * 23
+    for k in range(7):
+        bits[k + 1] = (part1 >> (6 - k)) & 1
+    for k in range(4):
+        bits[k + 9] = (part2 >> (3 - k)) & 1
+    for k in range(6):
+        bits[k + 13] = (max(0, min(_BARCODE_MAX_FRAME, frame)) >> (5 - k)) & 1
+    bits[19] = int(half)
+    bits[21] = sum(bits[:21]) % 2
+    clock = [1 if i < 5 or i >= 28 else ((i - 5) % 2) for i in range(_BARCODE_MODULES)]
+    data = [
+        int(i % 2 == 0) if i < 5 else int((i - 28) % 2 == 0) if i >= 28 else bits[i - 5]
+        for i in range(_BARCODE_MODULES)
+    ]
+    return clock, data
+
+
+def _barcode_geometry(template: FilmFrameTemplate) -> tuple[float, tuple[int, int, int, int]]:
+    width = _BARCODE_WIDTH.get(template.layout_family, _BARCODE_DEFAULT_WIDTH)
+    module = width / _BARCODE_MODULES
+    top = _BARCODE_ROWS[0][0]
+    bottom = _BARCODE_ROWS[-1][0] + _BARCODE_ROWS[-1][1]
+    right = _BARCODE_X + _BARCODE_MODULES * module + 1
+    return module, (_BARCODE_X - 4, top - 4, round(right) + 4, bottom + 4)
+
+
+def _draw_barcode(draw: ImageDraw.ImageDraw, template: FilmFrameTemplate, frame: int) -> None:
+    module, _ = _barcode_geometry(template)
+    clock, data = dx_bits(template.dx_extract, frame)
+    for bits, (top, height) in zip((clock, data), _BARCODE_ROWS):
+        for index, bit in enumerate(bits):
+            if bit:
+                x = _BARCODE_X + index * module
+                draw.rectangle((x, top, x + module + 0.4 - 1e-3, top + height - 1), fill=template.ink + (255,))
 
 
 def _load_png(template_id: str, orientation: FrameOrientation) -> np.ndarray:
-    suffix = '横向' if orientation == 'landscape' else '竖向'
-    with Image.open(ASSET_DIR / f'{template_id}_{suffix}.png') as handle:
+    with Image.open(_template_path(template_id, orientation)) as handle:
         return np.array(handle.convert('RGBA'), dtype=np.uint8)
+
+
+def _parse_frame_number(text: str) -> int | None:
+    return int(text) if text.isdigit() and int(text) <= _BARCODE_MAX_FRAME else None
 
 
 @lru_cache(maxsize=None)
 def _native_template(template_id: str, orientation: FrameOrientation, frame_number: str | None) -> np.ndarray:
-    """Shipped template pixels; only the sample frame numbers are replaced on request."""
+    """Shipped template pixels; the sample frame number (and DX frame bits) are
+    redrawn from the stock data only when the user changes or hides the number."""
     template = _TEMPLATES_BY_ID[template_id]
     shipped = _load_png(template_id, orientation)
     if frame_number is None or not template.has_frame_number:
@@ -233,15 +362,24 @@ def _native_template(template_id: str, orientation: FrameOrientation, frame_numb
     edited = Image.fromarray(pixels.copy(), mode='RGBA')
     draw = ImageDraw.Draw(edited)
     changed = np.zeros(pixels.shape[:2], dtype=bool)
-    for slot in template.number_slots:
-        anchor, x, y, size, (x0, y0, x1, y1) = _NUMBER_SLOTS[slot]
-        region = pixels[y0:y1, x0:x1].astype(int)
-        brightest = np.unravel_index(np.argmax(region[..., :3].sum(axis=2)), region.shape[:2])
-        ink = tuple(int(v) for v in pixels[y0 + brightest[0], x0 + brightest[1], :3]) + (255,)
+    ink = template.ink + (255,)
+
+    def erase(rect: tuple[int, int, int, int]) -> None:
+        x0, y0, x1, y1 = rect
         draw.rectangle((x0, y0, x1 - 1, y1 - 1), fill=tuple(int(v) for v in pixels[y0, x0]))
         changed[y0:y1, x0:x1] = True
+
+    for slot in template.number_slots:
+        erase(slot.erase_rect)
         if frame_number:
-            _draw_spaced_text(draw, _slot_text(slot, frame_number), anchor, x, y, size, ink)
+            _draw_spaced_text(draw, frame_number + slot.suffix, slot, slot.size, ink)
+
+    if template.dx_drawn:
+        _, rect = _barcode_geometry(template)
+        erase(rect)
+        frame = _parse_frame_number(frame_number)
+        if frame is not None:
+            _draw_barcode(draw, template, frame)
 
     edited_pixels = np.asarray(edited, dtype=np.uint8)
     if orientation == 'landscape':
@@ -355,7 +493,11 @@ def compose_film_frame(
             custom_number = shown
     overlay = _scaled_template(template.template_id, orientation, custom_number, (canvas_width, canvas_height))
 
-    base = overlay[5, 5, :3]
+    base = (
+        np.array(options.letterbox_color, dtype=np.float32) / 255.0
+        if options.letterbox_color is not None
+        else overlay[5, 5, :3]
+    )
     canvas = np.broadcast_to(_PERFORATION_BACKGROUND, (canvas_height, canvas_width, 3)).copy()
     window = _fit_photo(
         source, x1 - x0, y1 - y0, options.fit_mode, options.pan_x, options.pan_y, base,

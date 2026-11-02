@@ -1,0 +1,19 @@
+{
+  "scheme": "ISO 1007 film edge bar code (reference schema based on upstream documented implementation)",
+  "modules": 31,
+  "clock_track": {
+    "start_modules": 5,
+    "data_modules": 23,
+    "end_modules": 3
+  },
+  "data_track": {
+    "bit_count": 23,
+    "description": "bits 1-7 encode part1, 9-12 encode part2, bits13-18 encode frame, bit19 half frame, bit21 parity; use tested algorithm from project tools"
+  },
+  "confidence_policy": {
+    "read_from_strip": "可默认在演示模板中绘制，仍应标注来源为上游实物校验",
+    "database_unverified": "默认隐藏。若用户显式允许或进一步核验后才能绘制",
+    "none": "不绘制。不要随机编码"
+  },
+  "footnote": "非所有胶卷都有可用DX边缘编码。帧号是用户设置的，不应视作生产码。"
+}
