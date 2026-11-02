@@ -337,6 +337,21 @@ python scripts/regenerate_test_baselines.py
 Snapshot files are never updated automatically during pytest runs.
 
 ## GUI
+Launch the GUI normally, or open a single photo directly from the command line:
+
+```bash
+spektrafilm
+spektrafilm "path/to/prepared image.tif"
+spektrafilm --raw "path/to/camera photo.ARW"
+spektrafilm --help
+```
+
+The positional image uses the existing file loader; `--raw` uses the RAW importer
+with the GUI's saved/default import settings. Supply one image at a time and quote
+paths containing spaces. External editors such as darktable can invoke the same
+commands with the selected photo's path. These commands open the interactive GUI;
+they do not batch-process or export files automatically.
+
 When launching the GUI, a `napari` window should appear. Note that `napari` is
 not color-managed. The way I work is to set the screen and operating system
 color profile to sRGB, and I set the output color space of the simulation to
