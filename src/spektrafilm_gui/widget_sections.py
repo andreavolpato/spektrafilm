@@ -37,6 +37,7 @@ from spektrafilm_gui.param_manifest import (
     SPECIAL_FIELDS,
     TUNE_PANEL_FIELDS,
 )
+from spektrafilm_gui.image_adjustments import ADJUSTMENT_LABELS, BasicAdjustmentsState
 from spektrafilm_gui.state import (
     DisplayState,
     InputImageState,
@@ -50,8 +51,9 @@ from spektrafilm_gui.state import (
 from spektrafilm_gui.persistence import load_dialog_dir, save_dialog_dir
 from spektrafilm_gui.theme_palette import SIZE_FOOTER_ITEM_SPACING
 from spektrafilm_gui.options import RawWhiteBalance
-from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor
+from spektrafilm_gui.widget_editors import BoolEditor, EnumEditor, FloatEditor, FloatTupleEditor, IntEditor, IntTupleEditor, ProfileEnumEditor, SliderFloatEditor
 from spektrafilm_gui.widget_primitives import CollapsibleSection, normalize_ui_text as _normalize_ui_text
+from spektrafilm_gui.ui_text import translate_ui_text
 
 
 LOAD_RAW_FIELDS = (
@@ -94,17 +96,18 @@ _SIMULATION_ACTION_BUTTON_SPECS = {
     'preview': {
         'text': 'PREVIEW',
         'tooltip': 'run the simulation on a small preview and deactivates grain, halation, blurs, unsharp mask (diffusion filters are active)',
-        'preserve_case': True,
     },
     'scan': {
         'text': 'SCAN',
         'tooltip': 'Run the full simulation on the full-resolution input',
-        'preserve_case': True,
     },
     'save': {
         'text': 'SAVE',
         'tooltip': 'Save the current output layer to an image file',
-        'preserve_case': True,
+    },
+    'film_frame': {
+        'text': 'FILM FRAME',
+        'tooltip': 'Export the simulated image with a photographic film border',
     },
 }
 
@@ -165,14 +168,13 @@ def _build_button(
     callback: Any,
     *,
     tooltip: str | None = None,
-    preserve_case: bool = False,
     role: str | None = None,
 ) -> QPushButton:
-    button = QPushButton(text if preserve_case else _normalize_ui_text(text))
+    button = QPushButton(translate_ui_text(text))
     if role is not None:
         button.setProperty('role', role)
     if tooltip:
-        button.setToolTip(tooltip)
+        button.setToolTip(translate_ui_text(tooltip))
     button.clicked.connect(callback)
     return button
 
@@ -182,7 +184,7 @@ def _build_widget_label(section_name: str, field_name: str) -> QLabel:
     label_text = (spec.label if spec is not None else None) or _format_label(field_name)
     label = QLabel(_normalize_ui_text(label_text))
     if spec is not None and spec.tooltip:
-        label.setToolTip(spec.tooltip)
+        label.setToolTip(translate_ui_text(spec.tooltip))
     return label
 
 
@@ -191,7 +193,7 @@ def _build_auxiliary_label(name: str) -> QLabel:
     label_text = (spec.label if spec is not None else None) or name.replace("_", " ")
     label = QLabel(_normalize_ui_text(label_text))
     if spec is not None and spec.tooltip:
-        label.setToolTip(spec.tooltip)
+        label.setToolTip(translate_ui_text(spec.tooltip))
     return label
 
 
@@ -261,7 +263,16 @@ def _editor_from_param_spec(annotation: Any, spec: ParamSpec, *, label: str) -> 
     elif annotation is int:
         editor = IntEditor()
     elif annotation is float:
-        editor = FloatEditor(decimals=decimals)
+        if spec.slider:
+            editor = SliderFloatEditor(
+                minimum=spec.min if spec.min is not None else -1_000_000.0,
+                maximum=spec.max if spec.max is not None else 1_000_000.0,
+                step=spec.step if spec.step is not None else 0.1,
+                decimals=decimals,
+                suffix=spec.suffix,
+            )
+        else:
+            editor = FloatEditor(decimals=decimals)
     elif get_origin(annotation) is tuple:
         element_types = get_args(annotation)
         if element_types and all(element_type is int for element_type in element_types):
@@ -317,8 +328,8 @@ def _build_path_panel(
         editor = editors[spec.leaf]
         label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
         if spec.tooltip:
-            label.setToolTip(spec.tooltip)
-            editor.setToolTip(spec.tooltip)
+            label.setToolTip(translate_ui_text(spec.tooltip))
+            editor.setToolTip(translate_ui_text(spec.tooltip))
         form.addRow(label, editor)
     return _build_collapsible_form_section(title, form, expanded=expanded)
 
@@ -473,8 +484,8 @@ class ParamsGroupSection(QWidget):
             editor = self._editors[spec.leaf]
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
             if spec.tooltip:
-                label.setToolTip(spec.tooltip)
-                editor.setToolTip(spec.tooltip)
+                label.setToolTip(translate_ui_text(spec.tooltip))
+                editor.setToolTip(translate_ui_text(spec.tooltip))
             form.addRow(label, editor)
 
         content = QWidget()
@@ -502,6 +513,48 @@ class ParamsGroupSection(QWidget):
         return replace(base, **overrides)
 
 
+class BasicAdjustmentsSection(QWidget):
+    def __init__(self):
+        super().__init__()
+        self._source = BasicAdjustmentsState()
+        self._editors: dict[str, SliderFloatEditor] = {}
+        form = _new_form_layout()
+        details_form = _new_form_layout()
+        details_fields = {'texture', 'clarity', 'dehaze'}
+        for field_name, (label_text, minimum, maximum, step, decimals, suffix) in ADJUSTMENT_LABELS.items():
+            editor = SliderFloatEditor(
+                minimum=minimum,
+                maximum=maximum,
+                step=step,
+                decimals=decimals,
+                suffix=suffix,
+            )
+            label = QLabel(_normalize_ui_text(label_text))
+            tooltip = translate_ui_text(f'Adjust {field_name} after film simulation.')
+            label.setToolTip(tooltip)
+            editor.setToolTip(tooltip)
+            (details_form if field_name in details_fields else form).addRow(label, editor)
+            self._editors[field_name] = editor
+            setattr(self, field_name, editor)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addLayout(_build_collapsible_form_section('Basic adjustments', form, expanded=True))
+        layout.addLayout(_build_collapsible_form_section('Detail adjustments', details_form, expanded=True))
+        self.setLayout(layout)
+
+    def set_state(self, state: BasicAdjustmentsState) -> None:
+        self._source = state
+        for field_name, editor in self._editors.items():
+            editor.value = getattr(state, field_name)
+
+    def get_state(self) -> BasicAdjustmentsState:
+        return replace(
+            self._source,
+            **{field_name: editor.value for field_name, editor in self._editors.items()},
+        )
+
+
 class SpecialSection(QWidget):
     _is_params_group = True
 
@@ -515,7 +568,7 @@ class SpecialSection(QWidget):
         borrowed = SIMULATION_SPECIAL_BORROWED_FIELDS[0]
         borrowed_label = QLabel(_normalize_ui_text(borrowed.label or _format_label(borrowed.leaf)))
         if borrowed.tooltip:
-            borrowed_label.setToolTip(borrowed.tooltip)
+            borrowed_label.setToolTip(translate_ui_text(borrowed.tooltip))
         form.addRow(borrowed_label, simulation_section.print_illuminant)
         for spec in SPECIAL_FIELDS:
             editor = _editor_from_param_spec(_path_annotation(SpecialState, spec.path), spec, label=spec.path)
@@ -525,8 +578,8 @@ class SpecialSection(QWidget):
                 continue
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
             if spec.tooltip:
-                label.setToolTip(spec.tooltip)
-                editor.setToolTip(spec.tooltip)
+                label.setToolTip(translate_ui_text(spec.tooltip))
+                editor.setToolTip(translate_ui_text(spec.tooltip))
             form.addRow(label, editor)
         self.setLayout(_build_collapsible_form_section('Experimental', form, expanded=False))
 
@@ -634,7 +687,6 @@ class DisplaySection(QWidget):
         self.update_preview_button = _build_button(
             'update',
             self.update_preview_requested.emit,
-            preserve_case=True,
             role='compactAction',
         )
         self.update_preview_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
@@ -645,8 +697,8 @@ class DisplaySection(QWidget):
             setattr(self, spec.leaf, editor)
             label = QLabel(_normalize_ui_text(spec.label or _format_label(spec.leaf)))
             if spec.tooltip:
-                label.setToolTip(spec.tooltip)
-                editor.setToolTip(spec.tooltip)
+                label.setToolTip(translate_ui_text(spec.tooltip))
+                editor.setToolTip(translate_ui_text(spec.tooltip))
             widget: QWidget = editor
             if spec.leaf == 'preview_max_size':
                 widget = _build_vertical_container(_build_button_row(editor, self.update_preview_button, spacing=4), spacing=0)
@@ -676,6 +728,7 @@ class SimulationSection(QWidget):
     preview_requested = Signal()
     scan_requested = Signal()
     save_requested = Signal()
+    film_frame_requested = Signal()
     _glare_section: 'ParamsGroupSection | None'
     _scanner_section: 'ParamsGroupSection | None'
     _scan_for_print_restore_state: dict[str, object] | None
@@ -697,14 +750,13 @@ class SimulationSection(QWidget):
         self.bottom_scan_for_print = BoolEditor()
         scan_for_print_spec = _AUXILIARY_FIELD_SPECS['scan_for_print']
         if scan_for_print_spec.tooltip:
-            self.bottom_scan_for_print.setToolTip(scan_for_print_spec.tooltip)
+            self.bottom_scan_for_print.setToolTip(translate_ui_text(scan_for_print_spec.tooltip))
         self.bottom_scan_for_print.toggled.connect(self._apply_scan_for_print_mode)
         preview_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['preview']
         self.preview_button = _build_button(
             preview_button_spec['text'],
             self.preview_requested.emit,
             tooltip=preview_button_spec['tooltip'],
-            preserve_case=preview_button_spec['preserve_case'],
             role='accentAction',
         )
         scan_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['scan']
@@ -712,7 +764,6 @@ class SimulationSection(QWidget):
             scan_button_spec['text'],
             self.scan_requested.emit,
             tooltip=scan_button_spec['tooltip'],
-            preserve_case=scan_button_spec['preserve_case'],
             role='accentAction',
         )
         save_button_spec = _SIMULATION_ACTION_BUTTON_SPECS['save']
@@ -720,7 +771,13 @@ class SimulationSection(QWidget):
             save_button_spec['text'],
             self.save_requested.emit,
             tooltip=save_button_spec['tooltip'],
-            preserve_case=save_button_spec['preserve_case'],
+            role='accentAction',
+        )
+        film_frame_spec = _SIMULATION_ACTION_BUTTON_SPECS['film_frame']
+        self.film_frame_button = _build_button(
+            film_frame_spec['text'],
+            self.film_frame_requested.emit,
+            tooltip=film_frame_spec['tooltip'],
             role='accentAction',
         )
 
@@ -743,6 +800,7 @@ class SimulationSection(QWidget):
                 self.preview_button,
                 self.scan_button,
                 self.save_button,
+                self.film_frame_button,
                 stretch=1,
                 spacing=SIZE_FOOTER_ITEM_SPACING,
             ),

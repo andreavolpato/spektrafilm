@@ -6,6 +6,7 @@ import numpy as np
 from qtpy import QtCore, QtGui, QtWidgets
 
 from spektrafilm_gui.controller import GuiController
+from spektrafilm_gui.icons import application_icon
 from spektrafilm_gui.napari_layout import (
     build_controls_panel,
     build_main_window,
@@ -137,6 +138,7 @@ def _apply_app_palette() -> None:
     if app is None:
         return
     app.setPalette(_build_app_palette())
+    app.setWindowIcon(application_icon())
 
 
 def _create_viewer() -> Any:
@@ -234,11 +236,14 @@ def connect_controller_signals(controller: GuiController, widgets: WidgetBundle)
     widgets.simulation.preview_requested.connect(controller.run_preview)
     widgets.simulation.scan_requested.connect(controller.run_scan)
     widgets.simulation.save_requested.connect(controller.save_output_layer)
+    widgets.simulation.film_frame_requested.connect(controller.save_film_frame_output)
     widgets.display.use_display_transform.toggled.connect(controller.report_display_transform_status)
     widgets.display.gray_18_canvas.toggled.connect(controller.set_gray_18_canvas_enabled)
     widgets.display.output_interpolation.currentTextChanged.connect(controller.set_output_interpolation_mode)
     widgets.display.update_preview_requested.connect(controller.refresh_preview_cache)
     widgets.display.update_preview_requested.connect(controller.request_auto_preview)
+    for editor in widgets.basic_adjustments._editors.values():
+        editor.valueChanged.connect(controller.apply_basic_adjustments)
     connect_auto_preview_signals(controller, widgets)
 
 

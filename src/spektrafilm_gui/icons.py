@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from qtpy import QtGui
 
 from spektrafilm_gui.theme_palette import ACCENT_COLOR_TEXT
+
+APP_ICON_PATH = Path(__file__).resolve().parent / 'assets' / 'spektrafilm_app_icon.png'
 
 try:
     import pyconify
@@ -42,6 +45,10 @@ _SECTION_HEADER_ICONS = {
     'display': 'tabler:skew-x',
     'napari layers': 'tabler:stack-2',
 }
+
+
+def application_icon() -> QtGui.QIcon:
+    return QtGui.QIcon(str(APP_ICON_PATH))
 
 
 def section_header_icon_name(title: str) -> str | None:

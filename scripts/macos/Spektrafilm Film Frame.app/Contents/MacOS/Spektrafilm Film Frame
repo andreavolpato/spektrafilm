@@ -1,0 +1,13 @@
+#!/bin/bash
+PROJECT_ROOT=/Users/zhoumokele/.copilot/copilot-worktrees/spektrafilm/yzy3480385375-afk-potential-engine
+PYTHON_BIN=/Users/zhoumokele/.copilot/copilot-worktrees/spektrafilm/yzy3480385375-afk-urban-garbanzo/.venv/bin/python
+LOG_DIR="$HOME/Library/Logs/Spektrafilm Film Frame"
+mkdir -p "$LOG_DIR"
+cd "$PROJECT_ROOT" || exit 1
+export PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+"$PYTHON_BIN" -c 'from spektrafilm_gui.app import main; main()' >> "$LOG_DIR/launcher.log" 2>&1
+status=$?
+if [[ "$status" -ne 0 ]]; then
+    /usr/bin/osascript -e 'display dialog "Spektrafilm Film Frame 启动失败。请查看 ~/Library/Logs/Spektrafilm Film Frame/launcher.log。" buttons 好 default button 1'
+fi
+exit "$status"

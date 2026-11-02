@@ -1,0 +1,275 @@
+{
+  "pack_name": "SpektraLab_135_开发资料包",
+  "pack_version": "1.0.0",
+  "source_research_date": "2026-11-02",
+  "source_project_version": "1.3.4",
+  "stocks_count": 11,
+  "templates_count": 22,
+  "transparent_window": "RGBA alpha=0 in photo gate",
+  "template_index": [
+    {
+      "stock_id": "generic_135",
+      "direction": "landscape",
+      "svg": "templates/generic_135_landscape.svg",
+      "png": "templates/generic_135_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "generic_135",
+      "direction": "portrait",
+      "svg": "templates/generic_135_portrait.svg",
+      "png": "templates/generic_135_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "kodak_gold_200",
+      "direction": "landscape",
+      "svg": "templates/kodak_gold_200_landscape.svg",
+      "png": "templates/kodak_gold_200_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "kodak_gold_200",
+      "direction": "portrait",
+      "svg": "templates/kodak_gold_200_portrait.svg",
+      "png": "templates/kodak_gold_200_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "kodak_portra_400",
+      "direction": "landscape",
+      "svg": "templates/kodak_portra_400_landscape.svg",
+      "png": "templates/kodak_portra_400_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "kodak_portra_400",
+      "direction": "portrait",
+      "svg": "templates/kodak_portra_400_portrait.svg",
+      "png": "templates/kodak_portra_400_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "kodak_portra_800",
+      "direction": "landscape",
+      "svg": "templates/kodak_portra_800_landscape.svg",
+      "png": "templates/kodak_portra_800_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "kodak_portra_800",
+      "direction": "portrait",
+      "svg": "templates/kodak_portra_800_portrait.svg",
+      "png": "templates/kodak_portra_800_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "kodak_ultramax_400",
+      "direction": "landscape",
+      "svg": "templates/kodak_ultramax_400_landscape.svg",
+      "png": "templates/kodak_ultramax_400_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "kodak_ultramax_400",
+      "direction": "portrait",
+      "svg": "templates/kodak_ultramax_400_portrait.svg",
+      "png": "templates/kodak_ultramax_400_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "kodak_ektar_100",
+      "direction": "landscape",
+      "svg": "templates/kodak_ektar_100_landscape.svg",
+      "png": "templates/kodak_ektar_100_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "kodak_ektar_100",
+      "direction": "portrait",
+      "svg": "templates/kodak_ektar_100_portrait.svg",
+      "png": "templates/kodak_ektar_100_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "fujifilm_c200",
+      "direction": "landscape",
+      "svg": "templates/fujifilm_c200_landscape.svg",
+      "png": "templates/fujifilm_c200_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "fujifilm_c200",
+      "direction": "portrait",
+      "svg": "templates/fujifilm_c200_portrait.svg",
+      "png": "templates/fujifilm_c200_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "fujifilm_xtra_400",
+      "direction": "landscape",
+      "svg": "templates/fujifilm_xtra_400_landscape.svg",
+      "png": "templates/fujifilm_xtra_400_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "fujifilm_xtra_400",
+      "direction": "portrait",
+      "svg": "templates/fujifilm_xtra_400_portrait.svg",
+      "png": "templates/fujifilm_xtra_400_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "fujifilm_provia_100f",
+      "direction": "landscape",
+      "svg": "templates/fujifilm_provia_100f_landscape.svg",
+      "png": "templates/fujifilm_provia_100f_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "fujifilm_provia_100f",
+      "direction": "portrait",
+      "svg": "templates/fujifilm_provia_100f_portrait.svg",
+      "png": "templates/fujifilm_provia_100f_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "ilford_hp5_plus_400",
+      "direction": "landscape",
+      "svg": "templates/ilford_hp5_plus_400_landscape.svg",
+      "png": "templates/ilford_hp5_plus_400_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "ilford_hp5_plus_400",
+      "direction": "portrait",
+      "svg": "templates/ilford_hp5_plus_400_portrait.svg",
+      "png": "templates/ilford_hp5_plus_400_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    },
+    {
+      "stock_id": "cinestill_800t",
+      "direction": "landscape",
+      "svg": "templates/cinestill_800t_landscape.svg",
+      "png": "templates/cinestill_800t_landscape.png",
+      "photo_window": {
+        "x": 100,
+        "y": 550,
+        "width": 3600,
+        "height": 2400
+      }
+    },
+    {
+      "stock_id": "cinestill_800t",
+      "direction": "portrait",
+      "svg": "templates/cinestill_800t_portrait.svg",
+      "png": "templates/cinestill_800t_portrait.png",
+      "photo_window": {
+        "x": 550,
+        "y": 100,
+        "width": 2400,
+        "height": 3600
+      }
+    }
+  ]
+}

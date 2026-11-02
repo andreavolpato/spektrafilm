@@ -12,13 +12,13 @@ if TYPE_CHECKING:
     import napari
 
 QFrame = QtWidgets.QFrame
-QIcon = QtGui.QIcon
 QMainWindow = QtWidgets.QMainWindow
 QPushButton = QtWidgets.QPushButton
 QStatusBar = QtWidgets.QStatusBar
 QScrollArea = QtWidgets.QScrollArea
 QWidget = QtWidgets.QWidget
 
+from spektrafilm_gui.icons import application_icon
 from spektrafilm_gui.theme import APP_STYLE_SHEET
 from spektrafilm_gui.theme_palette import (
     GRAY_0,
@@ -40,6 +40,8 @@ DEFAULT_CONTROLS_PANEL_WIDTH = 420
 DEFAULT_VIEWER_SPLITTER_WIDTH = 1040
 _DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 _DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
+
+
 class AppMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -338,35 +340,35 @@ def _build_viewer_panel(
     status_bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
     status_layout.addWidget(status_bar, 1)
 
-    rotate_ccw_button = QPushButton('ccw rotate')
+    rotate_ccw_button = QPushButton('逆时针旋转')
     rotate_ccw_button.setObjectName('rotateCcwButton')
     if on_rotate_ccw is not None:
         rotate_ccw_button.clicked.connect(on_rotate_ccw)
 
-    rotate_cw_button = QPushButton('cw rotate')
+    rotate_cw_button = QPushButton('顺时针旋转')
     rotate_cw_button.setObjectName('rotateCwButton')
     if on_rotate_cw is not None:
         rotate_cw_button.clicked.connect(on_rotate_cw)
 
     zoom_100_button = QPushButton('100%')
     zoom_100_button.setObjectName('zoom100Button')
-    zoom_100_button.setToolTip('Pixel of the screen mapped 1 to 1 to the image pixel')
+    zoom_100_button.setToolTip('屏幕像素与图像像素按 1:1 映射')
     if on_zoom_100 is not None:
         zoom_100_button.clicked.connect(on_zoom_100)
 
     zoom_200_button = QPushButton('200%')
     zoom_200_button.setObjectName('zoom200Button')
-    zoom_200_button.setToolTip('2 screen pixels mapped to 1 image pixel')
+    zoom_200_button.setToolTip('2 个屏幕像素映射为 1 个图像像素')
     if on_zoom_200 is not None:
         zoom_200_button.clicked.connect(on_zoom_200)
 
     zoom_400_button = QPushButton('400%')
     zoom_400_button.setObjectName('zoom400Button')
-    zoom_400_button.setToolTip('4 screen pixels mapped to 1 image pixel')
+    zoom_400_button.setToolTip('4 个屏幕像素映射为 1 个图像像素')
     if on_zoom_400 is not None:
         zoom_400_button.clicked.connect(on_zoom_400)
 
-    home_button = QPushButton('reset view')
+    home_button = QPushButton('重置视图')
     home_button.setObjectName('homeViewButton')
     if on_home_view is not None:
         home_button.clicked.connect(on_home_view)
@@ -414,15 +416,16 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
                 widgets.enlarger,
                 widgets.scanner,
                 widgets.output,
+                widgets.basic_adjustments,
             ),
         ),
-        'MAIN',
+        '主界面',
     )
     panel.addTab(
         _wrap_scrollable(_build_controls_tab(widgets.halation, widgets.couplers, widgets.grain, widgets.camera_diffusion)),
-        'FILM',
+        '胶片',
     )
-    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.chemistry, widgets.glare, widgets.preflashing, widgets.enlarger_diffusion)), 'PRINT')
+    panel.addTab(_wrap_scrollable(_build_controls_tab(widgets.chemistry, widgets.glare, widgets.preflashing, widgets.enlarger_diffusion)), '相纸')
     panel.addTab(
         _wrap_scrollable(
             _build_controls_tab(
@@ -433,7 +436,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
                 widgets.special,
             ),
         ),
-        'ADVANCED',
+        '高级',
     )
 
     napari_layers_content = QtWidgets.QWidget()
@@ -453,7 +456,7 @@ def build_controls_panel(viewer: napari.Viewer, widgets: WidgetBundle) -> QWidge
                 CollapsibleSection('napari layers', napari_layers_content, expanded=False),
             ),
         ),
-        'CONFIG',
+        '设置',
     )
 
     container = QtWidgets.QWidget()
@@ -479,7 +482,7 @@ def build_main_window(
 
     main_window = AppMainWindow()
     main_window.setWindowTitle('spektrafilm')
-    main_window.setWindowIcon(QIcon())
+    main_window.setWindowIcon(application_icon())
     main_window.resize(DEFAULT_CONTROLS_PANEL_WIDTH + DEFAULT_VIEWER_SPLITTER_WIDTH, 980)
     main_window.setFont(platform_default_font())
     main_window.setStyleSheet(APP_STYLE_SHEET)
@@ -513,7 +516,7 @@ def build_main_window(
 
     main_window.setCentralWidget(central)
     _request_dark_title_bar(main_window)
-    main_window.statusBar().showMessage('ready', 3000)
+    main_window.statusBar().showMessage('就绪', 3000)
     return main_window
 
 

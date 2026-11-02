@@ -2,6 +2,11 @@
 
 The user-facing interactive application: image preview, parameter widgets, profile management, animation, exports.
 
+The desktop interface is presented in Simplified Chinese. Film and paper profile
+IDs, color-space names, interpolation modes, algorithms, and file-format
+identifiers remain in their canonical form so they can be recognized and
+matched with technical documentation.
+
 ## Philosophy
 
 This package is the **interactive layer** on top of `spektrafilm`. It depends on the runtime; it is not depended on by the runtime.
@@ -21,6 +26,7 @@ The science itself is **not the GUI's responsibility**. If a piece of behavior i
 - **Parameter widgets, layout, persistence**. The widget specs, controllers, state bridge, and persistence machinery all live here.
 - **Color-space pickers**. If the GUI grows a color-space picker for inputs/outputs, it owns the UX of that picker — what names are shown, how unfamiliar names are explained. It may consult `spektrafilm_lut_creator`'s registry, or it may maintain its own smaller curated list, depending on what makes sense for users.
 - **Image I/O and preview pipelines**. Loading raw / TIFF / EXR, preview rescaling, output formatting for napari layers.
+- **Film-frame export**. Composites the photo into one of six fixed 135 border templates (`assets/film_frames`: landscape/portrait PNG + SVG and `template_manifest.json`, which defines canvas sizes and photo windows). The photo orientation selects the template; the unchanged template PNG is overlaid on the fitted photo, so the border is identical for every photo. Only the template, sample frame number (hide/replace), date stamp (photo overlay, off by default), contain/cover fit with crop position, and export resolution are user-adjustable. Templates are reference versions, not all batches of a stock. Preview and export share one compositor, and this effect does not change simulation pixels.
 
 ## Layering rule
 
@@ -43,5 +49,7 @@ The science itself is **not the GUI's responsibility**. If a piece of behavior i
 - `widget_sections.py`, `widget_editors.py` — widget definitions
 - `params_mapper.py` — params ↔ widget value translation
 - `persistence.py` — project I/O
+- `film_frame.py` — film-frame export composition
+- `film_frame_dialog.py` — film-frame preview and controls
 - `polaroid_animation.py`, `virtual_photo_paper_back.py` — specialty UIs
 - `theme*.py`, `icons.py` — visual styling

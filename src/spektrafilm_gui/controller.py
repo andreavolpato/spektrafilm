@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +16,13 @@ from spektrafilm_gui.controller_layers import (
     INPUT_PREVIEW_LAYER_NAME,
     ViewerLayerService,
 )
+from spektrafilm_gui.image_adjustments import (
+    BasicAdjustmentsState,
+    apply_basic_adjustments,
+    has_basic_adjustments,
+)
+from spektrafilm_gui.film_frame import compose_film_frame
+from spektrafilm_gui.film_frame_dialog import FilmFrameDialog
 from spektrafilm_gui.persistence import (
     clear_saved_default_gui_state,
     load_dialog_dir,
@@ -23,7 +31,7 @@ from spektrafilm_gui.persistence import (
     save_dialog_dir,
     save_gui_state_to_path,
 )
-from spektrafilm_gui.state import PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
+from spektrafilm_gui.state import GuiState, PROJECT_DEFAULT_GUI_STATE, digest_after_selection, gui_state_from_params
 from spektrafilm_gui.napari_layout import dialog_parent, reset_viewer_camera, set_canvas_background, set_status
 from spektrafilm_gui.params_mapper import build_params_from_state
 from spektrafilm_gui.state_bridge import apply_gui_state, collect_gui_state
@@ -43,6 +51,7 @@ QThreadPool = getattr(QtCore, 'QThreadPool')
 QTimer = getattr(QtCore, 'QTimer')
 QFileDialog = QtWidgets.QFileDialog
 QMessageBox = QtWidgets.QMessageBox
+QUEUED_CONNECTION = getattr(QtCore.Qt, 'QueuedConnection')
 SimulationRequest = runtime.SimulationRequest
 SimulationResult = runtime.SimulationResult
 STARTUP_PREVIEW_ASPECT_RATIO = (3, 2)
@@ -147,12 +156,19 @@ class GuiController:
         )
         self._thread_pool = QThreadPool.globalInstance()
         self._active_simulation_worker: runtime.SimulationWorker | None = None
+        self._active_adjustment_worker: runtime.AdjustmentWorker | None = None
+        self._adjustment_generation = 0
+        self._adjustment_timer = QTimer()
+        self._adjustment_timer.setSingleShot(True)
+        self._adjustment_timer.setInterval(100)
+        self._adjustment_timer.timeout.connect(self._start_basic_adjustment_worker)
         self._active_simulation_label: str | None = None
         self._runtime_simulator = None
         self._next_runtime_digest_applies_stock_specifics = True
         self._current_input_image: np.ndarray | None = None
         self._current_input_path: str | None = None
         self._current_preview_image: np.ndarray | None = None
+        self._base_output_float_image: np.ndarray | None = None
         self._auto_preview_scheduled = False
         self._pending_auto_preview = False
         self._active_simulation_reports_status = True
@@ -185,7 +201,7 @@ class GuiController:
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
-        set_status(self._viewer, "Loading raw...", timeout_ms=0)
+        set_status(self._viewer, "正在加载 RAW 文件...", timeout_ms=0)
         lens_info: dict[str, str] = {}
         try:
             image = load_and_process_raw_file(
@@ -199,8 +215,8 @@ class GuiController:
                 lens_info_out=lens_info,
             )
         except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{exc}')
-            set_status(self._viewer, 'Load raw failed')
+            QMessageBox.critical(dialog_parent(self._viewer), '加载 RAW 失败', f'无法加载 RAW 图像。\n\n{exc}')
+            set_status(self._viewer, 'RAW 加载失败')
             return
 
         self._current_input_path = path
@@ -210,12 +226,12 @@ class GuiController:
         if lens_summary:
             set_status(
                 self._viewer,
-                f"Loaded raw and applied lens correction: {lens_summary}",
+                f"RAW 已加载并应用镜头校正：{lens_summary}",
             )
         elif gui_state.gui_only.load_raw.lens_correction:
-            set_status(self._viewer, "Loaded raw, lens correction not applied")
+            set_status(self._viewer, "RAW 已加载，但未应用镜头校正")
         else:
-            set_status(self._viewer, "Loaded raw")
+            set_status(self._viewer, "RAW 已加载")
         self._request_auto_preview_if_enabled()
 
     def refresh_preview_cache(self, *_args) -> None:
@@ -309,36 +325,182 @@ class GuiController:
             return
         self._layers.set_output_layer_interpolation(output_layer, mode)
 
+    def _render_adjusted_simulation_output(
+        self,
+        image: np.ndarray,
+        *,
+        output_color_space: str,
+        use_display_transform: bool,
+        update_existing: bool,
+        unadjusted_display_image: np.ndarray | None = None,
+    ) -> str:
+        adjustment_section = getattr(self._widgets, 'basic_adjustments', None)
+        get_state = getattr(adjustment_section, 'get_state', None)
+        adjustments = get_state() if callable(get_state) else BasicAdjustmentsState()
+        if has_basic_adjustments(adjustments):
+            image_data = np.asarray(image)[..., :3]
+            if output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                image_data = colour.RGB_to_RGB(
+                    image_data,
+                    output_color_space,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = apply_basic_adjustments(np.asarray(image_data), adjustments)
+            if output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                adjusted_image = colour.RGB_to_RGB(
+                    adjusted_image,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    output_color_space,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = np.asarray(adjusted_image)
+        else:
+            adjusted_image = np.asarray(image)
+
+        if not has_basic_adjustments(adjustments) and unadjusted_display_image is not None:
+            display_image = unadjusted_display_image
+            status = runtime.display_transform_status_message(use_display_transform, imagecms_module=ImageCms)
+        else:
+            display_image, status = self._prepare_output_display_image(
+                adjusted_image,
+                output_color_space=output_color_space,
+                use_display_transform=use_display_transform,
+            )
+        if update_existing:
+            self._layers.update_output_layer(
+                display_image,
+                float_image=adjusted_image,
+                output_color_space=output_color_space,
+                output_cctf_encoding=True,
+                use_display_transform=use_display_transform,
+            )
+        else:
+            self._set_or_add_output_layer(
+                display_image,
+                float_image=adjusted_image,
+                output_color_space=output_color_space,
+                output_cctf_encoding=True,
+                use_display_transform=use_display_transform,
+            )
+        return status
+
+    def apply_basic_adjustments(self, *_args) -> None:
+        if self._base_output_float_image is None:
+            return
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+        self._adjustment_generation += 1
+        self._adjustment_timer.start()
+
+    def _start_basic_adjustment_worker(self) -> None:
+        if self._active_adjustment_worker is not None:
+            return
+        if self._active_simulation_worker is not None:
+            return
+        if self._base_output_float_image is None:
+            return
+        output_layer = self._output_layer()
+        if output_layer is None:
+            return
+
+        adjustment_section = getattr(self._widgets, 'basic_adjustments', None)
+        get_state = getattr(adjustment_section, 'get_state', None)
+        adjustments = get_state() if callable(get_state) else BasicAdjustmentsState()
+        output_color_space, _cctf_encoding = self._output_layer_render_settings(
+            default_color_space=PROJECT_DEFAULT_GUI_STATE.simulation.io.output_color_space,
+            default_cctf_encoding=True,
+        )
+        request = runtime.AdjustmentRequest(
+            generation=self._adjustment_generation,
+            image=self._base_output_float_image,
+            adjustments=replace(adjustments),
+            output_color_space=output_color_space,
+            use_display_transform=bool(output_layer.metadata.get(OUTPUT_DISPLAY_TRANSFORM_KEY, False)),
+        )
+        worker = runtime.AdjustmentWorker(request, execute_request=self._execute_adjustment_request)
+        worker.signals.finished.connect(self._on_basic_adjustment_finished, QUEUED_CONNECTION)
+        worker.signals.failed.connect(self._on_basic_adjustment_failed, QUEUED_CONNECTION)
+        self._active_adjustment_worker = worker
+        self._thread_pool.start(worker)
+
+    def _execute_adjustment_request(self, request: runtime.AdjustmentRequest) -> runtime.AdjustmentResult:
+        image_data = np.asarray(request.image)[..., :3]
+        if has_basic_adjustments(request.adjustments):
+            if request.output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                image_data = colour.RGB_to_RGB(
+                    image_data,
+                    request.output_color_space,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+            adjusted_image = apply_basic_adjustments(np.asarray(image_data), request.adjustments)
+            if request.output_color_space != runtime.DISPLAY_PREVIEW_COLOR_SPACE:
+                adjusted_image = colour.RGB_to_RGB(
+                    adjusted_image,
+                    runtime.DISPLAY_PREVIEW_COLOR_SPACE,
+                    request.output_color_space,
+                    apply_cctf_decoding=True,
+                    apply_cctf_encoding=True,
+                )
+        else:
+            adjusted_image = image_data
+        adjusted_image = np.asarray(adjusted_image)
+        display_image, status = self._prepare_output_display_image(
+            adjusted_image,
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+        )
+        return runtime.AdjustmentResult(
+            generation=request.generation,
+            display_image=display_image,
+            float_image=adjusted_image,
+            output_color_space=request.output_color_space,
+            use_display_transform=request.use_display_transform,
+            status_message=status,
+        )
+
+    def _on_basic_adjustment_finished(self, result: runtime.AdjustmentResult) -> None:
+        self._active_adjustment_worker = None
+        if result.generation != self._adjustment_generation:
+            self._adjustment_timer.start(0)
+            return
+        if self._output_layer() is None:
+            return
+        self._layers.update_output_layer(
+            result.display_image,
+            float_image=result.float_image,
+            output_color_space=result.output_color_space,
+            output_cctf_encoding=True,
+            use_display_transform=result.use_display_transform,
+        )
+        set_status(self._viewer, result.status_message)
+
+    def _on_basic_adjustment_failed(self, generation: int, message: str) -> None:
+        self._active_adjustment_worker = None
+        if generation != self._adjustment_generation:
+            self._adjustment_timer.start(0)
+            return
+        set_status(self._viewer, f'基础调整失败：{message}')
+
     def sync_display_transform_availability(self, *, report_status: bool) -> bool:
         if runtime.display_profile_available(imagecms_module=ImageCms):
             return True
 
         self._set_display_transform_checked(False)
         if report_status:
-            set_status(self._viewer, 'Display transform unavailable: no display profile detected, disabled')
+            set_status(self._viewer, '无法使用显示变换：未检测到显示器配置文件，已停用')
         return False
 
-    def save_output_layer(self) -> None:
-        output_layer = self._output_layer()
-        if output_layer is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Save output', 'Run a simulation before saving the output layer.')
-            return
-
-        if self._current_input_path is not None:
-            default_name = Path(self._current_input_path).stem + '.jpg'
-        else:
-            default_name = 'output.jpg'
-
-        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
-            dialog_parent(self._viewer),
-            'Save output image',
-            default_name,
-            'Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
-        )
-        if not filepath:
-            return
-
-        gui_state = collect_gui_state(widgets=self._widgets)
+    def _output_image_for_saving(
+        self,
+        output_layer: NapariImageLayer,
+        gui_state: GuiState,
+    ) -> tuple[np.ndarray, str, bool]:
         float_image_data = self._output_layer_float_data()
         if float_image_data is None:
             image_data = runtime.normalized_image_data(np.asarray(output_layer.data)[..., :3])
@@ -351,7 +513,10 @@ class GuiController:
         )
         saving_color_space = gui_state.simulation.workflow.saving_color_space
         saving_cctf_encoding = gui_state.simulation.workflow.saving_cctf_encoding
-        if source_color_space != saving_color_space:
+        if (
+            source_color_space != saving_color_space
+            or source_cctf_encoding != saving_cctf_encoding
+        ):
             image_data = colour.RGB_to_RGB(
                 image_data,
                 source_color_space,
@@ -359,14 +524,33 @@ class GuiController:
                 apply_cctf_decoding=source_cctf_encoding,
                 apply_cctf_encoding=saving_cctf_encoding,
             )
-        elif source_cctf_encoding != saving_cctf_encoding:
-            image_data = colour.RGB_to_RGB(
-                image_data,
-                source_color_space,
-                saving_color_space,
-                apply_cctf_decoding=source_cctf_encoding,
-                apply_cctf_encoding=saving_cctf_encoding,
-            )
+        return image_data, saving_color_space, saving_cctf_encoding
+
+    def save_output_layer(self) -> None:
+        output_layer = self._output_layer()
+        if output_layer is None:
+            QMessageBox.warning(dialog_parent(self._viewer), '保存输出', '请先运行模拟，再保存输出图层。')
+            return
+
+        if self._current_input_path is not None:
+            default_name = Path(self._current_input_path).stem + '.jpg'
+        else:
+            default_name = 'output.jpg'
+
+        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
+            dialog_parent(self._viewer),
+            '保存输出图像',
+            default_name,
+            '图像文件 (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
+        )
+        if not filepath:
+            return
+
+        gui_state = collect_gui_state(widgets=self._widgets)
+        image_data, saving_color_space, saving_cctf_encoding = self._output_image_for_saving(
+            output_layer,
+            gui_state,
+        )
 
         source_metadata = None
 
@@ -381,7 +565,7 @@ class GuiController:
                 cctf_encoding=saving_cctf_encoding,
             )
         except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
+            QMessageBox.critical(dialog_parent(self._viewer), '保存输出失败', f'无法保存输出图像。\n\n{exc}')
             return
 
         metadata_write_error = None
@@ -398,10 +582,81 @@ class GuiController:
         if metadata_write_error is not None:
             set_status(
                 self._viewer,
-                f"Saved output image to {filepath}, but failed to copy metadata: {metadata_write_error}",
+                f"输出图像已保存到 {filepath}，但复制元数据失败：{metadata_write_error}",
             )
         else:
-            set_status(self._viewer, f"Saved output image to {filepath}")
+            set_status(self._viewer, f"输出图像已保存到 {filepath}")
+
+    def save_film_frame_output(self) -> None:
+        output_layer = self._output_layer()
+        if output_layer is None:
+            QMessageBox.warning(dialog_parent(self._viewer), '胶片边框', '请先运行模拟，再导出胶片边框图像。')
+            return
+
+        gui_state = collect_gui_state(widgets=self._widgets)
+        selected_film = gui_state.simulation.selection.film_stock
+        film_stock_id = str(getattr(selected_film, 'value', selected_film))
+        image_data, saving_color_space, saving_cctf_encoding = self._output_image_for_saving(
+            output_layer,
+            gui_state,
+        )
+        dialog = FilmFrameDialog(
+            image_data,
+            film_stock_id=film_stock_id,
+            parent=dialog_parent(self._viewer),
+        )
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+
+        if self._current_input_path is not None:
+            default_name = f'{Path(self._current_input_path).stem}_film-frame.jpg'
+        else:
+            default_name = 'film-frame.jpg'
+        filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
+            dialog_parent(self._viewer),
+            '导出胶片边框图像',
+            default_name,
+            '图像文件 (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
+        )
+        if not filepath:
+            return
+
+        try:
+            framed_image = compose_film_frame(
+                image_data,
+                template_id=dialog.template_id,
+                date_label=dialog.date_label,
+                frame_number=dialog.frame_number,
+                options=dialog.options,
+            )
+            save_image_oiio(
+                filepath,
+                framed_image,
+                color_space=saving_color_space,
+                cctf_encoding=saving_cctf_encoding,
+            )
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(dialog_parent(self._viewer), '导出胶片边框失败', f'无法导出胶片边框图像。\n\n{exc}')
+            return
+
+        source_metadata = None
+        if self._current_input_path is not None:
+            source_metadata = read_image_metadata(self._current_input_path)
+        metadata_write_error = None
+        try:
+            write_image_metadata(
+                filepath,
+                source_metadata,
+                saving_color_space=saving_color_space,
+                saving_cctf_encoding=saving_cctf_encoding,
+            )
+        except Exception as exc:
+            metadata_write_error = exc
+
+        if metadata_write_error is not None:
+            set_status(self._viewer, f'胶片边框图像已导出到 {filepath}，但复制元数据失败：{metadata_write_error}')
+        else:
+            set_status(self._viewer, f'胶片边框图像已导出到 {filepath}')
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(
@@ -688,12 +943,12 @@ class GuiController:
 
     def _start_simulation(self, *, source_layer_name: str, mode_label: str, report_status: bool = True) -> None:
         if self._active_simulation_worker is not None:
-            set_status(self._viewer, 'Simulation already running')
+            set_status(self._viewer, '模拟正在运行')
             return
 
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), '运行模拟', '请先加载输入图像，再运行模拟。')
             return
 
         state = collect_gui_state(widgets=self._widgets)
@@ -703,6 +958,8 @@ class GuiController:
             source_layer_name=source_layer_name,
         )
 
+        self._adjustment_generation += 1
+        self._adjustment_timer.stop()
         image = np.double(image_data)
         request = SimulationRequest(
             mode_label=mode_label,
@@ -720,7 +977,8 @@ class GuiController:
         self._active_simulation_reports_status = report_status
         self._set_simulation_controls_enabled(False)
         if report_status:
-            set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
+            operation = '预览' if mode_label == 'Preview' else '扫描'
+            set_status(self._viewer, f'正在计算{operation}...', timeout_ms=0)
         self._thread_pool.start(worker)
 
     def _on_simulation_finished(self, result: SimulationResult) -> None:
@@ -729,25 +987,28 @@ class GuiController:
         self._active_simulation_label = None
         self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
-        self._set_or_add_output_layer(
-            result.display_image,
-            float_image=result.float_image,
+        self._base_output_float_image = np.array(result.float_image, copy=True)
+        self._render_adjusted_simulation_output(
+            self._base_output_float_image,
             output_color_space=result.output_color_space,
-            output_cctf_encoding=True,
             use_display_transform=result.use_display_transform,
+            update_existing=False,
+            unadjusted_display_image=result.display_image,
         )
         if report_status:
-            set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
+            operation = '预览' if result.mode_label == 'Preview' else '扫描'
+            set_status(self._viewer, f'{operation}完成。{result.status_message}')
         self._replay_pending_auto_preview()
 
     def _on_simulation_failed(self, message: str) -> None:
         self._active_simulation_worker = None
         mode_label = self._active_simulation_label or 'Simulation'
+        operation = '预览' if mode_label == 'Preview' else '扫描' if mode_label == 'Scan' else '模拟'
         self._active_simulation_label = None
         self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
-        QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
-        set_status(self._viewer, f'{mode_label} failed')
+        QMessageBox.critical(dialog_parent(self._viewer), '运行模拟', f'{operation}失败。\n\n{message}')
+        set_status(self._viewer, f'{operation}失败')
         self._replay_pending_auto_preview()
 
     def _set_simulation_controls_enabled(self, enabled: bool) -> None:
@@ -763,7 +1024,7 @@ class GuiController:
     def _run_simulation(self, *, source_layer_name: str) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), '运行模拟', '请先加载输入图像，再运行模拟。')
             return
 
         state = collect_gui_state(widgets=self._widgets)
@@ -775,16 +1036,11 @@ class GuiController:
 
         image = np.double(image_data)
         scan = self._process_image_with_runtime(image, params)
-        scan_display, display_status = self._prepare_output_display_image(
-            scan,
+        self._base_output_float_image = np.array(scan, copy=True)
+        display_status = self._render_adjusted_simulation_output(
+            self._base_output_float_image,
             output_color_space=state.simulation.io.output_color_space,
             use_display_transform=state.gui_only.display.use_display_transform,
-        )
-        self._set_or_add_output_layer(
-            scan_display,
-            float_image=scan,
-            output_color_space=state.simulation.io.output_color_space,
-            output_cctf_encoding=True,
-            use_display_transform=state.gui_only.display.use_display_transform,
+            update_existing=False,
         )
         set_status(self._viewer, display_status)

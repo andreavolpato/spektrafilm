@@ -27,6 +27,7 @@ from spektrafilm_gui.theme_palette import (
     BOOL_EDITOR_HOVER_BG,
 )
 from spektrafilm_gui.theme import resolve_theme_qcolor
+from spektrafilm_gui.ui_text import translate_ui_text
 
 
 @lru_cache(maxsize=None)
@@ -59,6 +60,7 @@ def _draw_profile_display_text(
         painter.drawText(rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, profile_name)
         return
 
+    profile_use = translate_ui_text(profile_use)
     font_metrics = QtGui.QFontMetrics(font)
     prefix_text = f'{profile_use} '
     slash_text = '/ '
@@ -75,6 +77,11 @@ def _draw_profile_display_text(
     painter.setPen(base_color)
     painter.drawText(slash_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, slash_text)
     painter.drawText(value_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft | QtCore.Qt.TextSingleLine, profile_name)
+
+
+def _bounded_profile_popup_width(*, combo_width: int, content_width: int, available_width: int) -> int:
+    screen_limit = max(combo_width, available_width - 24)
+    return max(combo_width, min(content_width, screen_limit))
 
 
 class ProfileEnumItemDelegate(QStyledItemDelegate):
@@ -113,7 +120,7 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
         profile_use, _color = _profile_use_text_and_color(value)
         if not profile_use:
             return value
-        return f'{profile_use} / {value}'
+        return f'{translate_ui_text(profile_use)} / {value}'
 
     @property
     def value(self) -> str:
@@ -126,6 +133,28 @@ class ProfileEnumEditor(QtWidgets.QComboBox):
             self.setCurrentIndex(index)
         else:
             raise ValueError(f"{value!r} is not a valid option")
+
+    def showPopup(self) -> None:  # noqa: N802 - Qt API name
+        font_metrics = QtGui.QFontMetrics(self.font())
+        widest_item = max(
+            (
+                font_metrics.horizontalAdvance(self.display_text_for_value(self.itemText(index)))
+                for index in range(self.count())
+            ),
+            default=0,
+        )
+        frame_width = self.view().frameWidth() * 2
+        scrollbar_width = self.style().pixelMetric(QStyle.PM_ScrollBarExtent, None, self.view())
+        screen = self.screen() or QtWidgets.QApplication.primaryScreen()
+        available_width = screen.availableGeometry().width() if screen is not None else self.width()
+        popup_width = _bounded_profile_popup_width(
+            combo_width=self.width(),
+            content_width=widest_item + frame_width + scrollbar_width + 12,
+            available_width=available_width,
+        )
+        self.view().setMinimumWidth(popup_width)
+        self.view().setMaximumWidth(popup_width)
+        super().showPopup()
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name
         del event
@@ -258,19 +287,39 @@ class BoolEditor(QtWidgets.QCheckBox):
 class EnumEditor(QtWidgets.QComboBox):
     def __init__(self, values: list[str]):
         super().__init__()
-        self.addItems(values)
+        for value in values:
+            label = _ENUM_LABELS.get(value, value)
+            self.addItem(label, userData=value)
 
     @property
     def value(self) -> str:
-        return self.currentText()
+        value = self.currentData()
+        return self.currentText() if value is None else str(value)
 
     @value.setter
     def value(self, value: str) -> None:
-        index = self.findText(value)
+        index = self.findData(value)
+        if index < 0:
+            index = self.findText(value)
         if index >= 0:
             self.setCurrentIndex(index)
         else:
             raise ValueError(f"{value!r} is not a valid option")
+
+
+_ENUM_LABELS = {
+    'as_shot': '按拍摄时设置',
+    'daylight': '日光',
+    'tungsten': '钨丝灯',
+    'custom': '自定义',
+    'center_weighted': '中央重点测光',
+    'matrix': '矩阵测光',
+    'multi_zone': '多区测光',
+    'partial': '局部测光',
+    'highlight_weighted': '高光优先测光',
+    'median': '中值测光',
+    'average': '平均测光',
+}
 
 
 class TupleEditor(QtWidgets.QWidget):
@@ -341,6 +390,7 @@ class SliderFloatEditor(QtWidgets.QWidget):
         layout.addWidget(self._label)
 
         self._slider.valueChanged.connect(self._on_slider_changed)
+        self.value = 0.0
         self._update_label()
 
     def _n_steps(self) -> int:

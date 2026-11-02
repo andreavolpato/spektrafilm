@@ -15,6 +15,15 @@ from spektrafilm_gui import widget_editors as widget_editors_module
 from spektrafilm_gui import state as state_module
 
 
+def test_application_icon_loads_the_packaged_mac_logo() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    _app = widget_editors_module.QtWidgets.QApplication.instance() or widget_editors_module.QtWidgets.QApplication([])
+
+    icon = icons_module.application_icon()
+
+    assert not icon.isNull()
+
+
 class FakeLineEdit:
     def __init__(self) -> None:
         self._text = ''
@@ -147,7 +156,7 @@ def _make_filepicker_section(monkeypatch):
     monkeypatch.setattr(
         widgets_module,
         '_build_button',
-        lambda text, callback, **kwargs: created_buttons.append(FakeButton(text, callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
+        lambda text, callback, **kwargs: created_buttons.append(FakeButton(widgets_module.translate_ui_text(text), callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
     )
     monkeypatch.setattr(widgets_module, '_build_button_row', lambda *widgets, **kwargs: ('button-row', widgets, kwargs))
     monkeypatch.setattr(widgets_module, '_build_vertical_container', lambda *items, **kwargs: ('vertical-container', items, kwargs))
@@ -164,7 +173,7 @@ def _make_gui_config_section(monkeypatch):
     monkeypatch.setattr(
         widgets_module,
         '_build_button',
-        lambda text, callback, **kwargs: created_buttons.append(FakeButton(text, callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
+        lambda text, callback, **kwargs: created_buttons.append(FakeButton(widgets_module.translate_ui_text(text), callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
     )
     monkeypatch.setattr(widgets_module, '_build_button_row', lambda *widgets, **kwargs: ('button-row', widgets, kwargs))
     monkeypatch.setattr(widgets_module, '_build_vertical_container', lambda *items, **kwargs: ('vertical-container', items, kwargs))
@@ -184,8 +193,8 @@ def test_load_raw_section_adds_reprocess_button_after_raw_settings(monkeypatch) 
     section, _emitted = _make_load_raw_section()
 
     assert section.file_path.isReadOnly() is True
-    assert section.file_path.placeholderText() == 'no raw selected'
-    assert section.reprocess_button.text() == 'reprocess raw'
+    assert section.file_path.placeholderText() == '未选择 RAW 文件'
+    assert section.reprocess_button.text() == '重新处理 RAW'
     assert section.reprocess_button.isEnabled() is False
     assert hasattr(section, 'white_balance')
     assert hasattr(section, 'temperature')
@@ -217,7 +226,7 @@ def test_file_picker_choose_file_updates_path_and_emits_selected_file(monkeypatc
 
     created_buttons[0].click()
 
-    assert created_buttons[0].text == 'Select file'
+    assert created_buttons[0].text == '选择文件'
     assert section.file_path.text() == 'C:/tmp/example.tif'
     assert section.load_requested.emitted == [('C:/tmp/example.tif',)]
 
@@ -246,10 +255,10 @@ def test_gui_config_buttons_emit_expected_actions(monkeypatch) -> None:
     section.restore_factory_default_button.click()
 
     assert [button.text for button in created_buttons] == [
-        'Save current as default',
-        'Save current to file',
-        'Load from file',
-        'Restore factory default',
+        '将当前设置保存为默认值',
+        '将当前设置保存到文件',
+        '从文件加载设置',
+        '恢复出厂默认设置',
     ]
     assert section.save_current_as_default_requested.emit_count == 1
     assert section.save_current_to_file_requested.emit_count == 1
@@ -510,6 +519,57 @@ def test_simulation_section_profile_use_badges_follow_selected_profiles() -> Non
     assert isinstance(section.print_paper, widget_editors_module.ProfileEnumEditor)
     assert section.film_stock.currentText() == list(state_module.FilmStocks)[0].value
     assert section.print_paper.currentText() == list(state_module.PrintPapers)[0].value
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == 'still / kodak_portra_400'
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == 'cine / kodak_vision3_50d'
-    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == 'cine / kodak_2393'
+    assert section.film_frame_button.text() == '胶片边框'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_portra_400') == '静态胶片 / kodak_portra_400'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_vision3_50d') == '电影胶片 / kodak_vision3_50d'
+    assert widget_editors_module.ProfileEnumEditor.display_text_for_value('kodak_2393') == '电影胶片 / kodak_2393'
+
+
+def test_profile_dropdown_expands_to_fit_long_profile_ids() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtGui, QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    editor = widget_editors_module.ProfileEnumEditor(
+        ['kodak_ektar_100', 'kodak_vision3_500t', 'a_very_long_film_profile_identifier'],
+    )
+    editor.resize(180, editor.sizeHint().height())
+
+    editor.showPopup()
+
+    expected_text_width = max(
+        QtGui.QFontMetrics(editor.font()).horizontalAdvance(editor.display_text_for_value(editor.itemText(index)))
+        for index in range(editor.count())
+    )
+    assert editor.view().minimumWidth() > editor.width()
+    assert editor.view().minimumWidth() >= expected_text_width
+    editor.hidePopup()
+
+
+def test_enum_editor_localizes_labels_without_changing_values() -> None:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from qtpy import QtWidgets
+
+    _app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    editor = widget_editors_module.EnumEditor(['as_shot', 'daylight'])
+
+    assert editor.currentText() == '按拍摄时设置'
+    assert editor.value == 'as_shot'
+
+    editor.value = 'daylight'
+
+    assert editor.currentText() == '日光'
+    assert editor.value == 'daylight'
+
+
+def test_gui_parameter_labels_and_tooltips_are_translated() -> None:
+    from spektrafilm_gui.param_manifest import ALL_MANIFESTS
+    from spektrafilm_gui.ui_text import translate_ui_text
+
+    for manifest in ALL_MANIFESTS:
+        assert widgets_module._normalize_ui_text(manifest.title) != manifest.title
+        for spec in manifest.fields:
+            label = spec.label or spec.leaf.replace('_', ' ')
+            assert translate_ui_text(label) != label, spec.path
+            if spec.tooltip:
+                assert translate_ui_text(spec.tooltip) != spec.tooltip, spec.path

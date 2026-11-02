@@ -34,7 +34,7 @@ def test_execute_simulation_request_uses_runtime_runner_without_padding() -> Non
     np.testing.assert_allclose(captured['display_args']['image'], np.full((4, 4, 3), 0.5, dtype=np.float32))
     assert result.mode_label == 'Preview'
     np.testing.assert_allclose(result.float_image, np.full((4, 4, 3), 0.5, dtype=np.float32))
-    assert result.status_message == 'Display transform: active'
+    assert result.status_message == '显示变换：已启用（Monitor）'
 
 
 def test_simulation_worker_emits_failure_message() -> None:
@@ -87,4 +87,4 @@ def test_prepare_input_color_preview_image_converts_to_srgb_float_preview() -> N
 
 def _capture_preview_result(captured: dict[str, object], image: np.ndarray, **kwargs):
     captured['display_args'] = {'image': image.copy(), **kwargs}
-    return np.full((6, 6, 3), 99, dtype=np.uint8), 'Display transform: active'
+    return np.full((6, 6, 3), 99, dtype=np.uint8), '显示变换：已启用（Monitor）'

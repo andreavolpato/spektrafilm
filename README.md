@@ -261,6 +261,20 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Instructions for macOS and Linux are
 [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
+#### Windows setup ZIP
+
+The Windows setup package can be built with Python 3.13 from a checkout:
+
+```bash
+python scripts/package_windows.py
+```
+
+Extract `dist/Spektrafilm-Windows-0.3.4.zip` on a Windows 10/11 64-bit PC and
+run `Install-Spektrafilm.bat`. It requires Python 3.13 (64-bit) and an internet
+connection to install the application and its dependencies. The installer adds
+Start menu and desktop shortcuts; it does not change the existing Spektrafilm
+installation. This is a setup package, not a fully offline single-file EXE.
+
 
 ### Using `pip`
 
@@ -398,6 +412,41 @@ This is one of the most appealing aspects for me, especially when I think of
 printing large, high-resolution simulated images while retaining all this
 low-level grain detail that is not present in the original picture.
 
+To export the simulated image with a film-negative presentation, choose
+`胶片边框` in the action bar. The border is never drawn by the app: it is one of
+six fixed 135 templates shipped unchanged in `src/spektrafilm_gui/assets/film_frames`
+(landscape 3800 × 3500 px, portrait 3500 × 3800 px, PNG + SVG, with
+`template_manifest.json` as the authority). The photo's orientation selects the
+matching template, the photo is placed inside the manifest's photo window, and
+the template is overlaid on top, so perforations and edge printing never change
+with the photo. You may only choose the template, hide or replace the sample
+frame number (12 / 12A), toggle a date stamp (a photo overlay, not film
+printing), pick fit/crop and the crop position, and set the export resolution.
+Templates are reference versions, not every batch of a stock. Exporting does not change the simulation or the current preview layer.
+
+### 简体中文界面
+
+桌面界面采用简体中文。胶片和相纸配置文件仍显示原始 profile ID；色彩空间、
+光谱算法、插值模式及文件格式等技术名称也保持原样，方便与外部文档对应。
+
+在“主界面”页中，使用“导入 RGB 图像”加载已处理的线性图像，或在“导入 RAW”
+分组中选择 RAW 文件并设置白平衡；调整胶片配置、相纸配置及其他参数后，点击
+“预览”查看快速结果，点击“扫描”运行全分辨率模拟，再点击“保存”导出图像。
+也可以点击“胶片边框”：软件直接使用套装内固定的 135 胶片模板（11 款，横向/竖向各一套，
+PNG/SVG，以 template_manifest.json 与 film_stocks.json 为准），按照片方向自动选择横版或竖版，照片等比放入
+照片窗后覆盖模板；可选项仅有胶卷模板、画幅编号（可替换或隐藏示例编号）、日期戳、
+完整适配/等比裁切及裁切位置、留白底色、导出分辨率。DX 条码仅在资料标注为“读自底片”的
+胶卷上绘制，隐藏或非数字画幅编号时同时隐藏；无可靠来源的编码不会生成。模板为基于
+SpektraLab 资料整理的独立参考版本（未复制其 GPL 源码），并非官方渲染，也不代表该型号所有批次，
+详见 assets/film_frames/LICENSE_AND_LIMITATIONS.md。
+预览和导出使用相同的合成逻辑，且不会改变模拟结果或预览图层。
+将鼠标悬停在控件上可查看中文提示。界面设置可在“设置”页中保存、加载或恢复
+默认值；胶片、相纸、色彩空间和导出格式等技术标识不会被翻译。
+模拟完成后，可在“基础调整”中通过横向滑块调整曝光、反差、高光、阴影、白色色阶、
+黑色色阶、纹理、清晰度、去除薄雾、自然饱和度和饱和度。调整作用于模拟输出，不会
+改变胶片/相纸模拟本身；“细节调整”分组提供纹理、清晰度和去除薄雾控件。相机的
+“曝光补偿（EV）”也可通过横向滑块调节。调整结果会显示在输出图层中，并随图像一起保存。
+
 ## Preparing input images manually with darktable
 
 Direct RAW import in the GUI is the simplest workflow, but manual development is
@@ -438,5 +487,3 @@ spektrafilm is developed in my free time, often during late nights after my rese
 
 Sample images are from
 [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
-
-

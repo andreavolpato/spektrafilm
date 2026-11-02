@@ -1,0 +1,29 @@
+{
+  "project": "SpektraLab",
+  "verified_on": "2026-11-02",
+  "official_site": "https://spektralab.app/",
+  "repository": "https://github.com/JamesQiu2005/SpektraLab",
+  "release": "1.3.4",
+  "links": {
+    "film_geometry_renderer": "https://github.com/JamesQiu2005/SpektraLab/blob/main/engine/src/pipeline/overscan.cpp",
+    "perforation_shader": "https://github.com/JamesQiu2005/SpektraLab/blob/main/engine/src/shaders/overscan.metal",
+    "stock_edge_text": "https://github.com/JamesQiu2005/SpektraLab/blob/main/modern_UI/Spektrafilm/Spektrafilm/Model/Session%2BFilmEdge.swift",
+    "app_film_edge_settings": "https://github.com/JamesQiu2005/SpektraLab/blob/main/modern_UI/Spektrafilm/Spektrafilm/Model/FilmEdge.swift",
+    "stock_catalog": "https://github.com/JamesQiu2005/SpektraLab/blob/main/modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json",
+    "tests": "https://github.com/JamesQiu2005/SpektraLab/blob/main/engine/tests/overscan_checks.py",
+    "user_guide": "https://spektralab.app/user_guide/",
+    "license": "https://github.com/JamesQiu2005/SpektraLab/blob/main/LICENSE.txt"
+  },
+  "license": {
+    "application": "GPL-3.0-or-later",
+    "measured_profiles_and_luts": "CC BY-SA 4.0 via spektrafilm; not included in this pack"
+  },
+  "reused_upstream_source_files": 0,
+  "source_derived_facts_only": true,
+  "limitations": [
+    "本包不含 SpektraLab 的源码、测色文件、LUT、RAW模拟引擎；要原样迁移上游源代码需要按GPL合规处理",
+    "边框 SVG 是独立编写的工程示意，不是精确复刻 SpektraLab 渲染结果",
+    "照片原始尺寸与比例不能随意强拉伸",
+    "真实厂商印字会随批次而变化"
+  ]
+}

@@ -14,6 +14,7 @@ from spektrafilm_gui.controller_layers import (
     WATERMARK_LAYER_NAME,
     WHITE_BORDER_LAYER_NAME,
 )
+from spektrafilm_gui.image_adjustments import BasicAdjustmentsState
 
 from .helpers import FakeLayer, FakeViewer, make_test_controller_gui_state
 
@@ -42,7 +43,7 @@ def _run_simulation_case(
     gui_state=None,
     simulated_image=None,
     preview_image=None,
-    preview_status: str = 'Display transform: disabled',
+    preview_status: str = '显示变换：已停用',
 ) -> dict[str, object]:
     controller = GuiController(viewer=object(), widgets=object())
     gui_state = make_test_controller_gui_state() if gui_state is None else gui_state
@@ -265,7 +266,7 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
 
     controller.load_raw_image('C:/tmp/example.nef')
 
-    assert captured['status'] == ('Loading raw...', 0)
+    assert captured['status'] == ('正在加载 RAW 文件...', 0)
     assert captured['path'] == 'C:/tmp/example.nef'
     assert captured['kwargs'] == {
         'white_balance': 'custom',
@@ -341,12 +342,12 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
 
     controller.load_raw_image('C:/tmp/example.nef')
 
-    assert statuses == [('Loading raw...', 0), ('Load raw failed', 5000)]
+    assert statuses == [('正在加载 RAW 文件...', 0), ('RAW 加载失败', 5000)]
     assert captured_dialog == {
         'parent': 'dialog-parent',
-        'title': 'Load raw',
+        'title': '加载 RAW 失败',
         'message': (
-            'Failed to load RAW image.\n\n'
+            '无法加载 RAW 图像。\n\n'
             'RAW file does not expose a usable camera XYZ matrix for custom white balance.'
         ),
     }
@@ -385,8 +386,8 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
     assert captured['kwargs']['lens_correction'] is True
     assert captured['kwargs']['lens_info_out'] == {}
     assert statuses == [
-        ('Loading raw...', 0),
-        ('Loaded raw, lens correction not applied', 5000),
+        ('正在加载 RAW 文件...', 0),
+        ('RAW 已加载，但未应用镜头校正', 5000),
     ]
 
 
@@ -473,7 +474,7 @@ def test_run_simulation_passes_display_transform_settings(monkeypatch) -> None:
         gui_state=gui_state,
         simulated_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
         preview_image=np.full((6, 6, 3), 99, dtype=np.uint8),
-        preview_status='Display transform: active',
+        preview_status='显示变换：已启用',
     )
 
     np.testing.assert_allclose(captured['display_args']['image_data'], np.full((4, 4, 3), 0.5, dtype=np.float32))
@@ -531,7 +532,7 @@ def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> No
 
     controller._start_simulation(source_layer_name=INPUT_PREVIEW_LAYER_NAME, mode_label='Preview')
 
-    assert captured['status'] == ('Computing preview...', 0)
+    assert captured['status'] == ('正在计算预览...', 0)
     assert captured['white_padding'] == gui_state.gui_only.display.white_padding
     assert controller._active_simulation_label == 'Preview'
     np.testing.assert_allclose(captured['worker']._request.image, np.double(preview_image))
@@ -760,7 +761,7 @@ def test_execute_simulation_request_routes_through_runtime_simulator_path(monkey
     monkeypatch.setattr(
         controller,
         '_prepare_output_display_image',
-        lambda image, **kwargs: (np.uint8(np.clip(image, 0.0, 1.0) * 255), 'Display transform: disabled'),
+        lambda image, **kwargs: (np.uint8(np.clip(image, 0.0, 1.0) * 255), '显示变换：已停用'),
     )
 
     result = controller._execute_simulation_request(request)
@@ -869,11 +870,11 @@ def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:
             float_image=np.full((2, 2, 3), 0.5, dtype=np.float32),
             output_color_space='sRGB',
             use_display_transform=False,
-            status_message='Display transform: disabled',
+            status_message='显示变换：已停用',
         )
     )
 
-    assert captured['status'] == ('Preview completed. Display transform: disabled', 5000)
+    assert captured['status'] == ('预览完成。显示变换：已停用', 5000)
 
 
 def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkeypatch) -> None:
@@ -892,9 +893,58 @@ def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkey
             float_image=np.full((2, 2, 3), 0.5, dtype=np.float32),
             output_color_space='sRGB',
             use_display_transform=False,
-            status_message='Display transform: disabled',
+            status_message='显示变换：已停用',
         )
     )
 
     assert 'status_calls' not in captured
     assert controller._active_simulation_reports_status is True
+
+
+def test_basic_adjustments_run_in_background_from_unadjusted_simulation_base(monkeypatch) -> None:
+    image = np.full((2, 2, 3), 0.5, dtype=np.float32)
+    adjustment_state = BasicAdjustmentsState(exposure=1.0)
+    controller = GuiController(
+        viewer=object(),
+        widgets=SimpleNamespace(
+            basic_adjustments=SimpleNamespace(get_state=lambda: adjustment_state),
+        ),
+    )
+    controller._base_output_float_image = np.array(image, copy=True)
+    output_layer = FakeLayer(
+        np.full((2, 2, 3), 128, dtype=np.uint8),
+        metadata={controller_module.OUTPUT_DISPLAY_TRANSFORM_KEY: False},
+        name='output',
+    )
+    monkeypatch.setattr(controller, '_output_layer', lambda: output_layer)
+    monkeypatch.setattr(controller, '_output_layer_render_settings', lambda **_kwargs: ('sRGB', True))
+    monkeypatch.setattr(
+        controller,
+        '_prepare_output_display_image',
+        lambda adjusted, **_kwargs: (np.asarray(adjusted * 255, dtype=np.uint8), 'display status'),
+    )
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        type(controller._layers),
+        'update_output_layer',
+        lambda _service, display_image, **kwargs: captured.update(display=display_image, **kwargs),
+    )
+
+    queued_workers = []
+    monkeypatch.setattr(controller._thread_pool, 'start', queued_workers.append)
+    timer_starts = []
+    monkeypatch.setattr(controller._adjustment_timer, 'start', lambda *args: timer_starts.append(args))
+    controller.apply_basic_adjustments()
+    assert timer_starts == [()]
+    assert captured == {}
+
+    controller._start_basic_adjustment_worker()
+    assert len(queued_workers) == 1
+    result = queued_workers[0]._execute_request(queued_workers[0]._request)
+    assert captured == {}
+    controller._on_basic_adjustment_finished(result)
+
+    adjusted = captured['float_image']
+    assert float(adjusted.mean()) == pytest.approx(0.686, abs=0.002)
+    assert float(controller._base_output_float_image.mean()) == pytest.approx(0.5)
+    assert int(captured['display'].mean()) == pytest.approx(175, abs=1)

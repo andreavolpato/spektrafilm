@@ -1,0 +1,240 @@
+{
+  "schema_version": "1.0",
+  "stocks": [
+    {
+      "id": "generic_135",
+      "name": "通用标准135",
+      "gauge": "135",
+      "edge_layout_family": "Generic",
+      "ink_hex": "#EDB47C",
+      "marking": {
+        "edge_text_135": "",
+        "edge_text_confidence": "",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": null,
+      "evidence": "no_model_labels",
+      "notes": "通用无品牌，默认无文字、无DX条码。"
+    },
+    {
+      "id": "kodak_gold_200",
+      "name": "Kodak Gold 200",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#F28C4B",
+      "marking": {
+        "edge_text_135": "KODAK GB 200-7",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1548,
+        "confidence": "read_from_strip",
+        "render_by_default": true
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "kodak_portra_400",
+      "name": "Kodak Portra 400",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#E79771",
+      "marking": {
+        "edge_text_135": "KODAK PORTRA 400",
+        "edge_text_confidence": "inferred",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1277,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_borrowed_kodak_layout",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "kodak_portra_800",
+      "name": "Kodak Portra 800",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#EEA67A",
+      "marking": {
+        "edge_text_135": "KODAK PORTRA 800-3",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1278,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "kodak_ultramax_400",
+      "name": "Kodak UltraMax 400",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#F0A05B",
+      "marking": {
+        "edge_text_135": "KODAK GC 400",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1313,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "kodak_ektar_100",
+      "name": "Kodak Ektar 100",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#ED9479",
+      "marking": {
+        "edge_text_135": "KODAK EKTAR 100",
+        "edge_text_confidence": "inferred",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1307,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_borrowed_kodak_layout",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "fujifilm_c200",
+      "name": "Fujifilm C200",
+      "gauge": "135",
+      "edge_layout_family": "Kodak",
+      "ink_hex": "#EFBE77",
+      "marking": {
+        "edge_text_135": "FUJI 200",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1550,
+        "confidence": "read_from_strip",
+        "render_by_default": true
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "fujifilm_xtra_400",
+      "name": "Fujifilm Superia X-TRA 400",
+      "gauge": "135",
+      "edge_layout_family": "FujiNeg",
+      "ink_hex": "#F5BC63",
+      "marking": {
+        "edge_text_135": "S-400",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 628,
+        "confidence": "read_from_strip",
+        "render_by_default": true
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "fujifilm_provia_100f",
+      "name": "Fujifilm Provia 100F",
+      "gauge": "135",
+      "edge_layout_family": "FujiSlide",
+      "ink_hex": "#F0B85E",
+      "marking": {
+        "edge_text_135": "FUJI RDPIII",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 557,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "ilford_hp5_plus_400",
+      "name": "Ilford HP5 Plus 400",
+      "gauge": "135",
+      "edge_layout_family": "Ilford",
+      "ink_hex": "#DDD8D2",
+      "marking": {
+        "edge_text_135": "ILFORD HP5 PLUS",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": {
+        "extract": 1753,
+        "confidence": "database_unverified",
+        "render_by_default": false
+      },
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    },
+    {
+      "id": "cinestill_800t",
+      "name": "CineStill 800T",
+      "gauge": "135",
+      "edge_layout_family": "CineStill",
+      "ink_hex": "#E5B05A",
+      "marking": {
+        "edge_text_135": "CINESTILL 800T",
+        "edge_text_confidence": "read_from_strip",
+        "frame_number_example": 12,
+        "frame_number_is_user_editable": true,
+        "production_batch_code": null,
+        "do_not_invent_batch_code": true
+      },
+      "dx_135": null,
+      "evidence": "upstream_photographic_reference",
+      "notes": "文字来源于SpektraLab边缘打印映射；布局为本包近似参考样式，非官方源代码等价复刻。"
+    }
+  ],
+  "important_note": "ColorPlus 200未出现在上游库存清单，严禁把该名称当成已核验的上游实测数据；DX 若为database_unverified默认不绘制。"
+}

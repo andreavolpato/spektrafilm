@@ -21,6 +21,7 @@ from spektrafilm.runtime.params_schema import (
 )
 from spektrafilm.utils.gamut_compression import InputGamutCompressSpec, OutputGamutCompressSpec
 from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
+from spektrafilm_gui.image_adjustments import BasicAdjustmentsState
 from spektrafilm_gui.param_manifest import DISPLAY_PANEL_FIELDS, INPUT_IMAGE_FIELDS, SIMULATION_FIELDS, SPECIAL_FIELDS
 
 
@@ -214,6 +215,7 @@ class GuiState:
     output_gamut_compress: OutputGamutCompressSpec
     special: SpecialState
     simulation: SimulationState
+    basic_adjustments: BasicAdjustmentsState
     gui_only: GuiOnlyState
 
     @property
@@ -264,6 +266,7 @@ def clone_gui_state(state: GuiState) -> GuiState:
         output_gamut_compress=clone_state_section(state.output_gamut_compress),
         special=clone_state_section(state.special),
         simulation=clone_state_section(state.simulation),
+        basic_adjustments=clone_state_section(state.basic_adjustments),
         gui_only=clone_state_section(state.gui_only),
     )
 
@@ -319,6 +322,7 @@ def gui_state_from_params(
                 auto_preview=True,
             ),
         ),
+        basic_adjustments=BasicAdjustmentsState(),
         gui_only=GuiOnlyState(
             load_raw=LoadRawState(
                 white_balance='as_shot',

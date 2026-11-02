@@ -33,9 +33,33 @@ class SimulationResult:
     status_message: str
 
 
+@dataclass(slots=True)
+class AdjustmentRequest:
+    generation: int
+    image: np.ndarray
+    adjustments: object
+    output_color_space: str
+    use_display_transform: bool
+
+
+@dataclass(slots=True)
+class AdjustmentResult:
+    generation: int
+    display_image: np.ndarray
+    float_image: np.ndarray
+    output_color_space: str
+    use_display_transform: bool
+    status_message: str
+
+
 class SimulationWorkerSignals(QObject):
     finished = Signal(object)
     failed = Signal(str)
+
+
+class AdjustmentWorkerSignals(QObject):
+    finished = Signal(object)
+    failed = Signal(int, str)
 
 
 class SimulationWorker(QRunnable):
@@ -50,6 +74,27 @@ class SimulationWorker(QRunnable):
             result = self._execute_request(self._request)
         except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
             self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
+            return
+        self.signals.finished.emit(result)
+
+
+class AdjustmentWorker(QRunnable):
+    def __init__(
+        self,
+        request: AdjustmentRequest,
+        *,
+        execute_request: Callable[[AdjustmentRequest], AdjustmentResult],
+    ):
+        super().__init__()
+        self._request = request
+        self._execute_request = execute_request
+        self.signals = AdjustmentWorkerSignals()
+
+    def run(self) -> None:
+        try:
+            result = self._execute_request(self._request)
+        except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            self.signals.failed.emit(self._request.generation, f'{type(exc).__name__}: {exc}')
             return
         self.signals.finished.emit(result)
 
@@ -127,11 +172,11 @@ def display_profile_available(*, imagecms_module: Any) -> bool:
 
 def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> str:
     if not enabled:
-        return 'Display transform: disabled'
+        return '显示变换：已停用'
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return 'Display transform: no display profile, using raw preview'
-    return f'Display transform: display profile found ({profile_name})'
+        return '显示变换：未找到显示器配置文件，将使用原始预览'
+    return f'显示变换：已找到显示器配置文件（{profile_name}）'
 
 
 def prepare_input_color_preview_image(
@@ -165,7 +210,7 @@ def apply_display_transform(
 ) -> tuple[np.ndarray, str]:
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
+        return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), '显示变换：未找到显示器配置文件，将使用原始预览'
 
     srgb_preview = colour_module.RGB_to_RGB(
         image_data,
@@ -178,7 +223,7 @@ def apply_display_transform(
     source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
     source_image = pil_image_module.fromarray(srgb_preview_uint8, mode='RGB')
     transformed_image = imagecms_module.profileToProfile(source_image, source_profile, display_profile, outputMode='RGB')
-    return np.asarray(transformed_image, dtype=np.uint8), f'Display transform: active ({profile_name})'
+    return np.asarray(transformed_image, dtype=np.uint8), f'显示变换：已启用（{profile_name}）'
 
 
 def prepare_output_display_image(
@@ -206,7 +251,7 @@ def prepare_output_display_image(
         )
         return transformed_image, status
     except (OSError, ValueError, TypeError, imagecms_module.PyCMSError):
-        return preview_image, 'Display transform: transform failed, using raw preview'
+        return preview_image, '显示变换失败，将使用原始预览'
 
 
 def execute_simulation_request(

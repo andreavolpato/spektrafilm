@@ -59,8 +59,13 @@ def test_create_viewer_uses_system_dark_theme(monkeypatch) -> None:
 
 def test_apply_app_palette_uses_fixed_dark_palette(monkeypatch) -> None:
     captured: dict[str, object] = {}
-    fake_app = SimpleNamespace(setPalette=lambda palette: captured.setdefault('palette', palette))
+    icon = object()
+    fake_app = SimpleNamespace(
+        setPalette=lambda palette: captured.setdefault('palette', palette),
+        setWindowIcon=lambda icon: captured.setdefault('icon', icon),
+    )
 
+    monkeypatch.setattr(app_module, 'application_icon', lambda: icon)
     monkeypatch.setattr(app_module.QtWidgets.QApplication, 'instance', staticmethod(lambda: fake_app))
 
     app_module._apply_app_palette()
@@ -72,6 +77,7 @@ def test_apply_app_palette_uses_fixed_dark_palette(monkeypatch) -> None:
     assert palette.color(QtGui.QPalette.AlternateBase).name() == app_module.GRAY_2
     assert palette.color(QtGui.QPalette.WindowText).name() == app_module.TEXT_MAIN
     assert palette.color(QtGui.QPalette.Highlight).name() == app_module.TEXT_SELECTION_BG
+    assert captured['icon'] is icon
 
 
 def test_schedule_background_warmup_queues_only_once(monkeypatch) -> None:
@@ -297,11 +303,13 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         run_preview=object(),
         run_scan=object(),
         save_output_layer=object(),
+        save_film_frame_output=object(),
         report_display_transform_status=object(),
         set_gray_18_canvas_enabled=object(),
         set_output_interpolation_mode=object(),
         refresh_preview_cache=object(),
         request_auto_preview=object(),
+        apply_basic_adjustments=object(),
     )
     original_connect_auto_preview_signals = app_module.connect_auto_preview_signals
     widgets = SimpleNamespace(
@@ -319,6 +327,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
             preview_requested=FakeSignal(),
             scan_requested=FakeSignal(),
             save_requested=FakeSignal(),
+            film_frame_requested=FakeSignal(),
         ),
         display=SimpleNamespace(
             use_display_transform=SimpleNamespace(toggled=FakeSignal()),
@@ -327,6 +336,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
             preview_max_size=SimpleNamespace(valueChanged=FakeSignal()),
             update_preview_requested=FakeSignal(),
         ),
+        basic_adjustments=SimpleNamespace(_editors={'exposure': SimpleNamespace(valueChanged=FakeSignal())}),
     )
 
     try:
@@ -346,6 +356,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
     assert widgets.simulation.preview_requested.connected == [controller.run_preview]
     assert widgets.simulation.scan_requested.connected == [controller.run_scan]
     assert widgets.simulation.save_requested.connected == [controller.save_output_layer]
+    assert widgets.simulation.film_frame_requested.connected == [controller.save_film_frame_output]
     assert widgets.display.use_display_transform.toggled.connected == [controller.report_display_transform_status]
     assert widgets.display.gray_18_canvas.toggled.connected == [controller.set_gray_18_canvas_enabled]
     assert widgets.display.output_interpolation.currentTextChanged.connected == [controller.set_output_interpolation_mode]
@@ -353,6 +364,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         controller.refresh_preview_cache,
         controller.request_auto_preview,
     ]
+    assert widgets.basic_adjustments._editors['exposure'].valueChanged.connected == [controller.apply_basic_adjustments]
     assert captured['auto_preview_args'] == (controller, widgets)
 
 
@@ -366,7 +378,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
             setattr(widgets, section_name, None)
             continue
         state_section = _section_state(gui_state, section_name)
-        section = SimpleNamespace(_is_params_group=True)
+        section = SimpleNamespace(_is_params_group=section_name != 'basic_adjustments')
         if section_name == 'input_image':
             # input_image is now a path-bound section (_is_params_group): editors
             # keyed by leaf, bound to dotted paths on InputImageState (io.* / settings.*).
@@ -401,6 +413,8 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 simulation_editors[spec.leaf] = editor
                 setattr(section, spec.leaf, editor)
             section._editors = simulation_editors
+        elif section_name == 'basic_adjustments':
+            section._editors = {'exposure': _make_auto_preview_editor(state_section.exposure)}
         else:
             group_editors: dict = {}
             for field_name, value in vars(state_section).items():
