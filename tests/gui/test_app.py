@@ -302,6 +302,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         set_output_interpolation_mode=object(),
         refresh_preview_cache=object(),
         request_auto_preview=object(),
+        apply_basic_adjustments=object(),
     )
     original_connect_auto_preview_signals = app_module.connect_auto_preview_signals
     widgets = SimpleNamespace(
@@ -327,6 +328,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
             preview_max_size=SimpleNamespace(valueChanged=FakeSignal()),
             update_preview_requested=FakeSignal(),
         ),
+        basic_adjustments=SimpleNamespace(_editors={'exposure': SimpleNamespace(valueChanged=FakeSignal())}),
     )
 
     try:
@@ -353,6 +355,7 @@ def test_connect_controller_signals_wires_all_widget_events() -> None:
         controller.refresh_preview_cache,
         controller.request_auto_preview,
     ]
+    assert widgets.basic_adjustments._editors['exposure'].valueChanged.connected == [controller.apply_basic_adjustments]
     assert captured['auto_preview_args'] == (controller, widgets)
 
 
@@ -366,7 +369,7 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
             setattr(widgets, section_name, None)
             continue
         state_section = _section_state(gui_state, section_name)
-        section = SimpleNamespace(_is_params_group=True)
+        section = SimpleNamespace(_is_params_group=section_name != 'basic_adjustments')
         if section_name == 'input_image':
             # input_image is now a path-bound section (_is_params_group): editors
             # keyed by leaf, bound to dotted paths on InputImageState (io.* / settings.*).
@@ -401,6 +404,8 @@ def test_connect_auto_preview_signals_covers_hidden_linked_controls_and_footer_t
                 simulation_editors[spec.leaf] = editor
                 setattr(section, spec.leaf, editor)
             section._editors = simulation_editors
+        elif section_name == 'basic_adjustments':
+            section._editors = {'exposure': _make_auto_preview_editor(state_section.exposure)}
         else:
             group_editors: dict = {}
             for field_name, value in vars(state_section).items():

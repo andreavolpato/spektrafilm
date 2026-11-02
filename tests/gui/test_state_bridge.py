@@ -122,6 +122,7 @@ def _make_widgets(state: GuiState) -> WidgetBundle:
         spectral_upsampling=object(),
         tune=object(),
         output=object(),
+        basic_adjustments=StubSection(clone_state_section(state.basic_adjustments)),
     )
 
 
@@ -144,6 +145,7 @@ def test_gui_state_section_names_match_gui_state_fields() -> None:
         'output_gamut_compress',
         'special',
         'simulation',
+        'basic_adjustments',
     )
 
 

@@ -64,6 +64,8 @@ class ParamSpec:
     max: float | None = None
     step: float | None = None
     decimals: int | None = None
+    slider: bool = False
+    suffix: str = ""
     enum: type | None = None  # Enum class supplying the choices for a str field
 
     @property
@@ -534,9 +536,12 @@ CAMERA_EXPOSURE_BORROWED_FIELDS = (
     ParamSpec(
         f"{_CAM}.exposure_compensation_ev",
         tier="basic",
-        min=-100,
-        max=100,
-        step=0.25,
+        min=-5,
+        max=5,
+        step=0.1,
+        decimals=1,
+        slider=True,
+        suffix=" EV",
         tooltip="Add a bias to the auto-exposure of the camera.",
     ),
 )

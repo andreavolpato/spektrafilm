@@ -2,6 +2,11 @@
 
 The user-facing interactive application: image preview, parameter widgets, profile management, animation, exports.
 
+The desktop interface is presented in Simplified Chinese. Film and paper profile
+IDs, color-space names, interpolation modes, algorithms, and file-format
+identifiers remain in their canonical form so they can be recognized and
+matched with technical documentation.
+
 ## Philosophy
 
 This package is the **interactive layer** on top of `spektrafilm`. It depends on the runtime; it is not depended on by the runtime.

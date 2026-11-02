@@ -239,6 +239,8 @@ def connect_controller_signals(controller: GuiController, widgets: WidgetBundle)
     widgets.display.output_interpolation.currentTextChanged.connect(controller.set_output_interpolation_mode)
     widgets.display.update_preview_requested.connect(controller.refresh_preview_cache)
     widgets.display.update_preview_requested.connect(controller.request_auto_preview)
+    for editor in widgets.basic_adjustments._editors.values():
+        editor.valueChanged.connect(controller.apply_basic_adjustments)
     connect_auto_preview_signals(controller, widgets)
 
 
