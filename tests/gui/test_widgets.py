@@ -147,7 +147,7 @@ def _make_filepicker_section(monkeypatch):
     monkeypatch.setattr(
         widgets_module,
         '_build_button',
-        lambda text, callback, **kwargs: created_buttons.append(FakeButton(text, callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
+        lambda text, callback, **kwargs: created_buttons.append(FakeButton(widgets_module.translate_ui_text(text), callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
     )
     monkeypatch.setattr(widgets_module, '_build_button_row', lambda *widgets, **kwargs: ('button-row', widgets, kwargs))
     monkeypatch.setattr(widgets_module, '_build_vertical_container', lambda *items, **kwargs: ('vertical-container', items, kwargs))
@@ -164,7 +164,7 @@ def _make_gui_config_section(monkeypatch):
     monkeypatch.setattr(
         widgets_module,
         '_build_button',
-        lambda text, callback, **kwargs: created_buttons.append(FakeButton(text, callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
+        lambda text, callback, **kwargs: created_buttons.append(FakeButton(widgets_module.translate_ui_text(text), callback, tooltip=kwargs.get('tooltip'))) or created_buttons[-1],
     )
     monkeypatch.setattr(widgets_module, '_build_button_row', lambda *widgets, **kwargs: ('button-row', widgets, kwargs))
     monkeypatch.setattr(widgets_module, '_build_vertical_container', lambda *items, **kwargs: ('vertical-container', items, kwargs))

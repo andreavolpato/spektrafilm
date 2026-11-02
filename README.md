@@ -298,24 +298,6 @@ Launch the GUI by activating the environment and:
 ```bash
 spektrafilm
 ```
-
-#### Creating a macOS app launcher
-
-With the project dependencies installed in `.venv`, create a Finder-launchable
-app in `~/Applications`:
-
-```bash
-python3 scripts/create_macos_app.py
-```
-
-Open **Spektrafilm** from Applications or Launchpad. This app launches the
-current checkout's `.venv`; keep the project directory in place and run
-`uv sync` there after updating dependencies. To build the launcher elsewhere,
-pass `--destination /path/to/Spektrafilm.app`. The launcher uses the
-Spektrafilm film-strip icon. To regenerate an existing launcher, remove the
-old `Spektrafilm.app` bundle first. Application output is written to
-`~/Library/Logs/Spektrafilm/launcher.log`.
-
 To remove the environment:
 ```bash
 conda env remove -n spektrafilm
@@ -426,11 +408,6 @@ low-level grain detail that is not present in the original picture.
 “预览”查看快速结果，点击“扫描”运行全分辨率模拟，再点击“保存”导出图像。
 将鼠标悬停在控件上可查看中文提示。界面设置可在“设置”页中保存、加载或恢复
 默认值；胶片、相纸、色彩空间和导出格式等技术标识不会被翻译。
-
-macOS 上可在仓库根目录运行 `uv sync` 安装依赖，再运行
-`python3 scripts/create_macos_app.py` 创建启动器。之后从“应用程序”或
-Launchpad 双击打开 **Spektrafilm**。启动器使用当前仓库的 `.venv`；移动或重命名
-仓库后，需要在新位置重新创建启动器。
 
 ## Preparing input images manually with darktable
 

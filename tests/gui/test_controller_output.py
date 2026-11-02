@@ -425,7 +425,7 @@ def test_report_display_transform_status_missing_profile(monkeypatch) -> None:
 
     controller.report_display_transform_status(True)
 
-    assert captured['status'] == 'Display transform unavailable: no display profile detected, disabled'
+    assert captured['status'] == '无法使用显示变换：未检测到显示器配置文件，已停用'
     assert toggle.checked is False
 
 

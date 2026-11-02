@@ -23,7 +23,7 @@ def test_load_state_from_file_syncs_canvas_background(monkeypatch) -> None:
     controller.load_state_from_file()
 
     assert captured['canvas_synced'] is True
-    assert captured['status'] == 'Loaded GUI state from state.json'
+    assert captured['status'] == '已从 state.json 加载界面设置'
 
 
 def test_restore_factory_default_syncs_canvas_background(monkeypatch) -> None:
@@ -38,7 +38,7 @@ def test_restore_factory_default_syncs_canvas_background(monkeypatch) -> None:
     controller.restore_factory_default()
 
     assert captured['canvas_synced'] is True
-    assert captured['status'] == 'Restored factory default GUI state'
+    assert captured['status'] == '已恢复出厂默认界面设置'
 
 
 def test_save_current_as_default_persists_collected_state(monkeypatch) -> None:
@@ -53,7 +53,7 @@ def test_save_current_as_default_persists_collected_state(monkeypatch) -> None:
     controller.save_current_as_default()
 
     assert captured['state'] is gui_state
-    assert captured['status'] == 'Saved current GUI state as the startup default'
+    assert captured['status'] == '当前界面设置已保存为启动默认值'
 
 
 def test_save_current_state_to_file_persists_json(monkeypatch) -> None:
@@ -76,7 +76,7 @@ def test_save_current_state_to_file_persists_json(monkeypatch) -> None:
     controller.save_current_state_to_file()
 
     assert captured['saved'] == (gui_state, 'gui_state.json')
-    assert captured['status'] == 'Saved GUI state to gui_state.json'
+    assert captured['status'] == '界面设置已保存到 gui_state.json'
 
 
 def test_load_state_from_file_applies_loaded_state(monkeypatch) -> None:
@@ -99,7 +99,7 @@ def test_load_state_from_file_applies_loaded_state(monkeypatch) -> None:
     controller.load_state_from_file()
 
     assert captured['applied'] == (gui_state, controller._widgets)
-    assert captured['status'] == 'Loaded GUI state from gui_state.json'
+    assert captured['status'] == '已从 gui_state.json 加载界面设置'
 
 
 def test_restore_factory_default_clears_saved_default_and_applies_factory_state(monkeypatch) -> None:
@@ -114,4 +114,4 @@ def test_restore_factory_default_clears_saved_default_and_applies_factory_state(
 
     assert captured['cleared'] is True
     assert captured['applied'] == (PROJECT_DEFAULT_GUI_STATE, controller._widgets)
-    assert captured['status'] == 'Restored factory default GUI state'
+    assert captured['status'] == '已恢复出厂默认界面设置'

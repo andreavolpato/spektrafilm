@@ -265,7 +265,7 @@ def test_load_raw_image_uses_pipeline_input_settings_and_builds_preview_stack(mo
 
     controller.load_raw_image('C:/tmp/example.nef')
 
-    assert captured['status'] == ('Loading raw...', 0)
+    assert captured['status'] == ('正在加载 RAW 文件...', 0)
     assert captured['path'] == 'C:/tmp/example.nef'
     assert captured['kwargs'] == {
         'white_balance': 'custom',
@@ -341,12 +341,12 @@ def test_load_raw_image_reports_invalid_custom_white_balance_without_mutating_la
 
     controller.load_raw_image('C:/tmp/example.nef')
 
-    assert statuses == [('Loading raw...', 0), ('Load raw failed', 5000)]
+    assert statuses == [('正在加载 RAW 文件...', 0), ('RAW 加载失败', 5000)]
     assert captured_dialog == {
         'parent': 'dialog-parent',
-        'title': 'Load raw',
+        'title': '加载 RAW 失败',
         'message': (
-            'Failed to load RAW image.\n\n'
+            '无法加载 RAW 图像。\n\n'
             'RAW file does not expose a usable camera XYZ matrix for custom white balance.'
         ),
     }
@@ -385,8 +385,8 @@ def test_load_raw_image_reports_when_lens_correction_is_not_applied(monkeypatch)
     assert captured['kwargs']['lens_correction'] is True
     assert captured['kwargs']['lens_info_out'] == {}
     assert statuses == [
-        ('Loading raw...', 0),
-        ('Loaded raw, lens correction not applied', 5000),
+        ('正在加载 RAW 文件...', 0),
+        ('RAW 已加载，但未应用镜头校正', 5000),
     ]
 
 
@@ -531,7 +531,7 @@ def test_start_simulation_reports_persistent_computing_status(monkeypatch) -> No
 
     controller._start_simulation(source_layer_name=INPUT_PREVIEW_LAYER_NAME, mode_label='Preview')
 
-    assert captured['status'] == ('Computing preview...', 0)
+    assert captured['status'] == ('正在计算预览...', 0)
     assert captured['white_padding'] == gui_state.gui_only.display.white_padding
     assert controller._active_simulation_label == 'Preview'
     np.testing.assert_allclose(captured['worker']._request.image, np.double(preview_image))
