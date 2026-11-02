@@ -42,7 +42,7 @@ def _run_simulation_case(
     gui_state=None,
     simulated_image=None,
     preview_image=None,
-    preview_status: str = 'Display transform: disabled',
+    preview_status: str = '显示变换：已停用',
 ) -> dict[str, object]:
     controller = GuiController(viewer=object(), widgets=object())
     gui_state = make_test_controller_gui_state() if gui_state is None else gui_state
@@ -473,7 +473,7 @@ def test_run_simulation_passes_display_transform_settings(monkeypatch) -> None:
         gui_state=gui_state,
         simulated_image=np.full((4, 4, 3), 0.5, dtype=np.float32),
         preview_image=np.full((6, 6, 3), 99, dtype=np.uint8),
-        preview_status='Display transform: active',
+        preview_status='显示变换：已启用',
     )
 
     np.testing.assert_allclose(captured['display_args']['image_data'], np.full((4, 4, 3), 0.5, dtype=np.float32))
@@ -760,7 +760,7 @@ def test_execute_simulation_request_routes_through_runtime_simulator_path(monkey
     monkeypatch.setattr(
         controller,
         '_prepare_output_display_image',
-        lambda image, **kwargs: (np.uint8(np.clip(image, 0.0, 1.0) * 255), 'Display transform: disabled'),
+        lambda image, **kwargs: (np.uint8(np.clip(image, 0.0, 1.0) * 255), '显示变换：已停用'),
     )
 
     result = controller._execute_simulation_request(request)
@@ -869,11 +869,11 @@ def test_on_simulation_finished_reports_completed_status(monkeypatch) -> None:
             float_image=np.full((2, 2, 3), 0.5, dtype=np.float32),
             output_color_space='sRGB',
             use_display_transform=False,
-            status_message='Display transform: disabled',
+            status_message='显示变换：已停用',
         )
     )
 
-    assert captured['status'] == ('Preview completed. Display transform: disabled', 5000)
+    assert captured['status'] == ('预览完成。显示变换：已停用', 5000)
 
 
 def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkeypatch) -> None:
@@ -892,7 +892,7 @@ def test_on_simulation_finished_skips_completed_status_for_silent_preview(monkey
             float_image=np.full((2, 2, 3), 0.5, dtype=np.float32),
             output_color_space='sRGB',
             use_display_transform=False,
-            status_message='Display transform: disabled',
+            status_message='显示变换：已停用',
         )
     )
 

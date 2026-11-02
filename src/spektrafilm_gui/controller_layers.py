@@ -23,11 +23,11 @@ class _LayerAnimationHandle:
     final_image: np.ndarray
 
 
-INPUT_LAYER_NAME = 'input'
-INPUT_PREVIEW_LAYER_NAME = 'input_preview'
-WHITE_BORDER_LAYER_NAME = 'white_border'
-WATERMARK_LAYER_NAME = 'watermark'
-OUTPUT_LAYER_NAME = 'output'
+INPUT_LAYER_NAME = '输入图像'
+INPUT_PREVIEW_LAYER_NAME = '输入预览'
+WHITE_BORDER_LAYER_NAME = '预览白边'
+WATERMARK_LAYER_NAME = '相纸背景'
+OUTPUT_LAYER_NAME = '输出图像'
 STACK_LAYER_ORDER = (
     WHITE_BORDER_LAYER_NAME,
     WATERMARK_LAYER_NAME,

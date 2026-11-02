@@ -288,7 +288,7 @@ def test_prepare_output_display_image_without_transform(
         preview,
         status,
         expected_shape=expected_shape,
-        expected_status='Display transform: disabled',
+        expected_status='显示变换：已停用',
         expected_center=expected_center,
         expected_corner=expected_corner,
     )
@@ -331,7 +331,7 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
     )
 
     np.testing.assert_array_equal(preview, np.full((1, 1, 3), 64, dtype=np.uint8))
-    assert status == 'Display transform: active (Studio Display ICC)'
+    assert status == '显示变换：已启用（Studio Display ICC）'
     assert captured['profile_to_profile']['source_profile'] == 'profile:sRGB'
     assert captured['profile_to_profile']['output_mode'] == 'RGB'
     np.testing.assert_array_equal(captured['profile_to_profile']['image_data'], np.full((1, 1, 3), 127, dtype=np.uint8))
@@ -349,7 +349,7 @@ def test_prepare_output_display_image_reports_missing_display_profile(monkeypatc
         use_display_transform=True,
     )
 
-    _assert_fallback_preview(preview, status, expected_status='Display transform: no display profile, using raw preview')
+    _assert_fallback_preview(preview, status, expected_status='显示变换：未找到显示器配置文件，将使用原始预览')
 
 
 def test_prepare_output_display_image_reports_transform_failure(monkeypatch) -> None:
@@ -372,14 +372,14 @@ def test_prepare_output_display_image_reports_transform_failure(monkeypatch) -> 
         use_display_transform=True,
     )
 
-    _assert_fallback_preview(preview, status, expected_status='Display transform: transform failed, using raw preview')
+    _assert_fallback_preview(preview, status, expected_status='显示变换失败，将使用原始预览')
 
 
 @pytest.mark.parametrize(
     ('enabled', 'display_profile', 'profile_name', 'expected_status'),
     [
-        (False, None, None, 'Display transform: disabled'),
-        (True, object(), 'Adobe RGB Monitor\x00', 'Display transform: display profile found (Adobe RGB Monitor)'),
+        (False, None, None, '显示变换：已停用'),
+        (True, object(), 'Adobe RGB Monitor\x00', '显示变换：已找到显示器配置文件（Adobe RGB Monitor）'),
     ],
     ids=['disabled', 'profile-found'],
 )

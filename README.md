@@ -398,6 +398,17 @@ This is one of the most appealing aspects for me, especially when I think of
 printing large, high-resolution simulated images while retaining all this
 low-level grain detail that is not present in the original picture.
 
+### 简体中文界面
+
+桌面界面采用简体中文。胶片和相纸配置文件仍显示原始 profile ID；色彩空间、
+光谱算法、插值模式及文件格式等技术名称也保持原样，方便与外部文档对应。
+
+在“主界面”页中，使用“导入 RGB 图像”加载已处理的线性图像，或在“导入 RAW”
+分组中选择 RAW 文件并设置白平衡；调整胶片配置、相纸配置及其他参数后，点击
+“预览”查看快速结果，点击“扫描”运行全分辨率模拟，再点击“保存”导出图像。
+将鼠标悬停在控件上可查看中文提示。界面设置可在“设置”页中保存、加载或恢复
+默认值；胶片、相纸、色彩空间和导出格式等技术标识不会被翻译。
+
 ## Preparing input images manually with darktable
 
 Direct RAW import in the GUI is the simplest workflow, but manual development is
@@ -438,5 +449,4 @@ spektrafilm is developed in my free time, often during late nights after my rese
 
 Sample images are from
 [signatureedits.com](https://www.signatureedits.com/)/free-raw-photos.
-
 

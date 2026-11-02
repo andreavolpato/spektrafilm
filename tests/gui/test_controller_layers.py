@@ -442,12 +442,12 @@ def test_input_preview_update_can_preserve_visible_output_and_active_layer() -> 
 
 
 def test_output_layer_render_settings_fall_back_without_output_layer() -> None:
-    service = _make_service(FakeViewer([FakeLayer(name='input')]))
+    service = _make_service(FakeViewer([FakeLayer(name='输入图像')]))
 
     assert service.output_layer_render_settings(default_color_space='sRGB', default_cctf_encoding=True) == ('sRGB', True)
 
 
 def test_output_layer_float_data_returns_none_without_metadata() -> None:
-    service = _make_service(FakeViewer([FakeLayer(name='output')]))
+    service = _make_service(FakeViewer([FakeLayer(name='输出图像')]))
 
     assert service.output_layer_float_data() is None

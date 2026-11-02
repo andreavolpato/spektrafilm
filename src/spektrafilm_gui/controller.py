@@ -185,7 +185,7 @@ class GuiController:
 
     def load_raw_image(self, path: str) -> None:
         gui_state = collect_gui_state(widgets=self._widgets)
-        set_status(self._viewer, "Loading raw...", timeout_ms=0)
+        set_status(self._viewer, "正在加载 RAW 文件...", timeout_ms=0)
         lens_info: dict[str, str] = {}
         try:
             image = load_and_process_raw_file(
@@ -199,8 +199,8 @@ class GuiController:
                 lens_info_out=lens_info,
             )
         except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Load raw', f'Failed to load RAW image.\n\n{exc}')
-            set_status(self._viewer, 'Load raw failed')
+            QMessageBox.critical(dialog_parent(self._viewer), '加载 RAW 失败', f'无法加载 RAW 图像。\n\n{exc}')
+            set_status(self._viewer, 'RAW 加载失败')
             return
 
         self._current_input_path = path
@@ -210,12 +210,12 @@ class GuiController:
         if lens_summary:
             set_status(
                 self._viewer,
-                f"Loaded raw and applied lens correction: {lens_summary}",
+                f"RAW 已加载并应用镜头校正：{lens_summary}",
             )
         elif gui_state.gui_only.load_raw.lens_correction:
-            set_status(self._viewer, "Loaded raw, lens correction not applied")
+            set_status(self._viewer, "RAW 已加载，但未应用镜头校正")
         else:
-            set_status(self._viewer, "Loaded raw")
+            set_status(self._viewer, "RAW 已加载")
         self._request_auto_preview_if_enabled()
 
     def refresh_preview_cache(self, *_args) -> None:
@@ -315,13 +315,13 @@ class GuiController:
 
         self._set_display_transform_checked(False)
         if report_status:
-            set_status(self._viewer, 'Display transform unavailable: no display profile detected, disabled')
+            set_status(self._viewer, '无法使用显示变换：未检测到显示器配置文件，已停用')
         return False
 
     def save_output_layer(self) -> None:
         output_layer = self._output_layer()
         if output_layer is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Save output', 'Run a simulation before saving the output layer.')
+            QMessageBox.warning(dialog_parent(self._viewer), '保存输出', '请先运行模拟，再保存输出图层。')
             return
 
         if self._current_input_path is not None:
@@ -331,9 +331,9 @@ class GuiController:
 
         filepath, _ = _DirMemoryDialog('save_output').get_save_file_name(
             dialog_parent(self._viewer),
-            'Save output image',
+            '保存输出图像',
             default_name,
-            'Images (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
+            '图像文件 (*.jpg *.jpeg *.png *.tif *.tiff *.exr)',
         )
         if not filepath:
             return
@@ -381,7 +381,7 @@ class GuiController:
                 cctf_encoding=saving_cctf_encoding,
             )
         except (OSError, ValueError) as exc:
-            QMessageBox.critical(dialog_parent(self._viewer), 'Save output', f'Failed to save output image.\n\n{exc}')
+            QMessageBox.critical(dialog_parent(self._viewer), '保存输出失败', f'无法保存输出图像。\n\n{exc}')
             return
 
         metadata_write_error = None
@@ -398,10 +398,10 @@ class GuiController:
         if metadata_write_error is not None:
             set_status(
                 self._viewer,
-                f"Saved output image to {filepath}, but failed to copy metadata: {metadata_write_error}",
+                f"输出图像已保存到 {filepath}，但复制元数据失败：{metadata_write_error}",
             )
         else:
-            set_status(self._viewer, f"Saved output image to {filepath}")
+            set_status(self._viewer, f"输出图像已保存到 {filepath}")
 
     def save_current_as_default(self) -> None:
         persistence_actions.save_current_as_default(
@@ -688,12 +688,12 @@ class GuiController:
 
     def _start_simulation(self, *, source_layer_name: str, mode_label: str, report_status: bool = True) -> None:
         if self._active_simulation_worker is not None:
-            set_status(self._viewer, 'Simulation already running')
+            set_status(self._viewer, '模拟正在运行')
             return
 
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), '运行模拟', '请先加载输入图像，再运行模拟。')
             return
 
         state = collect_gui_state(widgets=self._widgets)
@@ -720,7 +720,8 @@ class GuiController:
         self._active_simulation_reports_status = report_status
         self._set_simulation_controls_enabled(False)
         if report_status:
-            set_status(self._viewer, f'Computing {mode_label.lower()}...', timeout_ms=0)
+            operation = '预览' if mode_label == 'Preview' else '扫描'
+            set_status(self._viewer, f'正在计算{operation}...', timeout_ms=0)
         self._thread_pool.start(worker)
 
     def _on_simulation_finished(self, result: SimulationResult) -> None:
@@ -737,17 +738,19 @@ class GuiController:
             use_display_transform=result.use_display_transform,
         )
         if report_status:
-            set_status(self._viewer, f'{result.mode_label} completed. {result.status_message}')
+            operation = '预览' if result.mode_label == 'Preview' else '扫描'
+            set_status(self._viewer, f'{operation}完成。{result.status_message}')
         self._replay_pending_auto_preview()
 
     def _on_simulation_failed(self, message: str) -> None:
         self._active_simulation_worker = None
         mode_label = self._active_simulation_label or 'Simulation'
+        operation = '预览' if mode_label == 'Preview' else '扫描' if mode_label == 'Scan' else '模拟'
         self._active_simulation_label = None
         self._active_simulation_reports_status = True
         self._set_simulation_controls_enabled(True)
-        QMessageBox.critical(dialog_parent(self._viewer), 'Run simulation', f'Simulation failed.\n\n{message}')
-        set_status(self._viewer, f'{mode_label} failed')
+        QMessageBox.critical(dialog_parent(self._viewer), '运行模拟', f'{operation}失败。\n\n{message}')
+        set_status(self._viewer, f'{operation}失败')
         self._replay_pending_auto_preview()
 
     def _set_simulation_controls_enabled(self, enabled: bool) -> None:
@@ -763,7 +766,7 @@ class GuiController:
     def _run_simulation(self, *, source_layer_name: str) -> None:
         image_data = self._simulation_input_image(source_layer_name=source_layer_name)
         if image_data is None:
-            QMessageBox.warning(dialog_parent(self._viewer), 'Run simulation', 'Load an input image before running the simulation.')
+            QMessageBox.warning(dialog_parent(self._viewer), '运行模拟', '请先加载输入图像，再运行模拟。')
             return
 
         state = collect_gui_state(widgets=self._widgets)
