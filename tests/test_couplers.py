@@ -13,6 +13,19 @@ from spektrafilm.runtime.params_schema import DirCouplersParams
 pytestmark = pytest.mark.unit
 
 
+@pytest.mark.parametrize("gamma_factor", [0.0, -0.5, np.nan, np.inf])
+def test_interpolate_exposure_to_density_rejects_invalid_gamma(gamma_factor):
+    log_exposure_rgb = np.zeros((1, 1, 3))
+    density_curves = np.tile(np.linspace(0.0, 1.0, 5)[:, None], (1, 3))
+    log_exposure = np.linspace(-1.0, 1.0, 5)
+
+    with pytest.raises(
+        ValueError,
+        match="gamma_factor must contain only finite, strictly positive values",
+    ):
+        interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposure, gamma_factor)
+
+
 class TestDirCouplers:
     def test_no_interlayer_inhibition_is_diagonal(self):
         """With zero interlayer inhibition, the matrix should be diagonal (no cross-layer effect)."""

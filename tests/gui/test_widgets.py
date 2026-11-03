@@ -15,6 +15,11 @@ from spektrafilm_gui import widget_editors as widget_editors_module
 from spektrafilm_gui import state as state_module
 
 
+def test_film_gamma_control_excludes_zero() -> None:
+    spec = next(spec for spec in param_manifest_module.TUNE_PANEL_FIELDS if spec.name == 'film_gamma_factor')
+    assert spec.min == 0.05
+
+
 class FakeLineEdit:
     def __init__(self) -> None:
         self._text = ''

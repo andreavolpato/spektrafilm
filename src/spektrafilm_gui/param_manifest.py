@@ -736,7 +736,7 @@ TUNE_PANEL_FIELDS = (
         name="film_gamma_factor",
         label="Film gamma factor",
         tooltip="Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast",
-        min=0,
+        min=0.05,
         step=0.05,
     ),
 )
