@@ -17,7 +17,9 @@ from spektrafilm_gui.theme import resolve_theme_qcolor
 
 
 def normalize_ui_text(text: str) -> str:
-    return text.lower()
+    from spektrafilm_gui.i18n import tr
+
+    return tr(text.lower())
 
 
 def platform_default_font() -> QtGui.QFont:

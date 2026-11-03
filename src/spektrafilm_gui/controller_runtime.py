@@ -7,6 +7,8 @@ from typing import Any, Callable
 import numpy as np
 from qtpy import QtCore
 
+from spektrafilm_gui.i18n import tr
+
 
 DISPLAY_PREVIEW_COLOR_SPACE = 'sRGB'
 QObject = getattr(QtCore, 'QObject')
@@ -127,11 +129,11 @@ def display_profile_available(*, imagecms_module: Any) -> bool:
 
 def display_transform_status_message(enabled: bool, *, imagecms_module: Any) -> str:
     if not enabled:
-        return 'Display transform: disabled'
+        return tr('Display transform: disabled')
     display_profile, profile_name = display_profile_details(imagecms_module=imagecms_module)
     if display_profile is None:
-        return 'Display transform: no display profile, using raw preview'
-    return f'Display transform: display profile found ({profile_name})'
+        return tr('Display transform: no display profile, using raw preview')
+    return f'{tr("Display transform: display profile found")} ({profile_name})'
 
 
 def prepare_input_color_preview_image(
