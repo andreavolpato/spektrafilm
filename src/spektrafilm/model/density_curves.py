@@ -17,9 +17,11 @@ def interpolate_exposure_to_density(log_exposure_rgb, density_curves, log_exposu
     Returns:
     numpy.ndarray: A 3D array of shape (height, width, 3) representing the interpolated density values in CMY channels.
     """
-    if np.size(gamma_factor)==1:
-        gamma_factor = [gamma_factor, gamma_factor, gamma_factor]
-    gamma_factor = np.array(gamma_factor)
+    gamma_factor = np.asarray(gamma_factor, dtype=float)
+    if not np.all(np.isfinite(gamma_factor)) or np.any(gamma_factor <= 0.0):
+        raise ValueError("gamma_factor must contain only finite, strictly positive values.")
+    if gamma_factor.size == 1:
+        gamma_factor = np.full(3, float(gamma_factor.reshape(-1)[0]))
     density_cmy = np.zeros((log_exposure_rgb.shape[0], log_exposure_rgb.shape[1], 3))
     # for channel in np.arange(3):
     #     sel = ~np.isnan(density_curves[:,channel])
