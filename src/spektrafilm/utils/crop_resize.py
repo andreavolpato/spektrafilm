@@ -18,8 +18,12 @@ def crop_image(image, center=(0.5,0.5), size=(0.1, 0.1)):
     shape = image.shape[0:2]
     cn = np.round(shape*np.array(center))
     sz = np.round(np.double(np.max(shape))*np.flip(np.array(size)))
+    # The size is a fraction of the long side, so on the short side it can
+    # ask for more pixels than the image has. Clip it to the image so the
+    # start below never goes negative (a negative start makes the slice wrap
+    # around and return a thin strip instead of the full height or width).
+    sz = np.minimum(np.int64(sz), np.array(shape, dtype=np.int64))
     x0 = np.round(cn - sz/2)
-    sz = np.int64(sz)
     x0 = np.int64(x0)
     x0[x0<0] = 0
     if x0[0]+sz[0]>shape[0]: x0[0] = shape[0]-sz[0]
