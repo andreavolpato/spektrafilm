@@ -337,6 +337,37 @@ def test_prepare_output_display_image_uses_imagecms_transform(monkeypatch) -> No
     np.testing.assert_array_equal(captured['profile_to_profile']['image_data'], np.full((1, 1, 3), 127, dtype=np.uint8))
 
 
+def test_prepare_output_display_image_skips_identity_conversion_for_srgb_output(monkeypatch) -> None:
+    controller = GuiController(viewer=object(), widgets=object())
+    image_data = np.array([[[0.2, 0.4, 0.6]]], dtype=np.float32)
+    captured: dict[str, object] = {}
+
+    def fail_rgb_to_rgb(*args, **kwargs):
+        raise AssertionError('sRGB output must not be converted to sRGB again')
+
+    monkeypatch.setattr(controller_module.ImageCms, 'get_display_profile', lambda: object())
+    monkeypatch.setattr(controller_module.ImageCms, 'getProfileName', lambda profile: 'Monitor')
+    monkeypatch.setattr(controller_module.colour, 'RGB_to_RGB', fail_rgb_to_rgb)
+    monkeypatch.setattr(controller_module.ImageCms, 'createProfile', lambda name: f'profile:{name}')
+    monkeypatch.setattr(controller_module.PILImage, 'fromarray', lambda array, mode='RGB': array.copy())
+
+    def fake_profile_to_profile(source_image, source_profile, display_profile, outputMode='RGB'):
+        captured['image_data'] = source_image
+        return source_image
+
+    monkeypatch.setattr(controller_module.ImageCms, 'profileToProfile', fake_profile_to_profile)
+
+    preview, status = controller._prepare_output_display_image(
+        image_data,
+        output_color_space='sRGB',
+        use_display_transform=True,
+    )
+
+    assert status == 'Display transform: active (Monitor)'
+    np.testing.assert_array_equal(captured['image_data'], np.uint8(image_data * 255))
+    np.testing.assert_array_equal(preview, np.uint8(image_data * 255))
+
+
 def test_prepare_output_display_image_reports_missing_display_profile(monkeypatch) -> None:
     controller = GuiController(viewer=object(), widgets=object())
     image_data = np.array([[[0.2, 0.4, 0.6]]], dtype=np.float32)
