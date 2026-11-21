@@ -167,13 +167,18 @@ def apply_display_transform(
     if display_profile is None:
         return np.uint8(np.clip(image_data, 0.0, 1.0) * 255), 'Display transform: no display profile, using raw preview'
 
-    srgb_preview = colour_module.RGB_to_RGB(
-        image_data,
-        output_color_space,
-        DISPLAY_PREVIEW_COLOR_SPACE,
-        apply_cctf_decoding=True,
-        apply_cctf_encoding=True,
-    )
+    if output_color_space == DISPLAY_PREVIEW_COLOR_SPACE:
+        # Decoding and re-encoding with the same transfer function is an
+        # identity, and costs tens of milliseconds per preview on Windows.
+        srgb_preview = image_data
+    else:
+        srgb_preview = colour_module.RGB_to_RGB(
+            image_data,
+            output_color_space,
+            DISPLAY_PREVIEW_COLOR_SPACE,
+            apply_cctf_decoding=True,
+            apply_cctf_encoding=True,
+        )
     srgb_preview_uint8 = np.uint8(np.clip(srgb_preview, 0.0, 1.0) * 255)
     source_profile = imagecms_module.createProfile(DISPLAY_PREVIEW_COLOR_SPACE)
     source_image = pil_image_module.fromarray(srgb_preview_uint8, mode='RGB')
