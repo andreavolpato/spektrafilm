@@ -487,3 +487,75 @@ class TestPerceptualChromaAlgorithmSpecific:
         L_in = float(colour.XYZ_to_Oklab(xyz_in)[0])
         L_out = float(colour.XYZ_to_Oklab(xyz_out)[0])
         assert abs(L_in - L_out) < 1e-3
+
+
+def _reference_compress_rgb_cam16ucs_chroma(
+    rgb, output_color_space, *, threshold, limit, power, lightness_compression=None,
+):
+    """The original colour-science implementation that the numba kernel ports."""
+    import colour
+    from spektrafilm.utils import gamut_compression as gc
+
+    rgb = np.asarray(rgb, dtype=float)
+    white = np.asarray(colour.RGB_COLOURSPACES[output_color_space].whitepoint, dtype=float)
+    xyz_w = gc._output_cs_whitepoint_xyz(output_color_space)
+    cam_kwargs = dict(XYZ_w=xyz_w, L_A=gc._CAM16UCS_L_A, Y_b=gc._CAM16UCS_Y_B)
+    xyz = np.asarray(colour.RGB_to_XYZ(
+        rgb, colourspace=output_color_space, illuminant=white, apply_cctf_decoding=False,
+    ))
+    jab = np.asarray(colour.XYZ_to_CAM16UCS(xyz, **cam_kwargs))
+    Jp, ap, bp = jab[..., 0], jab[..., 1], jab[..., 2]
+    if lightness_compression is not None:
+        Jp = gc._compress_lightness(
+            Jp, params=lightness_compression, L_white=gc._cam16ucs_white_Jp(output_color_space),
+        )
+    Cp = np.hypot(ap, bp)
+    hp = np.arctan2(bp, ap)
+    Cp_max = np.fmax(gc._c_max_lookup(Jp, hp, *gc._get_output_c_max_table("cam16ucs", output_color_space)), 1e-9)
+    Cp_new = reinhard_knee(Cp / Cp_max, threshold=threshold, limit=limit, power=power) * Cp_max
+    jab_new = np.stack([Jp, Cp_new * np.cos(hp), Cp_new * np.sin(hp)], axis=-1)
+    xyz_new = np.asarray(colour.CAM16UCS_to_XYZ(jab_new, **cam_kwargs))
+    return np.asarray(colour.XYZ_to_RGB(
+        xyz_new, colourspace=output_color_space, illuminant=white, apply_cctf_encoding=False,
+    ))
+
+
+def _cam16ucs_test_rgb() -> np.ndarray:
+    rng = np.random.default_rng(16)
+    edge_cases = np.array([
+        [0.0, 0.0, 0.0], [0.18, 0.18, 0.18], [1.0, 1.0, 1.0], [4.0, 4.0, 4.0],
+        [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],
+        [1.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0],
+        [1.2, -0.05, -0.05], [-0.1, 0.4, 1.3], [1e-6, 0.0, 0.0], [-0.01, -0.01, -0.01],
+    ])
+    return np.concatenate([
+        edge_cases,
+        rng.uniform(0.0, 1.0, size=(2000, 3)),
+        rng.uniform(-0.2, 2.0, size=(2000, 3)),
+        rng.uniform(0.0, 1.0, size=(500, 1)) * rng.dirichlet([0.3, 0.3, 0.3], size=500) * 3,
+    ])
+
+
+class TestCam16ucsKernelMatchesColourScience:
+    @pytest.mark.parametrize("output_color_space", ["sRGB", "Display P3", "ITU-R BT.2020", "ProPhoto RGB", "ACES2065-1"])
+    @pytest.mark.parametrize("lightness_compression", [None, (0.7, 1.0, 2.2)])
+    def test_matches_reference(self, output_color_space, lightness_compression):
+        rgb = _cam16ucs_test_rgb()
+        knee = dict(threshold=0.0, limit=1.0, power=6.0)
+        expected = _reference_compress_rgb_cam16ucs_chroma(
+            rgb, output_color_space, lightness_compression=lightness_compression, **knee,
+        )
+        actual = compress_rgb_cam16ucs_chroma(
+            rgb, output_color_space, lightness_compression=lightness_compression, **knee,
+        )
+        np.testing.assert_allclose(actual, expected, rtol=1e-9, atol=1e-10)
+
+    def test_preserves_image_shape(self):
+        rgb = _cam16ucs_test_rgb()[:600].reshape(20, 30, 3)
+        out = compress_rgb_cam16ucs_chroma(rgb, "sRGB", threshold=0.2, limit=1.0, power=3.0)
+        assert out.shape == rgb.shape
+        np.testing.assert_allclose(
+            out,
+            _reference_compress_rgb_cam16ucs_chroma(rgb, "sRGB", threshold=0.2, limit=1.0, power=3.0),
+            rtol=1e-9, atol=1e-10,
+        )

@@ -32,6 +32,8 @@ import numpy as np
 from matplotlib.path import Path as MplPath
 from scipy.ndimage import map_coordinates
 
+from spektrafilm.utils.fast_cam16ucs import compress_rgb_cam16ucs
+
 
 # ---------------------------------------------------------------------------
 # Spec dataclass
@@ -1141,54 +1143,27 @@ def compress_rgb_cam16ucs_chroma(
     by the output whitepoint's Jp (≈100 under the configured viewing
     conditions). Black (Jp = 0) is left untouched.
     """
-    rgb = np.asarray(rgb, dtype=float)
-    cs = colour.RGB_COLOURSPACES[output_color_space]
-    white = np.asarray(cs.whitepoint, dtype=float)
-    xyz_w = _output_cs_whitepoint_xyz(output_color_space)
-
-    # RGB → XYZ → CAM16-UCS → polar.
-    xyz = np.asarray(colour.RGB_to_XYZ(
-        rgb, colourspace=output_color_space,
-        illuminant=white, apply_cctf_decoding=False,
-    ))
-    jab = np.asarray(colour.XYZ_to_CAM16UCS(
-        xyz, XYZ_w=xyz_w, L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
-    ))
-    Jp = jab[..., 0]
-    ap = jab[..., 1]
-    bp = jab[..., 2]
-
-    if lightness_compression is not None:
-        Jp = _compress_lightness(
-            Jp, params=lightness_compression,
-            L_white=_cam16ucs_white_Jp(output_color_space),
-        )
-
-    Cp = np.hypot(ap, bp)
-    hp = np.arctan2(bp, ap)
-
-    # Compress Cp against the per-output-space Cp_max(Jp, hp).
-    c_max_lookup_table = _get_output_c_max_table("cam16ucs", output_color_space)
-    Cp_max = _c_max_lookup(Jp, hp, *c_max_lookup_table)
-    safe_Cp_max = np.fmax(Cp_max, 1e-9)
-    d_norm = Cp / safe_Cp_max
-    d_compressed = reinhard_knee(
-        d_norm, threshold=threshold, limit=limit, power=power,
+    # Fused numba kernel; numerically equivalent to the colour-science
+    # chain RGB_to_XYZ -> XYZ_to_CAM16UCS -> knee -> CAM16UCS_to_XYZ ->
+    # XYZ_to_RGB (see tests/test_gamut_compression.py), and several times
+    # faster, especially on Windows.
+    Jp_white = (
+        _cam16ucs_white_Jp(output_color_space)
+        if lightness_compression is not None else 1.0
     )
-    Cp_new = d_compressed * safe_Cp_max
-
-    # JpCphp → CAM16-UCS → XYZ → RGB.
-    ap_new = Cp_new * np.cos(hp)
-    bp_new = Cp_new * np.sin(hp)
-    jab_new = np.stack([Jp, ap_new, bp_new], axis=-1)
-    xyz_new = np.asarray(colour.CAM16UCS_to_XYZ(
-        jab_new, XYZ_w=xyz_w, L_A=_CAM16UCS_L_A, Y_b=_CAM16UCS_Y_B,
-    ))
-    rgb_new = np.asarray(colour.XYZ_to_RGB(
-        xyz_new, colourspace=output_color_space,
-        illuminant=white, apply_cctf_encoding=False,
-    ))
-    return rgb_new
+    return compress_rgb_cam16ucs(
+        rgb,
+        output_color_space=output_color_space,
+        xyz_w=_output_cs_whitepoint_xyz(output_color_space),
+        L_A=_CAM16UCS_L_A,
+        Y_b=_CAM16UCS_Y_B,
+        c_max_table=_get_output_c_max_table("cam16ucs", output_color_space),
+        threshold=threshold,
+        limit=limit,
+        power=power,
+        lightness_compression=lightness_compression,
+        Jp_white=Jp_white,
+    )
 
 
 def compress_rgb(

@@ -31,10 +31,11 @@ def test_global_warmup_includes_boost_highlights(monkeypatch) -> None:
     monkeypatch.setattr(numba_warmup, 'warmup_luts', lambda: calls.append('luts'))
     monkeypatch.setattr(numba_warmup, 'warmup_fast_interp', lambda: calls.append('fast_interp'))
     monkeypatch.setattr(numba_warmup, 'warmup_boost_highlights', lambda: calls.append('boost_highlights'))
+    monkeypatch.setattr(numba_warmup, 'warmup_cam16ucs', lambda: calls.append('cam16ucs'))
 
     numba_warmup.warmup()
 
-    assert calls == ['fast_stats', 'luts', 'fast_interp', 'boost_highlights']
+    assert calls == ['fast_stats', 'luts', 'fast_interp', 'boost_highlights', 'cam16ucs']
 
 
 def test_boost_highlights_only_boosts_values_above_x0() -> None:
